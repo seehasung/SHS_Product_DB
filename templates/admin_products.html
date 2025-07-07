@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% block title %}상품 목록{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2 class="mb-3">📦 상품 DB 관리</h2>
+
+    <div id="create-success-alert" style="display: none;" class="alert alert-success">
+        🎉 상품 등록 성공!
+    </div>
+    <div id="edit-success-alert" style="display: none;" class="alert alert-success">
+        🎉 상품 수정 성공!
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', (event) => {
+            const params = new URLSearchParams(window.location.search);
+            const successType = params.get('success');
+            let alertElement = null;
+
+            if (successType === 'create') {
+                alertElement = document.getElementById('create-success-alert');
+            } else if (successType === 'edit') {
+                alertElement = document.getElementById('edit-success-alert');
+            }
+
+            if (alertElement) {
+                alertElement.style.display = 'block';
+                confetti({ particleCount: 150, spread: 180 });
+                history.replaceState(null, '', window.location.pathname);
+            }
+        });
+    </script>
+
+    <div class="d-flex justify-content-between mb-3">
+        <form method="get" action="/products" class="d-flex">
+            <input type="text" name="keyword" class="form-control me-2" placeholder="상품명 검색" value="{{ keyword }}">
+            <button type="submit" class="btn btn-primary">🔍 검색</button>
+        </form>
+        <div>
+            <a href="/products/create" class="btn btn-success">➕ 신규 상품 등록</a>
+            <a href="/" class="btn btn-secondary">🏠 홈으로</a>
+        </div>
+    </div>
+
+    <table class="table table-bordered table-hover text-center align-middle">
+        <thead class="table-dark">
+            <tr>
+                <th>ID</th>
+                <th>썸네일</th>
+                <th>상품명</th>
+                <th>가격</th>
+                <th>경동</th>
+                <th>관세</th>
+                <th>쿠팡</th>
+                <th>타오바오</th>
+                <th>관리</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for p in products %}
+            <tr>
+                <td>{{ p.product_code }}</td>
+                <td><img src="{{ p.thumbnail }}" width="60"></td>
+                <td>
+                    <a href="/products/{{ p.id }}" class="text-decoration-none">{{ p.name }}</a>
+                </td>
+                <td>{{ "{:,}".format(p.price) }}</td>
+                <td>{{ '✅' if p.kd_paid else '❌' }}</td>
+                <td>{{ '✅' if p.customs_paid else '❌' }}</td>
+                <td><a href="{{ p.coupang_link }}" target="_blank" class="btn btn-outline-secondary btn-sm">Coupang</a></td>
+                <td><a href="{{ p.taobao_link }}" target="_blank" class="btn btn-outline-secondary btn-sm">Taobao</a></td>
+                <td>
+                    <div class="d-flex justify-content-center align-items-center gap-2">
+                        <a href="/products/edit/{{ p.id }}" class="btn btn-sm btn-outline-primary">✏️ 수정</a>
+                        <form method="post" action="/products/delete" onsubmit="return confirm('정말 삭제하시겠습니까?');" class="d-inline">
+                            <input type="hidden" name="product_id" value="{{ p.id }}">
+                            <button type="submit" class="btn btn-sm btn-outline-danger">🗑️ 삭제</button>
+                        </form>
+                    </div>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

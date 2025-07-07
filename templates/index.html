@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}홈{% endblock %}
+{% block content %}
+
+{% if username %}
+    <div class="container py-4">
+        <div class="p-5 mb-4 bg-light rounded-3 shadow-sm">
+            <div class="container-fluid py-3">
+                <h1 class="display-5 fw-bold">👋 {{ username }}님, 환영합니다!</h1>
+                <p class="col-md-8 fs-4">SHS.corp CS 관리 시스템 대시보드입니다.</p>
+                <a class="btn btn-outline-secondary" href="/logout" role="button">로그아웃</a>
+                <a class="btn btn-outline-warning" href="/change-password" role="button">비밀번호 변경</a>
+            </div>
+        </div>
+
+        <div class="row align-items-md-stretch">
+            <div class="col-md-6 mb-4">
+                <div class="h-100 p-5 text-bg-dark rounded-3 shadow">
+                    <h2><i class="bi bi-box-seam"></i> 상품 관리</h2>
+                    <p>상품 정보 조회, 등록, 수정, 삭제할 수 있습니다.</p>
+                    <a href="/products" class="btn btn-outline-light" type="button">📦 상품 조회하기</a>
+                </div>
+            </div>
+
+            {% if is_admin %}
+            <div class="col-md-6 mb-4">
+                <div class="h-100 p-5 bg-light border rounded-3 shadow">
+                    <h2><i class="bi bi-people-fill"></i> 사용자 관리</h2>
+                    <p>시스템에 등록된 사용자의 목록을 보고, 관리자 권한을 부여하거나 삭제할 수 있습니다.</p>
+                    <a href="/admin/users" class="btn btn-outline-secondary" type="button">👥 사용자 관리하기</a>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+{% else %}
+    <div class="d-flex justify-content-center align-items-center" style="height: 80vh;">
+        <div class="text-center">
+            <h1 class="display-4">SHS.corp</h1>
+            <p class="lead">로그인이 필요한 서비스입니다.</p>
+            <a class="btn btn-primary btn-lg" href="/login">로그인</a>
+            <a class="btn btn-secondary btn-lg" href="/register">회원가입</a>
+        </div>
+    </div>
+{% endif %}
+
+{% endblock %}

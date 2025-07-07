@@ -1,0 +1,9 @@
+services:
+  - type: web
+    name: cs-system
+    runtime: python
+    buildCommand: ""
+    startCommand: ./start.sh
+    plan: free
+    branch: main
+    autoDeploy: true

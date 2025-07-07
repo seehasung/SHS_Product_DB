@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container mt-5">
+    <h2 class="mb-4">📦 상품 상세 정보</h2>
+    <a href="/" class="btn btn-outline-dark">🏠 홈으로</a>
+
+    <div class="card mb-4 shadow-sm">
+        <div class="row g-0">
+            <div class="col-md-4">
+                <img src="{{ product.thumbnail }}" class="img-fluid rounded-start" alt="썸네일">
+            </div>
+            <div class="col-md-8">
+                <div class="card-body">
+                    <h5 class="card-title">{{ product.name }}</h5>
+
+                    <div class="d-flex align-items-center flex-wrap mb-3 border-top border-bottom py-3">
+                        <span class="badge bg-secondary fs-6 me-2 mb-2">
+                            기본 가격: {{ "{:,}".format(product.price) }}원
+                        </span>
+                        <span class="badge {{ 'bg-success' if product.kd_paid else 'bg-light text-dark' }} fs-6 me-2 mb-2">
+                            경동 대납: {{ '✅' if product.kd_paid else '❌' }}
+                        </span>
+                        <span class="badge {{ 'bg-success' if product.customs_paid else 'bg-light text-dark' }} fs-6 me-2 mb-2">
+                            관세 대납: {{ '✅' if product.customs_paid else '❌' }}
+                        </span>
+                        <a href="{{ product.coupang_link }}" target="_blank" class="btn btn-sm btn-primary me-2 mb-2">쿠팡 바로가기</a>
+                        <a href="{{ product.taobao_link }}" target="_blank" class="btn btn-sm btn-warning me-2 mb-2">타오바오 바로가기</a>
+                    </div>
+
+                    <div class="mt-3 p-3 border rounded bg-light">
+                        <h6 class="card-subtitle mb-2 text-muted">상세 정보</h6>
+                        <p class="card-text fs-5">
+                            {{ product.details | replace('\n', '<br>') | safe }}
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-6">
+            <h4>📦 쿠팡 옵션</h4>
+            <table class="table table-bordered">
+                <thead class="table-light">
+                    <tr>
+                        <th>옵션명</th>
+                        <th>가격</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for option in coupang_options %}
+                        <tr>
+                            <td>{{ option.name }}</td>
+                            <td>{{ "{:,}".format(option.price) }}원</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <div class="col-md-6">
+            <h4>📦 타오바오 옵션</h4>
+            <table class="table table-bordered">
+                <thead class="table-light">
+                    <tr>
+                        <th>옵션명</th>
+                        <th>가격</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for option in taobao_options %}
+                        <tr>
+                            <td>{{ option.name }}</td>
+                            <td>{{ "{:,}".format(option.price) }}원</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <div class="mt-4">
+        <a href="/products" class="btn btn-secondary">목록으로 돌아가기</a>
+    </div>
+</div>
+{% endblock %}

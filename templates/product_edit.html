@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>상품 수정</title>
+</head>
+<body>
+    <h2>✏️ 상품 수정</h2>
+
+    <form method="post" action="/products/edit/{{ product.id }}">
+        <p>상품명: <input type="text" name="name" value="{{ product.name }}"></p>
+        <p>쿠팡링크: <input type="text" name="coupang_link" value="{{ product.coupang_link }}"></p>
+        <p>타오바오링크: <input type="text" name="taobao_link" value="{{ product.taobao_link }}"></p>
+        <p>쿠팡 옵션 (JSON):<br>
+            <textarea name="coupang_options" rows="4" cols="50">{{ product.coupang_options }}</textarea>
+        </p>
+        <p>타오바오 옵션 (JSON):<br>
+            <textarea name="taobao_options" rows="4" cols="50">{{ product.taobao_options }}</textarea>
+        </p>
+        <p>썸네일 URL: <input type="text" name="thumbnail" value="{{ product.thumbnail }}"></p>
+        <p>제품 상세 정보:<br>
+            <textarea name="details" rows="6" cols="60">{{ product.details }}</textarea>
+        </p>
+
+        <button type="submit">저장</button>
+        <a href="/products">취소</a>
+    </form>
+</body>
+</html>

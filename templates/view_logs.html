@@ -1,0 +1,22 @@
+<!-- templates/view_logs.html -->
+<!DOCTYPE html>
+<html>
+<head>
+    <title>로그 보기</title>
+</head>
+<body>
+    <h2>사용자 로그 보기</h2>
+
+    {% if username %}
+      <p>{{ username }}님 👋 | <a href="/logout">로그아웃</a></p>
+    {% endif %}
+
+    <a href="/" style="margin-bottom: 10px; display: inline-block;">🏠 홈으로</a>
+
+    <pre style="white-space: pre-wrap; background-color: #f4f4f4; padding: 10px; border: 1px solid #ccc;">
+{% for line in logs %}
+{{ line }}
+{% endfor %}
+    </pre>
+</body>
+</html>

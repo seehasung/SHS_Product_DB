@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}회원가입{% endblock %}
+{% block content %}
+<div class="container mt-5" style="max-width: 400px;">
+    <div class="card shadow-sm">
+        <div class="card-body">
+            <h3 class="card-title text-center mb-4">🚀 회원가입</h3>
+
+            {% if error %}
+            <div class="alert alert-danger" role="alert">
+                {{ error }}
+            </div>
+            {% endif %}
+            <form method="post" action="/register">
+                <div class="mb-3">
+                    <label for="username" class="form-label">사용자 아이디</label>
+                    <input type="text" name="username" class="form-control" required>
+                </div>
+                <div class="mb-3">
+                    <label for="password" class="form-label">비밀번호</label>
+                    <input type="password" name="password" class="form-control" required>
+                </div>
+                <button type="submit" class="btn btn-primary w-100">가입하기</button>
+            </form>
+            <p class="mt-3 text-center">
+                이미 계정이 있으신가요? <a href="/login">로그인</a>
+            </p>
+        </div>
+    </div>
+</div>
+{% endblock %}
