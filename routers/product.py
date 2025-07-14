@@ -72,40 +72,56 @@ def delete_user(user_id: int = Form(...)):
 def product_list(
     request: Request,
     keyword: str = "",
-    page: int = Query(1, ge=1), # 현재 페이지 번호, 기본값 1
-    size: int = Query(10, ge=1)  # 페이지당 항목 수, 기본값 10
+    page: int = Query(1, ge=1),
+    size: int = Query(10, ge=1)
 ):
     db = SessionLocal()
     
+    # 정렬 키 함수: '1-10' 같은 문자열을 (1, 10) 같은 숫자 튜플로 변환
+    def custom_sort_key(product):
+        try:
+            parts = product.product_code.split('-')
+            # 파트가 2개 이상이고 모두 숫자로 변환 가능할 때만 처리
+            if len(parts) >= 2 and parts[0].isdigit() and parts[1].isdigit():
+                return (int(parts[0]), int(parts[1]))
+            # 형식이 맞지 않는 경우, 맨 뒤로 보내기 위해 큰 값을 반환
+            return (float('inf'),)
+        except (ValueError, IndexError):
+            # 그 외 예외 발생 시에도 맨 뒤로 보냄
+            return (float('inf'),)
+
     # 검색 쿼리
     query = db.query(Product)
     if keyword:
         query = query.filter(Product.name.contains(keyword))
-
-    # 전체 상품 수 계산
-    total_products = query.count()
     
-    # 총 페이지 수 계산
+    # --- ▼▼▼ 정렬 로직 변경 ▼▼▼ ---
+    # 1. DB에서 모든 검색 결과를 가져옴
+    all_filtered_products = query.all()
+
+    # 2. Python에서 직접 정렬
+    sorted_products = sorted(all_filtered_products, key=custom_sort_key)
+    
+    # 3. 전체 아이템 수 및 페이지 수 계산
+    total_products = len(sorted_products)
     total_pages = math.ceil(total_products / size)
 
-    # 페이지네이션을 위한 offset 계산
+    # 4. 현재 페이지에 해당하는 부분만 잘라내기
     offset = (page - 1) * size
-    
-    # 해당 페이지의 상품만 가져오기
-    products = query.offset(offset).limit(size).all()
-    
+    paginated_products = sorted_products[offset : offset + size]
+    # --- ▲▲▲ 정렬 로직 변경 ▲▲▲ ---
+
     db.close()
     
     return templates.TemplateResponse("admin_products.html", {
         "request": request,
-        "products": products,
+        "products": paginated_products, # 정렬 및 페이징된 최종 목록 전달
         "keyword": keyword,
         "total_pages": total_pages,
         "current_page": page,
         "page_size": size,
         "total_products": total_products
     })
-
 # ✅ 상품 등록 폼
 @router.get("/products/create", response_class=HTMLResponse)
 def product_create_form(request: Request):
