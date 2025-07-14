@@ -83,5 +83,35 @@
             {% endfor %}
         </tbody>
     </table>
-</div>
+    
+    <div class="d-flex justify-content-between align-items-center mt-4">
+        <div>
+            <span class="me-2">페이지당 항목 수:</span>
+            {% for num in [5, 10, 30, 50] %}
+                <a href="?page=1&size={{ num }}&keyword={{ keyword }}" 
+                   class="btn btn-sm {{ 'btn-primary' if page_size == num else 'btn-outline-secondary' }}">
+                    {{ num }}
+                </a>
+            {% endfor %}
+        </div>
+
+        <nav>
+            <ul class="pagination">
+                <li class="page-item {{ 'disabled' if current_page == 1 else '' }}">
+                    <a class="page-link" href="?page={{ current_page - 1 }}&size={{ page_size }}&keyword={{ keyword }}">이전</a>
+                </li>
+
+                {% for page_num in range(1, total_pages + 1) %}
+                <li class="page-item {{ 'active' if page_num == current_page else '' }}">
+                    <a class="page-link" href="?page={{ page_num }}&size={{ page_size }}&keyword={{ keyword }}">{{ page_num }}</a>
+                </li>
+                {% endfor %}
+
+                <li class="page-item {{ 'disabled' if current_page == total_pages else '' }}">
+                    <a class="page-link" href="?page={{ current_page + 1 }}&size={{ page_size }}&keyword={{ keyword }}">다음</a>
+                </li>
+            </ul>
+        </nav>
+    </div>
+    </div>
 {% endblock %}

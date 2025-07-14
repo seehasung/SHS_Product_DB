@@ -5,7 +5,8 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 from typing import List, Optional
 import json
-
+import math
+from fastapi import Query
 from database import SessionLocal, User, Product
 
 router = APIRouter()
@@ -68,14 +69,41 @@ def delete_user(user_id: int = Form(...)):
 
 # ✅ 상품 목록 보기
 @router.get("/products", response_class=HTMLResponse)
-def product_list(request: Request, keyword: str = ""):
+def product_list(
+    request: Request,
+    keyword: str = "",
+    page: int = Query(1, ge=1), # 현재 페이지 번호, 기본값 1
+    size: int = Query(10, ge=1)  # 페이지당 항목 수, 기본값 10
+):
     db = SessionLocal()
-    products = db.query(Product).filter(Product.name.contains(keyword)).all() if keyword else db.query(Product).all()
+    
+    # 검색 쿼리
+    query = db.query(Product)
+    if keyword:
+        query = query.filter(Product.name.contains(keyword))
+
+    # 전체 상품 수 계산
+    total_products = query.count()
+    
+    # 총 페이지 수 계산
+    total_pages = math.ceil(total_products / size)
+
+    # 페이지네이션을 위한 offset 계산
+    offset = (page - 1) * size
+    
+    # 해당 페이지의 상품만 가져오기
+    products = query.offset(offset).limit(size).all()
+    
     db.close()
+    
     return templates.TemplateResponse("admin_products.html", {
         "request": request,
         "products": products,
-        "keyword": keyword
+        "keyword": keyword,
+        "total_pages": total_pages,
+        "current_page": page,
+        "page_size": size,
+        "total_products": total_products
     })
 
 # ✅ 상품 등록 폼
