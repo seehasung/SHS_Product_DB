@@ -1,0 +1,13 @@
+.table th, .table td {
+    white-space: nowrap; /* 텍스트가 한 줄에 있도록 강제 */
+}
+
+.table th:nth-child(5), /* 경동 컬럼 */
+.table th:nth-child(6), /* 관세 컬럼 */
+.table th:nth-child(8) { /* 타오바오 컬럼 */
+    width: 50px; /* 컬럼 너비 명시적으로 조정 (예시 값) */
+}
+
+.table th:nth-child(1) { /* ID 컬럼 */
+    width: 70px; /* ID 컬럼 너비 조정 (예시 값) */
+}
