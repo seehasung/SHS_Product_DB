@@ -2,7 +2,12 @@
 {% block content %}
 <div class="container mt-5">
     <h2 class="mb-4">📦 상품 상세 정보</h2>
-    <a href="/" class="btn btn-outline-dark">🏠 홈으로</a>
+    
+    <div class="mt-4">
+            <a href="/" class="btn btn-outline-dark">🏠 홈으로</a>
+            <a href="/products/edit/{{ product.id }}" class="btn btn-primary">✏️ 수정하기</a>
+            <a href="/products" class="btn btn-secondary">목록으로 돌아가기</a>
+        </div>
 
     <div class="card mb-4 shadow-sm">
         <div class="row g-0">
@@ -77,9 +82,6 @@
                 </tbody>
             </table>
         </div>
-    </div>
-    <div class="mt-4">
-        <a href="/products" class="btn btn-secondary">목록으로 돌아가기</a>
     </div>
 </div>
 {% endblock %}
