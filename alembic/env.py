@@ -1,3 +1,7 @@
+import os
+from dotenv import load_dotenv
+load_dotenv()
+
 from logging.config import fileConfig
 
 from sqlalchemy import engine_from_config
@@ -10,6 +14,13 @@ from database import Base
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
 config = context.config
+
+# --- ▼▼▼ 바로 이 부분이 핵심입니다! ▼▼▼ ---
+# Render의 DATABASE_URL 환경 변수를 읽어 Alembic 설정에 적용합니다.
+# 이렇게 하면 alembic.ini 파일의 주소보다 이 설정이 우선됩니다.
+config.set_main_option("sqlalchemy.url", os.environ.get("DATABASE_URL"))
+# --- ▲▲▲ 여기까지 ▲▲▲ ---
+
 
 # Interpret the config file for Python logging.
 # This line sets up loggers basically.
