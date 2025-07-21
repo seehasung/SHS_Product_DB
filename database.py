@@ -49,6 +49,7 @@ class Product(Base):
     price = Column(Integer)
     kd_paid = Column(Boolean, default=False) # 경동 대납 여부
     customs_paid = Column(Boolean, default=False) # 관세 대납 여부
+    customs_cost = Column(Integer, default=0)     # 관세 신고단가
     coupang_link = Column(String(2083)) # 쿠팡 상품 페이지 URL
     taobao_link = Column(String(2083)) # 타오바오 상품 페이지 URL
     coupang_options = Column(Text) # 쿠팡 옵션 목록 (이름과 가격 JSON 등으로 저장)

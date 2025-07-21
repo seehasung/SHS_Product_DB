@@ -141,6 +141,7 @@ def product_create(
     price: int = Form(...),
     kd_paid: Optional[str] = Form(None),
     customs_paid: Optional[str] = Form(None),
+    customs_cost: int = Form(0),
     coupang_link: Optional[str] = Form(""),
     taobao_link: Optional[str] = Form(""),
     coupang_option_names: Optional[List[str]] = Form([]),
@@ -166,6 +167,7 @@ def product_create(
             price=price,
             kd_paid=(kd_paid == "on"),
             customs_paid=(customs_paid == "on"),
+            customs_cost=customs_cost,
             coupang_link=coupang_link,
             taobao_link=taobao_link,
             coupang_options=coupang_options,
@@ -183,6 +185,7 @@ def product_create(
         form_data = {
             "product_code": product_code, "name": name, "price": price,
             "kd_paid": (kd_paid == "on"), "customs_paid": (customs_paid == "on"),
+            "customs_cost": customs_cost,
             "coupang_link": coupang_link, "taobao_link": taobao_link,
             "thumbnail": thumbnail, "details": details
         }
@@ -233,6 +236,7 @@ def edit_product(
     price: int = Form(...),
     kd_paid: Optional[str] = Form(None),
     customs_paid: Optional[str] = Form(None),
+    customs_cost: int = Form(0),
     coupang_link: Optional[str] = Form(""),
     taobao_link: Optional[str] = Form(""),
     coupang_option_names: Optional[List[str]] = Form([]),
@@ -259,6 +263,7 @@ def edit_product(
             product.price = price
             product.kd_paid = (kd_paid == "on")
             product.customs_paid = (customs_paid == "on")
+            product.customs_cost = customs_cost
             product.coupang_link = coupang_link
             product.taobao_link = taobao_link
             product.coupang_options = coupang_options
@@ -276,6 +281,7 @@ def edit_product(
         form_data_from_product.update({
              "product_code": product_code, "name": name, "price": price,
             "kd_paid": (kd_paid == "on"), "customs_paid": (customs_paid == "on"),
+            "customs_cost": customs_cost,
             "coupang_link": coupang_link, "taobao_link": taobao_link,
             "thumbnail": thumbnail, "details": details
         })

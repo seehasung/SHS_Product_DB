@@ -27,6 +27,9 @@
                         </span>
                         <span class="badge {{ 'bg-success' if product.customs_paid else 'bg-light text-dark' }} fs-6 me-2 mb-2">
                             관세 대납: {{ '✅' if product.customs_paid else '❌' }}
+                            {% if product.customs_paid and product.customs_cost > 0 %}
+                                ({{ "{:,}".format(product.customs_cost) }}원)
+                            {% endif %}
                         </span>
                         <a href="{{ product.coupang_link }}" target="_blank" class="btn btn-sm btn-primary me-2 mb-2">쿠팡 바로가기</a>
                         <a href="{{ product.taobao_link }}" target="_blank" class="btn btn-sm btn-warning me-2 mb-2">타오바오 바로가기</a>
