@@ -20,7 +20,7 @@
 
                     <div class="d-flex align-items-center flex-wrap mb-3 border-top border-bottom py-3">
                         <span class="badge bg-secondary fs-6 me-2 mb-2">
-                            기본 가격: {{ "{:,}".format(product.price) }}원
+                            기본 가격: {{ "{:,}".format(product.price) }}위안
                         </span>
                         <span class="badge {{ 'bg-success' if product.kd_paid else 'bg-light text-dark' }} fs-6 me-2 mb-2">
                             경동 대납: {{ '✅' if product.kd_paid else '❌' }}
