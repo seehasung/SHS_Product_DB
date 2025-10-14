@@ -50,6 +50,7 @@
                 <th>썸네일</th>
                 <th>상품명</th>
                 <th>가격</th>
+                <th>신고 단가</th>
                 <th>경동</th>
                 <th>관세</th>
                 <th>쿠팡</th>
@@ -66,6 +67,7 @@
                     <a href="/products/{{ p.id }}" class="text-decoration-none">{{ p.name }}</a>
                 </td>
                 <td>{{ "{:,}".format(p.price) }}</td>
+                <td>{{ "{:,}".format(p.customs_cost) }}</td>
                 <td>{{ '✅' if p.kd_paid else '❌' }}</td>
                 <td>{{ '✅' if p.customs_paid else '❌' }}</td>
                 <td><a href="{{ p.coupang_link }}" target="_blank" class="btn btn-outline-secondary btn-sm">Coupang</a></td>
