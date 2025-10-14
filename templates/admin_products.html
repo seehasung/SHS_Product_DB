@@ -67,7 +67,13 @@
                     <a href="/products/{{ p.id }}" class="text-decoration-none">{{ p.name }}</a>
                 </td>
                 <td>{{ "{:,}".format(p.price) }}</td>
-                <td>{{ "{:,}".format(p.customs_cost) }}</td>
+                <td>
+                    {% if p.customs_cost %}
+                        {{ "{:,}".format(p.customs_cost) }}
+                    {% else %}
+                        0
+                    {% endif %}
+                </td>
                 <td>{{ '✅' if p.kd_paid else '❌' }}</td>
                 <td>{{ '✅' if p.customs_paid else '❌' }}</td>
                 <td><a href="{{ p.coupang_link }}" target="_blank" class="btn btn-outline-secondary btn-sm">Coupang</a></td>
