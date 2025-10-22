@@ -61,12 +61,14 @@ class TargetCafe(Base):
 class CafeMembership(Base):
     __tablename__ = "cafe_memberships"
     id = Column(Integer, primary_key=True, index=True)
-    account_id = Column(Integer, ForeignKey("marketing_accounts.id"))
-    cafe_id = Column(Integer, ForeignKey("target_cafes.id"))
+    # --- ▼▼▼ ondelete="CASCADE" 추가 ▼▼▼ ---
+    account_id = Column(Integer, ForeignKey("marketing_accounts.id", ondelete="CASCADE"))
+    cafe_id = Column(Integer, ForeignKey("target_cafes.id", ondelete="CASCADE"))
+    # --- ▲▲▲ ondelete="CASCADE" 추가 ▲▲▲ ---
     status = Column(String, default="active")
     new_post_count = Column(Integer, default=0)
     edited_post_count = Column(Integer, default=0)
-    
+
     account = relationship("MarketingAccount")
     cafe = relationship("TargetCafe")
 
@@ -91,7 +93,7 @@ class PostLog(Base):
     post_url = Column(String, nullable=True)
     status = Column(String)
     
-    membership_id = Column(Integer, ForeignKey("cafe_memberships.id"))
+    membership_id = Column(Integer, ForeignKey("cafe_memberships.id", ondelete="CASCADE"))
     keyword_used = Column(String)
     reference_id = Column(Integer, ForeignKey("references.id"))
     worker_id = Column(Integer, ForeignKey("users.id"))
