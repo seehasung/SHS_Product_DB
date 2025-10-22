@@ -39,30 +39,31 @@ class Product(Base):
     thumbnail = Column(String(2083), nullable=True)
     details = Column(Text, nullable=True)
 
-# --- ▼▼▼ 신규 및 수정된 마케팅 모델 ▼▼▼ ---
+# --- ▼▼▼ 수정된 마케팅 모델 ▼▼▼ ---
 
+# 포스팅 계정 (Naver ID 등)
 class MarketingAccount(Base):
     __tablename__ = "marketing_accounts"
     id = Column(Integer, primary_key=True, index=True)
     platform = Column(String, default="Naver")
     account_id = Column(String, unique=True, index=True)
-    account_pw = Column(String)
+    account_pw = Column(String) # 암호화 제거, 텍스트로 저장
     ip_address = Column(String, nullable=True)
+    category = Column(String, nullable=False) # '분류' 필드 추가
 
+# (TargetCafe, CafeMembership 등 다른 모델은 변경 없음)
 class TargetCafe(Base):
     __tablename__ = "target_cafes"
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, index=True)
     url = Column(String, unique=True, index=True)
-    # is_suspended 필드는 CafeMembership으로 이동
 
-# CafeMembership: 계정과 카페의 다대다 관계를 위한 연결 테이블
 class CafeMembership(Base):
     __tablename__ = "cafe_memberships"
     id = Column(Integer, primary_key=True, index=True)
     account_id = Column(Integer, ForeignKey("marketing_accounts.id"))
     cafe_id = Column(Integer, ForeignKey("target_cafes.id"))
-    is_suspended = Column(Boolean, default=False)
+    status = Column(String, default="active")
     new_post_count = Column(Integer, default=0)
     edited_post_count = Column(Integer, default=0)
     
@@ -90,7 +91,7 @@ class PostLog(Base):
     post_url = Column(String, nullable=True)
     status = Column(String)
     
-    membership_id = Column(Integer, ForeignKey("cafe_memberships.id")) # CafeMembership과 연결
+    membership_id = Column(Integer, ForeignKey("cafe_memberships.id"))
     keyword_used = Column(String)
     reference_id = Column(Integer, ForeignKey("references.id"))
     worker_id = Column(Integer, ForeignKey("users.id"))
@@ -99,7 +100,7 @@ class PostLog(Base):
     reference = relationship("Reference")
     worker = relationship("User")
 
-# --- ▲▲▲ 신규 및 수정된 마케팅 모델 ▲▲▲ ---
+# --- ▲▲▲ 수정된 마케팅 모델 ▲▲▲ ---
 
 __all__ = [
     "User", "Product", "MarketingAccount", "TargetCafe", "CafeMembership",
