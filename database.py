@@ -38,6 +38,8 @@ class User(Base):
     username = Column(String, unique=True, index=True)
     password = Column(String)
     is_admin = Column(Boolean, default=False) # 권한 필드 추가
+    can_manage_products = Column(Boolean, default=False) # 상품 관리 권한
+    can_manage_marketing = Column(Boolean, default=False) # 마케팅 관리 권한
 
 # 상품 테이블 정의 (기존과 동일)
 class Product(Base):
