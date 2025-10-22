@@ -1,8 +1,8 @@
-"""Add category to MarketingAccount
+"""Create initial schema
 
-Revision ID: 51869b456b24
+Revision ID: 04d049c67441
 Revises: 
-Create Date: 2025-10-22 17:01:35.071617
+Create Date: 2025-10-22 17:13:26.273267
 
 """
 from typing import Sequence, Union
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = '51869b456b24'
+revision: str = '04d049c67441'
 down_revision: Union[str, Sequence[str], None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
