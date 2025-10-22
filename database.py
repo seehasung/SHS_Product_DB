@@ -59,7 +59,16 @@ class Product(Base):
     thumbnail = Column(String(2083)) # 썸네일 이미지 URL
     details = Column(Text) # 제품 상세 정보 (예상 CS 답변 등)
 
-__all__ = ["User", "Product", "SessionLocal", "Base"]
+
+class TargetCafe(Base):
+    __tablename__ = "target_cafes"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, index=True) # 카페 이름
+    url = Column(String, unique=True, index=True) # 카페 URL
+
+__all__ = ["User", "Product", "TargetCafe", "SessionLocal", "Base"] 
+
 
 # ✅ 최초 관리자 계정 생성 (한 번만 실행되도록)
 # 이 함수는 데이터베이스가 비어있을 때만 실행됩니다.

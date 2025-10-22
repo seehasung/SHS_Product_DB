@@ -1,9 +1,63 @@
 {% extends "base.html" %}
-{% block title %}마케팅 - 카페{% endblock %}
+{% block title %}마케팅 - 카페 관리{% endblock %}
+
 {% block content %}
 <div class="container mt-4">
-    <h1>☕ 카페 작업 관리</h1>
-    <a href="/" class="btn btn-secondary mt-3">← 홈으로</a>
-    <!-- TODO: 향후 여기에 카페 작업 목록 테이블 등이 추가될 예정입니다. -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>☕ 카페 작업 관리</h1>
+        <a href="/" class="btn btn-secondary">← 홈으로</a>
+    </div>
+
+    <!-- 새로운 카페 등록 폼 -->
+    <form action="/marketing/cafe/add" method="post" class="mb-4 p-3 border rounded bg-light">
+        <div class="row g-3 align-items-center">
+            <div class="col-md-5">
+                <label for="cafeName" class="visually-hidden">카페 이름</label>
+                <input type="text" name="name" id="cafeName" class="form-control" placeholder="카페 이름 (예: 맘스홀릭)" required>
+            </div>
+            <div class="col-md-5">
+                <label for="cafeUrl" class="visually-hidden">카페 URL</label>
+                <input type="url" name="url" id="cafeUrl" class="form-control" placeholder="카페 URL 주소" required>
+            </div>
+            <div class="col-md-2">
+                <button type="submit" class="btn btn-primary w-100">➕ 추가</button>
+            </div>
+        </div>
+    </form>
+
+    <!-- 등록된 카페 목록 테이블 -->
+    <table class="table table-bordered table-hover text-center align-middle">
+        <thead class="table-dark">
+            <tr>
+                <th scope="col" style="width: 5%;">#</th>
+                <th scope="col" style="width: 35%;">카페 이름</th>
+                <th scope="col">URL</th>
+                <th scope="col" style="width: 10%;">관리</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% if cafes %}
+                {% for cafe in cafes %}
+                <tr>
+                    <th scope="row">{{ cafe.id }}</th>
+                    <td>{{ cafe.name }}</td>
+                    <td class="text-start"><a href="{{ cafe.url }}" target="_blank" class="text-decoration-none">{{ cafe.url }}</a></td>
+                    <td>
+                        <form action="/marketing/cafe/delete/{{ cafe.id }}" method="post" onsubmit="return confirm('정말 삭제하시겠습니까?');" class="d-inline">
+                            <button type="submit" class="btn btn-sm btn-outline-danger">삭제</button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            {% else %}
+                <tr>
+                    <td colspan="4" class="text-center p-5">등록된 타겟 카페가 없습니다.</td>
+                </tr>
+            {% endif %}
+        </tbody>
+    </table>
+    
+    <!-- TODO: 향후 계정 관리, 템플릿 관리, 일일 작업 목록 섹션이 추가될 예정입니다. -->
 </div>
 {% endblock %}
+
