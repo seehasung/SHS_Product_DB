@@ -3,7 +3,9 @@
 {% block content %}
 
 {% if username %}
+    <!-- 로그인 후 표시되는 대시보드 -->
     <div class="container py-4">
+        <!-- 상단 환영 메시지 -->
         <div class="p-5 mb-4 bg-light rounded-3 shadow-sm">
             <div class="container-fluid py-3">
                 <h1 class="display-5 fw-bold">👋 {{ username }}님, 환영합니다!</h1>
@@ -13,7 +15,11 @@
             </div>
         </div>
 
+        <!-- 기능 카드 레이아웃 -->
         <div class="row align-items-md-stretch">
+
+            <!-- 상품 관리 카드 (상품 권한 또는 최고 관리자일 때 표시) -->
+            {% if can_manage_products %}
             <div class="col-md-6 mb-4">
                 <div class="h-100 p-5 text-bg-dark rounded-3 shadow">
                     <h2><i class="bi bi-box-seam"></i> 상품 관리</h2>
@@ -21,7 +27,23 @@
                     <a href="/products" class="btn btn-outline-light" type="button">📦 상품 조회하기</a>
                 </div>
             </div>
+            {% endif %}
 
+            <!-- 마케팅 관리 카드 (마케팅 권한 또는 최고 관리자일 때 표시) -->
+            {% if can_manage_marketing %}
+            <div class="col-md-6 mb-4">
+                <div class="h-100 p-5 bg-primary text-white rounded-3 shadow">
+                    <h2><i class="bi bi-megaphone-fill"></i> 마케팅 관리</h2>
+                    <p>카페, 블로그 포스팅 작업을 계획하고 관리합니다.</p>
+                    <a href="/marketing/cafe" class="btn btn-outline-light me-2" type="button">☕ 카페</a>
+                    <a href="/marketing/blog" class="btn btn-outline-light me-2" type="button">📝 블로그</a>
+                    <a href="/marketing/homepage" class="btn btn-outline-light me-2" type="button">🏠 홈페이지</a>
+                    <a href="/marketing/kin" class="btn btn-outline-light" type="button">💡 지식인</a>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- 사용자 관리 카드 (최고 관리자일 때만 표시) -->
             {% if is_admin %}
             <div class="col-md-6 mb-4">
                 <div class="h-100 p-5 bg-light border rounded-3 shadow">
@@ -31,9 +53,11 @@
                 </div>
             </div>
             {% endif %}
+
         </div>
     </div>
 {% else %}
+    <!-- 로그인 전 표시되는 화면 -->
     <div class="d-flex justify-content-center align-items-center" style="height: 80vh;">
         <div class="text-center">
             <h1 class="display-4">SHS.corp</h1>
