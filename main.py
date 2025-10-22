@@ -9,6 +9,8 @@ from routers import auth, admin_users, product, marketing
 
 
 app = FastAPI()
+
+# --- ▼▼▼ 세션 미들웨어 설정 수정 ▼▼▼ ---
 app.add_middleware(
     SessionMiddleware,
     secret_key="서하성",
@@ -16,6 +18,8 @@ app.add_middleware(
     https_only=True,  # HTTPS에서만 쿠키 사용
     samesite='none'   # 리다이렉트 후에도 쿠키 전송 허용
 )
+# --- ▲▲▲ 세션 미들웨어 설정 수정 ▲▲▲ ---
+
 
 templates = Jinja2Templates(directory="templates")
 
@@ -52,3 +56,4 @@ def read_root(request: Request):
         "can_manage_products": can_manage_products,
         "can_manage_marketing": can_manage_marketing
     })
+
