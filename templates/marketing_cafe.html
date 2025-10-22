@@ -8,37 +8,37 @@
         <a href="/" class="btn btn-secondary">← 홈으로</a>
     </div>
 
-    <!-- 탭 메뉴 (수정됨) -->
+    <!-- 탭 메뉴 -->
     <ul class="nav nav-tabs" id="myTab" role="tablist">
         <li class="nav-item" role="presentation">
-            <a class="nav-link {{ 'active' if active_tab == 'status' or not active_tab else '' }}" href="/marketing/cafe?tab=status">📊 전체 현황</a>
+            <a class="nav-link" id="status-tab" data-bs-toggle="tab" href="#status-tab-pane" role="tab">📊 전체 현황</a>
         </li>
         <li class="nav-item" role="presentation">
-            <a class="nav-link {{ 'active' if active_tab == 'memberships' else '' }}" href="/marketing/cafe?tab=memberships">🔗 연동 관리</a>
+            <a class="nav-link" id="memberships-tab" data-bs-toggle="tab" href="#memberships-tab-pane" role="tab">🔗 연동 관리</a>
         </li>
         <li class="nav-item" role="presentation">
-            <a class="nav-link {{ 'active' if active_tab == 'products' else '' }}" href="/marketing/cafe?tab=products">📦 상품 관리</a>
+            <a class="nav-link" id="products-tab" data-bs-toggle="tab" href="#products-tab-pane" role="tab">📦 상품 관리</a>
         </li>
         <li class="nav-item" role="presentation">
-            <a class="nav-link {{ 'active' if active_tab == 'references' else '' }}" href="/marketing/cafe?tab=references">📝 레퍼런스 관리</a>
+            <a class="nav-link" id="references-tab" data-bs-toggle="tab" href="#references-tab-pane" role="tab">📝 레퍼런스 관리</a>
         </li>
         <li class="nav-item" role="presentation">
-            <a class="nav-link {{ 'active' if active_tab == 'accounts' else '' }}" href="/marketing/cafe?tab=accounts">🔑 계정 관리</a>
+            <a class="nav-link" id="accounts-tab" data-bs-toggle="tab" href="#accounts-tab-pane" role="tab">🔑 계정 관리</a>
         </li>
         <li class="nav-item" role="presentation">
-            <a class="nav-link {{ 'active' if active_tab == 'cafes' else '' }}" href="/marketing/cafe?tab=cafes">📋 카페 관리</a>
+            <a class="nav-link" id="cafes-tab" data-bs-toggle="tab" href="#cafes-tab-pane" role="tab">📋 카페 관리</a>
         </li>
     </ul>
 
-    <!-- 탭 콘텐츠 (수정됨) -->
+    <!-- 탭 콘텐츠 -->
     <div class="tab-content" id="myTabContent">
         <!-- 전체 현황 탭 -->
-        <div class="tab-pane fade {{ 'show active' if active_tab == 'status' or not active_tab else '' }}" id="status-tab-pane" role="tabpanel">
+        <div class="tab-pane fade" id="status-tab-pane" role="tabpanel">
             <div class="p-5 text-center border-start border-end border-bottom">(TODO: 전체 현황 대시보드가 여기에 표시될 예정입니다.)</div>
         </div>
         
         <!-- 연동 관리 탭 -->
-        <div class="tab-pane fade {{ 'show active' if active_tab == 'memberships' else '' }}" id="memberships-tab-pane" role="tabpanel">
+        <div class="tab-pane fade" id="memberships-tab-pane" role="tabpanel">
             <div class="p-3 border-start border-end border-bottom">
                 <h3 class="mb-3">신규 카페-계정 연동</h3>
                 <form action="/marketing/membership/add" method="post" class="mb-4 p-3 border rounded bg-light">
@@ -105,7 +105,7 @@
         </div>
         
         <!-- 상품 관리 탭 -->
-        <div class="tab-pane fade {{ 'show active' if active_tab == 'products' else '' }}" id="products-tab-pane" role="tabpanel">
+        <div class="tab-pane fade" id="products-tab-pane" role="tabpanel">
              <div class="p-3 border-start border-end border-bottom">
                 <div class="d-flex justify-content-between align-items-center mb-3">
                     <h3 class="mb-0">마케팅 상품 목록</h3>
@@ -132,7 +132,7 @@
         </div>
 
         <!-- 레퍼런스 관리 탭 -->
-        <div class="tab-pane fade {{ 'show active' if active_tab == 'references' else '' }}" id="references-tab-pane" role="tabpanel">
+        <div class="tab-pane fade" id="references-tab-pane" role="tabpanel">
             <div class="p-3 border-start border-end border-bottom">
                 <h3 class="mb-3">신규 레퍼런스 생성</h3>
                 <form action="/marketing/reference/add" method="post" class="mb-4 p-3 border rounded bg-light">
@@ -151,7 +151,7 @@
         </div>
 
         <!-- 계정 관리 탭 -->
-        <div class="tab-pane fade {{ 'show active' if active_tab == 'accounts' else '' }}" id="accounts-tab-pane" role="tabpanel">
+        <div class="tab-pane fade" id="accounts-tab-pane" role="tabpanel">
             <div class="p-3 border-start border-end border-bottom">
                 <h3 class="mb-3">신규 계정 등록</h3>
                 {% if error %}<div class="alert alert-danger">{{ error }}</div>{% endif %}
@@ -199,7 +199,7 @@
         </div>
         
         <!-- 카페 관리 탭 -->
-        <div class="tab-pane fade {{ 'show active' if active_tab == 'cafes' else '' }}" id="cafes-tab-pane" role="tabpanel">
+        <div class="tab-pane fade" id="cafes-tab-pane" role="tabpanel">
             <div class="p-3 border-start border-end border-bottom">
                 <h3 class="mb-3">신규 타겟 카페 등록</h3>
                 <form action="/marketing/cafe/add" method="post" class="mb-4 p-3 border rounded bg-light">
@@ -259,7 +259,47 @@
     </div>
 </div>
 
-<!-- (탭을 제어하던 스크립트는 이제 필요 없으므로 삭제합니다) -->
+<script>
+    // URL 파라미터를 기반으로 올바른 탭을 활성화하는 스크립트
+    document.addEventListener('DOMContentLoaded', function () {
+        const params = new URLSearchParams(window.location.search);
+        let tab = params.get('tab');
+        if (!tab) {
+            tab = 'status'; // 기본 탭 설정
+        }
 
+        const triggerEl = document.querySelector(`#${tab}-tab`);
+        if (triggerEl) {
+            const tabTrigger = new bootstrap.Tab(triggerEl);
+            tabTrigger.show();
+        }
+    });
+
+    // 계정 수정 모달 제어 스크립트
+    const editAccountModal = document.getElementById('editAccountModal');
+    if (editAccountModal) {
+        editAccountModal.addEventListener('show.bs.modal', event => {
+            const button = event.relatedTarget;
+            const id = button.getAttribute('data-bs-id');
+            const accountId = button.getAttribute('data-bs-account-id');
+            const accountPw = button.getAttribute('data-bs-account-pw');
+            const category = button.getAttribute('data-bs-category');
+            const ipAddress = button.getAttribute('data-bs-ip');
+            
+            const modalForm = editAccountModal.querySelector('#editAccountForm');
+            modalForm.action = `/marketing/account/update/${id}`;
+            
+            const modalAccountIdInput = editAccountModal.querySelector('#edit-account-id');
+            const modalAccountPwInput = editAccountModal.querySelector('#edit-account-pw');
+            const modalCategorySelect = editAccountModal.querySelector('#edit-category');
+            const modalIpInput = editAccountModal.querySelector('#edit-ip-address');
+            
+            modalAccountIdInput.value = accountId;
+            modalAccountPwInput.value = accountPw;
+            modalCategorySelect.value = category;
+            modalIpInput.value = ipAddress;
+        });
+    }
+</script>
 {% endblock %}
 
