@@ -57,6 +57,28 @@ async def marketing_cafe(request: Request, db: Session = Depends(get_db)):
         "category_filter": category_filter,
         "active_tab": tab
     })
+    
+@router.get("/product/keywords/{mp_id}", response_class=HTMLResponse)
+async def get_product_keywords(request: Request, mp_id: int, db: Session = Depends(get_db)):
+    """키워드 관리 페이지를 보여주는 라우트"""
+    marketing_product = db.query(MarketingProduct).filter(MarketingProduct.id == mp_id).first()
+    return templates.TemplateResponse("marketing_product_keywords.html", {
+        "request": request,
+        "marketing_product": marketing_product
+    })
+
+@router.post("/product/keywords/{mp_id}", response_class=RedirectResponse)
+async def update_product_keywords(
+    mp_id: int,
+    keywords: str = Form(...),
+    db: Session = Depends(get_db)
+):
+    """키워드를 저장하는 라우트"""
+    marketing_product = db.query(MarketingProduct).filter(MarketingProduct.id == mp_id).first()
+    if marketing_product:
+        marketing_product.keywords = keywords
+        db.commit()
+    return RedirectResponse(url="/marketing/cafe?tab=products", status_code=303)
 
 # --- 계정 관리 (수정됨) ---
 @router.post("/account/add", response_class=RedirectResponse)

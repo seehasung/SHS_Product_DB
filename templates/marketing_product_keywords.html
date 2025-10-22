@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}키워드 관리{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>🔑 키워드 관리</h1>
+        <a href="/marketing/cafe?tab=products" class="btn btn-secondary">← 목록으로</a>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="card-header">
+            상품명: <strong>{{ marketing_product.product.name }}</strong>
+        </div>
+        <div class="card-body">
+            <form action="/marketing/product/keywords/{{ marketing_product.id }}" method="post">
+                <div class="mb-3">
+                    <label for="keywords" class="form-label">타겟 키워드 (한 줄에 하나씩 입력)</label>
+                    <textarea class="form-control" id="keywords" name="keywords" rows="15" 
+                              placeholder="예시)
+강아지 자동 장난감
+고양이 츄르 추천
+앵무새 영양제">{{ marketing_product.keywords }}</textarea>
+                </div>
+                <button type="submit" class="btn btn-primary">저장하기</button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
