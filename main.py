@@ -9,7 +9,13 @@ from routers import auth, admin_users, product, marketing
 
 
 app = FastAPI()
-app.add_middleware(SessionMiddleware, secret_key="서하성", max_age=None) # max_age=None으로 설정
+app.add_middleware(
+    SessionMiddleware,
+    secret_key="서하성",
+    max_age=None,
+    https_only=True,  # HTTPS에서만 쿠키 사용
+    samesite='none'   # 리다이렉트 후에도 쿠키 전송 허용
+)
 
 templates = Jinja2Templates(directory="templates")
 
