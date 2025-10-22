@@ -104,6 +104,47 @@ async def toggle_keyword_status(mp_id: int, keyword: str = Form(...), db: Sessio
         db.commit()
     return RedirectResponse(url=f"/marketing/product/keywords/{mp_id}", status_code=303)
 
+@router.post("/product/keywords/edit/{mp_id}", response_class=RedirectResponse)
+async def edit_keyword(
+    mp_id: int,
+    old_keyword: str = Form(...),
+    new_keyword: str = Form(...),
+    db: Session = Depends(get_db)
+):
+    """개별 키워드를 수정하는 라우트"""
+    marketing_product = db.query(MarketingProduct).filter(MarketingProduct.id == mp_id).first()
+    if marketing_product and marketing_product.keywords:
+        try:
+            keywords_list = json.loads(marketing_product.keywords)
+            for item in keywords_list:
+                if item['keyword'] == old_keyword:
+                    item['keyword'] = new_keyword.strip()
+                    break
+            marketing_product.keywords = json.dumps(keywords_list, ensure_ascii=False, indent=4)
+            db.commit()
+        except json.JSONDecodeError:
+            pass
+    return RedirectResponse(url=f"/marketing/product/keywords/{mp_id}", status_code=303)
+
+@router.post("/product/keywords/delete/{mp_id}", response_class=RedirectResponse)
+async def delete_keyword(
+    mp_id: int,
+    keyword: str = Form(...),
+    db: Session = Depends(get_db)
+):
+    """개별 키워드를 삭제하는 라우트"""
+    marketing_product = db.query(MarketingProduct).filter(MarketingProduct.id == mp_id).first()
+    if marketing_product and marketing_product.keywords:
+        try:
+            keywords_list = json.loads(marketing_product.keywords)
+            keywords_list = [item for item in keywords_list if item['keyword'] != keyword]
+            marketing_product.keywords = json.dumps(keywords_list, ensure_ascii=False, indent=4)
+            db.commit()
+        except json.JSONDecodeError:
+            pass
+    return RedirectResponse(url=f"/marketing/product/keywords/{mp_id}", status_code=303)
+
+
 # --- 계정 관리 ---
 @router.post("/account/add", response_class=RedirectResponse)
 async def add_marketing_account(account_id: str = Form(...), account_pw: str = Form(...), category: str = Form(...), ip_address: str = Form(None), db: Session = Depends(get_db)):

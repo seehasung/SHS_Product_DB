@@ -31,27 +31,41 @@
             </div>
         </div>
 
-        <!-- 오른쪽: 개별 키워드 On/Off 관리 -->
+        <!-- 오른쪽: 개별 키워드 On/Off, 수정, 삭제 관리 -->
         <div class="col-md-6">
             <div class="card shadow-sm h-100">
                 <div class="card-header">
-                    <strong>키워드 활성화 관리</strong>
+                    <strong>키워드 활성화 및 관리</strong>
                 </div>
                 <div class="card-body" style="max-height: 500px; overflow-y: auto;">
                     {% if keywords_list %}
                         <ul class="list-group">
                             {% for item in keywords_list %}
                             <li class="list-group-item d-flex justify-content-between align-items-center">
-                                <span>{{ item.keyword }}</span>
-                                <form action="/marketing/product/keywords/toggle/{{ marketing_product.id }}" method="post">
-                                    <input type="hidden" name="keyword" value="{{ item.keyword }}">
-                                    <div class="form-check form-switch">
-                                        <input class="form-check-input" type="checkbox" role="switch" 
-                                               id="switch-{{ loop.index }}" 
-                                               {{ 'checked' if item.active else '' }}
-                                               onchange="this.form.submit()">
-                                    </div>
-                                </form>
+                                <span class="me-3">{{ item.keyword }}</span>
+                                <div class="d-flex align-items-center">
+                                    <!-- On/Off 스위치 -->
+                                    <form action="/marketing/product/keywords/toggle/{{ marketing_product.id }}" method="post" class="me-3">
+                                        <input type="hidden" name="keyword" value="{{ item.keyword }}">
+                                        <div class="form-check form-switch">
+                                            <input class="form-check-input" type="checkbox" role="switch" 
+                                                   id="switch-{{ loop.index }}" 
+                                                   {{ 'checked' if item.active else '' }}
+                                                   onchange="this.form.submit()">
+                                        </div>
+                                    </form>
+                                    <!-- 수정 버튼 -->
+                                    <button type="button" class="btn btn-sm btn-outline-secondary me-2"
+                                            data-bs-toggle="modal" data-bs-target="#editKeywordModal"
+                                            data-bs-keyword="{{ item.keyword }}">
+                                        수정
+                                    </button>
+                                    <!-- 삭제 버튼 -->
+                                    <form action="/marketing/product/keywords/delete/{{ marketing_product.id }}" method="post" onsubmit="return confirm('\'{{ item.keyword }}\' 키워드를 정말 삭제하시겠습니까?');">
+                                        <input type="hidden" name="keyword" value="{{ item.keyword }}">
+                                        <button type="submit" class="btn btn-sm btn-outline-danger">삭제</button>
+                                    </form>
+                                </div>
                             </li>
                             {% endfor %}
                         </ul>
@@ -66,5 +80,51 @@
         </div>
     </div>
 </div>
+
+<!-- 키워드 수정 팝업(모달) -->
+<div class="modal fade" id="editKeywordModal" tabindex="-1" aria-labelledby="editKeywordModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="editKeywordModalLabel">키워드 수정</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="editKeywordForm" action="" method="post">
+                <div class="modal-body">
+                    <input type="hidden" name="old_keyword" id="old-keyword-input">
+                    <div class="mb-3">
+                        <label for="new-keyword-input" class="form-label">새 키워드</label>
+                        <input type="text" class="form-control" id="new-keyword-input" name="new_keyword" required>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">닫기</button>
+                    <button type="submit" class="btn btn-primary">수정 저장</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    // 키워드 수정 모달 제어 스크립트
+    const editKeywordModal = document.getElementById('editKeywordModal');
+    if (editKeywordModal) {
+        editKeywordModal.addEventListener('show.bs.modal', event => {
+            const button = event.relatedTarget;
+            const keyword = button.getAttribute('data-bs-keyword');
+            
+            const form = editKeywordModal.querySelector('#editKeywordForm');
+            form.action = `/marketing/product/keywords/edit/{{ marketing_product.id }}`;
+            
+            const oldKeywordInput = editKeywordModal.querySelector('#old-keyword-input');
+            const newKeywordInput = editKeywordModal.querySelector('#new-keyword-input');
+            
+            oldKeywordInput.value = keyword;
+            newKeywordInput.value = keyword;
+            newKeywordInput.focus(); // 모달이 열리면 바로 입력할 수 있도록 포커스
+        });
+    }
+</script>
 {% endblock %}
 
