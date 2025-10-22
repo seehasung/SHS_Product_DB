@@ -26,7 +26,7 @@ class User(Base):
 class Product(Base):
     __tablename__ = "products"
     id = Column(Integer, primary_key=True, index=True)
-    product_code = Column(String, unique=True, index=True, nullable=True) # unique=True로 유지
+    product_code = Column(String, unique=True, index=True, nullable=True)
     name = Column(String(255), nullable=False)
     price = Column(Integer, nullable=True)
     kd_paid = Column(Boolean, default=False)
@@ -39,63 +39,70 @@ class Product(Base):
     thumbnail = Column(String(2083), nullable=True)
     details = Column(Text, nullable=True)
 
-# --- ▼▼▼ 신규 마케팅 모델 추가 ▼▼▼ ---
+# --- ▼▼▼ 신규 및 수정된 마케팅 모델 ▼▼▼ ---
 
-# 포스팅 계정 (Naver ID 등)
 class MarketingAccount(Base):
     __tablename__ = "marketing_accounts"
     id = Column(Integer, primary_key=True, index=True)
-    platform = Column(String, default="Naver") # 플랫폼 (Naver, Tistory 등)
+    platform = Column(String, default="Naver")
     account_id = Column(String, unique=True, index=True)
-    account_pw = Column(String) # 암호화하여 저장 예정
+    account_pw = Column(String)
     ip_address = Column(String, nullable=True)
 
-# 타겟 카페
 class TargetCafe(Base):
     __tablename__ = "target_cafes"
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, index=True)
     url = Column(String, unique=True, index=True)
-    is_suspended = Column(Boolean, default=False) # 활동 정지 여부
+    # is_suspended 필드는 CafeMembership으로 이동
 
-# 마케팅 대상 상품
+# CafeMembership: 계정과 카페의 다대다 관계를 위한 연결 테이블
+class CafeMembership(Base):
+    __tablename__ = "cafe_memberships"
+    id = Column(Integer, primary_key=True, index=True)
+    account_id = Column(Integer, ForeignKey("marketing_accounts.id"))
+    cafe_id = Column(Integer, ForeignKey("target_cafes.id"))
+    is_suspended = Column(Boolean, default=False)
+    new_post_count = Column(Integer, default=0)
+    edited_post_count = Column(Integer, default=0)
+    
+    account = relationship("MarketingAccount")
+    cafe = relationship("TargetCafe")
+
 class MarketingProduct(Base):
     __tablename__ = "marketing_products"
     id = Column(Integer, primary_key=True, index=True)
-    product_id = Column(Integer, ForeignKey("products.id")) # 기존 Product 테이블과 연결
-    keywords = Column(Text) # 상품별 타겟 키워드 (JSON 또는 콤마로 구분된 텍스트)
+    product_id = Column(Integer, ForeignKey("products.id"))
+    keywords = Column(Text)
     product = relationship("Product")
 
-# 글 레퍼런스 (템플릿)
 class Reference(Base):
     __tablename__ = "references"
     id = Column(Integer, primary_key=True, index=True)
     title = Column(String)
     content = Column(Text)
-    ref_type = Column(String) # 유형 (예: 카페_신규, 블로그_정보, 댓글 등)
+    ref_type = Column(String)
 
-# 포스팅 작업 로그
 class PostLog(Base):
     __tablename__ = "post_logs"
     id = Column(Integer, primary_key=True, index=True)
     posted_at = Column(DateTime, default=datetime.datetime.utcnow)
     post_url = Column(String, nullable=True)
-    status = Column(String) # '신규', '수정'
+    status = Column(String)
     
-    account_id = Column(Integer, ForeignKey("marketing_accounts.id"))
-    cafe_id = Column(Integer, ForeignKey("target_cafes.id"))
+    membership_id = Column(Integer, ForeignKey("cafe_memberships.id")) # CafeMembership과 연결
     keyword_used = Column(String)
     reference_id = Column(Integer, ForeignKey("references.id"))
-    worker_id = Column(Integer, ForeignKey("users.id")) # 작업자 ID
+    worker_id = Column(Integer, ForeignKey("users.id"))
     
-    account = relationship("MarketingAccount")
-    cafe = relationship("TargetCafe")
+    membership = relationship("CafeMembership")
     reference = relationship("Reference")
     worker = relationship("User")
 
-# --- ▲▲▲ 신규 마케팅 모델 추가 ▲▲▲ ---
+# --- ▲▲▲ 신규 및 수정된 마케팅 모델 ▲▲▲ ---
 
 __all__ = [
-    "User", "Product", "MarketingAccount", "TargetCafe", 
+    "User", "Product", "MarketingAccount", "TargetCafe", "CafeMembership",
     "MarketingProduct", "Reference", "PostLog", "SessionLocal", "Base"
 ]
+
