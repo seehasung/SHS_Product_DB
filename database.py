@@ -77,9 +77,13 @@ class MarketingProduct(Base):
 class Reference(Base):
     __tablename__ = "references"
     id = Column(Integer, primary_key=True, index=True)
-    title = Column(String)
-    content = Column(Text)
-    ref_type = Column(String) # 예: 카페_신규, 블로그_정보
+    title = Column(String, unique=True, index=True) # 제목을 고유값으로 설정
+    content = Column(Text, nullable=True)
+    ref_type = Column(String, default="기타") # '대안', '정보', '기타'
+    
+    last_modified_by_id = Column(Integer, ForeignKey("users.id"), nullable=True) # 마지막 수정자
+    last_modified_by = relationship("User")
+
     comments = relationship("Comment", back_populates="reference", cascade="all, delete-orphan")
 
 # --- ▼▼▼ 신규 Comment 모델 추가 ▼▼▼ ---

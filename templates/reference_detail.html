@@ -1,6 +1,30 @@
 {% extends "base.html" %}
 {% block title %}레퍼런스 상세{% endblock %}
 
+{% block head %}
+{{ super() }}
+<style>
+  /* 계정 순번을 시각적으로 표시하기 위한 색상 점 스타일 */
+  .account-dot {
+    height: 10px;
+    width: 10px;
+    border-radius: 50%;
+    display: inline-block;
+    margin-right: 6px;
+    vertical-align: middle;
+  }
+  .dot-0 { background-color: #66d9e8; } /* 작성자 (민트) */
+  .dot-1 { background-color: #fa5252; } /* 계정 1 (빨강) */
+  .dot-2 { background-color: #fd7e14; } /* 계정 2 (주황) */
+  .dot-3 { background-color: #fcc419; } /* 계정 3 (노랑) */
+  .dot-4 { background-color: #40c057; } /* 계정 4 (초록) */
+  .dot-5 { background-color: #228be6; } /* 계정 5 (파랑) */
+  .dot-6 { background-color: #364fc7; } /* 계정 6 (남색) */
+  .dot-7 { background-color: #7048e8; } /* 계정 7 (보라) */
+  .dot-8 { background-color: #f06595; } /* 계정 8 (핑크) */
+</style>
+{% endblock %}
+
 {% macro render_comments(comments, ref_id) %}
     <ul class="list-unstyled ps-4">
         {% for comment in comments %}
@@ -8,7 +32,14 @@
             <div class="card bg-light">
                 <div class="card-body">
                     <p class="card-text">
-                        <span class="badge bg-primary rounded-pill me-2">계정 {{ comment.account_sequence }}</span>
+                        <span class="d-inline-flex align-items-center fw-bold me-2">
+                            <span class="account-dot dot-{{ comment.account_sequence }}"></span>
+                            {% if comment.account_sequence == 0 %}
+                                작성자
+                            {% else %}
+                                계정 {{ comment.account_sequence }}
+                            {% endif %}
+                        </span>
                         {{ comment.text | replace('\n', '<br>') | safe }}
                     </p>
                     <div class="d-flex justify-content-between align-items-center">
@@ -17,7 +48,8 @@
                             <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="collapse" href="#reply-form-{{ comment.id }}">답글</button>
                             <button class="btn btn-sm btn-outline-info" data-bs-toggle="modal" data-bs-target="#editCommentModal"
                                     data-bs-comment-id="{{ comment.id }}"
-                                    data-bs-comment-text="{{ comment.text }}">수정</button>
+                                    data-bs-comment-text="{{ comment.text }}"
+                                    data-bs-account-sequence="{{ comment.account_sequence }}">수정</button>
                             <form action="/marketing/comment/delete/{{ ref_id }}/{{ comment.id }}" method="post" class="d-inline" onsubmit="return confirm('이 댓글을 정말 삭제하시겠습니까?');">
                                 <button type="submit" class="btn btn-sm btn-outline-danger">삭제</button>
                             </form>
@@ -29,6 +61,7 @@
                             <input type="hidden" name="parent_id" value="{{ comment.id }}">
                             <div class="input-group">
                                 <select name="account_sequence" class="form-select" style="max-width: 120px;">
+                                    <option value="0">작성자</option>
                                     {% for i in range(1, 9) %}<option value="{{ i }}">계정 {{ i }}</option>{% endfor %}
                                 </select>
                                 <textarea name="text" class="form-control" rows="2" required></textarea>
@@ -57,11 +90,10 @@
         <!-- 왼쪽: 본문 수정 -->
         <div class="col-md-6">
             <div class="card shadow-sm h-100">
-                <div class="card-header">
-                    <h3>본문 수정</h3>
-                </div>
+                <div class="card-header"><h3>본문 수정</h3></div>
                 <div class="card-body">
                     <form action="/marketing/reference/update/{{ reference.id }}" method="post">
+                        <!-- (기존 본문 수정 폼은 그대로 유지됩니다) -->
                         <div class="mb-3">
                             <label for="title" class="form-label">제목</label>
                             <input type="text" class="form-control" id="title" name="title" value="{{ reference.title }}" required>
@@ -79,17 +111,15 @@
         <!-- 오른쪽: 댓글 관리 -->
         <div class="col-md-6">
             <div class="card shadow-sm h-100">
-                <div class="card-header">
-                    <h4>댓글 관리</h4>
-                </div>
+                <div class="card-header"><h4>댓글 관리</h4></div>
                 <div class="card-body" style="max-height: 600px; overflow-y: auto;">
-                    <!-- 새 최상위 댓글 폼 -->
                     <form action="/marketing/comment/add/{{ reference.id }}" method="post" class="mb-4">
                         <div class="mb-2">
                             <label class="form-label">새 댓글 추가</label>
                             <div class="input-group">
                                 <select name="account_sequence" class="form-select" style="max-width: 120px;">
-                                     {% for i in range(1, 9) %}<option value="{{ i }}">계정 {{ i }}</option>{% endfor %}
+                                    <option value="0">작성자</option>
+                                    {% for i in range(1, 9) %}<option value="{{ i }}">계정 {{ i }}</option>{% endfor %}
                                 </select>
                                 <textarea class="form-control" name="text" rows="3" required></textarea>
                             </div>
@@ -97,7 +127,6 @@
                         <button type="submit" class="btn btn-success">댓글 등록</button>
                     </form>
                     <hr>
-                    <!-- 댓글 목록 -->
                     <ol class="list-unstyled">
                         {% for comment in comments %}
                         <li class="mb-3">
@@ -126,7 +155,17 @@
             </div>
             <form id="editCommentForm" method="post">
                 <div class="modal-body">
-                    <textarea class="form-control" id="edit-comment-text" name="text" rows="5" required></textarea>
+                    <div class="mb-3">
+                        <label for="edit-account-sequence" class="form-label">계정 순번</label>
+                        <select name="account_sequence" id="edit-account-sequence" class="form-select">
+                            <option value="0">작성자</option>
+                            {% for i in range(1, 9) %}<option value="{{ i }}">계정 {{ i }}</option>{% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="edit-comment-text" class="form-label">댓글 내용</label>
+                        <textarea class="form-control" id="edit-comment-text" name="text" rows="5" required></textarea>
+                    </div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">닫기</button>
@@ -138,19 +177,22 @@
 </div>
 
 <script>
-    // 댓글 수정 모달 제어
     const editCommentModal = document.getElementById('editCommentModal');
     if(editCommentModal) {
         editCommentModal.addEventListener('show.bs.modal', event => {
             const button = event.relatedTarget;
             const commentId = button.getAttribute('data-bs-comment-id');
             const commentText = button.getAttribute('data-bs-comment-text');
+            const accountSeq = button.getAttribute('data-bs-account-sequence');
             
             const form = editCommentModal.querySelector('#editCommentForm');
             form.action = `/marketing/comment/edit/{{ reference.id }}/${commentId}`;
             
             const textArea = editCommentModal.querySelector('#edit-comment-text');
+            const selectEl = editCommentModal.querySelector('#edit-account-sequence');
+            
             textArea.value = commentText;
+            selectEl.value = accountSeq;
         });
     }
 </script>

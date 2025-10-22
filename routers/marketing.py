@@ -61,17 +61,33 @@ async def marketing_cafe(request: Request, db: Session = Depends(get_db)):
 # --- 레퍼런스 및 댓글 관리 ---
 
 @router.post("/reference/add", response_class=RedirectResponse)
-async def add_reference(title: str = Form(...), db: Session = Depends(get_db)):
-    new_ref = Reference(title=title, content="", ref_type="일반")
-    db.add(new_ref)
-    db.commit()
-    db.refresh(new_ref)
-    return RedirectResponse(url=f"/marketing/reference/{new_ref.id}", status_code=303)
+async def add_reference(request: Request, title: str = Form(...), db: Session = Depends(get_db)):
+    # 세션에서 현재 로그인한 사용자 이름 가져오기
+    username = request.session.get("user")
+    user = db.query(User).filter(User.username == username).first()
+    
+    try:
+        new_ref = Reference(title=title, last_modified_by_id=user.id if user else None)
+        db.add(new_ref)
+        db.commit()
+        db.refresh(new_ref)
+        return RedirectResponse(url=f"/marketing/reference/{new_ref.id}", status_code=303)
+    except IntegrityError:
+        # 중복된 제목 오류 처리
+        db.rollback()
+        return RedirectResponse(url="/marketing/cafe?tab=references&error=duplicate_reference", status_code=303)
+
+@router.post("/reference/delete/{ref_id}", response_class=RedirectResponse)
+async def delete_reference(ref_id: int, db: Session = Depends(get_db)):
+    ref_to_delete = db.query(Reference).filter(Reference.id == ref_id).first()
+    if ref_to_delete:
+        db.delete(ref_to_delete)
+        db.commit()
+    return RedirectResponse(url="/marketing/cafe?tab=references", status_code=303)
 
 @router.get("/reference/{ref_id}", response_class=HTMLResponse)
 async def get_reference_detail(request: Request, ref_id: int, db: Session = Depends(get_db)):
     reference = db.query(Reference).filter(Reference.id == ref_id).first()
-    
     all_comments = db.query(Comment).filter(Comment.reference_id == ref_id).order_by(Comment.created_at).all()
     comment_map = {c.id: c for c in all_comments}
     top_level_comments = []
@@ -84,7 +100,6 @@ async def get_reference_detail(request: Request, ref_id: int, db: Session = Depe
                 parent.structured_replies.append(comment)
         else:
             top_level_comments.append(comment)
-
     return templates.TemplateResponse("reference_detail.html", {
         "request": request,
         "reference": reference,
@@ -92,13 +107,27 @@ async def get_reference_detail(request: Request, ref_id: int, db: Session = Depe
     })
 
 @router.post("/reference/update/{ref_id}", response_class=RedirectResponse)
-async def update_reference(ref_id: int, title: str = Form(...), content: str = Form(""), db: Session = Depends(get_db)):
+async def update_reference(
+    request: Request,
+    ref_id: int, 
+    title: str = Form(...), 
+    content: str = Form(""), 
+    ref_type: str = Form(...),
+    db: Session = Depends(get_db)
+):
+    # 세션에서 현재 로그인한 사용자 이름으로 ID 찾기
+    username = request.session.get("user")
+    user = db.query(User).filter(User.username == username).first()
+    
     reference = db.query(Reference).filter(Reference.id == ref_id).first()
     if reference:
         reference.title = title
         reference.content = content
+        reference.ref_type = ref_type
+        reference.last_modified_by_id = user.id if user else None
         db.commit()
     return RedirectResponse(url=f"/marketing/reference/{ref_id}", status_code=303)
+
 
 @router.post("/comment/add/{ref_id}", response_class=RedirectResponse)
 async def add_comment(

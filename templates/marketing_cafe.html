@@ -1,6 +1,27 @@
 {% extends "base.html" %}
 {% block title %}마케팅 - 카페 관리{% endblock %}
 
+{% block head %}
+{{ super() }}
+<style>
+  .ref-badge {
+    display: inline-block;
+    padding: 0.35em 0.65em;
+    font-size: .75em;
+    font-weight: 700;
+    line-height: 1;
+    color: #fff;
+    text-align: center;
+    white-space: nowrap;
+    vertical-align: baseline;
+    border-radius: 0.25rem;
+  }
+  .ref-대안 { background-color: #fa5252; } /* 빨강 */
+  .ref-정보 { background-color: #228be6; } /* 파랑 */
+  .ref-기타 { background-color: #40c057; } /* 초록 */
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="container mt-4">
     <div class="d-flex justify-content-between align-items-center mb-4">
@@ -135,18 +156,43 @@
         <div class="tab-pane fade" id="references-tab-pane" role="tabpanel">
             <div class="p-3 border-start border-end border-bottom">
                 <h3 class="mb-3">신규 레퍼런스 생성</h3>
+                {% if error == 'duplicate_reference' %}
+                <div class="alert alert-danger" role="alert">
+                    이미 사용 중인 레퍼런스 제목입니다.
+                </div>
+                {% endif %}
                 <form action="/marketing/reference/add" method="post" class="mb-4 p-3 border rounded bg-light">
                     <div class="row g-3 align-items-end">
                         <div class="col-md-10"><label class="form-label">레퍼런스 제목</label><input type="text" name="title" class="form-control" required></div>
                         <div class="col-md-2"><button type="submit" class="btn btn-primary w-100">➕ 생성</button></div>
                     </div>
                 </form>
+
                 <h3 class="mb-3">저장된 레퍼런스 목록</h3>
-                <div class="list-group">
-                    {% for ref in references %}
-                    <a href="/marketing/reference/{{ ref.id }}" class="list-group-item list-group-item-action">{{ ref.title }}</a>
-                    {% endfor %}
-                </div>
+                <table class="table table-hover align-middle">
+                    <thead class="table-dark">
+                        <tr>
+                            <th style="width: 10%;">분류</th>
+                            <th>제목</th>
+                            <th style="width: 15%;">마지막 수정자</th>
+                            <th style="width: 10%;" class="text-center">삭제</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for ref in references %}
+                        <tr>
+                            <td><span class="ref-badge ref-{{ ref.ref_type or '기타' }}">{{ ref.ref_type or '미지정' }}</span></td>
+                            <td><a href="/marketing/reference/{{ ref.id }}" class="text-decoration-none">{{ ref.title }}</a></td>
+                            <td>{{ ref.last_modified_by.username if ref.last_modified_by else '없음' }}</td>
+                            <td class="text-center">
+                                <form action="/marketing/reference/delete/{{ ref.id }}" method="post" onsubmit="return confirm('\'{{ ref.title }}\' 레퍼런스를 정말 삭제하시겠습니까?');">
+                                    <button type="submit" class="btn btn-sm btn-outline-danger">삭제</button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
             </div>
         </div>
 
