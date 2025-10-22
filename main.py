@@ -1,41 +1,40 @@
 from fastapi import FastAPI, Request
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from starlette.middleware.sessions import SessionMiddleware
+from datetime import date # date 추가
+
 from database import Base, engine, SessionLocal, User
-from routers import auth
-from routers import admin_users
-from routers import product, marketing
+from routers import auth, admin_users, product, marketing
 
 
 app = FastAPI()
-app.add_middleware(SessionMiddleware, secret_key="서하성")
+app.add_middleware(SessionMiddleware, secret_key="서하성", max_age=None) # max_age=None으로 설정
 
 templates = Jinja2Templates(directory="templates")
 
-# DB 초기화
-Base.metadata.create_all(bind=engine)
-
-# ✅ 최초 관리자 계정 생성 (main.py에서 호출)
-# database.py에서 import 해 와서 사용합니다.
-from database import create_super_admin
-create_super_admin()
+# DB 초기화 (Alembic이 관리하므로 주석 처리 또는 삭제)
+# Base.metadata.create_all(bind=engine)
 
 # 라우터 등록
-app.include_router(auth.router)         # 로그인 등
+app.include_router(auth.router)
 app.include_router(admin_users.router, prefix="/admin")
 app.include_router(product.router)
 app.include_router(marketing.router)
 
 @app.get("/", response_class=HTMLResponse)
 def read_root(request: Request):
+    # --- ▼ 일일 세션 만료 기능 추가 ▼ ---
+    # 페이지에 접근할 때마다 로그인한 날짜가 오늘과 같은지 확인
+    if request.session.get("login_date") != date.today().isoformat():
+        request.session.clear() # 날짜가 다르면 세션 초기화
+    # --- ▲ 일일 세션 만료 기능 추가 ▲ ---
+
     username = request.session.get("user")
-    # 세션에서 권한 정보 가져오기 (없으면 False)
     is_admin = request.session.get("is_admin", False)
     can_manage_products = request.session.get("can_manage_products", False)
     can_manage_marketing = request.session.get("can_manage_marketing", False)
 
-    # 최고 관리자는 모든 권한을 가짐
     if is_admin:
         can_manage_products = True
         can_manage_marketing = True
