@@ -8,56 +8,175 @@
         <a href="/" class="btn btn-secondary">← 홈으로</a>
     </div>
 
-    <!-- 새로운 카페 등록 폼 -->
-    <form action="/marketing/cafe/add" method="post" class="mb-4 p-3 border rounded bg-light">
-        <div class="row g-3 align-items-center">
-            <div class="col-md-5">
-                <label for="cafeName" class="visually-hidden">카페 이름</label>
-                <input type="text" name="name" id="cafeName" class="form-control" placeholder="카페 이름 (예: 맘스홀릭)" required>
-            </div>
-            <div class="col-md-5">
-                <label for="cafeUrl" class="visually-hidden">카페 URL</label>
-                <input type="url" name="url" id="cafeUrl" class="form-control" placeholder="카페 URL 주소" required>
-            </div>
-            <div class="col-md-2">
-                <button type="submit" class="btn btn-primary w-100">➕ 추가</button>
+    <!-- 탭 메뉴 -->
+    <ul class="nav nav-tabs" id="myTab" role="tablist">
+        <li class="nav-item" role="presentation">
+            <a class="nav-link {{ 'active' if active_tab == 'status' else '' }}" href="/marketing/cafe?tab=status">📊 전체 현황</a>
+        </li>
+        <li class="nav-item" role="presentation">
+            <a class="nav-link {{ 'active' if active_tab == 'products' else '' }}" href="/marketing/cafe?tab=products">📦 상품 관리</a>
+        </li>
+        <li class="nav-item" role="presentation">
+            <a class="nav-link {{ 'active' if active_tab == 'accounts' else '' }}" href="/marketing/cafe?tab=accounts">🔑 계정 관리</a>
+        </li>
+        <li class="nav-item" role="presentation">
+            <a class="nav-link {{ 'active' if active_tab == 'cafes' else '' }}" href="/marketing/cafe?tab=cafes">📋 카페 관리</a>
+        </li>
+    </ul>
+
+    <!-- 탭 콘텐츠 -->
+    <div class="tab-content" id="myTabContent">
+        <!-- 전체 현황 탭 -->
+        <div class="tab-pane fade {{ 'show active' if active_tab == 'status' else '' }}" id="status-tab-pane" role="tabpanel">
+            <div class="p-5 text-center border-start border-end border-bottom">
+                (TODO: 전체 현황 대시보드가 여기에 표시될 예정입니다.)
             </div>
         </div>
-    </form>
+        
+        <!-- 상품 관리 탭 -->
+        <div class="tab-pane fade {{ 'show active' if active_tab == 'products' else '' }}" id="products-tab-pane" role="tabpanel">
+            <div class="p-3 border-start border-end border-bottom">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h3 class="mb-0">마케팅 상품 목록</h3>
+                    <a href="/marketing/product-selection" class="btn btn-success">➕ 마케팅 상품 추가</a>
+                </div>
 
-    <!-- 등록된 카페 목록 테이블 -->
-    <table class="table table-bordered table-hover text-center align-middle">
-        <thead class="table-dark">
-            <tr>
-                <th scope="col" style="width: 5%;">#</th>
-                <th scope="col" style="width: 35%;">카페 이름</th>
-                <th scope="col">URL</th>
-                <th scope="col" style="width: 10%;">관리</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% if cafes %}
-                {% for cafe in cafes %}
-                <tr>
-                    <th scope="row">{{ cafe.id }}</th>
-                    <td>{{ cafe.name }}</td>
-                    <td class="text-start"><a href="{{ cafe.url }}" target="_blank" class="text-decoration-none">{{ cafe.url }}</a></td>
-                    <td>
-                        <form action="/marketing/cafe/delete/{{ cafe.id }}" method="post" onsubmit="return confirm('정말 삭제하시겠습니까?');" class="d-inline">
-                            <button type="submit" class="btn btn-sm btn-outline-danger">삭제</button>
-                        </form>
-                    </td>
-                </tr>
-                {% endfor %}
-            {% else %}
-                <tr>
-                    <td colspan="4" class="text-center p-5">등록된 타겟 카페가 없습니다.</td>
-                </tr>
-            {% endif %}
-        </tbody>
-    </table>
-    
-    <!-- TODO: 향후 계정 관리, 템플릿 관리, 일일 작업 목록 섹션이 추가될 예정입니다. -->
+                <table class="table table-bordered table-hover text-center align-middle">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>상품 ID</th>
+                            <th>썸네일</th>
+                            <th>상품명</th>
+                            <th>관리</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for mp in marketing_products %}
+                        <tr>
+                            <td>{{ mp.product.product_code }}</td>
+                            <td><img src="{{ mp.product.thumbnail }}" width="60" alt="썸네일"></td>
+                            <td class="text-start">{{ mp.product.name }}</td>
+                            <td>
+                                <a href="#" class="btn btn-sm btn-outline-primary">키워드 관리</a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- 계정 관리 탭 -->
+        <div class="tab-pane fade {{ 'show active' if active_tab == 'accounts' else '' }}" id="accounts-tab-pane" role="tabpanel">
+            <div class="p-3 border-start border-end border-bottom">
+                <h3 class="mb-3">신규 계정 등록</h3>
+                <form action="/marketing/account/add" method="post" class="mb-4 p-3 border rounded bg-light">
+                    <div class="row g-3 align-items-center">
+                        <div class="col-md-3"><input type="text" name="account_id" class="form-control" placeholder="네이버 아이디" required></div>
+                        <div class="col-md-3"><input type="password" name="account_pw" class="form-control" placeholder="비밀번호" required></div>
+                        <div class="col-md-4"><input type="text" name="ip_address" class="form-control" placeholder="IP 주소 (선택 사항)"></div>
+                        <div class="col-md-2"><button type="submit" class="btn btn-primary w-100">➕ 추가</button></div>
+                    </div>
+                </form>
+
+                <h3 class="mb-3">등록된 계정 목록</h3>
+                <table class="table table-bordered table-hover text-center align-middle">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>#</th>
+                            <th>플랫폼</th>
+                            <th>아이디</th>
+                            <th>IP 주소</th>
+                            <th>관리</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for acc in accounts %}
+                        <tr>
+                            <td>{{ acc.id }}</td>
+                            <td>{{ acc.platform }}</td>
+                            <td>{{ acc.account_id }}</td>
+                            <td>{{ acc.ip_address or '-' }}</td>
+                            <td>
+                                <form action="/marketing/account/delete/{{ acc.id }}" method="post" onsubmit="return confirm('정말 삭제하시겠습니까?');">
+                                    <button type="submit" class="btn btn-sm btn-outline-danger">삭제</button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- 카페 관리 탭 -->
+        <div class="tab-pane fade {{ 'show active' if active_tab == 'cafes' else '' }}" id="cafes-tab-pane" role="tabpanel">
+            <div class="p-3 border-start border-end border-bottom">
+                <h3 class="mb-3">신규 타겟 카페 등록</h3>
+                <form action="/marketing/cafe/add" method="post" class="mb-4 p-3 border rounded bg-light">
+                    <div class="row g-3 align-items-center">
+                        <div class="col-md-5"><input type="text" name="name" class="form-control" placeholder="카페 이름" required></div>
+                        <div class="col-md-5"><input type="url" name="url" class="form-control" placeholder="카페 URL" required></div>
+                        <div class="col-md-2"><button type="submit" class="btn btn-primary w-100">➕ 추가</button></div>
+                    </div>
+                </form>
+
+                <h3 class="mb-3">등록된 카페 목록</h3>
+                <table class="table table-bordered table-hover text-center align-middle">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>#</th>
+                            <th>카페 이름</th>
+                            <th>URL</th>
+                            <th>활동 정지</th>
+                            <th>관리</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for cafe in cafes %}
+                        <tr>
+                            <td>{{ cafe.id }}</td>
+                            <td>{{ cafe.name }}</td>
+                            <td class="text-start"><a href="{{ cafe.url }}" target="_blank">{{ cafe.url }}</a></td>
+                            <td>{{ '정지' if cafe.is_suspended else '활동중' }}</td>
+                            <td>
+                                <form action="/marketing/cafe/delete/{{ cafe.id }}" method="post" onsubmit="return confirm('정말 삭제하시겠습니까?');">
+                                    <button type="submit" class="btn btn-sm btn-outline-danger">삭제</button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
 </div>
+
+<script>
+    // URL 파라미터를 기반으로 올바른 탭을 활성화하는 간단한 스크립트
+    document.addEventListener('DOMContentLoaded', function() {
+        const params = new URLSearchParams(window.location.search);
+        const tab = params.get('tab');
+        
+        // 탭 파라미터가 없으면 'status'를 기본값으로 사용
+        const activeTab = tab || 'status';
+
+        const tabEl = document.querySelector(`a[href*="?tab=${activeTab}"]`);
+        if(tabEl) {
+            // 기존 active 클래스 제거
+            document.querySelectorAll('.nav-link.active').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.tab-pane.show.active').forEach(el => el.classList.remove('show', 'active'));
+
+            // 새 탭 활성화
+            tabEl.classList.add('active');
+            const paneId = activeTab + '-tab-pane';
+            const paneEl = document.getElementById(paneId);
+            if (paneEl) {
+                paneEl.classList.add('show', 'active');
+            }
+        }
+    });
+</script>
 {% endblock %}
 

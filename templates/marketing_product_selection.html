@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}마케팅 상품 추가{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="card shadow-sm">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h3 class="mb-0">📦 마케팅 상품 추가</h3>
+            <a href="/marketing/cafe?tab=products" class="btn btn-secondary">← 뒤로가기</a>
+        </div>
+        <div class="card-body">
+            <p class="card-text text-muted">마케팅을 진행할 상품을 아래 목록에서 선택하여 '추가' 버튼을 누르세요. 이미 등록된 상품은 목록에 나타나지 않습니다.</p>
+
+            <table class="table table-bordered table-hover text-center align-middle">
+                <thead class="table-dark">
+                    <tr>
+                        <th>상품 ID</th>
+                        <th>썸네일</th>
+                        <th>상품명</th>
+                        <th style="width: 10%;">추가</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% if products %}
+                        {% for p in products %}
+                        <tr>
+                            <td>{{ p.product_code }}</td>
+                            <td><img src="{{ p.thumbnail }}" width="60" alt="썸네일"></td>
+                            <td class="text-start">{{ p.name }}</td>
+                            <td>
+                                <form action="/marketing/product/add/{{ p.id }}" method="post">
+                                    <button type="submit" class="btn btn-sm btn-primary">추가</button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    {% else %}
+                        <tr>
+                            <td colspan="4" class="text-center p-5">추가할 수 있는 상품이 없습니다.</td>
+                        </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
