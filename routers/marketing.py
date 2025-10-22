@@ -122,11 +122,13 @@ async def add_comment(
 async def edit_comment(
     ref_id: int,
     comment_id: int,
+    account_sequence: int = Form(...),
     text: str = Form(...),
     db: Session = Depends(get_db)
 ):
     comment_to_edit = db.query(Comment).filter(Comment.id == comment_id).first()
     if comment_to_edit:
+        comment_to_edit.account_sequence = account_sequence
         comment_to_edit.text = text
         db.commit()
     return RedirectResponse(url=f"/marketing/reference/{ref_id}", status_code=303)
