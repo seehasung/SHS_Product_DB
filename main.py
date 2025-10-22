@@ -16,7 +16,7 @@ app.add_middleware(
     secret_key="서하성",
     max_age=None,
     https_only=True,  # HTTPS에서만 쿠키 사용
-    samesite='none'   # 리다이렉트 후에도 쿠키 전송 허용
+    same_site='none'   # samesite -> same_site 로 오타 수정
 )
 # --- ▲▲▲ 세션 미들웨어 설정 수정 ▲▲▲ ---
 
