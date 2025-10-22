@@ -49,8 +49,8 @@ class MarketingAccount(Base):
     account_id = Column(String, unique=True, index=True)
     account_pw = Column(String) # 암호화 제거, 텍스트로 저장
     ip_address = Column(String, nullable=True)
-    category = Column(String, nullable=False) # '분류' 필드 추가
-
+    category = Column(String, nullable=False, server_default='최적화') # 기본값을 '최적화'로 설정
+    
 # (TargetCafe, CafeMembership 등 다른 모델은 변경 없음)
 class TargetCafe(Base):
     __tablename__ = "target_cafes"
