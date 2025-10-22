@@ -5,6 +5,11 @@ from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 import json
 
+from database import (
+    SessionLocal, TargetCafe, MarketingAccount, Product, MarketingProduct, 
+    CafeMembership, Reference, Comment
+)
+
 from database import SessionLocal, TargetCafe, MarketingAccount, Product, MarketingProduct, CafeMembership
 
 router = APIRouter(prefix="/marketing")
@@ -50,6 +55,67 @@ async def marketing_cafe(request: Request, db: Session = Depends(get_db)):
         "category_filter": category_filter, "error": error_message,
         "active_tab": tab
     })
+
+@router.post("/reference/add", response_class=RedirectResponse)
+async def add_reference(title: str = Form(...), db: Session = Depends(get_db)):
+    """새로운 레퍼런스를 생성하는 라우트"""
+    new_ref = Reference(title=title, content="", ref_type="일반")
+    db.add(new_ref)
+    db.commit()
+    # 생성 후 상세 페이지로 바로 이동
+    db.refresh(new_ref)
+    return RedirectResponse(url=f"/marketing/reference/{new_ref.id}", status_code=303)
+
+@router.get("/reference/{ref_id}", response_class=HTMLResponse)
+async def get_reference_detail(request: Request, ref_id: int, db: Session = Depends(get_db)):
+    """레퍼런스 상세 페이지를 보여주는 라우트"""
+    reference = db.query(Reference).filter(Reference.id == ref_id).first()
+    
+    # 댓글을 계층 구조로 정렬 (효율적인 방식)
+    all_comments = db.query(Comment).filter(Comment.reference_id == ref_id).order_by(Comment.created_at).all()
+    comment_map = {c.id: c for c in all_comments}
+    top_level_comments = []
+    for comment in all_comments:
+        if comment.parent_id:
+            parent = comment_map.get(comment.parent_id)
+            if parent:
+                # 'structured_replies' 속성이 없으면 새로 생성
+                if not hasattr(parent, 'structured_replies'):
+                    parent.structured_replies = []
+                parent.structured_replies.append(comment)
+        else:
+            top_level_comments.append(comment)
+
+    return templates.TemplateResponse("reference_detail.html", {
+        "request": request,
+        "reference": reference,
+        "comments": top_level_comments
+    })
+
+@router.post("/reference/update/{ref_id}", response_class=RedirectResponse)
+async def update_reference(ref_id: int, title: str = Form(...), content: str = Form(""), db: Session = Depends(get_db)):
+    """레퍼런스 제목과 본문을 수정하는 라우트"""
+    reference = db.query(Reference).filter(Reference.id == ref_id).first()
+    if reference:
+        reference.title = title
+        reference.content = content
+        db.commit()
+    return RedirectResponse(url=f"/marketing/reference/{ref_id}", status_code=303)
+
+@router.post("/comment/add/{ref_id}", response_class=RedirectResponse)
+async def add_comment(
+    ref_id: int,
+    text: str = Form(...),
+    parent_id: int = Form(None), # 대댓글인 경우 부모 댓글 ID
+    db: Session = Depends(get_db)
+):
+    """새 댓글 또는 대댓글을 추가하는 라우트"""
+    new_comment = Comment(text=text, reference_id=ref_id, parent_id=parent_id)
+    db.add(new_comment)
+    db.commit()
+    return RedirectResponse(url=f"/marketing/reference/{ref_id}", status_code=303)
+
+
 
 # --- 키워드 관리 ---
 @router.get("/product/keywords/{mp_id}", response_class=HTMLResponse)

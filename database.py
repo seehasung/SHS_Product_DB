@@ -41,17 +41,15 @@ class Product(Base):
 
 # --- ▼▼▼ 수정된 마케팅 모델 ▼▼▼ ---
 
-# 포스팅 계정 (Naver ID 등)
 class MarketingAccount(Base):
     __tablename__ = "marketing_accounts"
     id = Column(Integer, primary_key=True, index=True)
     platform = Column(String, default="Naver")
     account_id = Column(String, unique=True, index=True)
-    account_pw = Column(String) # 암호화 제거, 텍스트로 저장
+    account_pw = Column(String)
     ip_address = Column(String, nullable=True)
-    category = Column(String, nullable=False, server_default='최적화') # 기본값을 '최적화'로 설정
-    
-# (TargetCafe, CafeMembership 등 다른 모델은 변경 없음)
+    category = Column(String, nullable=False, server_default='최적화')
+
 class TargetCafe(Base):
     __tablename__ = "target_cafes"
     id = Column(Integer, primary_key=True, index=True)
@@ -61,14 +59,11 @@ class TargetCafe(Base):
 class CafeMembership(Base):
     __tablename__ = "cafe_memberships"
     id = Column(Integer, primary_key=True, index=True)
-    # --- ▼▼▼ ondelete="CASCADE" 추가 ▼▼▼ ---
     account_id = Column(Integer, ForeignKey("marketing_accounts.id", ondelete="CASCADE"))
     cafe_id = Column(Integer, ForeignKey("target_cafes.id", ondelete="CASCADE"))
-    # --- ▲▲▲ ondelete="CASCADE" 추가 ▲▲▲ ---
     status = Column(String, default="active")
     new_post_count = Column(Integer, default=0)
     edited_post_count = Column(Integer, default=0)
-
     account = relationship("MarketingAccount")
     cafe = relationship("TargetCafe")
 
@@ -76,7 +71,7 @@ class MarketingProduct(Base):
     __tablename__ = "marketing_products"
     id = Column(Integer, primary_key=True, index=True)
     product_id = Column(Integer, ForeignKey("products.id"))
-    keywords = Column(Text)
+    keywords = Column(Text, nullable=True)
     product = relationship("Product")
 
 class Reference(Base):
@@ -84,7 +79,23 @@ class Reference(Base):
     id = Column(Integer, primary_key=True, index=True)
     title = Column(String)
     content = Column(Text)
-    ref_type = Column(String)
+    ref_type = Column(String) # 예: 카페_신규, 블로그_정보
+    comments = relationship("Comment", back_populates="reference", cascade="all, delete-orphan")
+
+# --- ▼▼▼ 신규 Comment 모델 추가 ▼▼▼ ---
+class Comment(Base):
+    __tablename__ = "comments"
+    id = Column(Integer, primary_key=True, index=True)
+    text = Column(Text, nullable=False)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    
+    reference_id = Column(Integer, ForeignKey("references.id", ondelete="CASCADE"))
+    parent_id = Column(Integer, ForeignKey("comments.id", ondelete="CASCADE"), nullable=True) # 대댓글을 위한 자기 참조
+
+    reference = relationship("Reference", back_populates="comments")
+    parent = relationship("Comment", remote_side=[id], back_populates="replies")
+    replies = relationship("Comment", back_populates="parent", cascade="all, delete-orphan")
+# --- ▲▲▲ 신규 Comment 모델 추가 ▲▲▲ ---
 
 class PostLog(Base):
     __tablename__ = "post_logs"
@@ -92,20 +103,15 @@ class PostLog(Base):
     posted_at = Column(DateTime, default=datetime.datetime.utcnow)
     post_url = Column(String, nullable=True)
     status = Column(String)
-    
     membership_id = Column(Integer, ForeignKey("cafe_memberships.id", ondelete="CASCADE"))
     keyword_used = Column(String)
     reference_id = Column(Integer, ForeignKey("references.id"))
     worker_id = Column(Integer, ForeignKey("users.id"))
-    
     membership = relationship("CafeMembership")
     reference = relationship("Reference")
     worker = relationship("User")
 
-# --- ▲▲▲ 수정된 마케팅 모델 ▲▲▲ ---
-
 __all__ = [
     "User", "Product", "MarketingAccount", "TargetCafe", "CafeMembership",
-    "MarketingProduct", "Reference", "PostLog", "SessionLocal", "Base"
+    "MarketingProduct", "Reference", "PostLog", "Comment", "SessionLocal", "Base"
 ]
-

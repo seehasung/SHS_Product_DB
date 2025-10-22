@@ -25,6 +25,9 @@
         <li class="nav-item" role="presentation">
             <a class="nav-link {{ 'active' if active_tab == 'cafes' else '' }}" href="/marketing/cafe?tab=cafes">📋 카페 관리</a>
         </li>
+        <li class="nav-item" role="presentation">
+            <a class="nav-link" id="references-tab" data-bs-toggle="tab" href="#references-tab-pane" role="tab">📝 레퍼런스 관리</a>
+        </li>
     </ul>
 
     <!-- 탭 콘텐츠 -->
@@ -244,6 +247,28 @@
                 </table>
             </div>
         </div>
+
+        <!-- 레퍼런스 관리 탭 -->
+        <div class="tab-pane fade" id="references-tab-pane" role="tabpanel">
+            <div class="p-3 border-start border-end border-bottom">
+                <h3 class="mb-3">신규 레퍼런스 생성</h3>
+                <form action="/marketing/reference/add" method="post" class="mb-4 p-3 border rounded bg-light">
+                    <div class="row g-3 align-items-end">
+                        <div class="col-md-10"><label class="form-label">레퍼런스 제목</label><input type="text" name="title" class="form-control" required></div>
+                        <div class="col-md-2"><button type="submit" class="btn btn-primary w-100">➕ 생성</button></div>
+                    </div>
+                </form>
+
+                <h3 class="mb-3">저장된 레퍼런스 목록</h3>
+                <div class="list-group">
+                    {% for ref in references %}
+                    <a href="/marketing/reference/{{ ref.id }}" class="list-group-item list-group-item-action">
+                        {{ ref.title }}
+                    </a>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -271,6 +296,13 @@
                 paneEl.classList.add('show', 'active');
             }
         }
+        
+        const triggerEl = document.querySelector(`#${tab}-tab`);
+        if (triggerEl) {
+            const tabTrigger = new bootstrap.Tab(triggerEl);
+            tabTrigger.show();
+        }    
+        
     });
 </script>
 {% endblock %}
