@@ -78,6 +78,25 @@ async def add_marketing_account(
     db.commit()
     return RedirectResponse(url="/marketing/cafe?tab=accounts", status_code=303)
 
+@router.post("/account/update/{account_id}", response_class=RedirectResponse)
+async def update_marketing_account(
+    account_id: int,
+    edit_account_id: str = Form(...),
+    edit_account_pw: str = Form(...),
+    edit_category: str = Form(...),
+    edit_ip_address: str = Form(None),
+    db: Session = Depends(get_db)
+):
+    account_to_update = db.query(MarketingAccount).filter(MarketingAccount.id == account_id).first()
+    if account_to_update:
+        account_to_update.account_id = edit_account_id
+        account_to_update.account_pw = edit_account_pw
+        account_to_update.category = edit_category
+        account_to_update.ip_address = edit_ip_address
+        db.commit()
+    
+    return RedirectResponse(url="/marketing/cafe?tab=accounts", status_code=303)
+
 @router.post("/account/delete/{account_id}", response_class=RedirectResponse)
 async def delete_marketing_account(account_id: int, db: Session = Depends(get_db)):
     account_to_delete = db.query(MarketingAccount).filter(MarketingAccount.id == account_id).first()
@@ -85,6 +104,8 @@ async def delete_marketing_account(account_id: int, db: Session = Depends(get_db
         db.delete(account_to_delete)
         db.commit()
     return RedirectResponse(url="/marketing/cafe?tab=accounts", status_code=303)
+
+
 
 # --- 카페-계정 연동 관리 ---
 @router.post("/membership/add", response_class=RedirectResponse)
