@@ -51,12 +51,20 @@ def show_login_form(request: Request):
 def login_user(request: Request, username: str = Form(...), password: str = Form(...)):
     db: Session = SessionLocal()
     user = db.query(User).filter(User.username == username).first()
+    db.close() # DB 세션은 여기서 닫아도 됩니다.
+
     if not user or not bcrypt.verify(password, user.password):
         return templates.TemplateResponse("login.html", {
             "request": request,
             "error": "아이디 또는 비밀번호가 잘못되었습니다."
         })
+
+    # 세션에 사용자 이름과 권한 정보 저장
     request.session["user"] = username
+    request.session["is_admin"] = user.is_admin
+    request.session["can_manage_products"] = user.can_manage_products
+    request.session["can_manage_marketing"] = user.can_manage_marketing
+
     log_event(f"✅ 로그인: {username}")
     return RedirectResponse("/", status_code=302)
 

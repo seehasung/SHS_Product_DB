@@ -5,7 +5,7 @@ from starlette.middleware.sessions import SessionMiddleware
 from database import Base, engine, SessionLocal, User
 from routers import auth
 from routers import admin_users
-from routers import product
+from routers import product, marketing
 
 
 app = FastAPI()
@@ -25,20 +25,25 @@ create_super_admin()
 app.include_router(auth.router)         # 로그인 등
 app.include_router(admin_users.router, prefix="/admin")
 app.include_router(product.router)
+app.include_router(marketing.router)
 
 @app.get("/", response_class=HTMLResponse)
 def read_root(request: Request):
     username = request.session.get("user")
-    is_admin = False
-    if username:
-        db = SessionLocal()
-        user = db.query(User).filter(User.username == username).first()
-        db.close()
-        if user:
-            is_admin = user.is_admin
+    # 세션에서 권한 정보 가져오기 (없으면 False)
+    is_admin = request.session.get("is_admin", False)
+    can_manage_products = request.session.get("can_manage_products", False)
+    can_manage_marketing = request.session.get("can_manage_marketing", False)
+
+    # 최고 관리자는 모든 권한을 가짐
+    if is_admin:
+        can_manage_products = True
+        can_manage_marketing = True
 
     return templates.TemplateResponse("index.html", {
         "request": request,
         "username": username,
-        "is_admin": is_admin
+        "is_admin": is_admin,
+        "can_manage_products": can_manage_products,
+        "can_manage_marketing": can_manage_marketing
     })
