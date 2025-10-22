@@ -8,23 +8,63 @@
         <a href="/marketing/cafe?tab=products" class="btn btn-secondary">← 목록으로</a>
     </div>
 
-    <div class="card shadow-sm">
-        <div class="card-header">
-            상품명: <strong>{{ marketing_product.product.name }}</strong>
-        </div>
-        <div class="card-body">
-            <form action="/marketing/product/keywords/{{ marketing_product.id }}" method="post">
-                <div class="mb-3">
-                    <label for="keywords" class="form-label">타겟 키워드 (한 줄에 하나씩 입력)</label>
-                    <textarea class="form-control" id="keywords" name="keywords" rows="15" 
-                              placeholder="예시)
+    <div class="row g-5">
+        <!-- 왼쪽: 키워드 대량 입력/수정 -->
+        <div class="col-md-6">
+            <div class="card shadow-sm h-100">
+                <div class="card-header">
+                    상품명: <strong>{{ marketing_product.product.name }}</strong>
+                </div>
+                <div class="card-body">
+                    <form action="/marketing/product/keywords/{{ marketing_product.id }}" method="post">
+                        <div class="mb-3">
+                            <label for="keywords" class="form-label">타겟 키워드 (한 줄에 하나씩 입력)</label>
+                            <textarea class="form-control" id="keywords" name="keywords" rows="15" 
+                                      placeholder="예시)
 강아지 자동 장난감
 고양이 츄르 추천
-앵무새 영양제">{{ marketing_product.keywords }}</textarea>
+앵무새 영양제">{{ keywords_text }}</textarea>
+                        </div>
+                        <button type="submit" class="btn btn-primary">저장하기</button>
+                    </form>
                 </div>
-                <button type="submit" class="btn btn-primary">저장하기</button>
-            </form>
+            </div>
+        </div>
+
+        <!-- 오른쪽: 개별 키워드 On/Off 관리 -->
+        <div class="col-md-6">
+            <div class="card shadow-sm h-100">
+                <div class="card-header">
+                    <strong>키워드 활성화 관리</strong>
+                </div>
+                <div class="card-body" style="max-height: 500px; overflow-y: auto;">
+                    {% if keywords_list %}
+                        <ul class="list-group">
+                            {% for item in keywords_list %}
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                <span>{{ item.keyword }}</span>
+                                <form action="/marketing/product/keywords/toggle/{{ marketing_product.id }}" method="post">
+                                    <input type="hidden" name="keyword" value="{{ item.keyword }}">
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input" type="checkbox" role="switch" 
+                                               id="switch-{{ loop.index }}" 
+                                               {{ 'checked' if item.active else '' }}
+                                               onchange="this.form.submit()">
+                                    </div>
+                                </form>
+                            </li>
+                            {% endfor %}
+                        </ul>
+                    {% else %}
+                        <div class="text-center p-5">
+                            <p>저장된 키워드가 없습니다.</p>
+                            <p class="text-muted small">왼쪽 입력창에 키워드를 입력하고 저장해주세요.</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
         </div>
     </div>
 </div>
 {% endblock %}
+
