@@ -86,11 +86,12 @@ class Reference(Base):
 class Comment(Base):
     __tablename__ = "comments"
     id = Column(Integer, primary_key=True, index=True)
+    account_sequence = Column(Integer) # 계정 순번 필드 추가
     text = Column(Text, nullable=False)
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
     
     reference_id = Column(Integer, ForeignKey("references.id", ondelete="CASCADE"))
-    parent_id = Column(Integer, ForeignKey("comments.id", ondelete="CASCADE"), nullable=True) # 대댓글을 위한 자기 참조
+    parent_id = Column(Integer, ForeignKey("comments.id", ondelete="CASCADE"), nullable=True)
 
     reference = relationship("Reference", back_populates="comments")
     parent = relationship("Comment", remote_side=[id], back_populates="replies")
