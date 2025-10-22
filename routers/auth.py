@@ -1,9 +1,9 @@
-from fastapi import APIRouter, Request, Form, Depends
+from fastapi import APIRouter, Request, Form
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 from passlib.hash import bcrypt
-from datetime import datetime
+from datetime import datetime, date # date 추가
 import os
 
 from database import SessionLocal, User
@@ -38,7 +38,10 @@ def register_user(request: Request, username: str = Form(...), password: str = F
     db.add(new_user)
     db.commit()
     db.close()
-    log_event(f"✅ 회원가입: {username}")
+    
+    ip_address = request.client.host if request.client else "N/A"
+    log_event(f"✅ 회원가입: {username} (IP: {ip_address})")
+    
     return RedirectResponse("/login?registered=true", status_code=302)
 
 # 로그인 페이지
@@ -51,7 +54,7 @@ def show_login_form(request: Request):
 def login_user(request: Request, username: str = Form(...), password: str = Form(...)):
     db: Session = SessionLocal()
     user = db.query(User).filter(User.username == username).first()
-    db.close() # DB 세션은 여기서 닫아도 됩니다.
+    db.close()
 
     if not user or not bcrypt.verify(password, user.password):
         return templates.TemplateResponse("login.html", {
@@ -59,21 +62,27 @@ def login_user(request: Request, username: str = Form(...), password: str = Form
             "error": "아이디 또는 비밀번호가 잘못되었습니다."
         })
 
-    # 세션에 사용자 이름과 권한 정보 저장
+    # 세션에 사용자 이름과 권한 정보, 그리고 로그인 날짜 저장
     request.session["user"] = username
     request.session["is_admin"] = user.is_admin
     request.session["can_manage_products"] = user.can_manage_products
     request.session["can_manage_marketing"] = user.can_manage_marketing
+    # --- ▼▼▼ 이 줄이 핵심입니다! ▼▼▼ ---
+    request.session["login_date"] = date.today().isoformat()
+    # --- ▲▲▲ 여기까지 ▲▲▲ ---
 
-    log_event(f"✅ 로그인: {username}")
+    ip_address = request.client.host if request.client else "N/A"
+    log_event(f"✅ 로그인: {username} (IP: {ip_address})")
+    
     return RedirectResponse("/", status_code=302)
 
 # 로그아웃 처리
 @router.get("/logout")
 def logout(request: Request):
     username = request.session.get("user")
+    ip_address = request.client.host if request.client else "N/A"
     request.session.clear()
-    log_event(f"🔓 로그아웃: {username}")
+    log_event(f"🔓 로그아웃: {username} (IP: {ip_address})")
     return RedirectResponse("/login", status_code=302)
 
 # 비밀번호 변경 페이지
@@ -90,17 +99,24 @@ def change_password(request: Request, current_password: str = Form(...), new_pas
     username = request.session.get("user")
     if not username:
         return RedirectResponse("/login", status_code=302)
+    
     db: Session = SessionLocal()
     user = db.query(User).filter(User.username == username).first()
+    
     if not user or not bcrypt.verify(current_password, user.password):
+        db.close()
         return templates.TemplateResponse("change_password.html", {
             "request": request,
             "error": "현재 비밀번호가 올바르지 않습니다."
         })
+    
     user.password = bcrypt.hash(new_password)
     db.commit()
     db.close()
-    log_event(f"🔑 비밀번호 변경: {username}")
+    
+    ip_address = request.client.host if request.client else "N/A"
+    log_event(f"🔑 비밀번호 변경: {username} (IP: {ip_address})")
+    
     return RedirectResponse("/", status_code=302)
 
 # 관리자 전용 로그 보기 페이지
@@ -109,19 +125,24 @@ def view_logs(request: Request):
     username = request.session.get("user")
     if not username:
         return RedirectResponse("/login", status_code=302)
+    
     db: Session = SessionLocal()
     user = db.query(User).filter(User.username == username).first()
     db.close()
+    
     if not user or not user.is_admin:
         return RedirectResponse("/", status_code=302)
+    
     log_file = "logs/user_events.log"
     if os.path.exists(log_file):
         with open(log_file, "r", encoding="utf-8") as f:
             logs = f.readlines()
     else:
-        logs = ["로그 파일이 없습니다. 로그인 또는 로그아웃 시 생성됩니다."]
+        logs = ["로그 파일이 없습니다."]
+        
     return templates.TemplateResponse("view_logs.html", {
         "request": request,
         "logs": logs,
         "username": username
     })
+
