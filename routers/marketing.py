@@ -3,14 +3,16 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy import or_
+from sqlalchemy import or_, func # func를 import합니다.
 import json
 import math
+import datetime # datetime을 import합니다.
+
 
 # Reference, Comment, User 및 신규 MarketingPost 모델을 import
 from database import (
     SessionLocal, TargetCafe, MarketingAccount, Product, MarketingProduct,
-    CafeMembership, Reference, Comment, User, MarketingPost
+    CafeMembership, Reference, Comment, User, MarketingPost, WorkTask
 )
 
 router = APIRouter(prefix="/marketing")
@@ -29,6 +31,34 @@ def get_db():
 async def marketing_cafe(request: Request, db: Session = Depends(get_db)):
     tab = request.query_params.get('tab', 'status')
     error = request.query_params.get('error')
+    
+    username = request.session.get("user")
+    current_user = db.query(User).filter(User.username == username).first()
+    
+    today = datetime.date.today()
+    work_tasks = []
+    completed_count = 0
+    daily_quota = 0
+    
+    if current_user:
+        daily_quota = current_user.daily_quota
+        
+        # 오늘 날짜로, 현재 사용자에게 할당된 모든 작업(WorkTask)을 조회
+        work_tasks_query = db.query(WorkTask).options(
+            joinedload(WorkTask.account),
+            joinedload(WorkTask.cafe),
+            joinedload(WorkTask.marketing_product).joinedload(MarketingProduct.product)
+        ).filter(
+            WorkTask.worker_id == current_user.id,
+            func.date(WorkTask.task_date) == today
+        )
+        
+        work_tasks = work_tasks_query.order_by(WorkTask.status.desc(), WorkTask.id).all()
+        
+        # 오늘 완료한 작업 수 계산
+        completed_count = sum(1 for task in work_tasks if task.status == 'done')
+    
+    remaining_tasks = daily_quota - completed_count
 
     error_messages = {
         'duplicate_account': "이미 사용 중인 아이디입니다.",
@@ -67,8 +97,63 @@ async def marketing_cafe(request: Request, db: Session = Depends(get_db)):
         "selected_cafe": selected_cafe, "status_filter": status_filter,
         "category_filter": category_filter, "error": error_message,
         "references": references, "reference_filter": reference_filter,
-        "active_tab": tab
+        "active_tab": tab,
+        "work_tasks": work_tasks,
+        "daily_quota": daily_quota,
+        "completed_count": completed_count,
+        "remaining_tasks": remaining_tasks
+        
     })
+    
+@router.post("/task/assign-next", response_class=RedirectResponse)
+async def assign_next_task(request: Request, db: Session = Depends(get_db)):
+    """현재 사용자에게 '다음 작업'을 할당하는 로직"""
+    username = request.session.get("user")
+    current_user = db.query(User).filter(User.username == username).first()
+    
+    if not current_user:
+        return RedirectResponse(url="/login", status_code=303)
+    
+    today = datetime.date.today()
+    
+    # 1. 오늘 이미 완료한 작업 수 확인
+    completed_count = db.query(WorkTask).filter(
+        WorkTask.worker_id == current_user.id,
+        func.date(WorkTask.task_date) == today,
+        WorkTask.status == 'done'
+    ).count()
+    
+    # 2. 할당량이 남았는지 확인
+    if completed_count < current_user.daily_quota:
+        # 3. 이미 진행중('todo')인 작업이 있는지 확인
+        existing_todo = db.query(WorkTask).filter(
+            WorkTask.worker_id == current_user.id,
+            WorkTask.status == 'todo'
+        ).first()
+        
+        # 4. 진행중인 작업이 없다면, 새로운 작업 할당 (TODO: 여기에 복잡한 할당 로직 구현)
+        if not existing_todo:
+            # --- (임시 로직: 첫 번째 상품의 첫 번째 키워드와 첫 번째 연동 정보를 할당) ---
+            mp = db.query(MarketingProduct).first()
+            membership = db.query(CafeMembership).filter(CafeMembership.status == 'active').first()
+            
+            if mp and membership and mp.keywords:
+                keyword = json.loads(mp.keywords)[0].get('keyword', 'N/A')
+                
+                new_task = WorkTask(
+                    task_date=today,
+                    worker_id=current_user.id,
+                    marketing_product_id=mp.id,
+                    keyword_text=keyword,
+                    account_id=membership.account_id,
+                    cafe_id=membership.cafe_id,
+                    status="todo" # '할 일' 상태로 생성
+                )
+                db.add(new_task)
+                db.commit()
+            # --- (임시 로직 끝) ---
+
+    return RedirectResponse(url="/marketing/cafe?tab=status", status_code=303)
 
 # --- Reference & Comment Management ---
 @router.post("/reference/add", response_class=RedirectResponse)

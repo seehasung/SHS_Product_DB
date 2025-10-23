@@ -13,7 +13,7 @@ engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
 Base = declarative_base()
 
-# --- 기존 User, Product 모델 (변경 없음) ---
+# --- ▼▼▼ User 모델 수정 ▼▼▼ ---
 class User(Base):
     __tablename__ = "users"
     id = Column(Integer, primary_key=True, index=True)
@@ -22,6 +22,8 @@ class User(Base):
     is_admin = Column(Boolean, default=False)
     can_manage_products = Column(Boolean, default=False)
     can_manage_marketing = Column(Boolean, default=False)
+    daily_quota = Column(Integer, default=0) # '일일 할당량' 필드 추가
+# --- ▲▲▲ User 모델 수정 ▲▲▲ ---
 
 class Product(Base):
     __tablename__ = "products"
@@ -39,8 +41,7 @@ class Product(Base):
     thumbnail = Column(String(2083), nullable=True)
     details = Column(Text, nullable=True)
 
-# --- 마케팅 모델 ---
-
+# --- (다른 모든 마케팅 모델은 변경 없음) ---
 class MarketingAccount(Base):
     __tablename__ = "marketing_accounts"
     id = Column(Integer, primary_key=True, index=True)
@@ -71,9 +72,10 @@ class MarketingProduct(Base):
     __tablename__ = "marketing_products"
     id = Column(Integer, primary_key=True, index=True)
     product_id = Column(Integer, ForeignKey("products.id"))
-    keywords = Column(Text, nullable=True)
+    keywords = Column(Text, nullable=True) # 키워드 목록 (JSON)
     product = relationship("Product")
     posts = relationship("MarketingPost", back_populates="marketing_product", cascade="all, delete-orphan")
+    tasks = relationship("WorkTask", back_populates="marketing_product", cascade="all, delete-orphan")
 
 class Reference(Base):
     __tablename__ = "references"
@@ -97,6 +99,23 @@ class Comment(Base):
     parent = relationship("Comment", remote_side=[id], back_populates="replies")
     replies = relationship("Comment", back_populates="parent", cascade="all, delete-orphan")
 
+class WorkTask(Base):
+    __tablename__ = "work_tasks"
+    id = Column(Integer, primary_key=True, index=True)
+    task_date = Column(DateTime, default=datetime.datetime.utcnow)
+    status = Column(String, default="todo")
+    worker_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    marketing_product_id = Column(Integer, ForeignKey("marketing_products.id", ondelete="CASCADE"))
+    keyword_text = Column(String)
+    account_id = Column(Integer, ForeignKey("marketing_accounts.id", ondelete="SET NULL"), nullable=True)
+    cafe_id = Column(Integer, ForeignKey("target_cafes.id", ondelete="SET NULL"), nullable=True)
+    completed_post_id = Column(Integer, ForeignKey("marketing_posts.id", ondelete="SET NULL"), nullable=True)
+    worker = relationship("User")
+    marketing_product = relationship("MarketingProduct", back_populates="tasks")
+    account = relationship("MarketingAccount")
+    cafe = relationship("TargetCafe")
+    completed_post = relationship("MarketingPost")
+
 class MarketingPost(Base):
     __tablename__ = "marketing_posts"
     id = Column(Integer, primary_key=True, index=True)
@@ -105,7 +124,7 @@ class MarketingPost(Base):
     post_comments = Column(Text, nullable=True)
     is_registration_complete = Column(Boolean, default=False)
     post_url = Column(String, nullable=True)
-    keyword_text = Column(String, index=True)
+    keyword_text = Column(String, index=True) 
     is_live = Column(Boolean, default=True)
     marketing_product_id = Column(Integer, ForeignKey("marketing_products.id", ondelete="CASCADE"))
     worker_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
@@ -116,27 +135,23 @@ class MarketingPost(Base):
     account = relationship("MarketingAccount")
     cafe = relationship("TargetCafe")
 
-# --- ▼▼▼ 'PostLog' 모델 수정 (기존 'pass' 대신 전체 내용 추가) ▼▼▼ ---
 class PostLog(Base):
     __tablename__ = "post_logs"
     id = Column(Integer, primary_key=True, index=True)
     posted_at = Column(DateTime, default=datetime.datetime.utcnow)
     post_url = Column(String, nullable=True)
-    status = Column(String) # 예: '신규', '수정'
-    
+    status = Column(String) 
     membership_id = Column(Integer, ForeignKey("cafe_memberships.id", ondelete="CASCADE"))
     keyword_used = Column(String)
     reference_id = Column(Integer, ForeignKey("references.id"))
     worker_id = Column(Integer, ForeignKey("users.id"))
-    
     membership = relationship("CafeMembership")
     reference = relationship("Reference")
     worker = relationship("User")
-# --- ▲▲▲ 'PostLog' 모델 수정 ▲▲▲ ---
 
 __all__ = [
     "User", "Product", "MarketingAccount", "TargetCafe", "CafeMembership",
     "MarketingProduct", "Reference", "PostLog", "Comment", "MarketingPost",
+    "WorkTask",
     "SessionLocal", "Base"
 ]
-

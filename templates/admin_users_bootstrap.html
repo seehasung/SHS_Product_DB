@@ -28,10 +28,13 @@
             <tr>
                 <th>ID</th>
                 <th>이름</th>
+                <!-- ▼▼▼ '일일 할당량' 열 추가 ▼▼▼ -->
+                <th>일일 할당량</th>
+                <!-- ▲▲▲ '일일 할당량' 열 추가 ▲▲▲ -->
                 <th>최고 관리자</th>
                 <th>상품 관리</th>
                 <th>마케팅 관리</th>
-                <th>삭제</th>
+                <th>관리</th>
             </tr>
             </thead>
             <tbody>
@@ -45,10 +48,19 @@
                         <button type="submit" class="btn btn-sm btn-outline-secondary">변경</button>
                     </form>
                 </td>
+                <!-- ▼▼▼ '일일 할당량' 입력 폼 추가 ▼▼▼ -->
+                <td>
+                    <form method="post" action="/admin/users/set-quota/{{ user.id }}" class="d-flex justify-content-center">
+                        <input type="number" name="daily_quota" value="{{ user.daily_quota }}" class="form-control form-control-sm me-2" style="width: 80px;">
+                        <button type="submit" class="btn btn-sm btn-outline-success">저장</button>
+                    </form>
+                </td>
+                <!-- ▲▲▲ '일일 할당량' 입력 폼 추가 ▲▲▲ -->
+                
                 <!-- 최고 관리자 권한 -->
                 <td>
                     {% if user.username != 'shsboss274' %}
-                    <form method="post" action="/admin/users/toggle-admin" class="d-inline">
+                    <form method="post" action="/admin/users/toggle-admin/{{ user.id }}" class="d-inline">
                         <input type="hidden" name="user_id" value="{{ user.id }}">
                         <button type="submit" class="btn btn-sm {{ 'btn-danger' if user.is_admin else 'btn-outline-secondary' }}">
                             {{ '✅' if user.is_admin else '❌' }}
@@ -60,38 +72,35 @@
                 </td>
                 <!-- 상품 관리 권한 -->
                 <td>
-                    {% if user.username != 'shsboss274' %}
-                    <form method="post" action="/admin/users/toggle-products" class="d-inline">
+                    <form method="post" action="/admin/users/toggle-products/{{ user.id }}" class="d-inline">
                         <input type="hidden" name="user_id" value="{{ user.id }}">
                         <button type="submit" class="btn btn-sm {{ 'btn-success' if user.can_manage_products else 'btn-outline-secondary' }}">
                             {{ '✅' if user.can_manage_products else '❌' }}
                         </button>
                     </form>
-                    {% else %}
-                    <span class="btn btn-sm btn-success disabled">✅</span>
-                    {% endif %}
                 </td>
                 <!-- 마케팅 관리 권한 -->
                 <td>
-                    {% if user.username != 'shsboss274' %}
-                    <form method="post" action="/admin/users/toggle-marketing" class="d-inline">
+                    <form method="post" action="/admin/users/toggle-marketing/{{ user.id }}" class="d-inline">
                         <input type="hidden" name="user_id" value="{{ user.id }}">
                         <button type="submit" class="btn btn-sm {{ 'btn-primary' if user.can_manage_marketing else 'btn-outline-secondary' }}">
                             {{ '✅' if user.can_manage_marketing else '❌' }}
                         </button>
                     </form>
-                    {% else %}
-                    <span class="btn btn-sm btn-primary disabled">✅</span>
-                    {% endif %}
                 </td>
-                <!-- 삭제 버튼 -->
+                <!-- 삭제/초기화 관리 -->
                 <td>
                     {% if user.username != 'shsboss274' %}
-                    <form method="post" action="/admin/users/delete" onsubmit="return confirm('정말 삭제하시겠습니까?');" class="d-inline">
+                    <form method="post" action="/admin/users/reset-password" class="d-inline mb-1" onsubmit="return confirm('\'{{ user.username }}\' 님의 비밀번호를 \'1234\'로 초기화하시겠습니까?');">
+                        <input type="hidden" name="user_id" value="{{ user.id }}">
+                        <button type="submit" class="btn btn-sm btn-outline-warning">비번초기화</button>
+                    </form>
+                    <form method="post" action="/admin/users/delete" class="d-inline" onsubmit="return confirm('\'{{ user.username }}\' 님을 정말 삭제하시겠습니까?');">
                         <input type="hidden" name="user_id" value="{{ user.id }}">
                         <button type="submit" class="btn btn-sm btn-outline-danger">삭제</button>
                     </form>
                     {% else %}
+                    <button type="button" class="btn btn-sm btn-outline-warning" disabled>비번초기화</button>
                     <button type="button" class="btn btn-sm btn-outline-danger" disabled>삭제</button>
                     {% endif %}
                 </td>
@@ -105,3 +114,4 @@
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
+
