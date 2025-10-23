@@ -136,7 +136,6 @@
                             <div class="col-md-6">
                                 <label class="form-label">작성 카페</label>
                                 <select class="form-select" id="edit_cafe_id_{{ post.id }}" name="cafe_id" required>
-                                    <!-- JS가 선택된 계정의 카페 목록을 불러오거나, 기존 카페를 선택합니다. -->
                                     {% for cafe in all_cafes %}<option value="{{ cafe.id }}" {{ 'selected' if post.cafe_id == cafe.id }}>{{ cafe.name }}</option>{% endfor %}
                                 </select>
                             </div>
@@ -229,7 +228,7 @@
                         <div class="row">
                             <div class="col-md-6">
                                 <label class="form-label">네이버 계정</label>
-                                <select class="form-select" name="account_id" required onchange="updateCafeDropdown(this, 'add_cafe_id')">
+                                <select class="form-select" id="add_account_id" name="account_id" required onchange="updateCafeDropdown(this, 'add_cafe_id')">
                                     <option value="" disabled selected>계정을 선택하세요</option>
                                     {% for acc in all_accounts %}<option value="{{ acc.id }}">{{ acc.account_id }}</option>{% endfor %}
                                 </select>
@@ -353,11 +352,56 @@ function filterReferences(typeSelect, titleSelectId) {
     const selectedType = typeSelect.value;
     const titleSelect = document.getElementById(titleSelectId);
     
-    // 현재 선택된 값을 임시 저장 (필터링 후에도 유지하기 위함)
     const currentTitleId = titleSelect.value;
     
     titleSelect.innerHTML = '<option value="" selected>제목 선택...</option>';
     
     allReferences.forEach(ref => {
-        if (selectedType === "" || ref.ref_T
+        if (selectedType === "" || ref.ref_type === selectedType) {
+            const option = document.createElement('option');
+            option.value = ref.id;
+            option.textContent = ref.title;
+            option.setAttribute('data-ref-type', ref.ref_type); // data-ref-type 추가
+            titleSelect.appendChild(option);
+        }
+    });
+    
+    // 필터링 후에도 이전에 선택했던 값이 있다면 유지
+    if (currentTitleId) {
+        titleSelect.value = currentTitleId;
+    }
+}
+
+/**
+ * 레퍼런스 제목 선택 시, 폼 필드 채우기
+ */
+function loadReference(titleSelect, titleFieldId, bodyFieldId, commentsFieldId) {
+    const selectedId = parseInt(titleSelect.value);
+    const titleField = document.getElementById(titleFieldId);
+    const bodyField = document.getElementById(bodyFieldId);
+    const commentsField = document.getElementById(commentsFieldId);
+
+    if (!selectedId) {
+        titleField.value = "";
+        bodyField.value = "";
+        commentsField.value = "";
+        return;
+    }
+
+    const ref = allReferences.find(r => r.id === selectedId);
+    if (ref) {
+        titleField.value = ref.title;
+        bodyField.value = ref.content;
+        
+        // 댓글 데이터를 JSON 텍스트로 변환
+        const commentsJson = ref.comments.map(c => ({
+            "계정": c.account_sequence === 0 ? "작성자" : `계정 ${c.account_sequence}`,
+            "내용": c.text
+        }));
+        // JSON.stringify의 세 번째 인자로 2를 주어 예쁘게 포맷팅
+        commentsField.value = JSON.stringify(commentsJson, null, 2);
+    }
+}
+</script>
+{% endblock %}
 
