@@ -367,18 +367,22 @@ async def add_marketing_product(product_id: int, db: Session = Depends(get_db)):
 # --- ▼▼▼ 신규 '글 관리' 라우트 추가 ▼▼▼ ---
 
 @router.get("/product/posts/{mp_id}", response_class=HTMLResponse)
-async def get_product_posts(request: Request, mp_id: int, db: Session = Depends(get_db)):
-    """글 관리 페이지를 보여주는 라우트"""
+async def get_product_posts(
+    request: Request, 
+    mp_id: int, 
+    db: Session = Depends(get_db),
+    page: int = Query(1, ge=1), # 페이지 번호
+    keyword_search: str = Query("") # 키워드 검색어
+):
+    """글 관리 페이지를 보여주는 라우트 (검색 및 페이지네이션 추가)"""
+    
+    PAGE_SIZE = 40 # 2열 * 20행 = 40개 키워드
+    
     marketing_product = db.query(MarketingProduct).options(
         joinedload(MarketingProduct.product)
     ).filter(MarketingProduct.id == mp_id).first()
     
-    posts = db.query(MarketingPost).options(
-        joinedload(MarketingPost.worker),
-        joinedload(MarketingPost.account),
-        joinedload(MarketingPost.cafe)
-    ).filter(MarketingPost.marketing_product_id == mp_id).order_by(MarketingPost.keyword_text, MarketingPost.id).all()
-
+    # 1. DB에서 활성화된 키워드 목록 전체를 가져옴
     keywords_list = []
     if marketing_product and marketing_product.keywords:
         try:
@@ -386,23 +390,57 @@ async def get_product_posts(request: Request, mp_id: int, db: Session = Depends(
         except json.JSONDecodeError:
             pass
 
-    posts_by_keyword = {}
+    # 2. 키워드 검색 (띄어쓰기 무시)
+    filtered_keywords = []
+    if keyword_search:
+        search_term = keyword_search.replace(" ", "").lower()
+        for kw in keywords_list:
+            if search_term in kw.replace(" ", "").lower():
+                filtered_keywords.append(kw)
+    else:
+        filtered_keywords = keywords_list
+
+    # 3. 키워드 목록 페이지네이션
+    total_keywords = len(filtered_keywords)
+    total_pages = math.ceil(total_keywords / PAGE_SIZE)
+    offset = (page - 1) * PAGE_SIZE
+    keywords_for_page = filtered_keywords[offset : offset + PAGE_SIZE]
+
+    # 4. 현재 페이지의 키워드에 해당하는 글들만 DB에서 가져오기
+    posts = db.query(MarketingPost).options(
+        joinedload(MarketingPost.worker),
+        joinedload(MarketingPost.account),
+        joinedload(MarketingPost.cafe)
+    ).filter(
+        MarketingPost.marketing_product_id == mp_id,
+        MarketingPost.keyword_text.in_(keywords_for_page)
+    ).order_by(MarketingPost.keyword_text, MarketingPost.id).all()
+
+    # "기타" 글 가져오기 (키워드가 삭제/미지정된 글) - 이 부분은 검색과 무관하게 항상 표시 (선택사항)
     other_posts = []
-    for kw in keywords_list:
+    if page == 1 and not keyword_search: # 첫 페이지 & 검색어가 없을 때만
+        all_post_keywords = [p.keyword_text for p in posts]
+        db_posts_for_product = db.query(MarketingPost).filter(MarketingPost.marketing_product_id == mp_id).all()
+        for p in db_posts_for_product:
+            if p.keyword_text not in keywords_list and p.keyword_text not in all_post_keywords:
+                other_posts.append(p)
+
+    # 5. 키워드별로 글 그룹화
+    posts_by_keyword = {}
+    for kw in keywords_for_page:
         posts_by_keyword[kw] = []
     
     for post in posts:
         if post.keyword_text in posts_by_keyword:
             posts_by_keyword[post.keyword_text].append(post)
-        else:
-            other_posts.append(post)
-    
+            
     if other_posts:
         posts_by_keyword["[삭제/미지정 키워드]"] = other_posts
 
+    # 폼에 필요한 전체 목록
     all_accounts = db.query(MarketingAccount).all()
     all_cafes = db.query(TargetCafe).all()
-    all_workers = db.query(User).all() # 모든 시스템 유저를 작업자로 선택 가능
+    all_workers = db.query(User).all()
 
     db.close()
     
@@ -410,10 +448,13 @@ async def get_product_posts(request: Request, mp_id: int, db: Session = Depends(
         "request": request,
         "marketing_product": marketing_product,
         "posts_by_keyword": posts_by_keyword,
-        "keywords_list": keywords_list,
+        "keywords_list": keywords_list, # "새 글 등록" 모달용
         "all_accounts": all_accounts,
         "all_cafes": all_cafes,
-        "all_workers": all_workers
+        "all_workers": all_workers,
+        "total_pages": total_pages,
+        "current_page": page,
+        "keyword_search": keyword_search
     })
 
 @router.post("/post/add", response_class=RedirectResponse)
@@ -424,6 +465,7 @@ async def add_marketing_post(
     post_url: str = Form(...),
     account_id: int = Form(...),
     cafe_id: int = Form(...),
+    worker_id: int = Form(...), # ▼▼▼ 작업자 ID를 폼에서 받도록 수정 ▼▼▼
     db: Session = Depends(get_db)
 ):
     """새 글을 등록하는 라우트"""
@@ -436,7 +478,7 @@ async def add_marketing_post(
         post_url=post_url,
         account_id=account_id,
         cafe_id=cafe_id,
-        worker_id=worker.id if worker else None,
+        worker_id=worker_id, # ◀ 폼에서 받은 worker_id로 저장
         is_live=True
     )
     db.add(new_post)

@@ -4,33 +4,38 @@
 {% block head %}
 {{ super() }}
 <style>
-  /* 계정 순번을 시각적으로 표시하기 위한 색상 점 스타일 */
-  .account-dot {
-    height: 10px;
-    width: 10px;
-    border-radius: 50%;
+  /* ▼▼▼ 계정 순번 '뱃지' 스타일로 수정 ▼▼▼ */
+  .account-badge {
+    padding: 0.3em 0.65em; /* 뱃지 크기 */
+    font-size: 0.75em;     /* 뱃지 안 글씨 크기 */
+    font-weight: 700;
+    line-height: 1;
+    color: #fff;           /* 텍스트 흰색 */
+    text-align: center;
+    border-radius: 10rem;  /* 둥근 모서리 */
     display: inline-block;
     margin-right: 6px;
     vertical-align: middle;
   }
-  .dot-0 { background-color: #66d9e8; } /* 작성자 (민트) */
+  .dot-0 { background-color: #66d9e8; color: #212529;} /* 작성자 (민트) - 텍스트 검은색 */
   .dot-1 { background-color: #fa5252; } /* 계정 1 (빨강) */
   .dot-2 { background-color: #fd7e14; } /* 계정 2 (주황) */
-  .dot-3 { background-color: #fcc419; } /* 계정 3 (노랑) */
+  .dot-3 { background-color: #fcc419; color: #212529;} /* 계정 3 (노랑) - 텍스트 검은색 */
   .dot-4 { background-color: #40c057; } /* 계정 4 (초록) */
   .dot-5 { background-color: #228be6; } /* 계정 5 (파랑) */
   .dot-6 { background-color: #364fc7; } /* 계정 6 (남색) */
   .dot-7 { background-color: #7048e8; } /* 계정 7 (보라) */
   .dot-8 { background-color: #f06595; } /* 계정 8 (핑크) */
+  /* ▲▲▲ 계정 순번 '뱃지' 스타일로 수정 ▲▲▲ */
 
-  /* 레퍼런스 분류 뱃지 스타일 */
+  /* (기존 레퍼런스 뱃지 스타일은 그대로 유지) */
   .ref-badge {
     display: inline-block;
     padding: 0.35em 0.65em;
     font-size: .75em;
     font-weight: 700;
     line-height: 1;
-    color: #fff;
+    color: #66d9e8;
     text-align: center;
     white-space: nowrap;
     vertical-align: baseline;
@@ -39,6 +44,7 @@
   .ref-대안 { background-color: #fa5252; } /* 빨강 */
   .ref-정보 { background-color: #228be6; } /* 파랑 */
   .ref-기타 { background-color: #40c057; } /* 초록 */
+  .ref-미지정 { background-color: #868e96; } /* 회색 */
 </style>
 {% endblock %}
 
@@ -49,14 +55,15 @@
             <div class="card bg-light">
                 <div class="card-body">
                     <p class="card-text">
-                        <span class="d-inline-flex align-items-center fw-bold me-2">
-                            <span class="account-dot dot-{{ comment.account_sequence }}"></span>
+                        <!-- ▼▼▼ 텍스트를 뱃지 안으로 이동 ▼▼▼ -->
+                        <span class="account-badge dot-{{ comment.account_sequence }}">
                             {% if comment.account_sequence == 0 %}
                                 작성자
                             {% else %}
                                 계정 {{ comment.account_sequence }}
                             {% endif %}
                         </span>
+                        <!-- ▲▲▲ 텍스트를 뱃지 안으로 이동 ▲▲▲ -->
                         {{ comment.text | replace('\n', '<br>') | safe }}
                     </p>
                     <div class="d-flex justify-content-between align-items-center">
@@ -72,7 +79,7 @@
                             </form>
                         </div>
                     </div>
-                    <!-- 답글 폼 -->
+                    <!-- (답글 폼은 그대로 유지) -->
                     <div class="collapse mt-3" id="reply-form-{{ comment.id }}">
                         <form action="/marketing/comment/add/{{ ref_id }}" method="post">
                             <input type="hidden" name="parent_id" value="{{ comment.id }}">
@@ -98,6 +105,7 @@
 
 {% block content %}
 <div class="container mt-4">
+    <!-- (페이지 상단은 그대로 유지) -->
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h1>📝 레퍼런스 상세 정보</h1>
         <div>
@@ -108,8 +116,8 @@
         </div>
     </div>
 
+    <!-- (좌우 레이아웃 및 본문 수정 폼은 그대로 유지) -->
     <div class="row g-4">
-        <!-- 왼쪽: 본문 수정 -->
         <div class="col-md-6">
             <div class="card shadow-sm h-100">
                 <div class="card-header"><h3>본문 수정</h3></div>
@@ -144,12 +152,12 @@
             </div>
         </div>
 
-        <!-- 오른쪽: 댓글 관리 -->
+        <!-- (댓글 관리 부분은 그대로 유지) -->
         <div class="col-md-6">
             <div class="card shadow-sm h-100">
                 <div class="card-header"><h4>댓글 관리</h4></div>
                 <div class="card-body" style="max-height: 600px; overflow-y: auto;">
-                    <!-- 새 최상위 댓글 폼 -->
+                    <!-- (새 최상위 댓글 폼은 그대로 유지) -->
                     <form action="/marketing/comment/add/{{ reference.id }}" method="post" class="mb-4">
                         <div class="mb-2">
                             <label class="form-label">새 댓글 추가</label>
@@ -164,7 +172,7 @@
                         <button type="submit" class="btn btn-success">댓글 등록</button>
                     </form>
                     <hr>
-                    <!-- 댓글 목록 -->
+                    <!-- (댓글 목록 부분은 그대로 유지) -->
                     <ol class="list-unstyled">
                         {% for comment in comments %}
                         <li class="mb-3">
@@ -183,7 +191,7 @@
     </div>
 </div>
 
-<!-- 댓글 수정 팝업(모달) -->
+<!-- (댓글 수정 팝업 모달은 그대로 유지) -->
 <div class="modal fade" id="editCommentModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog">
         <div class="modal-content">
@@ -215,7 +223,7 @@
 </div>
 
 <script>
-    // 댓글 수정 모달 제어
+    // (스크립트는 그대로 유지)
     const editCommentModal = document.getElementById('editCommentModal');
     if(editCommentModal) {
         editCommentModal.addEventListener('show.bs.modal', event => {
