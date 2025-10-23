@@ -1,6 +1,6 @@
 import os
 from dotenv import load_dotenv
-from sqlalchemy import create_engine, Column, Integer, String, Boolean, Text, ForeignKey, DateTime
+from sqlalchemy import create_engine, Column, Integer, String, Boolean, Text, ForeignKey, DateTime, Date, UniqueConstraint  # Date, UniqueConstraint 추가
 from sqlalchemy.orm import sessionmaker, declarative_base, relationship
 from passlib.hash import bcrypt
 import datetime
@@ -13,7 +13,8 @@ engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
 Base = declarative_base()
 
-# --- ▼▼▼ User 모델 수정 ▼▼▼ ---
+# === 기존 모델들 ===
+
 class User(Base):
     __tablename__ = "users"
     id = Column(Integer, primary_key=True, index=True)
@@ -22,8 +23,7 @@ class User(Base):
     is_admin = Column(Boolean, default=False)
     can_manage_products = Column(Boolean, default=False)
     can_manage_marketing = Column(Boolean, default=False)
-    daily_quota = Column(Integer, default=0) # '일일 할당량' 필드 추가
-# --- ▲▲▲ User 모델 수정 ▲▲▲ ---
+    daily_quota = Column(Integer, default=0)  # 일일 할당량 필드
 
 class Product(Base):
     __tablename__ = "products"
@@ -41,7 +41,6 @@ class Product(Base):
     thumbnail = Column(String(2083), nullable=True)
     details = Column(Text, nullable=True)
 
-# --- (다른 모든 마케팅 모델은 변경 없음) ---
 class MarketingAccount(Base):
     __tablename__ = "marketing_accounts"
     id = Column(Integer, primary_key=True, index=True)
@@ -72,7 +71,7 @@ class MarketingProduct(Base):
     __tablename__ = "marketing_products"
     id = Column(Integer, primary_key=True, index=True)
     product_id = Column(Integer, ForeignKey("products.id"))
-    keywords = Column(Text, nullable=True) # 키워드 목록 (JSON)
+    keywords = Column(Text, nullable=True)  # 키워드 목록 (JSON)
     product = relationship("Product")
     posts = relationship("MarketingPost", back_populates="marketing_product", cascade="all, delete-orphan")
     tasks = relationship("WorkTask", back_populates="marketing_product", cascade="all, delete-orphan")
@@ -149,9 +148,82 @@ class PostLog(Base):
     reference = relationship("Reference")
     worker = relationship("User")
 
+# === 새로 추가할 스케줄 관련 모델들 ===
+
+class PostSchedule(Base):
+    """날짜별 글 작성 스케줄 테이블"""
+    __tablename__ = "post_schedules"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    scheduled_date = Column(Date, nullable=False, index=True)  # Date 타입 사용
+    
+    # 할당 정보
+    worker_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    account_id = Column(Integer, ForeignKey("marketing_accounts.id", ondelete="SET NULL"), nullable=True)
+    cafe_id = Column(Integer, ForeignKey("target_cafes.id", ondelete="SET NULL"), nullable=True)
+    marketing_product_id = Column(Integer, ForeignKey("marketing_products.id", ondelete="CASCADE"))
+    keyword_text = Column(String, nullable=False)
+    
+    # 상태 관리
+    status = Column(String, default="pending")  # pending, in_progress, completed, skipped
+    is_completed = Column(Boolean, default=False)
+    completed_at = Column(DateTime, nullable=True)
+    marketing_post_id = Column(Integer, ForeignKey("marketing_posts.id", ondelete="SET NULL"), nullable=True)
+    
+    # 메모
+    notes = Column(Text, nullable=True)
+    
+    # 관계 설정
+    worker = relationship("User")
+    account = relationship("MarketingAccount")
+    cafe = relationship("TargetCafe")
+    marketing_product = relationship("MarketingProduct")
+    marketing_post = relationship("MarketingPost")
+    
+    # 타임스탬프
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+
+
+class AccountCafeUsage(Base):
+    """계정-카페-키워드별 사용 횟수 추적"""
+    __tablename__ = "account_cafe_usage"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    account_id = Column(Integer, ForeignKey("marketing_accounts.id"))
+    cafe_id = Column(Integer, ForeignKey("target_cafes.id"))
+    keyword_text = Column(String, index=True)
+    marketing_product_id = Column(Integer, ForeignKey("marketing_products.id"))
+    usage_count = Column(Integer, default=0)  # 사용 횟수 (최대 2)
+    last_used_date = Column(Date, nullable=True)  # Date 타입 사용
+    
+    account = relationship("MarketingAccount")
+    cafe = relationship("TargetCafe")
+    marketing_product = relationship("MarketingProduct")
+    
+    __table_args__ = (
+        UniqueConstraint('account_id', 'cafe_id', 'keyword_text', 'marketing_product_id'),  # 유니크 제약
+    )
+
+
+class PostingRound(Base):
+    """글 작성 라운드 관리 (1회전, 2회전 추적)"""
+    __tablename__ = "posting_rounds"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    marketing_product_id = Column(Integer, ForeignKey("marketing_products.id"))
+    round_number = Column(Integer, default=1)  # 현재 라운드 (1 or 2)
+    current_keyword_index = Column(Integer, default=0)  # 현재 진행중인 키워드 인덱스
+    is_completed = Column(Boolean, default=False)
+    
+    marketing_product = relationship("MarketingProduct")
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+
+
+# __all__ 리스트 업데이트
 __all__ = [
     "User", "Product", "MarketingAccount", "TargetCafe", "CafeMembership",
     "MarketingProduct", "Reference", "PostLog", "Comment", "MarketingPost",
-    "WorkTask",
+    "WorkTask", "PostSchedule", "AccountCafeUsage", "PostingRound",  # 새 모델 추가
     "SessionLocal", "Base"
 ]
