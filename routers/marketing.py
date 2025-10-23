@@ -58,6 +58,7 @@ async def marketing_cafe(request: Request, db: Session = Depends(get_db)):
     if reference_filter != 'all':
         references_query = references_query.filter(Reference.ref_type == reference_filter)
     references = references_query.order_by(Reference.id.desc()).all()
+    
 
     db.close() # 메인 페이지는 모든 조회가 끝난 후 닫습니다.
 
