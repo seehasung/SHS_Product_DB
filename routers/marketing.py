@@ -1,9 +1,10 @@
-from fastapi import APIRouter, Request, Form, Depends
+from fastapi import APIRouter, Request, Form, Depends, Query # Query를 여기에 추가
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy.exc import IntegrityError
 import json
+import math
 
 # Reference, Comment, User 및 신규 MarketingPost 모델을 import
 from database import (
