@@ -443,6 +443,21 @@ async def get_product_posts(
     all_accounts = db.query(MarketingAccount).all()
     all_cafes = db.query(TargetCafe).all()
     all_workers = db.query(User).all()
+    
+    # ▼▼▼ '계정-카페' 연동 맵 생성 ▼▼▼
+    all_memberships = db.query(CafeMembership).options(joinedload(CafeMembership.cafe)).all()
+    membership_map = {}
+    for membership in all_memberships:
+        if membership.status == 'active': # 활동중인 연동만
+            if membership.account_id not in membership_map:
+                membership_map[membership.account_id] = []
+            if membership.cafe:
+                membership_map[membership.account_id].append({
+                    "id": membership.cafe.id,
+                    "name": membership.cafe.name
+                })
+    # ▲▲▲ '계정-카페' 연동 맵 생성 ▲▲▲
+
 
     db.close()
     
@@ -454,6 +469,7 @@ async def get_product_posts(
         "all_accounts": all_accounts,
         "all_cafes": all_cafes,
         "all_workers": all_workers,
+        "membership_map": membership_map, # 맵을 템플릿으로 전달
         "total_pages": total_pages,
         "current_page": page,
         "keyword_search": keyword_search

@@ -148,7 +148,7 @@
     {% endfor %}
     {% endfor %}
 
-    <!-- 새 글 등록 모달 -->
+    <!-- 새 글 등록 모달 (수정됨) -->
     <div class="modal fade" id="addPostModal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog">
             <div class="modal-content">
@@ -173,17 +173,18 @@
                             <input type="url" class="form-control" id="post_url" name="post_url" required>
                         </div>
                         <div class="mb-3">
-                            <label for="account_id" class="form-label">네이버 계정</label>
-                            <select class="form-select" id="account_id" name="account_id" required>
+                            <label for="add_account_id" class="form-label">네이버 계정</label>
+                            <select class="form-select" id="add_account_id" name="account_id" required 
+                                    onchange="updateCafeDropdown(this, 'add_cafe_id')">
                                 <option value="" disabled selected>작업한 계정을 선택하세요</option>
                                 {% for acc in all_accounts %}<option value="{{ acc.id }}">{{ acc.account_id }}</option>{% endfor %}
                             </select>
                         </div>
                         <div class="mb-3">
-                            <label for="cafe_id" class="form-label">작성 카페</label>
-                            <select class="form-select" id="cafe_id" name="cafe_id" required>
-                                <option value="" disabled selected>작성한 카페를 선택하세요</option>
-                                {% for cafe in all_cafes %}<option value="{{ cafe.id }}">{{ cafe.name }}</option>{% endfor %}
+                            <label for="add_cafe_id" class="form-label">작성 카페</label>
+                            <select class="form-select" id="add_cafe_id" name="cafe_id" required disabled>
+                                <option value="" disabled selected>네이버 계정을 먼저 선택하세요</option>
+                                <!-- JavaScript가 이 부분을 채워줍니다. -->
                             </select>
                         </div>
                         <div class="mb-3">
@@ -203,5 +204,40 @@
         </div>
     </div>
 </div>
+
+<!-- ▼▼▼ 종속형 드롭다운 JavaScript 추가 ▼▼▼ -->
+<script>
+// Python에서 전달받은 '계정-카페' 연동 맵
+const membershipMap = {{ membership_map | tojson | safe }};
+
+/**
+ * 네이버 계정 드롭다운이 변경될 때 호출되는 함수
+ * @param {HTMLSelectElement} accountSelect - 변경된 '네이버 계정' select 요소
+ * @param {string} cafeSelectId - 업데이트할 '작성 카페' select 요소의 ID
+ */
+function updateCafeDropdown(accountSelectElement, cafeSelectId) {
+    const cafeSelect = document.getElementById(cafeSelectId);
+    const selectedAccountId = accountSelectElement.value;
+    
+    // 카페 드롭다운 초기화
+    cafeSelect.innerHTML = '<option value="" disabled selected>계정을 먼저 선택하세요</option>';
+    cafeSelect.disabled = true;
+
+    // 선택된 계정이 연동된 카페 목록이 있는지 확인
+    if (selectedAccountId && membershipMap[selectedAccountId]) {
+        // 카페 목록이 있으면 드롭다운 활성화 및 옵션 추가
+        cafeSelect.disabled = false;
+        cafeSelect.innerHTML = '<option value="" disabled selected>작성한 카페를 선택하세요</option>';
+        
+        membershipMap[selectedAccountId].forEach(cafe => {
+            const option = document.createElement('option');
+            option.value = cafe.id;
+            option.textContent = cafe.name;
+            cafeSelect.appendChild(option);
+        });
+    }
+}
+</script>
+<!-- ▲▲▲ 종속형 드롭다운 JavaScript 추가 ▲▲▲ -->
 {% endblock %}
 
