@@ -61,8 +61,6 @@ async def marketing_cafe(request: Request, db: Session = Depends(get_db)):
         references_query = references_query.filter(Reference.ref_type == reference_filter)
     references = references_query.order_by(Reference.id.desc()).all()
 
-    # db.close() # <--- 삭제됨
-    
     return templates.TemplateResponse("marketing_cafe.html", {
         "request": request, "cafes": cafes, "accounts": accounts,
         "marketing_products": marketing_products, "memberships": memberships,
@@ -88,8 +86,6 @@ async def add_reference(request: Request, title: str = Form(...), db: Session = 
     except IntegrityError:
         db.rollback()
         return RedirectResponse(url="/marketing/cafe?tab=references&error=duplicate_reference", status_code=303)
-    # finally:
-        # db.close() # <--- 삭제됨
 
 @router.post("/reference/delete/{ref_id}", response_class=RedirectResponse)
 async def delete_reference(ref_id: int, db: Session = Depends(get_db)):
@@ -97,7 +93,6 @@ async def delete_reference(ref_id: int, db: Session = Depends(get_db)):
     if ref_to_delete:
         db.delete(ref_to_delete)
         db.commit()
-    # db.close() # <--- 삭제됨
     return RedirectResponse(url="/marketing/cafe?tab=references", status_code=303)
 
 @router.get("/reference/{ref_id}", response_class=HTMLResponse)
@@ -120,8 +115,6 @@ async def get_reference_detail(request: Request, ref_id: int, db: Session = Depe
         else:
             top_level_comments.append(comment)
             
-    # db.close() # <--- 삭제됨
-    
     return templates.TemplateResponse("reference_detail.html", {
         "request": request,
         "reference": reference,
@@ -141,7 +134,6 @@ async def update_reference(request: Request, ref_id: int, title: str = Form(...)
         reference.ref_type = ref_type
         reference.last_modified_by_id = user.id if user else None
         db.commit()
-    # db.close() # <--- 삭제됨
     return RedirectResponse(url=f"/marketing/reference/{ref_id}", status_code=303)
 
 @router.post("/comment/add/{ref_id}", response_class=RedirectResponse)
@@ -154,7 +146,6 @@ async def add_comment(ref_id: int, account_sequence: int = Form(...), text: str 
     )
     db.add(new_comment)
     db.commit()
-    # db.close() # <--- 삭제됨
     return RedirectResponse(url=f"/marketing/reference/{ref_id}", status_code=303)
 
 @router.post("/comment/edit/{ref_id}/{comment_id}", response_class=RedirectResponse)
@@ -164,7 +155,6 @@ async def edit_comment(ref_id: int, comment_id: int, account_sequence: int = For
         comment_to_edit.account_sequence = account_sequence
         comment_to_edit.text = text
         db.commit()
-    # db.close() # <--- 삭제됨
     return RedirectResponse(url=f"/marketing/reference/{ref_id}", status_code=303)
 
 @router.post("/comment/delete/{ref_id}/{comment_id}", response_class=RedirectResponse)
@@ -173,7 +163,6 @@ async def delete_comment(ref_id: int, comment_id: int, db: Session = Depends(get
     if comment_to_delete:
         db.delete(comment_to_delete)
         db.commit()
-    # db.close() # <--- 삭제됨
     return RedirectResponse(url=f"/marketing/reference/{ref_id}", status_code=303)
 
 # --- Keyword Management ---
@@ -187,7 +176,6 @@ async def get_product_keywords(request: Request, mp_id: int, db: Session = Depen
         except json.JSONDecodeError:
             keywords_list = [{"keyword": kw.strip(), "active": True} for kw in marketing_product.keywords.splitlines() if kw.strip()]
     keywords_text = "\n".join([item['keyword'] for item in keywords_list])
-    # db.close() # <--- 삭제됨
     return templates.TemplateResponse("marketing_product_keywords.html", {
         "request": request, "marketing_product": marketing_product,
         "keywords_list": keywords_list, "keywords_text": keywords_text
@@ -213,7 +201,6 @@ async def update_product_keywords(mp_id: int, keywords: str = Form(...), db: Ses
                 })
         marketing_product.keywords = json.dumps(new_keywords_list, ensure_ascii=False, indent=4)
         db.commit()
-    # db.close() # <--- 삭제됨
     return RedirectResponse(url=f"/marketing/product/keywords/{mp_id}", status_code=303)
 
 @router.post("/product/keywords/toggle/{mp_id}", response_class=RedirectResponse)
@@ -227,7 +214,6 @@ async def toggle_keyword_status(mp_id: int, keyword: str = Form(...), db: Sessio
                 break
         marketing_product.keywords = json.dumps(keywords_list, ensure_ascii=False, indent=4)
         db.commit()
-    # db.close() # <--- 삭제됨
     return RedirectResponse(url=f"/marketing/product/keywords/{mp_id}", status_code=303)
 
 @router.post("/product/keywords/edit/{mp_id}", response_class=RedirectResponse)
@@ -243,7 +229,6 @@ async def edit_keyword(mp_id: int, old_keyword: str = Form(...), new_keyword: st
             marketing_product.keywords = json.dumps(keywords_list, ensure_ascii=False, indent=4)
             db.commit()
         except json.JSONDecodeError: pass
-    # db.close() # <--- 삭제됨
     return RedirectResponse(url=f"/marketing/product/keywords/{mp_id}", status_code=303)
 
 @router.post("/product/keywords/delete/{mp_id}", response_class=RedirectResponse)
@@ -256,7 +241,6 @@ async def delete_keyword(mp_id: int, keyword: str = Form(...), db: Session = Dep
             marketing_product.keywords = json.dumps(keywords_list, ensure_ascii=False, indent=4)
             db.commit()
         except json.JSONDecodeError: pass
-    # db.close() # <--- 삭제됨
     return RedirectResponse(url=f"/marketing/product/keywords/{mp_id}", status_code=303)
 
 # --- Account Management ---
@@ -269,8 +253,8 @@ async def add_marketing_account(account_id: str = Form(...), account_pw: str = F
     except IntegrityError:
         db.rollback()
         return RedirectResponse(url="/marketing/cafe?tab=accounts&error=duplicate_account", status_code=303)
-    # finally:
-        # db.close() # <--- 삭제됨
+    finally:
+        db.close()
     return RedirectResponse(url="/marketing/cafe?tab=accounts", status_code=303)
 
 @router.post("/account/update/{account_id}", response_class=RedirectResponse)
@@ -282,7 +266,6 @@ async def update_marketing_account(account_id: int, edit_account_id: str = Form(
         account_to_update.category = edit_category
         account_to_update.ip_address = edit_ip_address
         db.commit()
-    # db.close() # <--- 삭제됨
     return RedirectResponse(url="/marketing/cafe?tab=accounts", status_code=303)
 
 @router.post("/account/delete/{account_id}", response_class=RedirectResponse)
@@ -291,7 +274,6 @@ async def delete_marketing_account(account_id: int, db: Session = Depends(get_db
     if account_to_delete:
         db.delete(account_to_delete)
         db.commit()
-    # db.close() # <--- 삭제됨
     return RedirectResponse(url="/marketing/cafe?tab=accounts", status_code=303)
 
 # --- Cafe Membership Management ---
@@ -303,7 +285,6 @@ async def add_cafe_membership(account_id: int = Form(...), cafe_id: int = Form(.
         new_membership = CafeMembership(account_id=account_id, cafe_id=cafe_id, new_post_count=new_post_count, edited_post_count=edited_post_count, status=status)
         db.add(new_membership)
         db.commit()
-    # db.close() # <--- 삭제됨
     return RedirectResponse(url=f"/marketing/cafe?tab=memberships&cafe_id={cafe_id}", status_code=303)
 
 @router.post("/membership/update/{membership_id}", response_class=RedirectResponse)
@@ -319,7 +300,6 @@ async def update_membership(membership_id: int, status: str = Form(...), new_pos
         else:
             membership.status = status
         db.commit()
-    # db.close() # <--- 삭제됨
     redirect_url = f"/marketing/cafe?tab=memberships&cafe_id={cafe_id_redirect}" if cafe_id_redirect else "/marketing/cafe?tab=memberships"
     return RedirectResponse(url=redirect_url, status_code=303)
 
@@ -333,7 +313,7 @@ async def add_target_cafe(name: str = Form(...), url: str = Form(...), db: Sessi
     except IntegrityError:
         db.rollback()
     finally:
-        db.close() # <--- 여기는 finally 안에 있으므로 유지
+        db.close()
     return RedirectResponse(url="/marketing/cafe?tab=cafes", status_code=303)
 
 @router.post("/cafe/delete/{cafe_id}", response_class=RedirectResponse)
@@ -342,7 +322,6 @@ async def delete_target_cafe(cafe_id: int, db: Session = Depends(get_db)):
     if cafe_to_delete:
         db.delete(cafe_to_delete)
         db.commit()
-    # db.close() # <--- 삭제됨
     return RedirectResponse(url="/marketing/cafe?tab=cafes", status_code=303)
 
 # --- Marketing Product Management ---
@@ -350,7 +329,6 @@ async def delete_target_cafe(cafe_id: int, db: Session = Depends(get_db)):
 async def select_marketing_product(request: Request, db: Session = Depends(get_db)):
     existing_ids = [mp.product_id for mp in db.query(MarketingProduct.product_id).all()]
     available_products = db.query(Product).filter(Product.id.notin_(existing_ids)).all()
-    # db.close() # <--- 삭제됨
     return templates.TemplateResponse("marketing_product_selection.html", {
         "request": request,
         "products": available_products
@@ -363,7 +341,6 @@ async def add_marketing_product(product_id: int, db: Session = Depends(get_db)):
         new_marketing_product = MarketingProduct(product_id=product_id, keywords="")
         db.add(new_marketing_product)
         db.commit()
-    # db.close() # <--- 삭제됨
     return RedirectResponse(url="/marketing/cafe?tab=products", status_code=303)
 
 # --- '글 관리' 라우트 (페이지네이션 및 검색 기능 추가됨) ---
@@ -373,16 +350,19 @@ async def get_product_posts(
     mp_id: int, 
     db: Session = Depends(get_db),
     page: int = Query(1, ge=1),
-    keyword_search: str = Query("")
+    keyword_search: str = Query(""),
+    error: str = Query(None)
 ):
-    """글 관리 페이지를 보여주는 라우트 (레퍼런스 목록 추가)"""
-    
     PAGE_SIZE = 40
     
     marketing_product = db.query(MarketingProduct).options(
         joinedload(MarketingProduct.product)
     ).filter(MarketingProduct.id == mp_id).first()
     
+    error_message = None
+    if error == 'url_required':
+        error_message = "오류: '등록 완료'를 체크한 경우, 글 URL을 반드시 입력해야 합니다."
+
     keywords_list = []
     if marketing_product and marketing_product.keywords:
         try:
@@ -438,15 +418,14 @@ async def get_product_posts(
     all_cafes = db.query(TargetCafe).all()
     all_workers = db.query(User).filter(or_(User.can_manage_marketing == True, User.is_admin == True)).all()
     
-    # ▼▼▼ 레퍼런스 목록을 분류별로 그룹화 ▼▼▼
     all_references = db.query(Reference).options(joinedload(Reference.comments)).order_by(Reference.ref_type, Reference.title).all()
     references_by_type = {"대안": [], "정보": [], "기타": []}
     for ref in all_references:
-        if ref.ref_type in references_by_type:
-            references_by_type[ref.ref_type].append(ref)
+        ref_type_str = ref.ref_type or "기타"
+        if ref_type_str in references_by_type:
+            references_by_type[ref_type_str].append(ref)
         else:
             references_by_type["기타"].append(ref)
-    # ▲▲▲ 레퍼런스 목록을 분류별로 그룹화 ▲▲▲
     
     all_memberships = db.query(CafeMembership).options(joinedload(CafeMembership.cafe)).all()
     membership_map = {}
@@ -457,8 +436,6 @@ async def get_product_posts(
             if membership.cafe:
                 membership_map[membership.account_id].append({"id": membership.cafe.id, "name": membership.cafe.name})
     
-    db.close()
-    
     return templates.TemplateResponse("marketing_product_posts.html", {
         "request": request,
         "marketing_product": marketing_product,
@@ -467,13 +444,15 @@ async def get_product_posts(
         "all_accounts": all_accounts,
         "all_cafes": all_cafes,
         "all_workers": all_workers,
-        "references_by_type": references_by_type, # 분류된 레퍼런스 전달
+        "all_references": all_references,
+        "references_by_type": references_by_type,
         "membership_map": membership_map,
         "total_pages": total_pages,
         "current_page": page,
-        "keyword_search": keyword_search
+        "keyword_search": keyword_search,
+        "error": error_message
     })
-    
+
 @router.post("/post/add", response_class=RedirectResponse)
 async def add_marketing_post(
     request: Request,
@@ -482,31 +461,51 @@ async def add_marketing_post(
     account_id: int = Form(...),
     cafe_id: int = Form(...),
     worker_id: int = Form(...),
-    reference_id: int = Form(None), # ▼▼▼ 레퍼런스 ID를 받도록 수정 ▼▼▼
+    reference_id: int = Form(None),
+    post_title: str = Form(""),
+    post_body: str = Form(""),
+    post_comments: str = Form(""),
+    is_registration_complete: bool = Form(False),
+    post_url: str = Form(None),
     db: Session = Depends(get_db)
 ):
-    """새 글을 등록하는 라우트"""
-    
-    post_title = ""
-    post_body = ""
-    post_comments = "[]" # 기본 빈 JSON 배열
+    if is_registration_complete and not post_url:
+        return RedirectResponse(url=f"/marketing/product/posts/{mp_id}?error=url_required", status_code=303)
 
-    # ▼▼▼ 레퍼런스 ID가 있으면, 내용을 복사 ▼▼▼
     if reference_id:
         ref = db.query(Reference).options(joinedload(Reference.comments)).filter(Reference.id == reference_id).first()
         if ref:
-            post_title = ref.title
-            post_body = ref.content
-            # 댓글도 JSON 형식으로 복사
-            comments_list = []
-            for comment in ref.comments:
-                comments_list.append({
-                    "account_sequence": comment.account_sequence,
-                    "text": comment.text,
-                    "parent_id": comment.parent_id # 계층 구조 유지를 위해 parent_id도 저장
-                })
-            post_comments = json.dumps(comments_list, ensure_ascii=False, indent=2)
-    # ▲▲▲ 레퍼런스 ID가 있으면, 내용을 복사 ▲▲▲
+            if not post_title:
+                post_title = ref.title
+            if not post_body:
+                post_body = ref.content
+            if not post_comments:
+                # 댓글을 계층 구조 텍스트로 변환
+                comment_map = {c.id: c for c in ref.comments}
+                top_level_comments = []
+                for c in ref.comments:
+                    c.structured_replies = []
+                for c in ref.comments:
+                    if c.parent_id and c.parent_id in comment_map:
+                        comment_map[c.parent_id].structured_replies.append(c)
+                    elif not c.parent_id:
+                        top_level_comments.append(c)
+                
+                # ▼▼▼ 올바른 Python 문법으로 수정 ▼▼▼
+                def format_comments(comments, indent = ""):
+                    text = ""
+                    for c in comments:
+                        # Python의 3항 연산자
+                        prefix = "작성자" if c.account_sequence == 0 else f"계정 {c.account_sequence}"
+                        # Python의 리스트 컴프리헨션
+                        commentLines = "\n".join([f"{indent}  {line}" for line in c.text.split('\n')])
+                        text += f"{indent}{prefix}:\n{commentLines}\n\n"
+                        if hasattr(c, 'structured_replies') and c.structured_replies:
+                            text += format_comments(c.structured_replies, indent + "    (답글) ")
+                    return text
+                # ▲▲▲ 올바른 Python 문법으로 수정 ▲▲▲
+                
+                post_comments = format_comments(top_level_comments).strip()
 
     new_post = MarketingPost(
         marketing_product_id=mp_id,
@@ -517,13 +516,12 @@ async def add_marketing_post(
         post_title=post_title,
         post_body=post_body,
         post_comments=post_comments,
-        is_registration_complete=False, # 항상 '작성중' 상태로 시작
-        post_url=None,
-        is_live=False
+        is_registration_complete=is_registration_complete,
+        post_url=post_url if is_registration_complete else None,
+        is_live=True if is_registration_complete else False
     )
     db.add(new_post)
     db.commit()
-    db.close()
     return RedirectResponse(url=f"/marketing/product/posts/{mp_id}", status_code=303)
 
 @router.post("/post/update/{post_id}", response_class=RedirectResponse)
@@ -544,6 +542,10 @@ async def update_marketing_post(
     mp_id = None
     if post:
         mp_id = post.marketing_product_id
+        
+        if is_registration_complete and not post_url:
+            return RedirectResponse(url=f"/marketing/product/posts/{mp_id}?error=url_required", status_code=303)
+        
         post.account_id = account_id
         post.cafe_id = cafe_id
         post.worker_id = worker_id
@@ -554,7 +556,6 @@ async def update_marketing_post(
         post.post_url = post_url if is_registration_complete else None
         post.is_live = is_live if is_registration_complete else False
         db.commit()
-    # db.close() # <--- 삭제됨
     
     redirect_url = f"/marketing/product/posts/{mp_id}" if mp_id else "/marketing/cafe?tab=products"
     return RedirectResponse(url=redirect_url, status_code=303)
@@ -568,7 +569,6 @@ async def delete_marketing_post(post_id: int, db: Session = Depends(get_db)):
         mp_id = post.marketing_product_id
         db.delete(post)
         db.commit()
-    # db.close() # <--- 삭제됨
     
     redirect_url = f"/marketing/product/posts/{mp_id}" if mp_id else "/marketing/cafe?tab=products"
     return RedirectResponse(url=redirect_url, status_code=303)

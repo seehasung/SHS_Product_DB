@@ -3,7 +3,6 @@
 
 {% block content %}
 <div class="container mt-4">
-    <!-- (페이지 상단 HTML은 변경 없음) -->
     <div class="d-flex justify-content-between align-items-center mb-4">
         <div>
             <h1 class="mb-0">✍️ 글 관리</h1>
@@ -15,13 +14,22 @@
         </div>
     </div>
 
-    <!-- (검색창, 2열 그리드, 페이지네이션 HTML은 변경 없음) -->
+    <!-- 에러 메시지 표시부 -->
+    {% if error %}
+    <div class="alert alert-danger" role="alert">
+        {{ error }}
+    </div>
+    {% endif %}
+
+    <!-- 키워드 검색창 -->
     <form method="get" action="/marketing/product/posts/{{ marketing_product.id }}" class="mb-4">
         <div class="input-group">
             <input type="text" name="keyword_search" class="form-control" placeholder="키워드 검색 (띄어쓰기 무시)" value="{{ keyword_search }}">
             <button class="btn btn-primary" type="submit">🔍 검색</button>
         </div>
     </form>
+
+    <!-- 2열 그리드 레이아웃 -->
     <div class="row">
         {% for keyword, posts in posts_by_keyword.items() %}
         <div class="col-md-6 mb-4">
@@ -84,6 +92,9 @@
         </div>
         {% endfor %}
     </div>
+    <!-- 2열 그리드 레이아웃 끝 -->
+
+    <!-- 페이지네이션 UI -->
     {% if total_pages > 1 %}
     <nav class="d-flex justify-content-center mt-4">
         <ul class="pagination">
@@ -101,6 +112,7 @@
         </ul>
     </nav>
     {% endif %}
+    <!-- 페이지네이션 UI 끝 -->
 
     <!-- 수정 모달 (modal-dialog-scrollable 추가) -->
     {% for keyword, posts in posts_by_keyword.items() %}
@@ -115,7 +127,6 @@
                         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                     </div>
                     <div class="modal-body">
-                        <!-- (내용은 모두 동일) -->
                         <div class="row">
                             <div class="col-md-4"><label class="form-label">작성자</label><select class="form-select" name="worker_id" required>{% for worker in all_workers %}<option value="{{ worker.id }}" {{ 'selected' if post.worker_id == worker.id }}>{{ worker.username }}</option>{% endfor %}</select></div>
                             <div class="col-md-4"><label class="form-label">네이버 계정</label><select class="form-select" name="account_id" required onchange="updateCafeDropdown(this, 'edit_cafe_id_{{ post.id }}')">{% for acc in all_accounts %}<option value="{{ acc.id }}" {{ 'selected' if post.account_id == acc.id }}>{{ acc.account_id }}</option>{% endfor %}</select></div>
@@ -159,7 +170,7 @@
                         </div>
                         <div class="mb-3" id="url_field_{{ post.id }}" style="{{ 'display:block;' if post.is_registration_complete else 'display:none;' }}">
                             <label class="form-label">글 URL</label>
-                            <input type="url" class="form-control" name="post_url" value="{{ post.post_url or '' }}">
+                            <input type="url" class="form-control" name="post_url" value="{{ post.post_url or '' }}" {{ 'required' if post.is_registration_complete else '' }}>
                         </div>
                         <div class="form-check form-switch">
                             <input type="hidden" name="is_live" value="False">
@@ -190,7 +201,6 @@
                         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                     </div>
                     <div class="modal-body">
-                        <!-- (내용은 모두 동일) -->
                         <div class="row">
                             <div class="col-md-6 mb-3">
                                 <label class="form-label">키워드 선택</label>
@@ -277,7 +287,6 @@
     </div>
 </div>
 
-<!-- ▼▼▼ <script> 태그 수정 ▼▼▼ -->
 <script>
 // Python에서 전달받은 '계정-카페' 연동 맵
 const membershipMap = {{ membership_map | tojson | safe }};
@@ -330,10 +339,19 @@ function updateCafeDropdown(accountSelectElement, cafeSelectId) {
 }
 
 /**
- * '등록 완료' 체크박스 클릭 시 URL 필드 토글
+ * '등록 완료' 체크박스 클릭 시 URL 필드 토글 및 'required' 속성 제어
  */
 function toggleUrlField(checkbox, fieldId) {
-    document.getElementById(fieldId).style.display = checkbox.checked ? 'block' : 'none';
+    const urlFieldDiv = document.getElementById(fieldId);
+    const urlInput = urlFieldDiv.querySelector('input[name="post_url"]');
+    
+    if (checkbox.checked) {
+        urlFieldDiv.style.display = 'block';
+        urlInput.required = true;
+    } else {
+        urlFieldDiv.style.display = 'none';
+        urlInput.required = false;
+    }
 }
 
 /**
@@ -342,37 +360,36 @@ function toggleUrlField(checkbox, fieldId) {
 function filterReferences(typeSelect, titleSelectId) {
     const selectedType = typeSelect.value;
     const titleSelect = document.getElementById(titleSelectId);
-    
-    // 이전에 선택했던 값
     const currentTitleId = titleSelect.value;
 
     // "제목 선택..." 옵션을 제외한 모든 옵션을 순회
-    for (let i = 1; i < titleSelect.options.length; i++) {
-        const option = titleSelect.options[i];
+    // HTML에 이미 모든 옵션이 렌더링되어 있다고 가정
+    const options = titleSelect.querySelectorAll('option[data-ref-type]');
+    
+    options.forEach(option => {
         const optionType = option.getAttribute('data-ref-type');
-        
         if (selectedType === "" || optionType === selectedType) {
             option.style.display = 'block';
         } else {
             option.style.display = 'none';
         }
-    }
+    });
     
     // 필터링 후, 이전에 선택했던 값이 숨겨졌다면 선택 해제
-    if (currentTitleId && titleSelect.options[titleSelect.selectedIndex].style.display === 'none') {
+    if (currentTitleId && titleSelect.querySelector(`option[value="${currentTitleId}"]`).style.display === 'none') {
         titleSelect.value = "";
     }
 }
 
+
 /**
- * 레퍼런스 제목 선택 시, 폼 필드 채우기
+ * 레퍼런스 제목 선택 시, 폼 필드 채우기 (댓글 포맷팅 수정됨)
  */
 function loadReference(titleSelect, titleFieldId, bodyFieldId, commentsFieldId, refIdInputId) {
     const selectedId = parseInt(titleSelect.value);
     const titleField = document.getElementById(titleFieldId);
     const bodyField = document.getElementById(bodyFieldId);
     const commentsField = document.getElementById(commentsFieldId);
-    // 'addPostModal'의 폼에서는 'add_post_content_wrapper'를, 'editPostModal'에서는 null이 됩니다.
     const contentWrapper = document.getElementById(titleFieldId.replace('_post_title', '_content_wrapper'));
     const refIdInput = document.getElementById(refIdInputId);
     
@@ -412,9 +429,8 @@ function loadReference(titleSelect, titleFieldId, bodyFieldId, commentsFieldId, 
             let text = "";
             comments.forEach(c => {
                 const prefix = c.account_sequence === 0 ? "작성자" : `계정 ${c.account_sequence}`;
-                // 댓글 텍스트의 각 줄마다 들여쓰기 적용
                 const commentLines = c.text.split('\n').map(line => `${indent}  ${line}`).join('\n');
-                text += `${indent}${prefix}:\n${commentLines}\n\n`; // 각 댓글 사이에 한 줄 띄우기
+                text += `${indent}${prefix}:\n${commentLines}\n\n`;
                 if (c.structured_replies && c.structured_replies.length > 0) {
                     text += formatComments(c.structured_replies, indent + "    (답글) ");
                 }
@@ -428,6 +444,5 @@ function loadReference(titleSelect, titleFieldId, bodyFieldId, commentsFieldId, 
     }
 }
 </script>
-<!-- ▲▲▲ <script> 태그 수정 ▲▲▲ -->
-</script>
 {% endblock %}
+
