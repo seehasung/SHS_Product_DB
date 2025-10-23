@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session, joinedload
 from sqlalchemy.exc import IntegrityError
 import json
 
-# 모든 필요한 모델과 User 모델 import
+# Reference, Comment 및 User 모델을 추가로 import
 from database import (
     SessionLocal, TargetCafe, MarketingAccount, Product, MarketingProduct,
     CafeMembership, Reference, Comment, User
@@ -47,13 +47,15 @@ async def marketing_cafe(request: Request, db: Session = Depends(get_db)):
             query = query.filter(CafeMembership.status == status_filter)
         memberships = query.order_by(CafeMembership.account_id).all()
 
-    cafes = db.query(TargetCafe).order_by(TargetCafe.name).all() # 카페 이름 순 정렬
+    cafes = db.query(TargetCafe).order_by(TargetCafe.name).all()
     accounts_query = db.query(MarketingAccount)
     if category_filter != 'all':
         accounts_query = accounts_query.filter(MarketingAccount.category == category_filter)
-    accounts = accounts_query.order_by(MarketingAccount.id).all() # 계정 ID 순 정렬
-    marketing_products = db.query(MarketingProduct).options(joinedload(MarketingProduct.product)).order_by(MarketingProduct.id).all() # 상품 ID 순 정렬
-    references = db.query(Reference).options(joinedload(Reference.last_modified_by)).order_by(Reference.id.desc()).all() # 최근 생성 순 정렬
+    accounts = accounts_query.order_by(MarketingAccount.id).all()
+    marketing_products = db.query(MarketingProduct).options(joinedload(MarketingProduct.product)).order_by(MarketingProduct.id).all()
+    references = db.query(Reference).options(joinedload(Reference.last_modified_by)).order_by(Reference.id.desc()).all()
+
+    db.close() # 메인 페이지는 모든 조회가 끝난 후 닫습니다.
 
     return templates.TemplateResponse("marketing_cafe.html", {
         "request": request, "cafes": cafes, "accounts": accounts,
@@ -94,7 +96,11 @@ async def delete_reference(ref_id: int, db: Session = Depends(get_db)):
 
 @router.get("/reference/{ref_id}", response_class=HTMLResponse)
 async def get_reference_detail(request: Request, ref_id: int, db: Session = Depends(get_db)):
-    reference = db.query(Reference).filter(Reference.id == ref_id).first()
+    # last_modified_by 정보를 함께 로드하도록 joinedload 추가
+    reference = db.query(Reference).options(
+        joinedload(Reference.last_modified_by)
+    ).filter(Reference.id == ref_id).first()
+    
     all_comments = db.query(Comment).filter(Comment.reference_id == ref_id).order_by(Comment.created_at).all()
     comment_map = {c.id: c for c in all_comments}
     top_level_comments = []
@@ -108,7 +114,9 @@ async def get_reference_detail(request: Request, ref_id: int, db: Session = Depe
                 parent.structured_replies.append(comment)
         else:
             top_level_comments.append(comment)
-    db.close()
+            
+    db.close() # 모든 DB 작업이 끝난 후 세션 닫기
+    
     return templates.TemplateResponse("reference_detail.html", {
         "request": request,
         "reference": reference,
