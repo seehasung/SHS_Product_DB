@@ -1,0 +1,163 @@
+{% extends "base.html" %}
+{% block title %}글 관리 - {{ marketing_product.product.name }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="mb-0">✍️ 글 관리</h1>
+            <span class="text-muted fs-5">{{ marketing_product.product.name }}</span>
+        </div>
+        <div>
+            <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#addPostModal">➕ 새 글 등록</button>
+            <a href="/marketing/cafe?tab=products" class="btn btn-secondary">← 목록으로</a>
+        </div>
+    </div>
+
+    <!-- 키워드별 글 목록 -->
+    {% for keyword, posts in posts_by_keyword.items() %}
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-dark text-white">
+            <h4 class="mb-0">키워드: {{ keyword }} ({{ posts|length }}개)</h4>
+        </div>
+        <div class="card-body">
+            {% if posts %}
+            <table class="table table-hover align-middle">
+                <thead>
+                    <tr>
+                        <th style="width: 5%;">상태</th>
+                        <th>글 URL</th>
+                        <th style="width: 15%;">네이버 계정</th>
+                        <th style="width: 15%;">작성 카페</th>
+                        <th style="width: 10%;">작성자</th>
+                        <th style="width: 15%;" class="text-center">관리</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for post in posts %}
+                    <tr>
+                        <td>
+                            <span class="fs-4">{{ '✅' if post.is_live else '❌' }}</span>
+                        </td>
+                        <td><a href="{{ post.post_url }}" target="_blank">{{ post.post_url }}</a></td>
+                        <td>{{ post.account.account_id if post.account else 'N/A' }}</td>
+                        <td>{{ post.cafe.name if post.cafe else 'N/A' }}</td>
+                        <td>{{ post.worker.username if post.worker else 'N/A' }}</td>
+                        <td class="text-center">
+                            <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#editPostModal-{{ post.id }}">수정</button>
+                            <form action="/marketing/post/delete/{{ post.id }}" method="post" class="d-inline" onsubmit="return confirm('이 글을 정말 삭제하시겠습니까?');">
+                                <button type="submit" class="btn btn-sm btn-outline-danger">삭제</button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <p class="text-center text-muted p-3">아직 이 키워드로 등록된 글이 없습니다.</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- 수정 모달 (각 글마다 고유하게 생성) -->
+    {% for post in posts %}
+    <div class="modal fade" id="editPostModal-{{ post.id }}" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <form action="/marketing/post/update/{{ post.id }}" method="post">
+                    <div class="modal-header">
+                        <h5 class="modal-title">글 정보 수정</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label class="form-label">키워드</label>
+                            <input type="text" class="form-control" value="{{ post.keyword_text }}" disabled>
+                        </div>
+                        <div class="mb-3">
+                            <label for="post_url-{{ post.id }}" class="form-label">글 URL</label>
+                            <input type="url" class="form-control" id="post_url-{{ post.id }}" name="post_url" value="{{ post.post_url }}" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="account_id-{{ post.id }}" class="form-label">네이버 계정</label>
+                            <select class="form-select" id="account_id-{{ post.id }}" name="account_id" required>
+                                {% for acc in all_accounts %}<option value="{{ acc.id }}" {{ 'selected' if post.account_id == acc.id }}>{{ acc.account_id }}</option>{% endfor %}
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="cafe_id-{{ post.id }}" class="form-label">작성 카페</label>
+                            <select class="form-select" id="cafe_id-{{ post.id }}" name="cafe_id" required>
+                                {% for cafe in all_cafes %}<option value="{{ cafe.id }}" {{ 'selected' if post.cafe_id == cafe.id }}>{{ cafe.name }}</option>{% endfor %}
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="worker_id-{{ post.id }}" class="form-label">작성자</label>
+                            <select class="form-select" id="worker_id-{{ post.id }}" name="worker_id" required>
+                                {% for worker in all_workers %}<option value="{{ worker.id }}" {{ 'selected' if post.worker_id == worker.id }}>{{ worker.username }}</option>{% endfor %}
+                            </select>
+                        </div>
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" role="switch" id="is_live-{{ post.id }}" name="is_live" value="True" {{ 'checked' if post.is_live else '' }}>
+                            <label class="form-check-label" for="is_live-{{ post.id }}">글 상태 (체크 시 '살아있는 글')</label>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">닫기</button>
+                        <button type="submit" class="btn btn-primary">수정 저장</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+    {% endfor %}
+
+    <!-- 새 글 등록 모달 -->
+    <div class="modal fade" id="addPostModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <form action="/marketing/post/add" method="post">
+                    <input type="hidden" name="mp_id" value="{{ marketing_product.id }}">
+                    <div class="modal-header">
+                        <h5 class="modal-title">새 글 등록</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label for="keyword_text" class="form-label">키워드 선택</label>
+                            <select class="form-select" id="keyword_text" name="keyword_text" required>
+                                <option value="" disabled selected>등록할 키워드를 선택하세요</option>
+                                {% for kw in keywords_list %}
+                                <option value="{{ kw }}">{{ kw }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="post_url" class="form-label">글 URL</label>
+                            <input type="url" class="form-control" id="post_url" name="post_url" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="account_id" class="form-label">네이버 계정</label>
+                            <select class="form-select" id="account_id" name="account_id" required>
+                                <option value="" disabled selected>작업한 계정을 선택하세요</option>
+                                {% for acc in all_accounts %}<option value="{{ acc.id }}">{{ acc.account_id }}</option>{% endfor %}
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="cafe_id" class="form-label">작성 카페</label>
+                            <select class="form-select" id="cafe_id" name="cafe_id" required>
+                                <option value="" disabled selected>작성한 카페를 선택하세요</option>
+                                {% for cafe in all_cafes %}<option value="{{ cafe.id }}">{{ cafe.name }}</option>{% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">닫기</button>
+                        <button type="submit" class="btn btn-primary">등록하기</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -56,245 +56,232 @@
     <!-- 탭 콘텐츠 -->
     <div class="tab-content" id="myTabContent">
         <!-- 전체 현황 탭 -->
-        <div class="tab-pane fade" id="status-tab-pane" role="tabpanel">
-             <div class="p-5 text-center border-start border-end border-bottom">(TODO: 전체 현황 대시보드가 여기에 표시될 예정입니다.)</div>
+        <div class="tab-pane fade border-start border-end border-bottom p-3" id="status-tab-pane" role="tabpanel">
+             <div class="p-5 text-center">(TODO: 전체 현황 대시보드가 여기에 표시될 예정입니다.)</div>
         </div>
         
         <!-- 연동 관리 탭 -->
-        <div class="tab-pane fade" id="memberships-tab-pane" role="tabpanel">
-            <div class="p-3 border-start border-end border-bottom">
-                <!-- ... (연동 관리 탭 코드는 여기에 그대로 유지됩니다) ... -->
-                <h3 class="mb-3">신규 카페-계정 연동</h3>
-                <form action="/marketing/membership/add" method="post" class="mb-4 p-3 border rounded bg-light">
-                    <div class="row g-3 align-items-end">
-                        <div class="col-md-3"><label class="form-label">계정 선택</label><select name="account_id" class="form-select">{% for acc in accounts %}<option value="{{ acc.id }}">{{ acc.account_id }}</option>{% endfor %}</select></div>
-                        <div class="col-md-3"><label class="form-label">카페 선택</label><select name="cafe_id" class="form-select">{% for cafe in cafes %}<option value="{{ cafe.id }}">{{ cafe.name }}</option>{% endfor %}</select></div>
-                        <div class="col-md-2"><label class="form-label">신규 글 수</label><input type="number" name="new_post_count" class="form-control" value="0"></div>
-                        <div class="col-md-2"><label class="form-label">수정 글 수</label><input type="number" name="edited_post_count" class="form-control" value="0"></div>
-                        <div class="col-md-2"><button type="submit" class="btn btn-primary w-100">🔗 연동</button></div>
+        <div class="tab-pane fade border-start border-end border-bottom p-3" id="memberships-tab-pane" role="tabpanel">
+            <h3 class="mb-3">신규 카페-계정 연동</h3>
+            <form action="/marketing/membership/add" method="post" class="mb-4 p-3 border rounded bg-light">
+                <div class="row g-3 align-items-end">
+                    <div class="col-md-3"><label class="form-label">계정 선택</label><select name="account_id" class="form-select">{% for acc in accounts %}<option value="{{ acc.id }}">{{ acc.account_id }}</option>{% endfor %}</select></div>
+                    <div class="col-md-3"><label class="form-label">카페 선택</label><select name="cafe_id" class="form-select">{% for cafe in cafes %}<option value="{{ cafe.id }}">{{ cafe.name }}</option>{% endfor %}</select></div>
+                    <div class="col-md-2"><label class="form-label">신규 글 수</label><input type="number" name="new_post_count" class="form-control" value="0"></div>
+                    <div class="col-md-2"><label class="form-label">수정 글 수</label><input type="number" name="edited_post_count" class="form-control" value="0"></div>
+                    <div class="col-md-2"><button type="submit" class="btn btn-primary w-100">🔗 연동</button></div>
+                </div>
+            </form>
+            <h3 class="mb-3">연동 목록</h3>
+            <div class="row">
+                <div class="col-md-4">
+                    <div class="list-group">
+                        {% for cafe in cafes %}
+                        <a href="/marketing/cafe?tab=memberships&cafe_id={{ cafe.id }}" class="list-group-item list-group-item-action {{ 'active' if selected_cafe and selected_cafe.id == cafe.id else '' }}">{{ cafe.name }}</a>
+                        {% endfor %}
                     </div>
-                </form>
-                <h3 class="mb-3">연동 목록</h3>
-                <div class="row">
-                    <div class="col-md-4">
-                        <div class="list-group">
-                            {% for cafe in cafes %}
-                            <a href="/marketing/cafe?tab=memberships&cafe_id={{ cafe.id }}" class="list-group-item list-group-item-action {{ 'active' if selected_cafe and selected_cafe.id == cafe.id else '' }}">{{ cafe.name }}</a>
+                </div>
+                <div class="col-md-8">
+                    {% if selected_cafe %}
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h4>{{ selected_cafe.name }} - 계정 목록</h4>
+                        <div>
+                            <a href="?tab=memberships&cafe_id={{ selected_cafe.id }}&status_filter=all" class="btn btn-sm {{ 'btn-dark' if status_filter == 'all' else 'btn-outline-dark' }}">전체</a>
+                            <a href="?tab=memberships&cafe_id={{ selected_cafe.id }}&status_filter=active" class="btn btn-sm {{ 'btn-success' if status_filter == 'active' else 'btn-outline-success' }}">활동중</a>
+                            <a href="?tab=memberships&cafe_id={{ selected_cafe.id }}&status_filter=suspended" class="btn btn-sm {{ 'btn-danger' if status_filter == 'suspended' else 'btn-outline-danger' }}">활동정지</a>
+                            <a href="?tab=memberships&cafe_id={{ selected_cafe.id }}&status_filter=graduated" class="btn btn-sm {{ 'btn-secondary' if status_filter == 'graduated' else 'btn-outline-secondary' }}">졸업</a>
+                        </div>
+                    </div>
+                    <table class="table table-bordered table-hover text-center align-middle">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>계정 아이디</th><th>신규 글</th><th>수정 글</th><th>상태</th><th>저장</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for membership in memberships %}
+                            <tr>
+                            <form action="/marketing/membership/update/{{ membership.id }}" method="post">
+                                <td>{{ membership.account.account_id }}</td>
+                                <td><input type="number" name="new_post_count" class="form-control form-control-sm" value="{{ membership.new_post_count }}"></td>
+                                <td><input type="number" name="edited_post_count" class="form-control form-control-sm" value="{{ membership.edited_post_count }}"></td>
+                                <td>
+                                    <select name="status" class="form-select form-select-sm">
+                                        <option value="active" {{ 'selected' if membership.status == 'active' }}>활동중</option>
+                                        <option value="suspended" {{ 'selected' if membership.status == 'suspended' }}>활동정지</option>
+                                        <option value="graduated" {{ 'selected' if membership.status == 'graduated' }}>졸업</option>
+                                    </select>
+                                </td>
+                                <td><button type="submit" class="btn btn-sm btn-outline-primary">저장</button></td>
+                            </form>
+                            </tr>
                             {% endfor %}
-                        </div>
-                    </div>
-                    <div class="col-md-8">
-                        {% if selected_cafe %}
-                        <div class="d-flex justify-content-between align-items-center mb-3">
-                            <h4>{{ selected_cafe.name }} - 계정 목록</h4>
-                            <div>
-                                <a href="?tab=memberships&cafe_id={{ selected_cafe.id }}&status_filter=all" class="btn btn-sm {{ 'btn-dark' if status_filter == 'all' else 'btn-outline-dark' }}">전체</a>
-                                <a href="?tab=memberships&cafe_id={{ selected_cafe.id }}&status_filter=active" class="btn btn-sm {{ 'btn-success' if status_filter == 'active' else 'btn-outline-success' }}">활동중</a>
-                                <a href="?tab=memberships&cafe_id={{ selected_cafe.id }}&status_filter=suspended" class="btn btn-sm {{ 'btn-danger' if status_filter == 'suspended' else 'btn-outline-danger' }}">활동정지</a>
-                                <a href="?tab=memberships&cafe_id={{ selected_cafe.id }}&status_filter=graduated" class="btn btn-sm {{ 'btn-secondary' if status_filter == 'graduated' else 'btn-outline-secondary' }}">졸업</a>
-                            </div>
-                        </div>
-                        <table class="table table-bordered table-hover text-center align-middle">
-                            <thead class="table-dark">
-                                <tr>
-                                    <th>계정 아이디</th><th>신규 글</th><th>수정 글</th><th>상태</th><th>저장</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for membership in memberships %}
-                                <tr>
-                                <form action="/marketing/membership/update/{{ membership.id }}" method="post">
-                                    <td>{{ membership.account.account_id }}</td>
-                                    <td><input type="number" name="new_post_count" class="form-control form-control-sm" value="{{ membership.new_post_count }}"></td>
-                                    <td><input type="number" name="edited_post_count" class="form-control form-control-sm" value="{{ membership.edited_post_count }}"></td>
-                                    <td>
-                                        <select name="status" class="form-select form-select-sm">
-                                            <option value="active" {{ 'selected' if membership.status == 'active' }}>활동중</option>
-                                            <option value="suspended" {{ 'selected' if membership.status == 'suspended' }}>활동정지</option>
-                                            <option value="graduated" {{ 'selected' if membership.status == 'graduated' }}>졸업</option>
-                                        </select>
-                                    </td>
-                                    <td><button type="submit" class="btn btn-sm btn-outline-primary">저장</button></td>
-                                </form>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                        {% else %}
-                        <div class="p-5 text-center bg-light border rounded">← 왼쪽에서 카페를 선택하여 연동된 계정 목록을 확인하세요.</div>
-                        {% endif %}
-                    </div>
+                        </tbody>
+                    </table>
+                    {% else %}
+                    <div class="p-5 text-center bg-light border rounded">← 왼쪽에서 카페를 선택하여 연동된 계정 목록을 확인하세요.</div>
+                    {% endif %}
                 </div>
             </div>
         </div>
         
         <!-- 상품 관리 탭 -->
-        <div class="tab-pane fade" id="products-tab-pane" role="tabpanel">
-             <div class="p-3 border-start border-end border-bottom">
-                <!-- ... (상품 관리 탭 코드는 여기에 그대로 유지됩니다) ... -->
-                <div class="d-flex justify-content-between align-items-center mb-3">
-                    <h3 class="mb-0">마케팅 상품 목록</h3>
-                    <a href="/marketing/product-selection" class="btn btn-success">➕ 마케팅 상품 추가</a>
-                </div>
-                <table class="table table-bordered table-hover text-center align-middle">
-                    <thead class="table-dark">
-                        <tr>
-                            <th>상품 ID</th><th>썸네일</th><th>상품명</th><th>관리</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for mp in marketing_products %}
-                        <tr>
-                            <td>{{ mp.product.product_code }}</td>
-                            <td><img src="{{ mp.product.thumbnail }}" width="60" alt="썸네일"></td>
-                            <td class="text-start">{{ mp.product.name }}</td>
-                            <td><a href="/marketing/product/keywords/{{ mp.id }}" class="btn btn-sm btn-outline-primary">키워드 관리</a></td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
+        <div class="tab-pane fade border-start border-end border-bottom p-3" id="products-tab-pane" role="tabpanel">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h3 class="mb-0">마케팅 상품 목록</h3>
+                <a href="/marketing/product-selection" class="btn btn-success">➕ 마케팅 상품 추가</a>
             </div>
+            <table class="table table-bordered table-hover text-center align-middle">
+                <thead class="table-dark">
+                    <tr>
+                        <th>상품 ID</th><th>썸네일</th><th>상품명</th><th>관리</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for mp in marketing_products %}
+                    <tr>
+                        <td>{{ mp.product.product_code }}</td>
+                        <td><img src="{{ mp.product.thumbnail }}" width="60" alt="썸네일"></td>
+                        <td class="text-start">{{ mp.product.name }}</td>
+                        <td>
+                            <a href="/marketing/product/posts/{{ mp.id }}" class="btn btn-sm btn-primary">글 관리</a>
+                            <a href="/marketing/product/keywords/{{ mp.id }}" class="btn btn-sm btn-outline-secondary">키워드 관리</a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
         </div>
 
-        <!-- 레퍼런스 관리 탭 (수정됨) -->
-        <div class="tab-pane fade" id="references-tab-pane" role="tabpanel">
-            <div class="p-3 border-start border-end border-bottom">
-                <h3 class="mb-3">신규 레퍼런스 생성</h3>
-                {% if error == 'duplicate_reference' %}
-                <div class="alert alert-danger" role="alert">
-                    {{ error }}
-                </div>
-                {% endif %}
-                <form action="/marketing/reference/add" method="post" class="mb-4 p-3 border rounded bg-light">
-                    <div class="row g-3 align-items-end">
-                        <div class="col-md-10"><label class="form-label">레퍼런스 제목</label><input type="text" name="title" class="form-control" required></div>
-                        <div class="col-md-2"><button type="submit" class="btn btn-primary w-100">➕ 생성</button></div>
-                    </div>
-                </form>
-
-                <!-- ▼▼▼ 필터 버튼 추가 ▼▼▼ -->
-                <div class="d-flex justify-content-between align-items-center mb-3">
-                    <h3 class="mb-0">저장된 레퍼런스 목록</h3>
-                    <div>
-                        <a href="?tab=references&ref_filter=all" class="btn btn-sm {{ 'btn-dark' if reference_filter == 'all' else 'btn-outline-dark' }}">전체</a>
-                        <a href="?tab=references&ref_filter=대안" class="btn btn-sm {{ 'btn-danger' if reference_filter == '대안' else 'btn-outline-danger' }}">대안</a>
-                        <a href="?tab=references&ref_filter=정보" class="btn btn-sm {{ 'btn-primary' if reference_filter == '정보' else 'btn-outline-primary' }}">정보</a>
-                        <a href="?tab=references&ref_filter=기타" class="btn btn-sm {{ 'btn-success' if reference_filter == '기타' else 'btn-outline-success' }}">기타</a>
-                    </div>
-                </div>
-                <!-- ▲▲▲ 필터 버튼 추가 ▲▲▲ -->
-
-                <table class="table table-hover align-middle">
-                    <thead class="table-dark">
-                        <tr>
-                            <th style="width: 10%;">분류</th>
-                            <th>제목</th>
-                            <th style="width: 15%;">마지막 수정자</th>
-                            <th style="width: 10%;" class="text-center">삭제</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for ref in references %}
-                        <tr>
-                            <td><span class="ref-badge ref-{{ ref.ref_type or '기타' }}">{{ ref.ref_type or '미지정' }}</span></td>
-                            <td><a href="/marketing/reference/{{ ref.id }}" class="text-decoration-none">{{ ref.title }}</a></td>
-                            <td>{{ ref.last_modified_by.username if ref.last_modified_by else '없음' }}</td>
-                            <td class="text-center">
-                                <form action="/marketing/reference/delete/{{ ref.id }}" method="post" onsubmit="return confirm('\'{{ ref.title }}\' 레퍼런스를 정말 삭제하시겠습니까?');">
-                                    <button type="submit" class="btn btn-sm btn-outline-danger">삭제</button>
-                                </form>
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
+        <!-- 레퍼런스 관리 탭 -->
+        <div class="tab-pane fade border-start border-end border-bottom p-3" id="references-tab-pane" role="tabpanel">
+            <h3 class="mb-3">신규 레퍼런스 생성</h3>
+            {% if error == 'duplicate_reference' %}
+            <div class="alert alert-danger" role="alert">
+                {{ error }}
             </div>
+            {% endif %}
+            <form action="/marketing/reference/add" method="post" class="mb-4 p-3 border rounded bg-light">
+                <div class="row g-3 align-items-end">
+                    <div class="col-md-10"><label class="form-label">레퍼런스 제목</label><input type="text" name="title" class="form-control" required></div>
+                    <div class="col-md-2"><button type="submit" class="btn btn-primary w-100">➕ 생성</button></div>
+                </div>
+            </form>
+
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h3 class="mb-0">저장된 레퍼런스 목록</h3>
+                <div>
+                    <a href="?tab=references&ref_filter=all" class="btn btn-sm {{ 'btn-dark' if reference_filter == 'all' else 'btn-outline-dark' }}">전체</a>
+                    <a href="?tab=references&ref_filter=대안" class="btn btn-sm {{ 'btn-danger' if reference_filter == '대안' else 'btn-outline-danger' }}">대안</a>
+                    <a href="?tab=references&ref_filter=정보" class="btn btn-sm {{ 'btn-primary' if reference_filter == '정보' else 'btn-outline-primary' }}">정보</a>
+                    <a href="?tab=references&ref_filter=기타" class="btn btn-sm {{ 'btn-success' if reference_filter == '기타' else 'btn-outline-success' }}">기타</a>
+                </div>
+            </div>
+
+            <table class="table table-hover align-middle">
+                <thead class="table-dark">
+                    <tr>
+                        <th style="width: 10%;">분류</th>
+                        <th>제목</th>
+                        <th style="width: 15%;">마지막 수정자</th>
+                        <th style="width: 10%;" class="text-center">삭제</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for ref in references %}
+                    <tr>
+                        <td><span class="ref-badge ref-{{ ref.ref_type or '기타' }}">{{ ref.ref_type or '미지정' }}</span></td>
+                        <td><a href="/marketing/reference/{{ ref.id }}" class="text-decoration-none">{{ ref.title }}</a></td>
+                        <td>{{ ref.last_modified_by.username if ref.last_modified_by else '없음' }}</td>
+                        <td class="text-center">
+                            <form action="/marketing/reference/delete/{{ ref.id }}" method="post" onsubmit="return confirm('\'{{ ref.title }}\' 레퍼런스를 정말 삭제하시겠습니까?');">
+                                <button type="submit" class="btn btn-sm btn-outline-danger">삭제</button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
         </div>
 
         <!-- 계정 관리 탭 -->
-        <div class="tab-pane fade" id="accounts-tab-pane" role="tabpanel">
-            <div class="p-3 border-start border-end border-bottom">
-                <!-- ... (계정 관리 탭 코드는 여기에 그대로 유지됩니다) ... -->
-                <h3 class="mb-3">신규 계정 등록</h3>
-                {% if error == 'duplicate_account' %}<div class="alert alert-danger">{{ error }}</div>{% endif %}
-                <form action="/marketing/account/add" method="post" class="mb-4 p-3 border rounded bg-light">
-                    <div class="row g-3 align-items-end">
-                        <div class="col-md-3"><label class="form-label">네이버 아이디</label><input type="text" name="account_id" class="form-control" required></div>
-                        <div class="col-md-3"><label class="form-label">비밀번호</label><input type="text" name="account_pw" class="form-control" required></div>
-                        <div class="col-md-2"><label class="form-label">분류</label>
-                            <select name="category" class="form-select" required>
-                                <option value="최적화" selected>최적화</option>
-                                <option value="댓글">댓글</option>
-                            </select>
-                        </div>
-                        <div class="col-md-2"><label class="form-label">IP 주소 (선택)</label><input type="text" name="ip_address" class="form-control"></div>
-                        <div class="col-md-2"><button type="submit" class="btn btn-primary w-100">➕ 추가</button></div>
+        <div class="tab-pane fade border-start border-end border-bottom p-3" id="accounts-tab-pane" role="tabpanel">
+            <h3 class="mb-3">신규 계정 등록</h3>
+            {% if error == 'duplicate_account' %}<div class="alert alert-danger" role="alert">{{ error_message }}</div>{% endif %}
+            <form action="/marketing/account/add" method="post" class="mb-4 p-3 border rounded bg-light">
+                <div class="row g-3 align-items-end">
+                    <div class="col-md-3"><label class="form-label">네이버 아이디</label><input type="text" name="account_id" class="form-control" required></div>
+                    <div class="col-md-3"><label class="form-label">비밀번호</label><input type="text" name="account_pw" class="form-control" required></div>
+                    <div class="col-md-2"><label class="form-label">분류</label>
+                        <select name="category" class="form-select" required>
+                            <option value="최적화" selected>최적화</option>
+                            <option value="댓글">댓글</option>
+                        </select>
                     </div>
-                </form>
-                <div class="d-flex justify-content-between align-items-center mb-3">
-                    <h3 class="mb-0">등록된 계정 목록</h3>
-                    <div>
-                        <a href="?tab=accounts&category_filter=all" class="btn btn-sm {{ 'btn-dark' if category_filter == 'all' else 'btn-outline-dark' }}">전체</a>
-                        <a href="?tab=accounts&category_filter=최적화" class="btn btn-sm {{ 'btn-primary' if category_filter == '최적화' else 'btn-outline-primary' }}">최적화</a>
-                        <a href="?tab=accounts&category_filter=댓글" class="btn btn-sm {{ 'btn-info' if category_filter == '댓글' else 'btn-outline-info' }}">댓글</a>
-                    </div>
+                    <div class="col-md-2"><label class="form-label">IP 주소 (선택)</label><input type="text" name="ip_address" class="form-control"></div>
+                    <div class="col-md-2"><button type="submit" class="btn btn-primary w-100">➕ 추가</button></div>
                 </div>
-                <table class="table table-bordered table-hover text-center align-middle">
-                    <thead class="table-dark">
-                        <tr>
-                            <th>#</th><th>분류</th><th>아이디</th><th>비밀번호</th><th>IP 주소</th><th>관리</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for acc in accounts %}
-                        <tr>
-                            <td>{{ acc.id }}</td><td>{{ acc.category }}</td><td>{{ acc.account_id }}</td><td>{{ acc.account_pw }}</td><td>{{ acc.ip_address or '-' }}</td>
-                            <td>
-                                <button type="button" class="btn btn-sm btn-outline-primary me-2" data-bs-toggle="modal" data-bs-target="#editAccountModal" data-bs-id="{{ acc.id }}" data-bs-account-id="{{ acc.account_id }}" data-bs-account-pw="{{ acc.account_pw }}" data-bs-category="{{ acc.category }}" data-bs-ip="{{ acc.ip_address or '' }}">수정</button>
-                                <form action="/marketing/account/delete/{{ acc.id }}" method="post" onsubmit="return confirm('정말 삭제하시겠습니까?');" class="d-inline"><button type="submit" class="btn btn-sm btn-outline-danger">삭제</button></form>
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
+            </form>
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h3 class="mb-0">등록된 계정 목록</h3>
+                <div>
+                    <a href="?tab=accounts&category_filter=all" class="btn btn-sm {{ 'btn-dark' if category_filter == 'all' else 'btn-outline-dark' }}">전체</a>
+                    <a href="?tab=accounts&category_filter=최적화" class="btn btn-sm {{ 'btn-primary' if category_filter == '최적화' else 'btn-outline-primary' }}">최적화</a>
+                    <a href="?tab=accounts&category_filter=댓글" class="btn btn-sm {{ 'btn-info' if category_filter == '댓글' else 'btn-outline-info' }}">댓글</a>
+                </div>
             </div>
+            <table class="table table-bordered table-hover text-center align-middle">
+                <thead class="table-dark">
+                    <tr>
+                        <th>#</th><th>분류</th><th>아이디</th><th>비밀번호</th><th>IP 주소</th><th>관리</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for acc in accounts %}
+                    <tr>
+                        <td>{{ acc.id }}</td><td>{{ acc.category }}</td><td>{{ acc.account_id }}</td><td>{{ acc.account_pw }}</td><td>{{ acc.ip_address or '-' }}</td>
+                        <td>
+                            <button type="button" class="btn btn-sm btn-outline-primary me-2" data-bs-toggle="modal" data-bs-target="#editAccountModal" data-bs-id="{{ acc.id }}" data-bs-account-id="{{ acc.account_id }}" data-bs-account-pw="{{ acc.account_pw }}" data-bs-category="{{ acc.category }}" data-bs-ip="{{ acc.ip_address or '' }}">수정</button>
+                            <form action="/marketing/account/delete/{{ acc.id }}" method="post" onsubmit="return confirm('정말 삭제하시겠습니까?');" class="d-inline"><button type="submit" class="btn btn-sm btn-outline-danger">삭제</button></form>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
         </div>
         
         <!-- 카페 관리 탭 -->
-        <div class="tab-pane fade" id="cafes-tab-pane" role="tabpanel">
-            <div class="p-3 border-start border-end border-bottom">
-                <!-- ... (카페 관리 탭 코드는 여기에 그대로 유지됩니다) ... -->
-                <h3 class="mb-3">신규 타겟 카페 등록</h3>
-                <form action="/marketing/cafe/add" method="post" class="mb-4 p-3 border rounded bg-light">
-                    <div class="row g-3 align-items-center">
-                        <div class="col-md-5"><input type="text" name="name" class="form-control" placeholder="카페 이름" required></div>
-                        <div class="col-md-5"><input type="url" name="url" class="form-control" placeholder="카페 URL" required></div>
-                        <div class="col-md-2"><button type="submit" class="btn btn-primary w-100">➕ 추가</button></div>
-                    </div>
-                </form>
-                <h3 class="mb-3">등록된 카페 목록</h3>
-                <table class="table table-bordered table-hover text-center align-middle">
-                    <thead class="table-dark">
-                        <tr>
-                            <th>#</th><th>카페 이름</th><th>URL</th><th>관리</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for cafe in cafes %}
-                        <tr>
-                            <td>{{ cafe.id }}</td>
-                            <td>{{ cafe.name }}</td>
-                            <td class="text-start"><a href="{{ cafe.url }}" target="_blank">{{ cafe.url }}</a></td>
-                            <td>
-                                <form action="/marketing/cafe/delete/{{ cafe.id }}" method="post" onsubmit="return confirm('정말 삭제하시겠습니까?');">
-                                    <button type="submit" class="btn btn-sm btn-outline-danger">삭제</button>
-                                </form>
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
+        <div class="tab-pane fade border-start border-end border-bottom p-3" id="cafes-tab-pane" role="tabpanel">
+            <h3 class="mb-3">신규 타겟 카페 등록</h3>
+            <form action="/marketing/cafe/add" method="post" class="mb-4 p-3 border rounded bg-light">
+                <div class="row g-3 align-items-center">
+                    <div class="col-md-5"><input type="text" name="name" class="form-control" placeholder="카페 이름" required></div>
+                    <div class="col-md-5"><input type="url" name="url" class="form-control" placeholder="카페 URL" required></div>
+                    <div class="col-md-2"><button type="submit" class="btn btn-primary w-100">➕ 추가</button></div>
+                </div>
+            </form>
+            <h3 class="mb-3">등록된 카페 목록</h3>
+            <table class="table table-bordered table-hover text-center align-middle">
+                <thead class="table-dark">
+                    <tr>
+                        <th>#</th><th>카페 이름</th><th>URL</th><th>관리</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for cafe in cafes %}
+                    <tr>
+                        <td>{{ cafe.id }}</td>
+                        <td>{{ cafe.name }}</td>
+                        <td class="text-start"><a href="{{ cafe.url }}" target="_blank">{{ cafe.url }}</a></td>
+                        <td>
+                            <form action="/marketing/cafe/delete/{{ cafe.id }}" method="post" onsubmit="return confirm('정말 삭제하시겠습니까?');">
+                                <button type="submit" class="btn btn-sm btn-outline-danger">삭제</button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
         </div>
     </div>
 </div>
@@ -323,7 +310,6 @@
 </div>
 
 <script>
-    // URL 파라미터를 기반으로 올바른 탭을 활성화하는 스크립트
     document.addEventListener('DOMContentLoaded', function () {
         const params = new URLSearchParams(window.location.search);
         let tab = params.get('tab');
@@ -333,6 +319,7 @@
 
         const triggerEl = document.querySelector(`#${tab}-tab`);
         if (triggerEl) {
+            // Bootstrap 탭 인스턴스 생성 및 표시
             const tabTrigger = new bootstrap.Tab(triggerEl);
             tabTrigger.show();
         }
@@ -341,14 +328,25 @@
         const tabTriggers = document.querySelectorAll('#myTab a[data-bs-toggle="tab"]');
         tabTriggers.forEach(el => {
             el.addEventListener('shown.bs.tab', event => {
-                const newTab = event.target.getAttribute('href').substring(1).replace('-tab-pane', '');
+                const newTabId = event.target.getAttribute('href').substring(1); // #status-tab-pane
+                const newTab = newTabId.replace('-tab-pane', ''); // status
+                
                 const url = new URL(window.location);
                 url.searchParams.set('tab', newTab);
-                // 필터 파라미터는 유지하거나 초기화할 수 있습니다. 여기서는 탭 변경 시 필터 초기화를 위해 제거합니다.
-                url.searchParams.delete('cafe_id');
-                url.searchParams.delete('status_filter');
-                url.searchParams.delete('category_filter');
-                url.searchParams.delete('ref_filter');
+                
+                // 탭 변경 시 관련 필터 파라미터 외에는 제거
+                if (newTab !== 'memberships') {
+                    url.searchParams.delete('cafe_id');
+                    url.searchParams.delete('status_filter');
+                }
+                if (newTab !== 'accounts') {
+                    url.searchParams.delete('category_filter');
+                }
+                if (newTab !== 'references') {
+                    url.searchParams.delete('ref_filter');
+                }
+                
+                // 페이지 새로고침 없이 URL만 변경
                 history.pushState({}, '', url);
             });
         });

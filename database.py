@@ -13,7 +13,7 @@ engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
 Base = declarative_base()
 
-# --- (기존 User, Product, MarketingAccount 등 다른 모델은 변경 없음) ---
+# --- (기존 User, Product, MarketingAccount, TargetCafe, CafeMembership 모델은 변경 없음) ---
 class User(Base):
     __tablename__ = "users"
     id = Column(Integer, primary_key=True, index=True)
@@ -69,8 +69,10 @@ class MarketingProduct(Base):
     __tablename__ = "marketing_products"
     id = Column(Integer, primary_key=True, index=True)
     product_id = Column(Integer, ForeignKey("products.id"))
-    keywords = Column(Text, nullable=True)
+    keywords = Column(Text, nullable=True) # 키워드 목록 (JSON)
     product = relationship("Product")
+    # --- ▼▼▼ 'MarketingPost'와의 관계 추가 ▼▼▼ ---
+    posts = relationship("MarketingPost", back_populates="marketing_product", cascade="all, delete-orphan")
 
 class Reference(Base):
     __tablename__ = "references"
@@ -82,21 +84,36 @@ class Reference(Base):
     last_modified_by = relationship("User")
     comments = relationship("Comment", back_populates="reference", cascade="all, delete-orphan")
 
-# --- ▼▼▼ Comment 모델 수정 ▼▼▼ ---
 class Comment(Base):
     __tablename__ = "comments"
     id = Column(Integer, primary_key=True, index=True)
     account_sequence = Column(Integer, nullable=False, server_default='0')
-    text = Column(Text, nullable=False) # ◀◀◀ 실수로 빠뜨렸던 'text' 열을 다시 추가했습니다.
+    text = Column(Text, nullable=False)
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
-    
     reference_id = Column(Integer, ForeignKey("references.id", ondelete="CASCADE"))
     parent_id = Column(Integer, ForeignKey("comments.id", ondelete="CASCADE"), nullable=True)
-
     reference = relationship("Reference", back_populates="comments")
     parent = relationship("Comment", remote_side=[id], back_populates="replies")
     replies = relationship("Comment", back_populates="parent", cascade="all, delete-orphan")
-# --- ▲▲▲ Comment 모델 수정 ▲▲▲ ---
+
+# --- ▼▼▼ 신규 MarketingPost 모델 추가 ▼▼▼ ---
+class MarketingPost(Base):
+    __tablename__ = "marketing_posts"
+    id = Column(Integer, primary_key=True, index=True)
+    post_url = Column(String, nullable=True)
+    keyword_text = Column(String, index=True) # 이 글이 타겟팅한 키워드
+    is_live = Column(Boolean, default=True) # 살아있는 글인지
+    
+    marketing_product_id = Column(Integer, ForeignKey("marketing_products.id", ondelete="CASCADE"))
+    worker_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True) # 작성자(시스템 유저)
+    account_id = Column(Integer, ForeignKey("marketing_accounts.id", ondelete="SET NULL"), nullable=True) # 네이버 계정
+    cafe_id = Column(Integer, ForeignKey("target_cafes.id", ondelete="SET NULL"), nullable=True) # 작성된 카페
+    
+    marketing_product = relationship("MarketingProduct", back_populates="posts")
+    worker = relationship("User")
+    account = relationship("MarketingAccount")
+    cafe = relationship("TargetCafe")
+# --- ▲▲▲ 신규 MarketingPost 모델 추가 ▲▲▲ ---
 
 class PostLog(Base):
     __tablename__ = "post_logs"
@@ -114,6 +131,6 @@ class PostLog(Base):
 
 __all__ = [
     "User", "Product", "MarketingAccount", "TargetCafe", "CafeMembership",
-    "MarketingProduct", "Reference", "PostLog", "Comment", "SessionLocal", "Base"
+    "MarketingProduct", "Reference", "PostLog", "Comment", "MarketingPost", # MarketingPost 추가
+    "SessionLocal", "Base"
 ]
-
