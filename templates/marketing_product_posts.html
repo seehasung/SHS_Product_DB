@@ -3,6 +3,7 @@
 
 {% block content %}
 <div class="container mt-4">
+    <!-- (페이지 상단 HTML은 변경 없음) -->
     <div class="d-flex justify-content-between align-items-center mb-4">
         <div>
             <h1 class="mb-0">✍️ 글 관리</h1>
@@ -14,15 +15,13 @@
         </div>
     </div>
 
-    <!-- 키워드 검색창 -->
+    <!-- (검색창, 2열 그리드, 페이지네이션 HTML은 변경 없음) -->
     <form method="get" action="/marketing/product/posts/{{ marketing_product.id }}" class="mb-4">
         <div class="input-group">
             <input type="text" name="keyword_search" class="form-control" placeholder="키워드 검색 (띄어쓰기 무시)" value="{{ keyword_search }}">
             <button class="btn btn-primary" type="submit">🔍 검색</button>
         </div>
     </form>
-
-    <!-- 2열 그리드 레이아웃 -->
     <div class="row">
         {% for keyword, posts in posts_by_keyword.items() %}
         <div class="col-md-6 mb-4">
@@ -85,9 +84,6 @@
         </div>
         {% endfor %}
     </div>
-    <!-- 2열 그리드 레이아웃 끝 -->
-
-    <!-- 페이지네이션 UI -->
     {% if total_pages > 1 %}
     <nav class="d-flex justify-content-center mt-4">
         <ul class="pagination">
@@ -105,9 +101,8 @@
         </ul>
     </nav>
     {% endif %}
-    <!-- 페이지네이션 UI 끝 -->
 
-    <!-- 수정 모달 (각 글마다 고유하게 생성) -->
+    <!-- (수정 모달 HTML은 변경 없음) -->
     {% for keyword, posts in posts_by_keyword.items() %}
     {% for post in posts %}
     <div class="modal fade modal-lg" id="editPostModal-{{ post.id }}" tabindex="-1" aria-hidden="true">
@@ -181,7 +176,7 @@
     {% endfor %}
     {% endfor %}
 
-    <!-- 새 글 등록 모달 -->
+    <!-- (새 글 등록 모달 HTML은 변경 없음) -->
     <div class="modal fade modal-lg" id="addPostModal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-dialog-scrollable">
             <div class="modal-content">
@@ -231,11 +226,11 @@
                                     <option value="" selected>분류 선택...</option>
                                     {% for type_name in references_by_type.keys() %}<option value="{{ type_name }}">{{ type_name }}</option>{% endfor %}
                                 </select>
-                                <select class="form-select" id="ref-title-select">
+                                <select class="form-select" id="ref-title-select" onchange="loadReference(this, 'add_post_title', 'add_post_body', 'add_post_comments', 'add_reference_id')">
                                     <option value="" selected>제목 선택...</option>
                                     {% for type, refs in references_by_type.items() %}
                                         {% for ref in refs %}
-                                        <option value="{{ ref.id }}" data-ref-type="{{ ref.ref_type }}" style="display: none;">{{ ref.title }}</option>
+                                        <option value="{{ ref.id }}" data-ref-type="{{ ref.ref_type }}">{{ ref.title }}</option>
                                         {% endfor %}
                                     {% endfor %}
                                 </select>
@@ -278,6 +273,7 @@
     </div>
 </div>
 
+<!-- ▼▼▼ <script> 태그 수정 ▼▼▼ -->
 <script>
 // Python에서 전달받은 '계정-카페' 연동 맵
 const membershipMap = {{ membership_map | tojson | safe }};
@@ -343,28 +339,24 @@ function filterReferences(typeSelect, titleSelectId) {
     const selectedType = typeSelect.value;
     const titleSelect = document.getElementById(titleSelectId);
     
+    // 이전에 선택했던 값
     const currentTitleId = titleSelect.value;
-    
-    titleSelect.innerHTML = '<option value="" selected>제목 선택...</option>';
-    
-    allReferences.forEach(ref => {
-        // data-ref-type 속성을 가진 모든 옵션을 순회 (템플릿에 의해 이미 생성됨)
-        const option = titleSelect.querySelector(`option[value="${ref.id}"]`);
-        if (option) {
-            if (selectedType === "" || ref.ref_type === selectedType) {
-                option.style.display = 'block';
-            } else {
-                option.style.display = 'none';
-            }
+
+    // "제목 선택..." 옵션을 제외한 모든 옵션을 순회
+    for (let i = 1; i < titleSelect.options.length; i++) {
+        const option = titleSelect.options[i];
+        const optionType = option.getAttribute('data-ref-type');
+        
+        if (selectedType === "" || optionType === selectedType) {
+            option.style.display = 'block';
+        } else {
+            option.style.display = 'none';
         }
-    });
+    }
     
-    // 필터링 후에도 이전에 선택했던 값이 있다면 유지 (단, 필터 조건에 맞아야 함)
-    if (currentTitleId) {
-         const currentOption = titleSelect.querySelector(`option[value="${currentTitleId}"]`);
-         if (currentOption && currentOption.style.display !== 'none') {
-            titleSelect.value = currentTitleId;
-         }
+    // 필터링 후, 이전에 선택했던 값이 숨겨졌다면 선택 해제
+    if (currentTitleId && titleSelect.options[titleSelect.selectedIndex].style.display === 'none') {
+        titleSelect.value = "";
     }
 }
 
@@ -376,31 +368,34 @@ function loadReference(titleSelect, titleFieldId, bodyFieldId, commentsFieldId, 
     const titleField = document.getElementById(titleFieldId);
     const bodyField = document.getElementById(bodyFieldId);
     const commentsField = document.getElementById(commentsFieldId);
-    const contentWrapper = document.getElementById(titleFieldId.replace('post_title', 'content_wrapper')); // ID 규칙 수정
-    const refIdInput = document.getElementById(refIdInputId); // 숨겨진 reference_id 필드
+    // 'addPostModal'의 폼에서는 'add_post_content_wrapper'를, 'editPostModal'에서는 null이 됩니다.
+    const contentWrapper = document.getElementById(titleFieldId.replace('_post_title', '_content_wrapper'));
+    const refIdInput = document.getElementById(refIdInputId);
     
     if (!selectedId) {
         if (contentWrapper) contentWrapper.style.display = 'none';
         if (refIdInput) refIdInput.value = "";
+        titleField.value = "";
+        bodyField.value = "";
+        commentsField.value = "";
         return;
     }
 
     const ref = allReferences.find(r => r.id === selectedId);
     if (ref) {
-        if (refIdInput) refIdInput.value = ref.id; // 숨겨진 필드에 ID 저장
+        if (refIdInput) refIdInput.value = ref.id;
         titleField.value = ref.title;
         bodyField.value = ref.content;
 
         // 댓글 데이터를 계층 구조로 포맷팅
         const commentMap = {};
         const topLevelComments = [];
-        // structured_replies를 각 코멘트 객체에 초기화
+        
         ref.comments.forEach(c => {
             c.structured_replies = [];
             commentMap[c.id] = c;
         });
         
-        // 계층 구조 빌드
         ref.comments.forEach(c => {
             if (c.parent_id && commentMap[c.parent_id]) {
                 commentMap[c.parent_id].structured_replies.push(c);
@@ -413,8 +408,9 @@ function loadReference(titleSelect, titleFieldId, bodyFieldId, commentsFieldId, 
             let text = "";
             comments.forEach(c => {
                 const prefix = c.account_sequence === 0 ? "작성자" : `계정 ${c.account_sequence}`;
+                // 댓글 텍스트의 각 줄마다 들여쓰기 적용
                 const commentLines = c.text.split('\n').map(line => `${indent}  ${line}`).join('\n');
-                text += `${indent}${prefix}:\n${commentLines}\n\n`;
+                text += `${indent}${prefix}:\n${commentLines}\n\n`; // 각 댓글 사이에 한 줄 띄우기
                 if (c.structured_replies && c.structured_replies.length > 0) {
                     text += formatComments(c.structured_replies, indent + "    (답글) ");
                 }
@@ -428,5 +424,6 @@ function loadReference(titleSelect, titleFieldId, bodyFieldId, commentsFieldId, 
     }
 }
 </script>
+<!-- ▲▲▲ <script> 태그 수정 ▲▲▲ -->
 {% endblock %}
 
