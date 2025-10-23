@@ -118,7 +118,6 @@
     {% for keyword, posts in posts_by_keyword.items() %}
     {% for post in posts %}
     <div class="modal fade modal-lg" id="editPostModal-{{ post.id }}" tabindex="-1" aria-hidden="true">
-        <!-- ▼▼▼ 여기에 'modal-dialog-scrollable' 추가 ▼▼▼ -->
         <div class="modal-dialog modal-dialog-scrollable">
             <div class="modal-content">
                 <form action="/marketing/post/update/{{ post.id }}" method="post">
@@ -191,7 +190,6 @@
 
     <!-- 새 글 등록 모달 (modal-dialog-scrollable 추가) -->
     <div class="modal fade modal-lg" id="addPostModal" tabindex="-1" aria-hidden="true">
-        <!-- ▼▼▼ 여기에 'modal-dialog-scrollable' 추가 ▼▼▼ -->
         <div class="modal-dialog modal-dialog-scrollable">
             <div class="modal-content">
                 <form action="/marketing/post/add" method="post">
@@ -360,6 +358,7 @@ function toggleUrlField(checkbox, fieldId) {
 function filterReferences(typeSelect, titleSelectId) {
     const selectedType = typeSelect.value;
     const titleSelect = document.getElementById(titleSelectId);
+    
     const currentTitleId = titleSelect.value;
 
     // "제목 선택..." 옵션을 제외한 모든 옵션을 순회
