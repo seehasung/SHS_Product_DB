@@ -1,6 +1,29 @@
 {% extends "base.html" %}
 {% block title %}키워드 관리{% endblock %}
 
+{% block head %}
+{{ super() }}
+<style>
+  /* (다른 페이지와의 일관성을 위한 뱃지 스타일) */
+  .ref-badge {
+    display: inline-block;
+    padding: 0.35em 0.65em;
+    font-size: .75em;
+    font-weight: 700;
+    line-height: 1;
+    color: #fff;
+    text-align: center;
+    white-space: nowrap;
+    vertical-align: baseline;
+    border-radius: 0.25rem;
+  }
+  .ref-대안 { background-color: #fa5252; } /* 빨강 */
+  .ref-정보 { background-color: #228be6; } /* 파랑 */
+  .ref-기타 { background-color: #40c057; } /* 초록 */
+  .ref-미지정 { background-color: #868e96; } /* 회색 */
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="container mt-4">
     <div class="d-flex justify-content-between align-items-center mb-4">
@@ -21,9 +44,9 @@
                             <label for="keywords" class="form-label">타겟 키워드 (한 줄에 하나씩 입력)</label>
                             <textarea class="form-control" id="keywords" name="keywords" rows="15" 
                                       placeholder="예시)
-강아지 자동 장난감
-고양이 츄르 추천
-앵무새 영양제">{{ keywords_text }}</textarea>
+전동휠체어
+나드리휠체어
+로보휠">{{ keywords_text }}</textarea>
                         </div>
                         <button type="submit" class="btn btn-primary">저장하기</button>
                     </form>
@@ -31,18 +54,20 @@
             </div>
         </div>
 
-        <!-- 오른쪽: 개별 키워드 On/Off, 수정, 삭제 관리 -->
+        <!-- 오른쪽: 개별 키워드 On/Off 관리 -->
         <div class="col-md-6">
             <div class="card shadow-sm h-100">
-                <div class="card-header">
-                    <strong>키워드 활성화 및 관리</strong>
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <strong>키워드 활성화 관리</strong>
+                    <!-- ▼▼▼ 총 키워드 개수 표시 ▼▼▼ -->
+                    <span class="badge bg-dark rounded-pill">총 {{ total_keywords_count }} 개</span>
                 </div>
                 <div class="card-body" style="max-height: 500px; overflow-y: auto;">
                     {% if keywords_list %}
                         <ul class="list-group">
                             {% for item in keywords_list %}
                             <li class="list-group-item d-flex justify-content-between align-items-center">
-                                <span class="me-3">{{ item.keyword }}</span>
+                                <span>{{ item.keyword }}</span>
                                 <div class="d-flex align-items-center">
                                     <!-- On/Off 스위치 -->
                                     <form action="/marketing/product/keywords/toggle/{{ marketing_product.id }}" method="post" class="me-3">
@@ -81,7 +106,7 @@
     </div>
 </div>
 
-<!-- 키워드 수정 팝업(모달) -->
+<!-- 키워드 수정 모달 -->
 <div class="modal fade" id="editKeywordModal" tabindex="-1" aria-labelledby="editKeywordModalLabel" aria-hidden="true">
     <div class="modal-dialog">
         <div class="modal-content">
@@ -106,8 +131,40 @@
     </div>
 </div>
 
+<!-- ▼▼▼ 저장 결과 팝업(모달) 추가 ▼▼▼ -->
+<div class="modal fade" id="saveResultModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">키워드 저장 결과</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>키워드 저장이 완료되었습니다.</p>
+                <ul class="list-group">
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        총 시도
+                        <span class="badge bg-info rounded-pill" id="result-total">0</span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        신규 등록
+                        <span class="badge bg-success rounded-pill" id="result-success">0</span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        중복 제외
+                        <span class="badge bg-warning text-dark rounded-pill" id="result-dups">0</span>
+                    </li>
+                </ul>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-primary" data-bs-dismiss="modal">확인</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
-    // 키워드 수정 모달 제어 스크립트
+    // 키워드 수정 모달 제어
     const editKeywordModal = document.getElementById('editKeywordModal');
     if (editKeywordModal) {
         editKeywordModal.addEventListener('show.bs.modal', event => {
@@ -122,9 +179,29 @@
             
             oldKeywordInput.value = keyword;
             newKeywordInput.value = keyword;
-            newKeywordInput.focus(); // 모달이 열리면 바로 입력할 수 있도록 포커스
         });
     }
+
+    // ▼▼▼ 저장 결과 팝업 제어 스크립트 추가 ▼▼▼
+    document.addEventListener('DOMContentLoaded', function() {
+        const params = new URLSearchParams(window.location.search);
+        const total = params.get('total');
+        const success = params.get('success');
+        const dups = params.get('dups');
+
+        // URL에 결과 파라미터가 있으면 팝업을 띄웁니다.
+        if (total !== null && success !== null && dups !== null) {
+            document.getElementById('result-total').textContent = total;
+            document.getElementById('result-success').textContent = success;
+            document.getElementById('result-dups').textContent = dups;
+            
+            const resultModal = new bootstrap.Modal(document.getElementById('saveResultModal'));
+            resultModal.show();
+            
+            // 팝업을 띄운 후, URL에서 파라미터를 제거하여 새로고침 시 다시 뜨지 않도록 합니다.
+            history.replaceState(null, '', window.location.pathname);
+        }
+    });
 </script>
 {% endblock %}
 

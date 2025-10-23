@@ -167,41 +167,97 @@ async def delete_comment(ref_id: int, comment_id: int, db: Session = Depends(get
 
 # --- Keyword Management ---
 @router.get("/product/keywords/{mp_id}", response_class=HTMLResponse)
-async def get_product_keywords(request: Request, mp_id: int, db: Session = Depends(get_db)):
+async def get_product_keywords(
+    request: Request, 
+    mp_id: int, 
+    db: Session = Depends(get_db),
+    total: int = Query(None),
+    success: int = Query(None),
+    dups: int = Query(None)
+):
+    """키워드 관리 페이지 (결과 팝업을 위한 파라미터 추가)"""
     marketing_product = db.query(MarketingProduct).filter(MarketingProduct.id == mp_id).first()
+    
     keywords_list = []
     if marketing_product and marketing_product.keywords:
         try:
             keywords_list = json.loads(marketing_product.keywords)
         except json.JSONDecodeError:
             keywords_list = [{"keyword": kw.strip(), "active": True} for kw in marketing_product.keywords.splitlines() if kw.strip()]
+
     keywords_text = "\n".join([item['keyword'] for item in keywords_list])
+    
+    # 총 키워드 개수
+    total_keywords_count = len(keywords_list)
+
     return templates.TemplateResponse("marketing_product_keywords.html", {
-        "request": request, "marketing_product": marketing_product,
-        "keywords_list": keywords_list, "keywords_text": keywords_text
+        "request": request, 
+        "marketing_product": marketing_product,
+        "keywords_list": keywords_list, 
+        "keywords_text": keywords_text,
+        "total_keywords_count": total_keywords_count,
+        "result_total": total,
+        "result_success": success,
+        "result_dups": dups
     })
 
 @router.post("/product/keywords/{mp_id}", response_class=RedirectResponse)
 async def update_product_keywords(mp_id: int, keywords: str = Form(...), db: Session = Depends(get_db)):
+    """텍스트 영역의 키워드를 저장/업데이트 (중복 제거 로직 추가)"""
     marketing_product = db.query(MarketingProduct).filter(MarketingProduct.id == mp_id).first()
+    
+    total_attempted = 0
+    duplicate_in_batch = 0
+    newly_added_count = 0
+    
     if marketing_product:
-        old_keywords = {}
+        # 1. DB에 이미 저장된 키워드 맵 (상태 유지를 위해)
+        old_keywords_map = {}
         if marketing_product.keywords:
             try:
                 for item in json.loads(marketing_product.keywords):
-                    old_keywords[item['keyword']] = item['active']
+                    old_keywords_map[item['keyword']] = item['active']
             except json.JSONDecodeError: pass
-        new_keywords_list = []
+
+        # 2. 텍스트 영역의 키워드 처리 (입력 자체의 중복 제거)
+        new_keywords_from_textarea = []
+        seen_in_this_batch = set()
+        
         for line in keywords.splitlines():
-            keyword_text = line.strip()
-            if keyword_text:
-                new_keywords_list.append({
-                    "keyword": keyword_text,
-                    "active": old_keywords.get(keyword_text, True)
-                })
-        marketing_product.keywords = json.dumps(new_keywords_list, ensure_ascii=False, indent=4)
+            kw = line.strip()
+            if not kw:
+                continue
+            
+            total_attempted += 1
+            
+            if kw in seen_in_this_batch:
+                duplicate_in_batch += 1
+            else:
+                seen_in_this_batch.add(kw)
+                new_keywords_from_textarea.append(kw)
+
+        # 3. 기존 맵에 새로운 키워드만 추가
+        final_keywords_map = old_keywords_map.copy()
+        for kw in new_keywords_from_textarea:
+            if kw not in final_keywords_map:
+                final_keywords_map[kw] = True # 새 키워드는 항상 active: True로 시작
+                newly_added_count += 1
+        
+        # 4. 최종 리스트로 변환하여 저장
+        final_keywords_list = [{"keyword": k, "active": v} for k, v in final_keywords_map.items()]
+        marketing_product.keywords = json.dumps(final_keywords_list, ensure_ascii=False, indent=4)
         db.commit()
+
+        # 5. 총 중복 개수 계산 (배치 내 중복 + DB 중복)
+        total_duplicates = duplicate_in_batch + (len(new_keywords_from_textarea) - newly_added_count)
+        
+        return RedirectResponse(
+            url=f"/marketing/product/keywords/{mp_id}?total={total_attempted}&success={newly_added_count}&dups={total_duplicates}", 
+            status_code=303
+        )
+        
     return RedirectResponse(url=f"/marketing/product/keywords/{mp_id}", status_code=303)
+
 
 @router.post("/product/keywords/toggle/{mp_id}", response_class=RedirectResponse)
 async def toggle_keyword_status(mp_id: int, keyword: str = Form(...), db: Session = Depends(get_db)):
