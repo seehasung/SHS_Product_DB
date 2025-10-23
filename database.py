@@ -90,7 +90,7 @@ class Reference(Base):
 class Comment(Base):
     __tablename__ = "comments"
     id = Column(Integer, primary_key=True, index=True)
-    account_sequence = Column(Integer, nullable=False, server_default='0') # 기본값을 '0'으로 설정    text = Column(Text, nullable=False)
+    account_sequence = Column(Integer, nullable=False, server_default='0') # 기본값을 '0'으로 설정
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
     
     reference_id = Column(Integer, ForeignKey("references.id", ondelete="CASCADE"))
