@@ -1,69 +1,561 @@
 {% extends "base.html" %}
 {% block title %}홈{% endblock %}
+
+{% block head %}
+{{ super() }}
+<style>
+    /* 전체 배경 및 기본 스타일 */
+    body {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        min-height: 100vh;
+    }
+    
+    .main-container {
+        background: rgba(255, 255, 255, 0.95);
+        min-height: 100vh;
+        backdrop-filter: blur(10px);
+    }
+    
+    /* 환영 섹션 스타일 */
+    .welcome-section {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 20px;
+        padding: 40px;
+        margin-bottom: 40px;
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .welcome-section::before {
+        content: '';
+        position: absolute;
+        top: -50%;
+        right: -50%;
+        width: 200%;
+        height: 200%;
+        background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+        animation: pulse 3s ease-in-out infinite;
+    }
+    
+    @keyframes pulse {
+        0%, 100% { transform: scale(1); opacity: 0.5; }
+        50% { transform: scale(1.1); opacity: 0.3; }
+    }
+    
+    .welcome-content {
+        position: relative;
+        z-index: 1;
+    }
+    
+    /* 통계 카드 스타일 */
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 20px;
+        margin-bottom: 40px;
+    }
+    
+    .stat-card {
+        background: white;
+        border-radius: 15px;
+        padding: 25px;
+        box-shadow: 0 5px 20px rgba(0, 0, 0, 0.08);
+        transition: all 0.3s ease;
+        border: 1px solid #f0f0f0;
+    }
+    
+    .stat-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.12);
+    }
+    
+    .stat-icon {
+        width: 50px;
+        height: 50px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 24px;
+        margin-bottom: 15px;
+    }
+    
+    .stat-value {
+        font-size: 2rem;
+        font-weight: bold;
+        color: #2d3436;
+        margin-bottom: 5px;
+    }
+    
+    .stat-label {
+        color: #636e72;
+        font-size: 0.9rem;
+    }
+    
+    .stat-change {
+        font-size: 0.85rem;
+        margin-top: 10px;
+    }
+    
+    .stat-change.positive {
+        color: #00b894;
+    }
+    
+    .stat-change.negative {
+        color: #d63031;
+    }
+    
+    /* 기능 카드 스타일 */
+    .feature-card {
+        background: white;
+        border-radius: 15px;
+        padding: 30px;
+        height: 100%;
+        box-shadow: 0 5px 20px rgba(0, 0, 0, 0.08);
+        transition: all 0.3s ease;
+        border: 1px solid #f0f0f0;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .feature-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 4px;
+        background: linear-gradient(90deg, var(--card-color) 0%, var(--card-color-light) 100%);
+    }
+    
+    .feature-card.products { --card-color: #6c5ce7; --card-color-light: #a29bfe; }
+    .feature-card.marketing { --card-color: #00b894; --card-color-light: #55efc4; }
+    .feature-card.schedule { --card-color: #fdcb6e; --card-color-light: #ffeaa7; }
+    .feature-card.admin { --card-color: #e17055; --card-color-light: #fab1a0; }
+    
+    .feature-card:hover {
+        transform: translateY(-8px);
+        box-shadow: 0 15px 40px rgba(0, 0, 0, 0.15);
+    }
+    
+    .feature-icon {
+        width: 60px;
+        height: 60px;
+        border-radius: 15px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 28px;
+        margin-bottom: 20px;
+    }
+    
+    .feature-card.products .feature-icon { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; }
+    .feature-card.marketing .feature-icon { background: linear-gradient(135deg, #00b894 0%, #55efc4 100%); color: white; }
+    .feature-card.schedule .feature-icon { background: linear-gradient(135deg, #fdcb6e 0%, #ffeaa7 100%); color: white; }
+    .feature-card.admin .feature-icon { background: linear-gradient(135deg, #e17055 0%, #fab1a0 100%); color: white; }
+    
+    .feature-title {
+        font-size: 1.4rem;
+        font-weight: bold;
+        margin-bottom: 15px;
+        color: #2d3436;
+    }
+    
+    .feature-description {
+        color: #636e72;
+        margin-bottom: 25px;
+        line-height: 1.6;
+    }
+    
+    .feature-buttons {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+    }
+    
+    .btn-modern {
+        padding: 10px 20px;
+        border-radius: 10px;
+        font-weight: 500;
+        transition: all 0.3s ease;
+        text-decoration: none;
+        display: inline-block;
+    }
+    
+    .btn-modern-primary {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border: none;
+    }
+    
+    .btn-modern-primary:hover {
+        background: linear-gradient(135deg, #5a6fd8 0%, #6c4196 100%);
+        color: white;
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+    }
+    
+    .btn-modern-outline {
+        background: transparent;
+        color: #667eea;
+        border: 2px solid #667eea;
+    }
+    
+    .btn-modern-outline:hover {
+        background: #667eea;
+        color: white;
+        transform: translateY(-2px);
+    }
+    
+    /* 퀵 액션 섹션 */
+    .quick-actions {
+        background: #f8f9fa;
+        border-radius: 15px;
+        padding: 30px;
+        margin-bottom: 40px;
+    }
+    
+    .quick-actions-title {
+        font-size: 1.2rem;
+        font-weight: bold;
+        margin-bottom: 20px;
+        color: #2d3436;
+    }
+    
+    .quick-action-buttons {
+        display: flex;
+        gap: 15px;
+        flex-wrap: wrap;
+    }
+    
+    .quick-action-btn {
+        padding: 12px 24px;
+        background: white;
+        border-radius: 10px;
+        border: 1px solid #e0e0e0;
+        color: #2d3436;
+        text-decoration: none;
+        transition: all 0.3s ease;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    
+    .quick-action-btn:hover {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-color: transparent;
+        transform: translateY(-3px);
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+    }
+    
+    /* 로그인 전 화면 스타일 */
+    .login-container {
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    }
+    
+    .login-card {
+        background: white;
+        border-radius: 20px;
+        padding: 60px;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        text-align: center;
+        max-width: 500px;
+        width: 100%;
+    }
+    
+    .logo-large {
+        font-size: 3rem;
+        font-weight: bold;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        margin-bottom: 20px;
+    }
+    
+    .login-description {
+        color: #636e72;
+        font-size: 1.1rem;
+        margin-bottom: 40px;
+    }
+    
+    /* 반응형 디자인 */
+    @media (max-width: 768px) {
+        .stats-grid {
+            grid-template-columns: 1fr;
+        }
+        
+        .welcome-section {
+            padding: 25px;
+        }
+        
+        .feature-card {
+            margin-bottom: 20px;
+        }
+    }
+    
+    /* 애니메이션 */
+    @keyframes fadeInUp {
+        from {
+            opacity: 0;
+            transform: translateY(30px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    
+    .animate-fade-in {
+        animation: fadeInUp 0.6s ease-out;
+    }
+    
+    .animate-delay-1 { animation-delay: 0.1s; }
+    .animate-delay-2 { animation-delay: 0.2s; }
+    .animate-delay-3 { animation-delay: 0.3s; }
+    .animate-delay-4 { animation-delay: 0.4s; }
+</style>
+{% endblock %}
+
 {% block content %}
 
 {% if username %}
-    <!-- 로그인 후 표시되는 대시보드 -->
-    <div class="container py-4">
-        <!-- 상단 환영 메시지 -->
-        <div class="p-5 mb-4 bg-light rounded-3 shadow-sm">
-            <div class="container-fluid py-3">
-                <h1 class="display-5 fw-bold">👋 {{ username }}님, 환영합니다!</h1>
-                <p class="col-md-8 fs-4">SHS.corp CS 관리 시스템 대시보드입니다.</p>
-                <a class="btn btn-outline-secondary" href="/logout" role="button">로그아웃</a>
-                <a class="btn btn-outline-warning" href="/change-password" role="button">비밀번호 변경</a>
+    <!-- 로그인 후 대시보드 -->
+    <div class="main-container">
+        <div class="container py-5">
+            <!-- 환영 섹션 -->
+            <div class="welcome-section animate-fade-in">
+                <div class="welcome-content">
+                    <div class="row align-items-center">
+                        <div class="col-md-8">
+                            <h1 class="display-4 fw-bold mb-3">안녕하세요, {{ username }}님! 👋</h1>
+                            <p class="lead mb-4">SHS.corp CS 관리 시스템에 오신 것을 환영합니다.</p>
+                            <p class="mb-0">오늘도 생산적인 하루 되세요!</p>
+                        </div>
+                        <div class="col-md-4 text-md-end">
+                            <a href="/logout" class="btn btn-light btn-lg me-2">
+                                <i class="bi bi-box-arrow-right"></i> 로그아웃
+                            </a>
+                            <a href="/change-password" class="btn btn-outline-light btn-lg">
+                                <i class="bi bi-key"></i> 비밀번호 변경
+                            </a>
+                        </div>
+                    </div>
+                </div>
             </div>
-        </div>
-
-        <!-- 기능 카드 레이아웃 -->
-        <div class="row align-items-md-stretch">
-
-            <!-- 상품 관리 카드 (상품 권한 또는 최고 관리자일 때 표시) -->
-            {% if can_manage_products %}
-            <div class="col-md-6 mb-4">
-                <div class="h-100 p-5 text-bg-dark rounded-3 shadow">
-                    <h2><i class="bi bi-box-seam"></i> 상품 관리</h2>
-                    <p>상품 정보 조회, 등록, 수정, 삭제할 수 있습니다.</p>
-                    <a href="/products" class="btn btn-outline-light" type="button">📦 상품 조회하기</a>
+            
+            <!-- 통계 대시보드 (마케팅 권한이 있거나 관리자일 때만 표시) -->
+            {% if can_manage_marketing or is_admin %}
+            <div class="stats-grid animate-fade-in animate-delay-1">
+                <div class="stat-card">
+                    <div class="stat-icon" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
+                        <i class="bi bi-calendar-check"></i>
+                    </div>
+                    <div class="stat-value">{{ today_stats.total | default(0) }}</div>
+                    <div class="stat-label">오늘의 작업</div>
+                    <div class="stat-change positive">
+                        <i class="bi bi-arrow-up"></i> {{ today_stats.percentage | default(0) }}% 진행
+                    </div>
+                </div>
+                
+                <div class="stat-card">
+                    <div class="stat-icon" style="background: linear-gradient(135deg, #00b894 0%, #55efc4 100%); color: white;">
+                        <i class="bi bi-check-circle"></i>
+                    </div>
+                    <div class="stat-value">{{ today_stats.completed | default(0) }}</div>
+                    <div class="stat-label">완료된 작업</div>
+                    <div class="stat-change positive">
+                        <i class="bi bi-arrow-up"></i> {{ (today_stats.completed / today_stats.total * 100) if today_stats.total else 0 }}% 완료
+                    </div>
+                </div>
+                
+                <div class="stat-card">
+                    <div class="stat-icon" style="background: linear-gradient(135deg, #fdcb6e 0%, #ffeaa7 100%); color: white;">
+                        <i class="bi bi-pencil-square"></i>
+                    </div>
+                    <div class="stat-value">{{ total_posts | default(0) }}</div>
+                    <div class="stat-label">총 게시글</div>
+                    <div class="stat-change positive">
+                        <i class="bi bi-arrow-up"></i> {{ new_posts_today | default(0) }}개 추가
+                    </div>
+                </div>
+                
+                <div class="stat-card">
+                    <div class="stat-icon" style="background: linear-gradient(135deg, #e17055 0%, #fab1a0 100%); color: white;">
+                        <i class="bi bi-people"></i>
+                    </div>
+                    <div class="stat-value">{{ active_workers | default(0) }}</div>
+                    <div class="stat-label">활성 작업자</div>
+                    <div class="stat-change">
+                        <i class="bi bi-dash"></i> 변동 없음
+                    </div>
                 </div>
             </div>
             {% endif %}
-
-            <!-- 마케팅 관리 카드 (마케팅 권한 또는 최고 관리자일 때 표시) -->
-            {% if can_manage_marketing %}
-            <div class="col-md-6 mb-4">
-                <div class="h-100 p-5 bg-primary text-white rounded-3 shadow">
-                    <h2><i class="bi bi-megaphone-fill"></i> 마케팅 관리</h2>
-                    <p>카페, 블로그 포스팅 작업을 계획하고 관리합니다.</p>
-                    <a href="/marketing/cafe" class="btn btn-outline-light me-2" type="button">☕ 카페</a>
-                    <a href="/marketing/blog" class="btn btn-outline-light me-2" type="button">📝 블로그</a>
-                    <a href="/marketing/homepage" class="btn btn-outline-light me-2" type="button">🏠 통페이지</a>
-                    <a href="/marketing/kin" class="btn btn-outline-light" type="button">💡 지식인</a>
+            
+            <!-- 퀵 액션 (권한에 따라 표시) -->
+            {% if can_manage_marketing or can_manage_products or is_admin %}
+            <div class="quick-actions animate-fade-in animate-delay-2">
+                <div class="quick-actions-title">⚡ 빠른 작업</div>
+                <div class="quick-action-buttons">
+                    {% if can_manage_marketing or is_admin %}
+                    <a href="/marketing/schedules" class="quick-action-btn">
+                        <i class="bi bi-calendar-check"></i> 오늘 스케줄 보기
+                    </a>
+                    <a href="/marketing/cafe?tab=schedule" class="quick-action-btn">
+                        <i class="bi bi-calendar-plus"></i> 스케줄 생성
+                    </a>
+                    <a href="/marketing/product-selection" class="quick-action-btn">
+                        <i class="bi bi-bag-plus"></i> 마케팅 상품 추가
+                    </a>
+                    {% endif %}
+                    {% if can_manage_products or is_admin %}
+                    <a href="/products/add" class="quick-action-btn">
+                        <i class="bi bi-box-seam"></i> 새 상품 등록
+                    </a>
+                    {% endif %}
+                    {% if is_admin %}
+                    <a href="/admin/users" class="quick-action-btn">
+                        <i class="bi bi-person-plus"></i> 사용자 추가
+                    </a>
+                    {% endif %}
                 </div>
             </div>
             {% endif %}
-
-            <!-- 사용자 관리 카드 (최고 관리자일 때만 표시) -->
-            {% if is_admin %}
-            <div class="col-md-6 mb-4">
-                <div class="h-100 p-5 bg-light border rounded-3 shadow">
-                    <h2><i class="bi bi-people-fill"></i> 사용자 관리</h2>
-                    <p>시스템에 등록된 사용자의 목록을 보고, 관리자 권한을 부여하거나 삭제할 수 있습니다.</p>
-                    <a href="/admin/users" class="btn btn-outline-secondary" type="button">👥 사용자 관리하기</a>
+            
+            <!-- 메인 기능 카드들 -->
+            <div class="row">
+                <!-- 상품 관리 카드 (상품 권한이 있을 때만) -->
+                {% if can_manage_products or is_admin %}
+                <div class="col-lg-6 mb-4 animate-fade-in animate-delay-3">
+                    <div class="feature-card products">
+                        <div class="feature-icon">
+                            <i class="bi bi-box-seam"></i>
+                        </div>
+                        <h2 class="feature-title">상품 관리</h2>
+                        <p class="feature-description">
+                            재고 관리, 상품 정보 업데이트, 새로운 상품 등록 등 모든 상품 관련 작업을 처리합니다.
+                        </p>
+                        <div class="feature-buttons">
+                            <a href="/products" class="btn-modern btn-modern-primary">
+                                <i class="bi bi-grid"></i> 상품 목록
+                            </a>
+                            <a href="/products/add" class="btn-modern btn-modern-outline">
+                                <i class="bi bi-plus-lg"></i> 신규 등록
+                            </a>
+                        </div>
+                    </div>
                 </div>
+                {% endif %}
+                
+                <!-- 마케팅 관리 카드 (마케팅 권한이 있을 때만) -->
+                {% if can_manage_marketing or is_admin %}
+                <div class="col-lg-6 mb-4 animate-fade-in animate-delay-3">
+                    <div class="feature-card marketing">
+                        <div class="feature-icon">
+                            <i class="bi bi-megaphone"></i>
+                        </div>
+                        <h2 class="feature-title">마케팅 관리</h2>
+                        <p class="feature-description">
+                            카페, 블로그, 홈페이지, 지식인 등 다양한 채널의 마케팅 활동을 체계적으로 관리합니다.
+                        </p>
+                        <div class="feature-buttons">
+                            <a href="/marketing/cafe" class="btn-modern btn-modern-primary">
+                                <i class="bi bi-cup-hot"></i> 카페
+                            </a>
+                            <a href="/marketing/blog" class="btn-modern btn-modern-outline">
+                                <i class="bi bi-journal-text"></i> 블로그
+                            </a>
+                            <a href="/marketing/homepage" class="btn-modern btn-modern-outline">
+                                <i class="bi bi-house"></i> 홈페이지
+                            </a>
+                            <a href="/marketing/kin" class="btn-modern btn-modern-outline">
+                                <i class="bi bi-lightbulb"></i> 지식인
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+                
+                <!-- 스케줄 관리 카드 (마케팅 권한이 있을 때만) -->
+                {% if can_manage_marketing or is_admin %}
+                <div class="col-lg-6 mb-4 animate-fade-in animate-delay-4">
+                    <div class="feature-card schedule">
+                        <div class="feature-icon">
+                            <i class="bi bi-calendar-week"></i>
+                        </div>
+                        <h2 class="feature-title">스케줄 관리</h2>
+                        <p class="feature-description">
+                            날짜별 작업 할당, 진행 상황 추적, 자동 스케줄 생성 등 효율적인 일정 관리 시스템입니다.
+                        </p>
+                        <div class="feature-buttons">
+                            <a href="/marketing/schedules" class="btn-modern btn-modern-primary">
+                                <i class="bi bi-calendar3"></i> 전체 스케줄
+                            </a>
+                            <a href="/marketing/schedules?selected_date={{ today }}" class="btn-modern btn-modern-outline">
+                                <i class="bi bi-calendar-check"></i> 오늘 작업
+                            </a>
+                            <a href="/marketing/cafe?tab=schedule" class="btn-modern btn-modern-outline">
+                                <i class="bi bi-magic"></i> 자동 생성
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+                
+                <!-- 관리자 패널 -->
+                {% if is_admin %}
+                <div class="col-lg-6 mb-4 animate-fade-in animate-delay-4">
+                    <div class="feature-card admin">
+                        <div class="feature-icon">
+                            <i class="bi bi-shield-lock"></i>
+                        </div>
+                        <h2 class="feature-title">시스템 관리</h2>
+                        <p class="feature-description">
+                            사용자 계정 관리, 권한 설정, 시스템 로그 확인 등 관리자 전용 기능을 제공합니다.
+                        </p>
+                        <div class="feature-buttons">
+                            <a href="/admin/users" class="btn-modern btn-modern-primary">
+                                <i class="bi bi-people"></i> 사용자 관리
+                            </a>
+                            <a href="/logs" class="btn-modern btn-modern-outline">
+                                <i class="bi bi-file-text"></i> 시스템 로그
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
             </div>
-            {% endif %}
-
         </div>
     </div>
+
 {% else %}
-    <!-- 로그인 전 표시되는 화면 -->
-    <div class="d-flex justify-content-center align-items-center" style="height: 80vh;">
-        <div class="text-center">
-            <h1 class="display-4">SHS.corp</h1>
-            <p class="lead">로그인이 필요한 서비스입니다.</p>
-            <a class="btn btn-primary btn-lg" href="/login">로그인</a>
-            <a class="btn btn-secondary btn-lg" href="/register">회원가입</a>
+    <!-- 로그인 전 화면 -->
+    <div class="login-container">
+        <div class="login-card animate-fade-in">
+            <div class="logo-large">SHS.corp</div>
+            <h2 class="mb-3">CS 관리 시스템</h2>
+            <p class="login-description">
+                효율적인 비즈니스 관리를 위한<br>
+                통합 솔루션에 오신 것을 환영합니다.
+            </p>
+            <div class="d-grid gap-3">
+                <a class="btn btn-modern btn-modern-primary btn-lg" href="/login">
+                    <i class="bi bi-box-arrow-in-right"></i> 로그인
+                </a>
+                <a class="btn btn-modern btn-modern-outline btn-lg" href="/register">
+                    <i class="bi bi-person-plus"></i> 회원가입
+                </a>
+            </div>
+            <div class="mt-4 text-muted">
+                <small>© 2025 SHS.corp. All rights reserved.</small>
+            </div>
         </div>
     </div>
 {% endif %}
