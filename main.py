@@ -28,7 +28,7 @@ templates = Jinja2Templates(directory="templates")
 
 # 라우터 등록
 app.include_router(auth.router)
-app.include_router(admin_users.router, prefix="/admin")
+app.include_router(admin_users.router)
 app.include_router(product.router)
 app.include_router(marketing.router)
 
