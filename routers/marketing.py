@@ -165,7 +165,7 @@ async def delete_comment(ref_id: int, comment_id: int, db: Session = Depends(get
         db.commit()
     return RedirectResponse(url=f"/marketing/reference/{ref_id}", status_code=303)
 
-# --- Keyword Management ---
+# --- Keyword Management (원본 JSON 형식 유지) ---
 @router.get("/product/keywords/{mp_id}", response_class=HTMLResponse)
 async def get_product_keywords(
     request: Request, 
@@ -399,7 +399,7 @@ async def add_marketing_product(product_id: int, db: Session = Depends(get_db)):
         db.commit()
     return RedirectResponse(url="/marketing/cafe?tab=products", status_code=303)
 
-# --- '글 관리' 라우트 (페이지네이션 및 검색 기능 추가됨) ---
+# --- '글 관리' 라우트 (원본 그대로 유지, 댓글 포맷팅만 개선) ---
 @router.get("/product/posts/{mp_id}", response_class=HTMLResponse)
 async def get_product_posts(
     request: Request, 
@@ -536,7 +536,7 @@ async def add_marketing_post(
             if not post_body:
                 post_body = ref.content
             if not post_comments:
-                # 댓글을 계층 구조 텍스트로 변환
+                # 댓글을 계층 구조 텍스트로 변환 (개선된 포맷)
                 comment_map = {c.id: c for c in ref.comments}
                 top_level_comments = []
                 for c in ref.comments:
@@ -547,7 +547,7 @@ async def add_marketing_post(
                     elif not c.parent_id:
                         top_level_comments.append(c)
                 
-                # ▼▼▼ 올바른 Python 문법으로 수정 ▼▼▼
+                # 개선된 댓글 포맷팅 함수
                 def format_comments(comments, indent = ""):
                     text = ""
                     for c in comments:
@@ -559,7 +559,6 @@ async def add_marketing_post(
                         if hasattr(c, 'structured_replies') and c.structured_replies:
                             text += format_comments(c.structured_replies, indent + "    (답글) ")
                     return text
-                # ▲▲▲ 올바른 Python 문법으로 수정 ▲▲▲
                 
                 post_comments = format_comments(top_level_comments).strip()
 
@@ -641,4 +640,3 @@ async def marketing_homepage(request: Request):
 @router.get("/kin", response_class=HTMLResponse)
 async def marketing_kin(request: Request):
     return templates.TemplateResponse("marketing_kin.html", {"request": request})
-

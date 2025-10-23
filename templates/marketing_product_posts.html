@@ -31,6 +31,126 @@
         resize: vertical;
         min-height: 100px;
     }
+    
+    /* 댓글 뷰어 스타일 */
+    .comment-viewer {
+        background-color: #f8f9fa;
+        border: 1px solid #dee2e6;
+        border-radius: 8px;
+        padding: 15px;
+        max-height: 400px;
+        overflow-y: auto;
+        margin-bottom: 10px;
+    }
+    
+    .comment-item {
+        background: white;
+        border-radius: 6px;
+        padding: 12px;
+        margin-bottom: 10px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        transition: all 0.2s;
+    }
+    
+    .comment-item:hover {
+        box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+    }
+    
+    .comment-author {
+        font-weight: bold;
+        color: #495057;
+        margin-bottom: 5px;
+        display: flex;
+        align-items: center;
+    }
+    
+    .comment-author-icon {
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        margin-right: 8px;
+        font-size: 11px;
+        color: white;
+        font-weight: bold;
+    }
+    
+    .author-icon { background-color: #007bff; }
+    .account-icon { background-color: #6c757d; }
+    
+    .comment-text {
+        color: #212529;
+        line-height: 1.6;
+        white-space: pre-wrap;
+        word-wrap: break-word;
+    }
+    
+    .comment-reply {
+        margin-left: 30px;
+        margin-top: 10px;
+        border-left: 3px solid #e9ecef;
+        padding-left: 15px;
+    }
+    
+    .comment-reply .comment-item {
+        background-color: #f1f3f5;
+    }
+    
+    .no-comments {
+        text-align: center;
+        color: #6c757d;
+        padding: 20px;
+        font-style: italic;
+    }
+    
+    .comment-editor-toggle {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 10px;
+    }
+    
+    .view-mode-btn {
+        btn-sm: true;
+    }
+    
+    .comment-stats {
+        font-size: 0.85em;
+        color: #6c757d;
+        margin-top: 10px;
+        padding: 8px;
+        background: #f8f9fa;
+        border-radius: 4px;
+    }
+    
+    /* 탭 스타일 */
+    .comment-tabs {
+        border-bottom: 2px solid #dee2e6;
+        margin-bottom: 15px;
+    }
+    
+    .comment-tab {
+        padding: 8px 16px;
+        background: none;
+        border: none;
+        border-bottom: 3px solid transparent;
+        color: #6c757d;
+        cursor: pointer;
+        transition: all 0.2s;
+        font-weight: 500;
+    }
+    
+    .comment-tab.active {
+        color: #007bff;
+        border-bottom-color: #007bff;
+    }
+    
+    .comment-tab:hover:not(.active) {
+        color: #495057;
+        background-color: #f8f9fa;
+    }
 </style>
 
 <div class="container mt-4">
@@ -193,7 +313,7 @@
                                     <option value="{{ type_name }}">{{ type_name }}</option>
                                     {% endfor %}
                                 </select>
-                                <select class="form-select" id="edit_ref_title_{{ post.id }}" onchange="loadReference(this, 'edit_post_title_{{ post.id }}', 'edit_post_body_{{ post.id }}', 'edit_post_comments_{{ post.id }}')">
+                                <select class="form-select" id="edit_ref_title_{{ post.id }}" onchange="loadReference(this, 'edit_post_title_{{ post.id }}', 'edit_post_body_{{ post.id }}', 'edit_post_comments_{{ post.id }}', 'edit_comment_viewer_{{ post.id }}')">
                                     <option value="" selected>제목 선택...</option>
                                     {% for type, refs in references_by_type.items() %}
                                         {% for ref in refs %}
@@ -211,10 +331,26 @@
                             <label class="form-label">글 본문</label>
                             <textarea class="form-control" id="edit_post_body_{{ post.id }}" name="post_body" rows="6">{{ post.post_body }}</textarea>
                         </div>
+                        
+                        <!-- 댓글 섹션 개선 -->
                         <div class="mb-3">
-                            <label class="form-label">댓글 (텍스트 형식)</label>
-                            <textarea class="form-control" id="edit_post_comments_{{ post.id }}" name="post_comments" rows="6">{{ post.post_comments }}</textarea>
+                            <div class="comment-editor-toggle">
+                                <label class="form-label mb-0">💬 댓글</label>
+                                <div class="btn-group btn-group-sm" role="group">
+                                    <button type="button" class="btn btn-outline-primary" onclick="toggleCommentView('edit', {{ post.id }}, 'visual')">👁️ 보기</button>
+                                    <button type="button" class="btn btn-outline-secondary active" onclick="toggleCommentView('edit', {{ post.id }}, 'text')">✏️ 편집</button>
+                                </div>
+                            </div>
+                            
+                            <!-- 시각적 댓글 뷰어 -->
+                            <div id="edit_comment_viewer_{{ post.id }}" class="comment-viewer" style="display: none;">
+                                <div class="no-comments">댓글이 없습니다</div>
+                            </div>
+                            
+                            <!-- 텍스트 편집기 -->
+                            <textarea class="form-control" id="edit_post_comments_{{ post.id }}" name="post_comments" rows="6" placeholder="댓글을 텍스트 형식으로 입력하세요...">{{ post.post_comments }}</textarea>
                         </div>
+                        
                         <hr>
                         <div class="form-check form-switch mb-2">
                             <input type="hidden" name="is_registration_complete" value="False">
@@ -308,7 +444,7 @@
                                         {% endfor %}
                                     {% endfor %}
                                 </select>
-                                <button class="btn btn-outline-primary" type="button" onclick="loadReference(document.getElementById('ref-title-select'), 'add_post_title', 'add_post_body', 'add_post_comments', 'add_reference_id')">불러오기</button>
+                                <button class="btn btn-outline-primary" type="button" onclick="loadReference(document.getElementById('ref-title-select'), 'add_post_title', 'add_post_body', 'add_post_comments', 'add_comment_viewer', 'add_reference_id')">불러오기</button>
                             </div>
                             <input type="hidden" name="reference_id" id="add_reference_id">
                         </div>
@@ -321,9 +457,33 @@
                                 <label class="form-label">글 본문</label>
                                 <textarea class="form-control" id="add_post_body" name="post_body" rows="6"></textarea>
                             </div>
+                            
+                            <!-- 댓글 섹션 개선 -->
                             <div class="mb-3">
-                                <label class="form-label">댓글 (텍스트 형식)</label>
-                                <textarea class="form-control" id="add_post_comments" name="post_comments" rows="6"></textarea>
+                                <div class="comment-editor-toggle">
+                                    <label class="form-label mb-0">💬 댓글</label>
+                                    <div class="btn-group btn-group-sm" role="group">
+                                        <button type="button" class="btn btn-outline-primary" onclick="toggleCommentView('add', '', 'visual')">👁️ 보기</button>
+                                        <button type="button" class="btn btn-outline-secondary active" onclick="toggleCommentView('add', '', 'text')">✏️ 편집</button>
+                                    </div>
+                                </div>
+                                
+                                <!-- 시각적 댓글 뷰어 -->
+                                <div id="add_comment_viewer" class="comment-viewer" style="display: none;">
+                                    <div class="no-comments">댓글이 없습니다</div>
+                                </div>
+                                
+                                <!-- 텍스트 편집기 -->
+                                <textarea class="form-control" id="add_post_comments" name="post_comments" rows="6" placeholder="댓글을 텍스트 형식으로 입력하세요...
+예시:
+작성자:
+  첫 번째 댓글 내용
+
+계정 1:
+  두 번째 댓글 내용
+  
+    (답글) 작성자:
+      답글 내용"></textarea>
                             </div>
                         </div>
                         <hr>
@@ -423,8 +583,6 @@ function filterReferences(typeSelect, titleSelectId) {
     
     const currentTitleId = titleSelect.value;
 
-    // "제목 선택..." 옵션을 제외한 모든 옵션을 순회
-    // HTML에 이미 모든 옵션이 렌더링되어 있다고 가정
     const options = titleSelect.querySelectorAll('option[data-ref-type]');
     
     options.forEach(option => {
@@ -436,23 +594,173 @@ function filterReferences(typeSelect, titleSelectId) {
         }
     });
     
-    // 필터링 후, 이전에 선택했던 값이 숨겨졌다면 선택 해제
     if (currentTitleId && titleSelect.querySelector(`option[value="${currentTitleId}"]`).style.display === 'none') {
         titleSelect.value = "";
     }
 }
 
+/**
+ * 댓글 뷰 토글 함수
+ */
+function toggleCommentView(modalType, postId, viewMode) {
+    const viewerId = modalType === 'add' ? 'add_comment_viewer' : `edit_comment_viewer_${postId}`;
+    const textareaId = modalType === 'add' ? 'add_post_comments' : `edit_post_comments_${postId}`;
+    
+    const viewer = document.getElementById(viewerId);
+    const textarea = document.getElementById(textareaId);
+    const buttons = viewer.parentElement.querySelectorAll('.btn-group button');
+    
+    if (viewMode === 'visual') {
+        // 시각적 뷰 모드
+        viewer.style.display = 'block';
+        textarea.style.display = 'none';
+        buttons[0].classList.add('active');
+        buttons[0].classList.remove('btn-outline-primary');
+        buttons[0].classList.add('btn-primary');
+        buttons[1].classList.remove('active');
+        buttons[1].classList.add('btn-outline-secondary');
+        buttons[1].classList.remove('btn-secondary');
+        
+        // 텍스트를 시각적으로 렌더링
+        renderComments(textarea.value, viewerId);
+    } else {
+        // 텍스트 편집 모드
+        viewer.style.display = 'none';
+        textarea.style.display = 'block';
+        buttons[0].classList.remove('active');
+        buttons[0].classList.add('btn-outline-primary');
+        buttons[0].classList.remove('btn-primary');
+        buttons[1].classList.add('active');
+        buttons[1].classList.remove('btn-outline-secondary');
+        buttons[1].classList.add('btn-secondary');
+    }
+}
 
 /**
- * 레퍼런스 제목 선택 시, 폼 필드 채우기 (댓글 포맷팅 수정됨)
+ * 댓글을 시각적으로 렌더링하는 함수
  */
-function loadReference(titleSelect, titleFieldId, bodyFieldId, commentsFieldId, refIdInputId) {
+function renderComments(textContent, viewerId) {
+    const viewer = document.getElementById(viewerId);
+    
+    if (!textContent || textContent.trim() === '') {
+        viewer.innerHTML = '<div class="no-comments">댓글이 없습니다</div>';
+        return;
+    }
+    
+    // 텍스트 파싱하여 HTML로 변환
+    const lines = textContent.split('\n');
+    let html = '';
+    let inReply = false;
+    let currentComment = null;
+    let commentCount = 0;
+    let replyCount = 0;
+    
+    for (let line of lines) {
+        // 답글 체크
+        if (line.includes('(답글)')) {
+            inReply = true;
+            const match = line.match(/\(답글\)\s*(.+?):/);
+            if (match) {
+                replyCount++;
+                const author = match[1].trim();
+                const isAuthor = author === '작성자';
+                currentComment = {
+                    author: author,
+                    text: '',
+                    isReply: true,
+                    isAuthor: isAuthor
+                };
+            }
+        }
+        // 일반 댓글 체크
+        else if (line.match(/^(작성자|계정\s*\d+):/)) {
+            if (currentComment) {
+                html += formatComment(currentComment);
+            }
+            
+            inReply = false;
+            commentCount++;
+            const parts = line.split(':');
+            const author = parts[0].trim();
+            const isAuthor = author === '작성자';
+            const text = parts.slice(1).join(':').trim();
+            
+            currentComment = {
+                author: author,
+                text: text ? text + '\n' : '',
+                isReply: false,
+                isAuthor: isAuthor
+            };
+        }
+        // 댓글 내용 추가
+        else if (currentComment && line.trim()) {
+            currentComment.text += line.trim() + '\n';
+        }
+    }
+    
+    // 마지막 댓글 처리
+    if (currentComment) {
+        html += formatComment(currentComment);
+    }
+    
+    // 통계 추가
+    if (commentCount > 0) {
+        html += `<div class="comment-stats">
+            📊 총 ${commentCount}개 댓글 ${replyCount > 0 ? `(답글 ${replyCount}개 포함)` : ''}
+        </div>`;
+    }
+    
+    viewer.innerHTML = html || '<div class="no-comments">댓글이 없습니다</div>';
+}
+
+/**
+ * 개별 댓글을 HTML로 포맷팅
+ */
+function formatComment(comment) {
+    const iconClass = comment.isAuthor ? 'author-icon' : 'account-icon';
+    const iconText = comment.isAuthor ? '작성' : comment.author.replace('계정', 'A');
+    
+    let html = '';
+    if (comment.isReply) {
+        html = `<div class="comment-reply">`;
+    }
+    
+    html += `
+        <div class="comment-item">
+            <div class="comment-author">
+                <span class="comment-author-icon ${iconClass}">${iconText}</span>
+                ${comment.author}
+            </div>
+            <div class="comment-text">${escapeHtml(comment.text.trim())}</div>
+        </div>
+    `;
+    
+    if (comment.isReply) {
+        html += `</div>`;
+    }
+    
+    return html;
+}
+
+/**
+ * HTML 이스케이프 함수
+ */
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+/**
+ * 레퍼런스 제목 선택 시, 폼 필드 채우기 (개선된 댓글 렌더링)
+ */
+function loadReference(titleSelect, titleFieldId, bodyFieldId, commentsFieldId, viewerIdOrNull, refIdInputId) {
     const selectedId = parseInt(titleSelect.value);
     const titleField = document.getElementById(titleFieldId);
     const bodyField = document.getElementById(bodyFieldId);
     const commentsField = document.getElementById(commentsFieldId);
     const contentWrapper = document.getElementById(titleFieldId.replace('_post_title', '_content_wrapper'));
-    const refIdInput = document.getElementById(refIdInputId);
+    const refIdInput = refIdInputId ? document.getElementById(refIdInputId) : null;
     
     if (!selectedId) {
         if (contentWrapper) contentWrapper.style.display = 'none';
@@ -460,6 +768,12 @@ function loadReference(titleSelect, titleFieldId, bodyFieldId, commentsFieldId, 
         titleField.value = "";
         bodyField.value = "";
         commentsField.value = "";
+        if (viewerIdOrNull) {
+            const viewer = document.getElementById(viewerIdOrNull);
+            if (viewer) {
+                viewer.innerHTML = '<div class="no-comments">댓글이 없습니다</div>';
+            }
+        }
         return;
     }
 
@@ -499,10 +813,28 @@ function loadReference(titleSelect, titleFieldId, bodyFieldId, commentsFieldId, 
             return text;
         }
         
-        commentsField.value = formatComments(topLevelComments).trim();
+        const formattedComments = formatComments(topLevelComments).trim();
+        commentsField.value = formattedComments;
+        
+        // 시각적 뷰어도 업데이트 (있다면)
+        if (viewerIdOrNull) {
+            renderComments(formattedComments, viewerIdOrNull);
+        }
 
         if (contentWrapper) contentWrapper.style.display = 'block';
     }
 }
+
+// 페이지 로드 시 기존 댓글 렌더링
+document.addEventListener('DOMContentLoaded', function() {
+    // 모든 수정 모달의 댓글 초기 렌더링
+    document.querySelectorAll('[id^="edit_post_comments_"]').forEach(textarea => {
+        const postId = textarea.id.replace('edit_post_comments_', '');
+        const viewerId = `edit_comment_viewer_${postId}`;
+        if (document.getElementById(viewerId)) {
+            renderComments(textarea.value, viewerId);
+        }
+    });
+});
 </script>
 {% endblock %}
