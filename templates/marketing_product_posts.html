@@ -313,7 +313,7 @@
                                     <option value="{{ type_name }}">{{ type_name }}</option>
                                     {% endfor %}
                                 </select>
-                                <select class="form-select" id="edit_ref_title_{{ post.id }}" onchange="loadReference(this, 'edit_post_title_{{ post.id }}', 'edit_post_body_{{ post.id }}', 'edit_post_comments_{{ post.id }}', 'edit_comment_viewer_{{ post.id }}')">
+                                <select class="form-select" id="edit_ref_title_{{ post.id }}" onchange="loadReference(this, 'edit_post_title_{{ post.id }}', 'edit_post_body_{{ post.id }}', 'edit_post_comments_{{ post.id }}')">
                                     <option value="" selected>제목 선택...</option>
                                     {% for type, refs in references_by_type.items() %}
                                         {% for ref in refs %}
@@ -444,7 +444,7 @@
                                         {% endfor %}
                                     {% endfor %}
                                 </select>
-                                <button class="btn btn-outline-primary" type="button" onclick="loadReference(document.getElementById('ref-title-select'), 'add_post_title', 'add_post_body', 'add_post_comments', 'add_comment_viewer', 'add_reference_id')">불러오기</button>
+                                <button class="btn btn-outline-primary" type="button" onclick="loadReference(document.getElementById('ref-title-select'), 'add_post_title', 'add_post_body', 'add_post_comments', 'add_reference_id')">불러오기</button>
                             </div>
                             <input type="hidden" name="reference_id" id="add_reference_id">
                         </div>
@@ -752,9 +752,9 @@ function escapeHtml(text) {
 }
 
 /**
- * 레퍼런스 제목 선택 시, 폼 필드 채우기 (개선된 댓글 렌더링)
+ * 레퍼런스 제목 선택 시, 폼 필드 채우기 (댓글 포맷팅 수정됨)
  */
-function loadReference(titleSelect, titleFieldId, bodyFieldId, commentsFieldId, viewerIdOrNull, refIdInputId) {
+function loadReference(titleSelect, titleFieldId, bodyFieldId, commentsFieldId, refIdInputId) {
     const selectedId = parseInt(titleSelect.value);
     const titleField = document.getElementById(titleFieldId);
     const bodyField = document.getElementById(bodyFieldId);
@@ -768,11 +768,12 @@ function loadReference(titleSelect, titleFieldId, bodyFieldId, commentsFieldId, 
         titleField.value = "";
         bodyField.value = "";
         commentsField.value = "";
-        if (viewerIdOrNull) {
-            const viewer = document.getElementById(viewerIdOrNull);
-            if (viewer) {
-                viewer.innerHTML = '<div class="no-comments">댓글이 없습니다</div>';
-            }
+        
+        // 시각적 뷰어가 있으면 초기화
+        const viewerId = titleFieldId.replace('_post_title', '_comment_viewer');
+        const viewer = document.getElementById(viewerId);
+        if (viewer) {
+            viewer.innerHTML = '<div class="no-comments">댓글이 없습니다</div>';
         }
         return;
     }
@@ -816,9 +817,11 @@ function loadReference(titleSelect, titleFieldId, bodyFieldId, commentsFieldId, 
         const formattedComments = formatComments(topLevelComments).trim();
         commentsField.value = formattedComments;
         
-        // 시각적 뷰어도 업데이트 (있다면)
-        if (viewerIdOrNull) {
-            renderComments(formattedComments, viewerIdOrNull);
+        // 시각적 뷰어가 있으면 업데이트
+        const viewerId = titleFieldId.replace('_post_title', '_comment_viewer');
+        const viewer = document.getElementById(viewerId);
+        if (viewer && formattedComments) {
+            renderComments(formattedComments, viewerId);
         }
 
         if (contentWrapper) contentWrapper.style.display = 'block';
