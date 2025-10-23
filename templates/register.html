@@ -1,31 +1,643 @@
 {% extends "base.html" %}
 {% block title %}회원가입{% endblock %}
-{% block content %}
-<div class="container mt-5" style="max-width: 400px;">
-    <div class="card shadow-sm">
-        <div class="card-body">
-            <h3 class="card-title text-center mb-4">🚀 회원가입</h3>
 
-            {% if error %}
-            <div class="alert alert-danger" role="alert">
-                {{ error }}
+{% block head %}
+{{ super() }}
+<style>
+    /* 배경 그라데이션 */
+    body {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    }
+    
+    /* 회원가입 카드 컨테이너 */
+    .register-wrapper {
+        width: 100%;
+        max-width: 500px;
+        padding: 20px;
+    }
+    
+    .register-card {
+        background: rgba(255, 255, 255, 0.95);
+        backdrop-filter: blur(10px);
+        border-radius: 20px;
+        padding: 40px;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        animation: slideUp 0.5s ease-out;
+    }
+    
+    @keyframes slideUp {
+        from {
+            opacity: 0;
+            transform: translateY(30px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    
+    /* 로고 스타일 */
+    .register-logo {
+        text-align: center;
+        margin-bottom: 30px;
+    }
+    
+    .register-logo h1 {
+        font-size: 2.5rem;
+        font-weight: bold;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        margin-bottom: 10px;
+    }
+    
+    .register-logo p {
+        color: #636e72;
+        font-size: 1rem;
+    }
+    
+    /* 단계 표시기 */
+    .step-indicator {
+        display: flex;
+        justify-content: center;
+        margin-bottom: 30px;
+        gap: 10px;
+    }
+    
+    .step {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        background: #e9ecef;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: bold;
+        color: #adb5bd;
+        position: relative;
+        transition: all 0.3s ease;
+    }
+    
+    .step.active {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        transform: scale(1.1);
+    }
+    
+    .step.completed {
+        background: linear-gradient(135deg, #00b894 0%, #55efc4 100%);
+        color: white;
+    }
+    
+    .step-line {
+        position: absolute;
+        top: 50%;
+        left: 100%;
+        width: 30px;
+        height: 2px;
+        background: #e9ecef;
+        z-index: -1;
+    }
+    
+    /* 폼 스타일 */
+    .form-control {
+        background: #f8f9fa;
+        border: 2px solid transparent;
+        border-radius: 12px;
+        padding: 15px 20px;
+        font-size: 1rem;
+        transition: all 0.3s ease;
+        height: auto;
+    }
+    
+    .form-control:focus {
+        background: white;
+        border-color: #667eea;
+        box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.1);
+        outline: none;
+    }
+    
+    .form-control.is-invalid {
+        border-color: #ff6b6b;
+        background: #fff5f5;
+    }
+    
+    .form-control.is-valid {
+        border-color: #00b894;
+        background: #f0fff4;
+    }
+    
+    .form-label {
+        color: #495057;
+        font-weight: 500;
+        margin-bottom: 8px;
+        font-size: 0.9rem;
+        display: flex;
+        align-items: center;
+        gap: 5px;
+    }
+    
+    .form-label .required {
+        color: #ff6b6b;
+    }
+    
+    /* 입력 그룹 */
+    .input-group {
+        position: relative;
+        margin-bottom: 20px;
+    }
+    
+    .input-icon {
+        position: absolute;
+        left: 15px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #adb5bd;
+        z-index: 1;
+    }
+    
+    .form-control.with-icon {
+        padding-left: 45px;
+    }
+    
+    /* 비밀번호 강도 표시기 */
+    .password-strength {
+        margin-top: 8px;
+        height: 4px;
+        background: #e9ecef;
+        border-radius: 2px;
+        overflow: hidden;
+    }
+    
+    .password-strength-bar {
+        height: 100%;
+        width: 0;
+        transition: all 0.3s ease;
+        border-radius: 2px;
+    }
+    
+    .password-strength-bar.weak {
+        width: 33%;
+        background: #ff6b6b;
+    }
+    
+    .password-strength-bar.medium {
+        width: 66%;
+        background: #feca57;
+    }
+    
+    .password-strength-bar.strong {
+        width: 100%;
+        background: #00b894;
+    }
+    
+    .password-requirements {
+        margin-top: 10px;
+        padding: 10px;
+        background: #f8f9fa;
+        border-radius: 8px;
+        font-size: 0.85rem;
+    }
+    
+    .requirement {
+        color: #adb5bd;
+        margin: 5px 0;
+        display: flex;
+        align-items: center;
+        gap: 5px;
+    }
+    
+    .requirement.met {
+        color: #00b894;
+    }
+    
+    /* 버튼 스타일 */
+    .btn-register {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border: none;
+        border-radius: 12px;
+        color: white;
+        padding: 15px 30px;
+        font-size: 1.1rem;
+        font-weight: 600;
+        width: 100%;
+        transition: all 0.3s ease;
+        margin-top: 10px;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .btn-register:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 25px rgba(102, 126, 234, 0.4);
+    }
+    
+    .btn-register:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+    }
+    
+    /* 약관 동의 */
+    .terms-section {
+        background: #f8f9fa;
+        border-radius: 12px;
+        padding: 15px;
+        margin-bottom: 20px;
+    }
+    
+    .form-check {
+        margin-bottom: 10px;
+    }
+    
+    .form-check-input {
+        width: 20px;
+        height: 20px;
+        border: 2px solid #ddd;
+        border-radius: 5px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+    
+    .form-check-input:checked {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border-color: transparent;
+    }
+    
+    /* 알림 메시지 */
+    .alert {
+        border: none;
+        border-radius: 12px;
+        padding: 15px 20px;
+        margin-bottom: 20px;
+        animation: slideDown 0.3s ease-out;
+    }
+    
+    .alert-danger {
+        background: linear-gradient(135deg, #ff6b6b 0%, #feca57 100%);
+        color: white;
+    }
+    
+    .alert-info {
+        background: linear-gradient(135deg, #339af0 0%, #74c0fc 100%);
+        color: white;
+    }
+    
+    /* 링크 스타일 */
+    .register-links {
+        text-align: center;
+        margin-top: 25px;
+        padding-top: 25px;
+        border-top: 1px solid #e9ecef;
+    }
+    
+    .register-links a {
+        color: #667eea;
+        text-decoration: none;
+        font-weight: 600;
+        transition: all 0.3s ease;
+    }
+    
+    .register-links a:hover {
+        text-decoration: underline;
+    }
+    
+    /* 유효성 검사 메시지 */
+    .invalid-feedback,
+    .valid-feedback {
+        font-size: 0.85rem;
+        margin-top: 5px;
+        display: none;
+    }
+    
+    .invalid-feedback {
+        color: #ff6b6b;
+    }
+    
+    .valid-feedback {
+        color: #00b894;
+    }
+    
+    .form-control.is-invalid ~ .invalid-feedback,
+    .form-control.is-valid ~ .valid-feedback {
+        display: block;
+    }
+    
+    /* 로딩 스피너 */
+    .spinner {
+        display: none;
+        width: 20px;
+        height: 20px;
+        border: 3px solid rgba(255, 255, 255, 0.3);
+        border-top-color: white;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+        margin-right: 10px;
+    }
+    
+    @keyframes spin {
+        to { transform: rotate(360deg); }
+    }
+    
+    .btn-register.loading .spinner {
+        display: inline-block;
+    }
+    
+    /* 반응형 디자인 */
+    @media (max-width: 576px) {
+        .register-card {
+            padding: 30px 20px;
+        }
+        
+        .register-logo h1 {
+            font-size: 2rem;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="register-wrapper">
+    <div class="register-card">
+        <!-- 로고 섹션 -->
+        <div class="register-logo">
+            <h1>SHS.corp</h1>
+            <p>새로운 계정을 만들어보세요</p>
+        </div>
+        
+        <!-- 단계 표시기 -->
+        <div class="step-indicator">
+            <div class="step active">1</div>
+            <div class="step">2</div>
+            <div class="step">3</div>
+        </div>
+        
+        <!-- 에러 알림 -->
+        {% if error %}
+        <div class="alert alert-danger">
+            <i class="bi bi-exclamation-triangle-fill"></i> {{ error }}
+        </div>
+        {% endif %}
+        
+        <!-- 회원가입 폼 -->
+        <form method="post" action="/register" id="registerForm">
+            <!-- 아이디 입력 -->
+            <div class="input-group">
+                <label for="username" class="form-label">
+                    <i class="bi bi-person"></i> 아이디 <span class="required">*</span>
+                </label>
+                <span class="input-icon">
+                    <i class="bi bi-person-fill"></i>
+                </span>
+                <input type="text" 
+                       name="username" 
+                       class="form-control with-icon" 
+                       id="username"
+                       placeholder="아이디를 입력하세요 (영문, 숫자 조합)"
+                       pattern="[a-zA-Z0-9_]{4,20}"
+                       required>
+                <div class="invalid-feedback">
+                    아이디는 4-20자의 영문, 숫자, 언더스코어만 사용 가능합니다.
+                </div>
+                <div class="valid-feedback">
+                    <i class="bi bi-check-circle"></i> 사용 가능한 아이디입니다.
+                </div>
             </div>
-            {% endif %}
-            <form method="post" action="/register">
-                <div class="mb-3">
-                    <label for="username" class="form-label">사용자 아이디</label>
-                    <input type="text" name="username" class="form-control" required>
+            
+            <!-- 비밀번호 입력 -->
+            <div class="input-group">
+                <label for="password" class="form-label">
+                    <i class="bi bi-lock"></i> 비밀번호 <span class="required">*</span>
+                </label>
+                <span class="input-icon">
+                    <i class="bi bi-lock-fill"></i>
+                </span>
+                <input type="password" 
+                       name="password" 
+                       class="form-control with-icon" 
+                       id="password"
+                       placeholder="비밀번호를 입력하세요"
+                       minlength="8"
+                       required>
+                <div class="password-strength">
+                    <div class="password-strength-bar" id="strengthBar"></div>
                 </div>
-                <div class="mb-3">
-                    <label for="password" class="form-label">비밀번호</label>
-                    <input type="password" name="password" class="form-control" required>
+                <div class="password-requirements">
+                    <div class="requirement" id="req-length">
+                        <i class="bi bi-circle"></i> 최소 8자 이상
+                    </div>
+                    <div class="requirement" id="req-upper">
+                        <i class="bi bi-circle"></i> 대문자 포함
+                    </div>
+                    <div class="requirement" id="req-number">
+                        <i class="bi bi-circle"></i> 숫자 포함
+                    </div>
+                    <div class="requirement" id="req-special">
+                        <i class="bi bi-circle"></i> 특수문자 포함
+                    </div>
                 </div>
-                <button type="submit" class="btn btn-primary w-100">가입하기</button>
-            </form>
-            <p class="mt-3 text-center">
-                이미 계정이 있으신가요? <a href="/login">로그인</a>
-            </p>
+            </div>
+            
+            <!-- 비밀번호 확인 -->
+            <div class="input-group">
+                <label for="password_confirm" class="form-label">
+                    <i class="bi bi-lock-fill"></i> 비밀번호 확인 <span class="required">*</span>
+                </label>
+                <span class="input-icon">
+                    <i class="bi bi-lock-fill"></i>
+                </span>
+                <input type="password" 
+                       class="form-control with-icon" 
+                       id="password_confirm"
+                       placeholder="비밀번호를 다시 입력하세요"
+                       required>
+                <div class="invalid-feedback">
+                    비밀번호가 일치하지 않습니다.
+                </div>
+                <div class="valid-feedback">
+                    <i class="bi bi-check-circle"></i> 비밀번호가 일치합니다.
+                </div>
+            </div>
+            
+            <!-- 이메일 입력 (선택) -->
+            <div class="input-group">
+                <label for="email" class="form-label">
+                    <i class="bi bi-envelope"></i> 이메일 <small class="text-muted">(선택)</small>
+                </label>
+                <span class="input-icon">
+                    <i class="bi bi-envelope-fill"></i>
+                </span>
+                <input type="email" 
+                       name="email" 
+                       class="form-control with-icon" 
+                       id="email"
+                       placeholder="example@email.com">
+            </div>
+            
+            <!-- 약관 동의 -->
+            <div class="terms-section">
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="agreeAll">
+                    <label class="form-check-label" for="agreeAll">
+                        <strong>전체 동의</strong>
+                    </label>
+                </div>
+                <hr style="margin: 10px 0;">
+                <div class="form-check">
+                    <input class="form-check-input terms-check" type="checkbox" id="terms1" required>
+                    <label class="form-check-label" for="terms1">
+                        <span class="required">*</span> 이용약관 동의 (필수)
+                    </label>
+                </div>
+                <div class="form-check">
+                    <input class="form-check-input terms-check" type="checkbox" id="terms2" required>
+                    <label class="form-check-label" for="terms2">
+                        <span class="required">*</span> 개인정보 수집 및 이용 동의 (필수)
+                    </label>
+                </div>
+                <div class="form-check">
+                    <input class="form-check-input terms-check" type="checkbox" id="terms3">
+                    <label class="form-check-label" for="terms3">
+                        마케팅 정보 수신 동의 (선택)
+                    </label>
+                </div>
+            </div>
+            
+            <!-- 회원가입 버튼 -->
+            <button type="submit" class="btn btn-register" id="registerBtn" disabled>
+                <span class="spinner"></span>
+                <span class="btn-text">회원가입</span>
+            </button>
+        </form>
+        
+        <!-- 추가 링크 -->
+        <div class="register-links">
+            <p>이미 계정이 있으신가요? <a href="/login">로그인</a></p>
         </div>
     </div>
 </div>
+
+<script>
+    // 비밀번호 강도 체크
+    function checkPasswordStrength(password) {
+        let strength = 0;
+        const requirements = {
+            length: password.length >= 8,
+            upper: /[A-Z]/.test(password),
+            number: /[0-9]/.test(password),
+            special: /[!@#$%^&*(),.?":{}|<>]/.test(password)
+        };
+        
+        // 요구사항 UI 업데이트
+        updateRequirement('req-length', requirements.length);
+        updateRequirement('req-upper', requirements.upper);
+        updateRequirement('req-number', requirements.number);
+        updateRequirement('req-special', requirements.special);
+        
+        // 강도 계산
+        Object.values(requirements).forEach(met => {
+            if (met) strength++;
+        });
+        
+        // 강도 바 업데이트
+        const strengthBar = document.getElementById('strengthBar');
+        strengthBar.className = 'password-strength-bar';
+        
+        if (strength <= 1) {
+            strengthBar.classList.add('weak');
+        } else if (strength <= 3) {
+            strengthBar.classList.add('medium');
+        } else {
+            strengthBar.classList.add('strong');
+        }
+        
+        return strength >= 3; // 최소 3개 요구사항 충족
+    }
+    
+    function updateRequirement(id, met) {
+        const req = document.getElementById(id);
+        if (met) {
+            req.classList.add('met');
+            req.querySelector('i').className = 'bi bi-check-circle-fill';
+        } else {
+            req.classList.remove('met');
+            req.querySelector('i').className = 'bi bi-circle';
+        }
+    }
+    
+    // 비밀번호 입력 이벤트
+    document.getElementById('password').addEventListener('input', function() {
+        const isStrong = checkPasswordStrength(this.value);
+        this.classList.toggle('is-valid', isStrong);
+        this.classList.toggle('is-invalid', !isStrong && this.value.length > 0);
+        checkFormValidity();
+    });
+    
+    // 비밀번호 확인
+    document.getElementById('password_confirm').addEventListener('input', function() {
+        const password = document.getElementById('password').value;
+        const isMatch = this.value === password && this.value.length > 0;
+        this.classList.toggle('is-valid', isMatch);
+        this.classList.toggle('is-invalid', !isMatch && this.value.length > 0);
+        checkFormValidity();
+    });
+    
+    // 아이디 유효성 검사
+    document.getElementById('username').addEventListener('input', function() {
+        const isValid = /^[a-zA-Z0-9_]{4,20}$/.test(this.value);
+        this.classList.toggle('is-valid', isValid);
+        this.classList.toggle('is-invalid', !isValid && this.value.length > 0);
+        checkFormValidity();
+    });
+    
+    // 전체 동의 체크박스
+    document.getElementById('agreeAll').addEventListener('change', function() {
+        const checkboxes = document.querySelectorAll('.terms-check');
+        checkboxes.forEach(checkbox => {
+            checkbox.checked = this.checked;
+        });
+        checkFormValidity();
+    });
+    
+    // 개별 약관 체크박스
+    document.querySelectorAll('.terms-check').forEach(checkbox => {
+        checkbox.addEventListener('change', function() {
+            const allChecked = Array.from(document.querySelectorAll('.terms-check'))
+                .every(cb => cb.checked);
+            document.getElementById('agreeAll').checked = allChecked;
+            checkFormValidity();
+        });
+    });
+    
+    // 폼 유효성 검사
+    function checkFormValidity() {
+        const username = document.getElementById('username').classList.contains('is-valid');
+        const password = document.getElementById('password').classList.contains('is-valid');
+        const passwordConfirm = document.getElementById('password_confirm').classList.contains('is-valid');
+        const terms1 = document.getElementById('terms1').checked;
+        const terms2 = document.getElementById('terms2').checked;
+        
+        const isValid = username && password && passwordConfirm && terms1 && terms2;
+        document.getElementById('registerBtn').disabled = !isValid;
+    }
+    
+    // 폼 제출
+    document.getElementById('registerForm').addEventListener('submit', function(e) {
+        const registerBtn = document.getElementById('registerBtn');
+        registerBtn.classList.add('loading');
+        registerBtn.querySelector('.btn-text').textContent = '가입 처리 중...';
+        registerBtn.disabled = true;
+    });
+    
+    // 단계 애니메이션 (데모용)
+    setTimeout(() => {
+        document.querySelectorAll('.step')[0].classList.add('completed');
+        document.querySelectorAll('.step')[1].classList.add('active');
+    }, 3000);
+</script>
 {% endblock %}

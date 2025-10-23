@@ -1,51 +1,547 @@
-<!-- templates/login.html -->
 {% extends "base.html" %}
 {% block title %}로그인{% endblock %}
+
+{% block head %}
+{{ super() }}
+<style>
+    /* 배경 그라데이션 */
+    body {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    }
+    
+    /* 로그인 카드 컨테이너 */
+    .login-wrapper {
+        width: 100%;
+        max-width: 450px;
+        padding: 20px;
+    }
+    
+    .login-card {
+        background: rgba(255, 255, 255, 0.95);
+        backdrop-filter: blur(10px);
+        border-radius: 20px;
+        padding: 40px;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        animation: slideUp 0.5s ease-out;
+    }
+    
+    @keyframes slideUp {
+        from {
+            opacity: 0;
+            transform: translateY(30px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    
+    /* 로고 스타일 */
+    .login-logo {
+        text-align: center;
+        margin-bottom: 30px;
+    }
+    
+    .login-logo h1 {
+        font-size: 2.5rem;
+        font-weight: bold;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        margin-bottom: 10px;
+    }
+    
+    .login-logo p {
+        color: #636e72;
+        font-size: 1rem;
+    }
+    
+    /* 폼 스타일 */
+    .form-floating {
+        position: relative;
+        margin-bottom: 20px;
+    }
+    
+    .form-control {
+        background: #f8f9fa;
+        border: 2px solid transparent;
+        border-radius: 12px;
+        padding: 15px 20px;
+        font-size: 1rem;
+        transition: all 0.3s ease;
+        height: auto;
+    }
+    
+    .form-control:focus {
+        background: white;
+        border-color: #667eea;
+        box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.1);
+        outline: none;
+    }
+    
+    .form-label {
+        color: #495057;
+        font-weight: 500;
+        margin-bottom: 8px;
+        font-size: 0.9rem;
+        display: flex;
+        align-items: center;
+        gap: 5px;
+    }
+    
+    /* 버튼 스타일 */
+    .btn-login {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border: none;
+        border-radius: 12px;
+        color: white;
+        padding: 15px 30px;
+        font-size: 1.1rem;
+        font-weight: 600;
+        width: 100%;
+        transition: all 0.3s ease;
+        margin-top: 10px;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .btn-login::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+        transition: left 0.5s;
+    }
+    
+    .btn-login:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 25px rgba(102, 126, 234, 0.4);
+    }
+    
+    .btn-login:hover::before {
+        left: 100%;
+    }
+    
+    /* 체크박스 스타일 */
+    .form-check {
+        margin: 20px 0;
+    }
+    
+    .form-check-input {
+        width: 20px;
+        height: 20px;
+        border: 2px solid #ddd;
+        border-radius: 5px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+    
+    .form-check-input:checked {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border-color: transparent;
+    }
+    
+    .form-check-label {
+        margin-left: 8px;
+        color: #636e72;
+        cursor: pointer;
+        user-select: none;
+    }
+    
+    /* 알림 메시지 */
+    .alert {
+        border: none;
+        border-radius: 12px;
+        padding: 15px 20px;
+        margin-bottom: 20px;
+        animation: slideDown 0.3s ease-out;
+    }
+    
+    @keyframes slideDown {
+        from {
+            opacity: 0;
+            transform: translateY(-10px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    
+    .alert-success {
+        background: linear-gradient(135deg, #00b894 0%, #55efc4 100%);
+        color: white;
+    }
+    
+    .alert-danger {
+        background: linear-gradient(135deg, #ff6b6b 0%, #feca57 100%);
+        color: white;
+    }
+    
+    /* 링크 스타일 */
+    .login-links {
+        text-align: center;
+        margin-top: 25px;
+        padding-top: 25px;
+        border-top: 1px solid #e9ecef;
+    }
+    
+    .login-links p {
+        color: #636e72;
+        margin-bottom: 15px;
+    }
+    
+    .login-links a {
+        color: #667eea;
+        text-decoration: none;
+        font-weight: 600;
+        transition: all 0.3s ease;
+        position: relative;
+    }
+    
+    .login-links a::after {
+        content: '';
+        position: absolute;
+        bottom: -2px;
+        left: 0;
+        width: 0;
+        height: 2px;
+        background: #667eea;
+        transition: width 0.3s ease;
+    }
+    
+    .login-links a:hover::after {
+        width: 100%;
+    }
+    
+    /* 소셜 로그인 버튼 */
+    .social-login {
+        margin-top: 25px;
+        padding-top: 25px;
+        border-top: 1px solid #e9ecef;
+    }
+    
+    .social-divider {
+        text-align: center;
+        color: #adb5bd;
+        margin-bottom: 20px;
+        position: relative;
+    }
+    
+    .social-divider::before,
+    .social-divider::after {
+        content: '';
+        position: absolute;
+        top: 50%;
+        width: 40%;
+        height: 1px;
+        background: #e9ecef;
+    }
+    
+    .social-divider::before {
+        left: 0;
+    }
+    
+    .social-divider::after {
+        right: 0;
+    }
+    
+    .btn-social {
+        width: 100%;
+        padding: 12px 20px;
+        border: 2px solid #e9ecef;
+        border-radius: 12px;
+        background: white;
+        color: #495057;
+        font-weight: 500;
+        transition: all 0.3s ease;
+        margin-bottom: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+    }
+    
+    .btn-social:hover {
+        border-color: #667eea;
+        background: #f8f9fa;
+        transform: translateY(-2px);
+    }
+    
+    /* 입력 필드 아이콘 */
+    .input-group {
+        position: relative;
+        margin-bottom: 20px;
+    }
+    
+    .input-icon {
+        position: absolute;
+        left: 15px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #adb5bd;
+        z-index: 1;
+    }
+    
+    .form-control.with-icon {
+        padding-left: 45px;
+    }
+    
+    /* 비밀번호 표시/숨기기 토글 */
+    .password-toggle {
+        position: absolute;
+        right: 15px;
+        top: 50%;
+        transform: translateY(-50%);
+        background: none;
+        border: none;
+        color: #adb5bd;
+        cursor: pointer;
+        padding: 5px;
+        transition: color 0.3s ease;
+    }
+    
+    .password-toggle:hover {
+        color: #667eea;
+    }
+    
+    /* 로딩 애니메이션 */
+    .spinner {
+        display: none;
+        width: 20px;
+        height: 20px;
+        border: 3px solid rgba(255, 255, 255, 0.3);
+        border-top-color: white;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+        margin-right: 10px;
+    }
+    
+    @keyframes spin {
+        to { transform: rotate(360deg); }
+    }
+    
+    .btn-login.loading .spinner {
+        display: inline-block;
+    }
+    
+    /* 반응형 디자인 */
+    @media (max-width: 576px) {
+        .login-card {
+            padding: 30px 20px;
+        }
+        
+        .login-logo h1 {
+            font-size: 2rem;
+        }
+    }
+    
+    /* 보안 뱃지 */
+    .security-badge {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 5px;
+        margin-top: 20px;
+        color: #adb5bd;
+        font-size: 0.85rem;
+    }
+    
+    .security-badge i {
+        color: #00b894;
+    }
+</style>
+{% endblock %}
+
 {% block content %}
-<div class="container mt-5" style="max-width: 400px;">
-    <div class="card shadow-sm">
-        <div class="card-body">
-            <h3 class="card-title text-center mb-4">🔐 로그인</h3>
-
-            <div id="success-alert" style="display: none;" class="alert alert-success">
-                🎉 가입 성공! 이제 로그인해주세요.
+<div class="login-wrapper">
+    <div class="login-card">
+        <!-- 로고 섹션 -->
+        <div class="login-logo">
+            <h1>SHS.corp</h1>
+            <p>CS 관리 시스템에 오신 것을 환영합니다</p>
+        </div>
+        
+        <!-- 성공 알림 (회원가입 후) -->
+        <div id="success-alert" style="display: none;" class="alert alert-success">
+            <i class="bi bi-check-circle-fill"></i> 가입 성공! 이제 로그인해주세요.
+        </div>
+        
+        <!-- 에러 알림 -->
+        {% if error %}
+        <div class="alert alert-danger">
+            <i class="bi bi-exclamation-triangle-fill"></i> {{ error }}
+        </div>
+        {% endif %}
+        
+        <!-- 로그인 폼 -->
+        <form method="post" action="/login" id="loginForm">
+            <!-- 아이디 입력 -->
+            <div class="input-group">
+                <label for="username" class="form-label">
+                    <i class="bi bi-person"></i> 아이디
+                </label>
+                <span class="input-icon">
+                    <i class="bi bi-person-fill"></i>
+                </span>
+                <input type="text" 
+                       name="username" 
+                       class="form-control with-icon" 
+                       id="username"
+                       placeholder="아이디를 입력하세요"
+                       required 
+                       autofocus>
             </div>
-
-            <script>
-                // URL에 ?registered=true가 있는지 확인
-                if (new URLSearchParams(window.location.search).has('registered')) {
-                    // 성공 메시지 보이기
-                    document.getElementById('success-alert').style.display = 'block';
-                    
-                    // 폭죽 터트리기!
-                    confetti({
-                        particleCount: 150,
-                        spread: 180,
-                        origin: { y: 0.6 }
-                    });
-                }
-            </script>
-
-            {% if error %}
-            <div class="alert alert-danger" role="alert">
-                {{ error }}
+            
+            <!-- 비밀번호 입력 -->
+            <div class="input-group">
+                <label for="password" class="form-label">
+                    <i class="bi bi-lock"></i> 비밀번호
+                </label>
+                <span class="input-icon">
+                    <i class="bi bi-lock-fill"></i>
+                </span>
+                <input type="password" 
+                       name="password" 
+                       class="form-control with-icon" 
+                       id="password"
+                       placeholder="비밀번호를 입력하세요"
+                       required>
+                <button type="button" class="password-toggle" onclick="togglePassword()">
+                    <i class="bi bi-eye" id="toggleIcon"></i>
+                </button>
             </div>
-            {% endif %}
-            <form method="post" action="/login">
-                <div class="mb-3">
-                    <label for="username" class="form-label">아이디</label>
-                    <input type="text" name="username" class="form-control" required>
-                </div>
-                <div class="mb-3">
-                    <label for="password" class="form-label">비밀번호</label>
-                    <input type="password" name="password" class="form-control" required>
-                </div>
-                <button type="submit" class="btn btn-primary w-100">로그인</button>
-            </form>
-            <p class="mt-3 text-center">
-                아직 계정이 없으신가요? <a href="/register">회원가입</a>
-            </p>
+            
+            <!-- 로그인 상태 유지 -->
+            <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="rememberMe">
+                <label class="form-check-label" for="rememberMe">
+                    로그인 상태 유지
+                </label>
+            </div>
+            
+            <!-- 로그인 버튼 -->
+            <button type="submit" class="btn btn-login" id="loginBtn">
+                <span class="spinner"></span>
+                <span class="btn-text">로그인</span>
+            </button>
+        </form>
+        
+        <!-- 추가 링크 -->
+        <div class="login-links">
+            <p>아직 계정이 없으신가요?</p>
+            <a href="/register">
+                <i class="bi bi-person-plus"></i> 회원가입
+            </a>
+            <span style="margin: 0 15px; color: #ddd;">|</span>
+            <a href="/forgot-password">
+                <i class="bi bi-key"></i> 비밀번호 찾기
+            </a>
+        </div>
+        
+        <!-- 소셜 로그인 (옵션) -->
+        <!--
+        <div class="social-login">
+            <div class="social-divider">또는</div>
+            <button type="button" class="btn-social">
+                <i class="bi bi-google"></i> Google로 로그인
+            </button>
+            <button type="button" class="btn-social">
+                <i class="bi bi-github"></i> GitHub로 로그인
+            </button>
+        </div>
+        -->
+        
+        <!-- 보안 뱃지 -->
+        <div class="security-badge">
+            <i class="bi bi-shield-check"></i>
+            <span>256-bit SSL 암호화로 보호됨</span>
         </div>
     </div>
 </div>
+
+<!-- Confetti 라이브러리 (회원가입 성공 시 효과) -->
+<script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+
+<script>
+    // URL 파라미터 확인 (회원가입 성공)
+    if (new URLSearchParams(window.location.search).has('registered')) {
+        document.getElementById('success-alert').style.display = 'block';
+        
+        // 폭죽 효과
+        confetti({
+            particleCount: 150,
+            spread: 180,
+            origin: { y: 0.4 },
+            colors: ['#667eea', '#764ba2', '#00b894', '#feca57']
+        });
+        
+        // 5초 후 알림 숨기기
+        setTimeout(() => {
+            document.getElementById('success-alert').style.display = 'none';
+        }, 5000);
+    }
+    
+    // 비밀번호 표시/숨기기
+    function togglePassword() {
+        const passwordInput = document.getElementById('password');
+        const toggleIcon = document.getElementById('toggleIcon');
+        
+        if (passwordInput.type === 'password') {
+            passwordInput.type = 'text';
+            toggleIcon.classList.remove('bi-eye');
+            toggleIcon.classList.add('bi-eye-slash');
+        } else {
+            passwordInput.type = 'password';
+            toggleIcon.classList.remove('bi-eye-slash');
+            toggleIcon.classList.add('bi-eye');
+        }
+    }
+    
+    // 폼 제출 시 로딩 상태
+    document.getElementById('loginForm').addEventListener('submit', function(e) {
+        const loginBtn = document.getElementById('loginBtn');
+        loginBtn.classList.add('loading');
+        loginBtn.querySelector('.btn-text').textContent = '로그인 중...';
+        loginBtn.disabled = true;
+    });
+    
+    // Enter 키로 제출
+    document.addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            const activeElement = document.activeElement;
+            if (activeElement.tagName === 'INPUT') {
+                const form = activeElement.closest('form');
+                if (form) {
+                    const nextInput = form.querySelector('input:not(:focus)');
+                    if (nextInput && !activeElement.value) {
+                        e.preventDefault();
+                        nextInput.focus();
+                    }
+                }
+            }
+        }
+    });
+    
+    // 입력 필드 포커스 효과
+    const inputs = document.querySelectorAll('.form-control');
+    inputs.forEach(input => {
+        input.addEventListener('focus', function() {
+            this.parentElement.querySelector('.input-icon').style.color = '#667eea';
+        });
+        
+        input.addEventListener('blur', function() {
+            this.parentElement.querySelector('.input-icon').style.color = '#adb5bd';
+        });
+    });
+</script>
 {% endblock %}
