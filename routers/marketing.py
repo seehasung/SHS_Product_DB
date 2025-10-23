@@ -375,6 +375,8 @@ async def get_product_posts(
     page: int = Query(1, ge=1),
     keyword_search: str = Query("")
 ):
+    """글 관리 페이지를 보여주는 라우트 (레퍼런스 목록 추가)"""
+    
     PAGE_SIZE = 40
     
     marketing_product = db.query(MarketingProduct).options(
@@ -436,7 +438,15 @@ async def get_product_posts(
     all_cafes = db.query(TargetCafe).all()
     all_workers = db.query(User).filter(or_(User.can_manage_marketing == True, User.is_admin == True)).all()
     
+    # ▼▼▼ 레퍼런스 목록을 분류별로 그룹화 ▼▼▼
     all_references = db.query(Reference).options(joinedload(Reference.comments)).order_by(Reference.ref_type, Reference.title).all()
+    references_by_type = {"대안": [], "정보": [], "기타": []}
+    for ref in all_references:
+        if ref.ref_type in references_by_type:
+            references_by_type[ref.ref_type].append(ref)
+        else:
+            references_by_type["기타"].append(ref)
+    # ▲▲▲ 레퍼런스 목록을 분류별로 그룹화 ▲▲▲
     
     all_memberships = db.query(CafeMembership).options(joinedload(CafeMembership.cafe)).all()
     membership_map = {}
@@ -447,7 +457,7 @@ async def get_product_posts(
             if membership.cafe:
                 membership_map[membership.account_id].append({"id": membership.cafe.id, "name": membership.cafe.name})
     
-    # db.close() # <--- 삭제됨
+    db.close()
     
     return templates.TemplateResponse("marketing_product_posts.html", {
         "request": request,
@@ -457,13 +467,13 @@ async def get_product_posts(
         "all_accounts": all_accounts,
         "all_cafes": all_cafes,
         "all_workers": all_workers,
-        "all_references": all_references,
+        "references_by_type": references_by_type, # 분류된 레퍼런스 전달
         "membership_map": membership_map,
         "total_pages": total_pages,
         "current_page": page,
         "keyword_search": keyword_search
     })
-
+    
 @router.post("/post/add", response_class=RedirectResponse)
 async def add_marketing_post(
     request: Request,
@@ -472,13 +482,32 @@ async def add_marketing_post(
     account_id: int = Form(...),
     cafe_id: int = Form(...),
     worker_id: int = Form(...),
-    post_title: str = Form(""),
-    post_body: str = Form(""),
-    post_comments: str = Form(""),
-    is_registration_complete: bool = Form(False),
-    post_url: str = Form(None),
+    reference_id: int = Form(None), # ▼▼▼ 레퍼런스 ID를 받도록 수정 ▼▼▼
     db: Session = Depends(get_db)
 ):
+    """새 글을 등록하는 라우트"""
+    
+    post_title = ""
+    post_body = ""
+    post_comments = "[]" # 기본 빈 JSON 배열
+
+    # ▼▼▼ 레퍼런스 ID가 있으면, 내용을 복사 ▼▼▼
+    if reference_id:
+        ref = db.query(Reference).options(joinedload(Reference.comments)).filter(Reference.id == reference_id).first()
+        if ref:
+            post_title = ref.title
+            post_body = ref.content
+            # 댓글도 JSON 형식으로 복사
+            comments_list = []
+            for comment in ref.comments:
+                comments_list.append({
+                    "account_sequence": comment.account_sequence,
+                    "text": comment.text,
+                    "parent_id": comment.parent_id # 계층 구조 유지를 위해 parent_id도 저장
+                })
+            post_comments = json.dumps(comments_list, ensure_ascii=False, indent=2)
+    # ▲▲▲ 레퍼런스 ID가 있으면, 내용을 복사 ▲▲▲
+
     new_post = MarketingPost(
         marketing_product_id=mp_id,
         keyword_text=keyword_text,
@@ -488,13 +517,13 @@ async def add_marketing_post(
         post_title=post_title,
         post_body=post_body,
         post_comments=post_comments,
-        is_registration_complete=is_registration_complete,
-        post_url=post_url if is_registration_complete else None,
-        is_live=True if is_registration_complete else False
+        is_registration_complete=False, # 항상 '작성중' 상태로 시작
+        post_url=None,
+        is_live=False
     )
     db.add(new_post)
     db.commit()
-    # db.close() # <--- 삭제됨
+    db.close()
     return RedirectResponse(url=f"/marketing/product/posts/{mp_id}", status_code=303)
 
 @router.post("/post/update/{post_id}", response_class=RedirectResponse)

@@ -36,7 +36,7 @@
                         <thead>
                             <tr>
                                 <th style="width: 5%;">상태</th>
-                                <th>글 URL</th>
+                                <th>글 제목/URL</th>
                                 <th style="width: 15%;">네이버 계정</th>
                                 <th style="width: 15%;">작성 카페</th>
                                 <th style="width: 10%;">작성자</th>
@@ -57,7 +57,13 @@
                                         {% endif %}
                                     </span>
                                 </td>
-                                <td><a href="{{ post.post_url }}" target="_blank" title="{{ post.post_url }}" style="display: block; max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ post.post_url or 'URL 미등록' }}</a></td>
+                                <td>
+                                    {% if post.is_registration_complete and post.post_url %}
+                                    <a href="{{ post.post_url }}" target="_blank" title="{{ post.post_url }}" style="display: block; max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ post.post_title or post.post_url }}</a>
+                                    {% else %}
+                                    <span title="{{ post.post_title }}" style="display: block; max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ post.post_title or '(제목 없음)' }}</span>
+                                    {% endif %}
+                                </td>
                                 <td>{{ post.account.account_id if post.account else 'N/A' }}</td>
                                 <td>{{ post.cafe.name if post.cafe else 'N/A' }}</td>
                                 <td>{{ post.worker.username if post.worker else 'N/A' }}</td>
@@ -105,55 +111,33 @@
     {% for keyword, posts in posts_by_keyword.items() %}
     {% for post in posts %}
     <div class="modal fade modal-lg" id="editPostModal-{{ post.id }}" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog">
+        <div class="modal-dialog modal-dialog-scrollable">
             <div class="modal-content">
                 <form action="/marketing/post/update/{{ post.id }}" method="post">
                     <div class="modal-header">
-                        <h5 class="modal-title">글 정보 수정</h5>
+                        <h5 class="modal-title">글 정보 수정 (키워드: {{ post.keyword_text }})</h5>
                         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                     </div>
                     <div class="modal-body">
                         <div class="row">
-                            <div class="col-md-6">
-                                <label class="form-label">키워드</label>
-                                <input type="text" class="form-control" value="{{ post.keyword_text }}" disabled>
-                            </div>
-                            <div class="col-md-6">
-                                <label class="form-label">작성자</label>
-                                <select class="form-select" name="worker_id" required>
-                                    {% for worker in all_workers %}<option value="{{ worker.id }}" {{ 'selected' if post.worker_id == worker.id }}>{{ worker.username }}</option>{% endfor %}
-                                </select>
-                            </div>
-                        </div>
-                        <hr>
-                        <div class="row">
-                            <div class="col-md-6">
-                                <label class="form-label">네이버 계정</label>
-                                <select class="form-select" name="account_id" required onchange="updateCafeDropdown(this, 'edit_cafe_id_{{ post.id }}')">
-                                    {% for acc in all_accounts %}<option value="{{ acc.id }}" {{ 'selected' if post.account_id == acc.id }}>{{ acc.account_id }}</option>{% endfor %}
-                                </select>
-                            </div>
-                            <div class="col-md-6">
-                                <label class="form-label">작성 카페</label>
-                                <select class="form-select" id="edit_cafe_id_{{ post.id }}" name="cafe_id" required>
-                                    {% for cafe in all_cafes %}<option value="{{ cafe.id }}" {{ 'selected' if post.cafe_id == cafe.id }}>{{ cafe.name }}</option>{% endfor %}
-                                </select>
-                            </div>
+                            <div class="col-md-4"><label class="form-label">작성자</label><select class="form-select" name="worker_id" required>{% for worker in all_workers %}<option value="{{ worker.id }}" {{ 'selected' if post.worker_id == worker.id }}>{{ worker.username }}</option>{% endfor %}</select></div>
+                            <div class="col-md-4"><label class="form-label">네이버 계정</label><select class="form-select" name="account_id" required onchange="updateCafeDropdown(this, 'edit_cafe_id_{{ post.id }}')">{% for acc in all_accounts %}<option value="{{ acc.id }}" {{ 'selected' if post.account_id == acc.id }}>{{ acc.account_id }}</option>{% endfor %}</select></div>
+                            <div class="col-md-4"><label class="form-label">작성 카페</label><select class="form-select" id="edit_cafe_id_{{ post.id }}" name="cafe_id" required>{% for cafe in all_cafes %}<option value="{{ cafe.id }}" {{ 'selected' if post.cafe_id == cafe.id }}>{{ cafe.name }}</option>{% endfor %}</select></div>
                         </div>
                         <hr>
                         <div class="mb-3">
                             <label class="form-label">레퍼런스 불러오기 (선택)</label>
                             <div class="input-group">
-                                <select class="form-select" onchange="filterReferences(this, 'edit_ref_title_{{ post.id }}')">
+                                <select class="form-select" id="edit_ref_type_{{ post.id }}" onchange="filterReferences(this, 'edit_ref_title_{{ post.id }}')">
                                     <option value="" selected>분류 선택...</option>
-                                    <option value="대안">대안</option>
-                                    <option value="정보">정보</option>
-                                    <option value="기타">기타</option>
+                                    {% for type_name in references_by_type.keys() %}<option value="{{ type_name }}">{{ type_name }}</option>{% endfor %}
                                 </select>
                                 <select class="form-select" id="edit_ref_title_{{ post.id }}" onchange="loadReference(this, 'edit_post_title_{{ post.id }}', 'edit_post_body_{{ post.id }}', 'edit_post_comments_{{ post.id }}')">
                                     <option value="" selected>제목 선택...</option>
-                                    {% for ref in all_references %}
-                                    <option value="{{ ref.id }}" data-ref-type="{{ ref.ref_type }}">{{ ref.title }}</option>
+                                    {% for type, refs in references_by_type.items() %}
+                                        {% for ref in refs %}
+                                        <option value="{{ ref.id }}" data-ref-type="{{ ref.ref_type }}">{{ ref.title }}</option>
+                                        {% endfor %}
                                     {% endfor %}
                                 </select>
                             </div>
@@ -167,8 +151,8 @@
                             <textarea class="form-control" id="edit_post_body_{{ post.id }}" name="post_body" rows="8">{{ post.post_body }}</textarea>
                         </div>
                         <div class="mb-3">
-                            <label class="form-label">댓글 (JSON 형식)</label>
-                            <textarea class="form-control" id="edit_post_comments_{{ post.id }}" name="post_comments" rows="4">{{ post.post_comments }}</textarea>
+                            <label class="form-label">댓글 (텍스트 형식)</label>
+                            <textarea class="form-control" id="edit_post_comments_{{ post.id }}" name="post_comments" rows="8">{{ post.post_comments }}</textarea>
                         </div>
                         <hr>
                         <div class="form-check form-switch mb-2">
@@ -199,7 +183,7 @@
 
     <!-- 새 글 등록 모달 -->
     <div class="modal fade modal-lg" id="addPostModal" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog">
+        <div class="modal-dialog modal-dialog-scrollable">
             <div class="modal-content">
                 <form action="/marketing/post/add" method="post">
                     <input type="hidden" name="mp_id" value="{{ marketing_product.id }}">
@@ -209,14 +193,14 @@
                     </div>
                     <div class="modal-body">
                         <div class="row">
-                            <div class="col-md-6">
+                            <div class="col-md-6 mb-3">
                                 <label class="form-label">키워드 선택</label>
                                 <select class="form-select" name="keyword_text" required>
                                     <option value="" disabled selected>키워드를 선택하세요</option>
                                     {% for kw in keywords_list %}<option value="{{ kw }}">{{ kw }}</option>{% endfor %}
                                 </select>
                             </div>
-                             <div class="col-md-6">
+                             <div class="col-md-6 mb-3">
                                 <label class="form-label">작성자 (시스템 유저)</label>
                                 <select class="form-select" name="worker_id" required>
                                     <option value="" disabled selected>작업자를 선택하세요</option>
@@ -224,16 +208,15 @@
                                 </select>
                             </div>
                         </div>
-                        <hr>
                         <div class="row">
-                            <div class="col-md-6">
+                            <div class="col-md-6 mb-3">
                                 <label class="form-label">네이버 계정</label>
                                 <select class="form-select" id="add_account_id" name="account_id" required onchange="updateCafeDropdown(this, 'add_cafe_id')">
                                     <option value="" disabled selected>계정을 선택하세요</option>
                                     {% for acc in all_accounts %}<option value="{{ acc.id }}">{{ acc.account_id }}</option>{% endfor %}
                                 </select>
                             </div>
-                            <div class="col-md-6">
+                            <div class="col-md-6 mb-3">
                                 <label class="form-label">작성 카페</label>
                                 <select class="form-select" id="add_cafe_id" name="cafe_id" required disabled>
                                     <option value="" disabled selected>네이버 계정을 먼저 선택하세요</option>
@@ -246,29 +229,33 @@
                             <div class="input-group">
                                 <select class="form-select" id="ref-type-select" onchange="filterReferences(this, 'ref-title-select')">
                                     <option value="" selected>분류 선택...</option>
-                                    <option value="대안">대안</option>
-                                    <option value="정보">정보</option>
-                                    <option value="기타">기타</option>
+                                    {% for type_name in references_by_type.keys() %}<option value="{{ type_name }}">{{ type_name }}</option>{% endfor %}
                                 </select>
-                                <select class="form-select" id="ref-title-select" onchange="loadReference(this, 'add_post_title', 'add_post_body', 'add_post_comments')">
+                                <select class="form-select" id="ref-title-select">
                                     <option value="" selected>제목 선택...</option>
-                                    {% for ref in all_references %}
-                                    <option value="{{ ref.id }}" data-ref-type="{{ ref.ref_type }}">{{ ref.title }}</option>
+                                    {% for type, refs in references_by_type.items() %}
+                                        {% for ref in refs %}
+                                        <option value="{{ ref.id }}" data-ref-type="{{ ref.ref_type }}" style="display: none;">{{ ref.title }}</option>
+                                        {% endfor %}
                                     {% endfor %}
                                 </select>
+                                <button class="btn btn-outline-primary" type="button" onclick="loadReference(document.getElementById('ref-title-select'), 'add_post_title', 'add_post_body', 'add_post_comments', 'add_reference_id')">불러오기</button>
                             </div>
+                            <input type="hidden" name="reference_id" id="add_reference_id">
                         </div>
-                        <div class="mb-3">
-                            <label class="form-label">글 제목</label>
-                            <input type="text" class="form-control" id="add_post_title" name="post_title">
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">글 본문</label>
-                            <textarea class="form-control" id="add_post_body" name="post_body" rows="8"></textarea>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">댓글 (JSON 형식)</label>
-                            <textarea class="form-control" id="add_post_comments" name="post_comments" rows="4"></textarea>
+                        <div id="add_post_content_wrapper">
+                            <div class="mb-3">
+                                <label class="form-label">글 제목</label>
+                                <input type="text" class="form-control" id="add_post_title" name="post_title">
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">글 본문</label>
+                                <textarea class="form-control" id="add_post_body" name="post_body" rows="8"></textarea>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">댓글 (텍스트 형식)</label>
+                                <textarea class="form-control" id="add_post_comments" name="post_comments" rows="8"></textarea>
+                            </div>
                         </div>
                         <hr>
                         <div class="form-check form-switch mb-2">
@@ -297,21 +284,25 @@ const membershipMap = {{ membership_map | tojson | safe }};
 
 // Python에서 전달받은 '레퍼런스' 전체 데이터
 const allReferences = [
-    {% for ref in all_references %}
-    {
-        "id": {{ ref.id }},
-        "title": "{{ ref.title | e }}",
-        "content": `{{ ref.content | e }}`,
-        "ref_type": "{{ ref.ref_type }}",
-        "comments": [
-            {% for comment in ref.comments %}
-            {
-                "account_sequence": {{ comment.account_sequence }},
-                "text": `{{ comment.text | e }}`
-            }{% if not loop.last %},{% endif %}
-            {% endfor %}
-        ]
-    }{% if not loop.last %},{% endif %}
+    {% for type, refs in references_by_type.items() %}
+        {% for ref in refs %}
+        {
+            "id": {{ ref.id }},
+            "title": "{{ ref.title | e }}",
+            "content": `{{ ref.content | e }}`,
+            "ref_type": "{{ ref.ref_type }}",
+            "comments": [
+                {% for comment in ref.comments %}
+                {
+                    "id": {{ comment.id }},
+                    "account_sequence": {{ comment.account_sequence }},
+                    "text": `{{ comment.text | e }}`,
+                    "parent_id": {{ comment.parent_id or 'null' }}
+                }{% if not loop.last %},{% endif %}
+                {% endfor %}
+            ]
+        }{% if not loop.last %},{% endif %}
+        {% endfor %}
     {% endfor %}
 ];
 
@@ -357,49 +348,83 @@ function filterReferences(typeSelect, titleSelectId) {
     titleSelect.innerHTML = '<option value="" selected>제목 선택...</option>';
     
     allReferences.forEach(ref => {
-        if (selectedType === "" || ref.ref_type === selectedType) {
-            const option = document.createElement('option');
-            option.value = ref.id;
-            option.textContent = ref.title;
-            option.setAttribute('data-ref-type', ref.ref_type); // data-ref-type 추가
-            titleSelect.appendChild(option);
+        // data-ref-type 속성을 가진 모든 옵션을 순회 (템플릿에 의해 이미 생성됨)
+        const option = titleSelect.querySelector(`option[value="${ref.id}"]`);
+        if (option) {
+            if (selectedType === "" || ref.ref_type === selectedType) {
+                option.style.display = 'block';
+            } else {
+                option.style.display = 'none';
+            }
         }
     });
     
-    // 필터링 후에도 이전에 선택했던 값이 있다면 유지
+    // 필터링 후에도 이전에 선택했던 값이 있다면 유지 (단, 필터 조건에 맞아야 함)
     if (currentTitleId) {
-        titleSelect.value = currentTitleId;
+         const currentOption = titleSelect.querySelector(`option[value="${currentTitleId}"]`);
+         if (currentOption && currentOption.style.display !== 'none') {
+            titleSelect.value = currentTitleId;
+         }
     }
 }
 
 /**
  * 레퍼런스 제목 선택 시, 폼 필드 채우기
  */
-function loadReference(titleSelect, titleFieldId, bodyFieldId, commentsFieldId) {
+function loadReference(titleSelect, titleFieldId, bodyFieldId, commentsFieldId, refIdInputId) {
     const selectedId = parseInt(titleSelect.value);
     const titleField = document.getElementById(titleFieldId);
     const bodyField = document.getElementById(bodyFieldId);
     const commentsField = document.getElementById(commentsFieldId);
-
+    const contentWrapper = document.getElementById(titleFieldId.replace('post_title', 'content_wrapper')); // ID 규칙 수정
+    const refIdInput = document.getElementById(refIdInputId); // 숨겨진 reference_id 필드
+    
     if (!selectedId) {
-        titleField.value = "";
-        bodyField.value = "";
-        commentsField.value = "";
+        if (contentWrapper) contentWrapper.style.display = 'none';
+        if (refIdInput) refIdInput.value = "";
         return;
     }
 
     const ref = allReferences.find(r => r.id === selectedId);
     if (ref) {
+        if (refIdInput) refIdInput.value = ref.id; // 숨겨진 필드에 ID 저장
         titleField.value = ref.title;
         bodyField.value = ref.content;
+
+        // 댓글 데이터를 계층 구조로 포맷팅
+        const commentMap = {};
+        const topLevelComments = [];
+        // structured_replies를 각 코멘트 객체에 초기화
+        ref.comments.forEach(c => {
+            c.structured_replies = [];
+            commentMap[c.id] = c;
+        });
         
-        // 댓글 데이터를 JSON 텍스트로 변환
-        const commentsJson = ref.comments.map(c => ({
-            "계정": c.account_sequence === 0 ? "작성자" : `계정 ${c.account_sequence}`,
-            "내용": c.text
-        }));
-        // JSON.stringify의 세 번째 인자로 2를 주어 예쁘게 포맷팅
-        commentsField.value = JSON.stringify(commentsJson, null, 2);
+        // 계층 구조 빌드
+        ref.comments.forEach(c => {
+            if (c.parent_id && commentMap[c.parent_id]) {
+                commentMap[c.parent_id].structured_replies.push(c);
+            } else if (!c.parent_id) {
+                topLevelComments.push(c);
+            }
+        });
+
+        function formatComments(comments, indent = "") {
+            let text = "";
+            comments.forEach(c => {
+                const prefix = c.account_sequence === 0 ? "작성자" : `계정 ${c.account_sequence}`;
+                const commentLines = c.text.split('\n').map(line => `${indent}  ${line}`).join('\n');
+                text += `${indent}${prefix}:\n${commentLines}\n\n`;
+                if (c.structured_replies && c.structured_replies.length > 0) {
+                    text += formatComments(c.structured_replies, indent + "    (답글) ");
+                }
+            });
+            return text;
+        }
+        
+        commentsField.value = formatComments(topLevelComments).trim();
+
+        if (contentWrapper) contentWrapper.style.display = 'block';
     }
 }
 </script>
