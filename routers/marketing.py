@@ -24,14 +24,19 @@ def get_db():
 # --- 카페 관리 메인 페이지 ---
 @router.get("/cafe", response_class=HTMLResponse)
 async def marketing_cafe(request: Request, db: Session = Depends(get_db)):
+    # ... (기존 데이터 조회 로직은 그대로 유지)
     tab = request.query_params.get('tab', 'status')
     error = request.query_params.get('error')
-    error_message = "이미 사용 중인 아이디입니다." if error == 'duplicate_account' else None
-    
+    error_message = None
+    if error == 'duplicate_account':
+        error_message = "이미 사용 중인 아이디입니다."
+    elif error == 'duplicate_reference':
+         error_message = "이미 사용 중인 레퍼런스 제목입니다."
+
     selected_cafe_id = request.query_params.get('cafe_id')
     status_filter = request.query_params.get('status_filter', 'all')
     category_filter = request.query_params.get('category_filter', 'all')
-    
+
     selected_cafe, memberships = None, []
     if selected_cafe_id:
         selected_cafe = db.query(TargetCafe).filter(TargetCafe.id == selected_cafe_id).first()
@@ -40,15 +45,16 @@ async def marketing_cafe(request: Request, db: Session = Depends(get_db)):
         if status_filter != 'all':
             query = query.filter(CafeMembership.status == status_filter)
         memberships = query.order_by(CafeMembership.account_id).all()
-        
+
     cafes = db.query(TargetCafe).all()
     accounts_query = db.query(MarketingAccount)
     if category_filter != 'all':
         accounts_query = accounts_query.filter(MarketingAccount.category == category_filter)
     accounts = accounts_query.order_by(MarketingAccount.id).all()
     marketing_products = db.query(MarketingProduct).options(joinedload(MarketingProduct.product)).all()
-    references = db.query(Reference).order_by(Reference.id.desc()).all()
-    
+    # last_modified_by 관계를 함께 로드하여 사용자 이름에 접근할 수 있도록 함
+    references = db.query(Reference).options(joinedload(Reference.last_modified_by)).order_by(Reference.id.desc()).all()
+
     return templates.TemplateResponse("marketing_cafe.html", {
         "request": request, "cafes": cafes, "accounts": accounts,
         "marketing_products": marketing_products, "memberships": memberships,
@@ -64,10 +70,12 @@ async def marketing_cafe(request: Request, db: Session = Depends(get_db)):
 async def add_reference(request: Request, title: str = Form(...), db: Session = Depends(get_db)):
     # 세션에서 현재 로그인한 사용자 이름 가져오기
     username = request.session.get("user")
-    user = db.query(User).filter(User.username == username).first()
-    
+    user = None
+    if username: # 로그인 상태일 때만 사용자 정보 조회
+        user = db.query(User).filter(User.username == username).first()
+
     try:
-        new_ref = Reference(title=title, last_modified_by_id=user.id if user else None)
+        new_ref = Reference(title=title, ref_type='기타', last_modified_by_id=user.id if user else None)
         db.add(new_ref)
         db.commit()
         db.refresh(new_ref)
@@ -76,6 +84,8 @@ async def add_reference(request: Request, title: str = Form(...), db: Session = 
         # 중복된 제목 오류 처리
         db.rollback()
         return RedirectResponse(url="/marketing/cafe?tab=references&error=duplicate_reference", status_code=303)
+    finally:
+        db.close() # finally 블록으로 이동하여 항상 DB 세션이 닫히도록 함
 
 @router.post("/reference/delete/{ref_id}", response_class=RedirectResponse)
 async def delete_reference(ref_id: int, db: Session = Depends(get_db)):
@@ -83,6 +93,7 @@ async def delete_reference(ref_id: int, db: Session = Depends(get_db)):
     if ref_to_delete:
         db.delete(ref_to_delete)
         db.commit()
+    db.close() # DB 세션 닫기 추가
     return RedirectResponse(url="/marketing/cafe?tab=references", status_code=303)
 
 @router.get("/reference/{ref_id}", response_class=HTMLResponse)
@@ -92,14 +103,15 @@ async def get_reference_detail(request: Request, ref_id: int, db: Session = Depe
     comment_map = {c.id: c for c in all_comments}
     top_level_comments = []
     for comment in all_comments:
+        comment.structured_replies = [] # 초기화
         if comment.parent_id:
             parent = comment_map.get(comment.parent_id)
-            if parent:
-                if not hasattr(parent, 'structured_replies'):
-                    parent.structured_replies = []
-                parent.structured_replies.append(comment)
+            if not hasattr(parent, 'structured_replies'):
+                parent.structured_replies = []
+            parent.structured_replies.append(comment)
         else:
             top_level_comments.append(comment)
+    db.close() # DB 세션 닫기 추가
     return templates.TemplateResponse("reference_detail.html", {
         "request": request,
         "reference": reference,
@@ -109,16 +121,18 @@ async def get_reference_detail(request: Request, ref_id: int, db: Session = Depe
 @router.post("/reference/update/{ref_id}", response_class=RedirectResponse)
 async def update_reference(
     request: Request,
-    ref_id: int, 
-    title: str = Form(...), 
-    content: str = Form(""), 
+    ref_id: int,
+    title: str = Form(...),
+    content: str = Form(""),
     ref_type: str = Form(...),
     db: Session = Depends(get_db)
 ):
     # 세션에서 현재 로그인한 사용자 이름으로 ID 찾기
     username = request.session.get("user")
-    user = db.query(User).filter(User.username == username).first()
-    
+    user = None
+    if username:
+        user = db.query(User).filter(User.username == username).first()
+
     reference = db.query(Reference).filter(Reference.id == ref_id).first()
     if reference:
         reference.title = title
@@ -126,7 +140,9 @@ async def update_reference(
         reference.ref_type = ref_type
         reference.last_modified_by_id = user.id if user else None
         db.commit()
+    db.close() # DB 세션 닫기 추가
     return RedirectResponse(url=f"/marketing/reference/{ref_id}", status_code=303)
+
 
 
 @router.post("/comment/add/{ref_id}", response_class=RedirectResponse)
@@ -138,13 +154,14 @@ async def add_comment(
     db: Session = Depends(get_db)
 ):
     new_comment = Comment(
-        text=text, 
-        reference_id=ref_id, 
+        text=text,
+        reference_id=ref_id,
         parent_id=parent_id,
         account_sequence=account_sequence
     )
     db.add(new_comment)
     db.commit()
+    db.close() # DB 세션 닫기 추가
     return RedirectResponse(url=f"/marketing/reference/{ref_id}", status_code=303)
 
 @router.post("/comment/edit/{ref_id}/{comment_id}", response_class=RedirectResponse)
@@ -160,6 +177,7 @@ async def edit_comment(
         comment_to_edit.account_sequence = account_sequence
         comment_to_edit.text = text
         db.commit()
+    db.close() # DB 세션 닫기 추가
     return RedirectResponse(url=f"/marketing/reference/{ref_id}", status_code=303)
 
 @router.post("/comment/delete/{ref_id}/{comment_id}", response_class=RedirectResponse)
@@ -168,6 +186,7 @@ async def delete_comment(ref_id: int, comment_id: int, db: Session = Depends(get
     if comment_to_delete:
         db.delete(comment_to_delete)
         db.commit()
+    db.close() # DB 세션 닫기 추가
     return RedirectResponse(url=f"/marketing/reference/{ref_id}", status_code=303)
 
 # --- (다른 모든 라우트 함수들은 여기에 그대로 유지됩니다) ---
