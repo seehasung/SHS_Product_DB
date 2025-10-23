@@ -4,6 +4,68 @@
 {% block content %}
 <!-- 추가 CSS 스타일 -->
 <style>
+    /* 통계 대시보드 스타일 */
+    .stats-dashboard {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border-radius: 15px;
+        padding: 25px;
+        margin-bottom: 30px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+    }
+    
+    .stats-title {
+        color: white;
+        font-size: 1.3rem;
+        font-weight: 600;
+        margin-bottom: 20px;
+        display: flex;
+        align-items: center;
+    }
+    
+    .stats-container {
+        display: flex;
+        justify-content: space-around;
+        flex-wrap: wrap;
+        gap: 15px;
+    }
+    
+    .stat-card {
+        background: white;
+        border-radius: 10px;
+        padding: 15px 20px;
+        flex: 1;
+        min-width: 140px;
+        text-align: center;
+        transition: transform 0.3s ease;
+    }
+    
+    .stat-card:hover {
+        transform: translateY(-5px);
+    }
+    
+    .stat-value {
+        font-size: 2rem;
+        font-weight: bold;
+        margin-bottom: 5px;
+    }
+    
+    .stat-label {
+        font-size: 0.85rem;
+        color: #6c757d;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+    }
+    
+    .stat-total { color: #5a67d8; }
+    .stat-live { color: #48bb78; }
+    .stat-deleted { color: #f56565; }
+    .stat-draft { color: #ed8936; }
+    
+    .stat-icon {
+        font-size: 1.5rem;
+        margin-bottom: 10px;
+    }
+    
     /* 모달 최대 높이 설정 및 스크롤 보장 */
     .modal-dialog-scrollable .modal-body {
         max-height: calc(100vh - 200px) !important;
@@ -162,6 +224,35 @@
         <div>
             <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#addPostModal">➕ 새 글 등록</button>
             <a href="/marketing/cafe?tab=products" class="btn btn-secondary">← 목록으로</a>
+        </div>
+    </div>
+
+    <!-- 통계 대시보드 추가 -->
+    <div class="stats-dashboard">
+        <div class="stats-title">
+            📊 전체 키워드 글 작성 현황
+        </div>
+        <div class="stats-container">
+            <div class="stat-card">
+                <div class="stat-icon">📝</div>
+                <div class="stat-value stat-total">{{ post_stats.total }}</div>
+                <div class="stat-label">전체 글</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">✅</div>
+                <div class="stat-value stat-live">{{ post_stats.live }}</div>
+                <div class="stat-label">생존</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">❌</div>
+                <div class="stat-value stat-deleted">{{ post_stats.deleted }}</div>
+                <div class="stat-label">삭제됨</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">⚠️</div>
+                <div class="stat-value stat-draft">{{ post_stats.draft }}</div>
+                <div class="stat-label">미등록</div>
+            </div>
         </div>
     </div>
 

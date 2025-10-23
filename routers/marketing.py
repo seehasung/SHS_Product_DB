@@ -461,6 +461,18 @@ async def get_product_posts(
             if p.keyword_text not in keywords_list and p.keyword_text not in all_post_keywords:
                 other_posts.append(p)
 
+    # 전체 통계 계산 (모든 키워드의 글 포함)
+    all_posts = db.query(MarketingPost).filter(
+        MarketingPost.marketing_product_id == mp_id
+    ).all()
+    
+    post_stats = {
+        'total': len(all_posts),
+        'live': sum(1 for p in all_posts if p.is_live),
+        'deleted': sum(1 for p in all_posts if p.is_registration_complete and not p.is_live),
+        'draft': sum(1 for p in all_posts if not p.is_registration_complete)
+    }
+
     posts_by_keyword = {}
     for kw in keywords_for_page:
         posts_by_keyword[kw] = []
@@ -506,7 +518,8 @@ async def get_product_posts(
         "total_pages": total_pages,
         "current_page": page,
         "keyword_search": keyword_search,
-        "error": error_message
+        "error": error_message,
+        "post_stats": post_stats  # 통계 데이터 추가
     })
 
 @router.post("/post/add", response_class=RedirectResponse)
