@@ -37,6 +37,8 @@ async def marketing_cafe(request: Request, db: Session = Depends(get_db)):
     selected_cafe_id = request.query_params.get('cafe_id')
     status_filter = request.query_params.get('status_filter', 'all')
     category_filter = request.query_params.get('category_filter', 'all')
+    reference_filter = request.query_params.get('ref_filter', 'all') # ▼▼▼ 레퍼런스 필터 추가 ▼▼▼
+
 
     selected_cafe, memberships = None, []
     if selected_cafe_id:
@@ -53,7 +55,10 @@ async def marketing_cafe(request: Request, db: Session = Depends(get_db)):
         accounts_query = accounts_query.filter(MarketingAccount.category == category_filter)
     accounts = accounts_query.order_by(MarketingAccount.id).all()
     marketing_products = db.query(MarketingProduct).options(joinedload(MarketingProduct.product)).order_by(MarketingProduct.id).all()
-    references = db.query(Reference).options(joinedload(Reference.last_modified_by)).order_by(Reference.id.desc()).all()
+    references_query = db.query(Reference).options(joinedload(Reference.last_modified_by))
+    if reference_filter != 'all':
+        references_query = references_query.filter(Reference.ref_type == reference_filter)
+    references = references_query.order_by(Reference.id.desc()).all()
 
     db.close() # 메인 페이지는 모든 조회가 끝난 후 닫습니다.
 
@@ -63,6 +68,7 @@ async def marketing_cafe(request: Request, db: Session = Depends(get_db)):
         "selected_cafe": selected_cafe, "status_filter": status_filter,
         "category_filter": category_filter, "error": error_message,
         "references": references,
+        "reference_filter": reference_filter, # 템플릿으로 전달
         "active_tab": tab
     })
 

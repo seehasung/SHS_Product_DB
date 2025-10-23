@@ -4,6 +4,7 @@
 {% block head %}
 {{ super() }}
 <style>
+  /* 레퍼런스 분류 뱃지 스타일 */
   .ref-badge {
     display: inline-block;
     padding: 0.35em 0.65em;
@@ -19,6 +20,7 @@
   .ref-대안 { background-color: #fa5252; } /* 빨강 */
   .ref-정보 { background-color: #228be6; } /* 파랑 */
   .ref-기타 { background-color: #40c057; } /* 초록 */
+  .ref-미지정 { background-color: #868e96; } /* 회색 */
 </style>
 {% endblock %}
 
@@ -55,12 +57,13 @@
     <div class="tab-content" id="myTabContent">
         <!-- 전체 현황 탭 -->
         <div class="tab-pane fade" id="status-tab-pane" role="tabpanel">
-            <div class="p-5 text-center border-start border-end border-bottom">(TODO: 전체 현황 대시보드가 여기에 표시될 예정입니다.)</div>
+             <div class="p-5 text-center border-start border-end border-bottom">(TODO: 전체 현황 대시보드가 여기에 표시될 예정입니다.)</div>
         </div>
         
         <!-- 연동 관리 탭 -->
         <div class="tab-pane fade" id="memberships-tab-pane" role="tabpanel">
             <div class="p-3 border-start border-end border-bottom">
+                <!-- ... (연동 관리 탭 코드는 여기에 그대로 유지됩니다) ... -->
                 <h3 class="mb-3">신규 카페-계정 연동</h3>
                 <form action="/marketing/membership/add" method="post" class="mb-4 p-3 border rounded bg-light">
                     <div class="row g-3 align-items-end">
@@ -128,6 +131,7 @@
         <!-- 상품 관리 탭 -->
         <div class="tab-pane fade" id="products-tab-pane" role="tabpanel">
              <div class="p-3 border-start border-end border-bottom">
+                <!-- ... (상품 관리 탭 코드는 여기에 그대로 유지됩니다) ... -->
                 <div class="d-flex justify-content-between align-items-center mb-3">
                     <h3 class="mb-0">마케팅 상품 목록</h3>
                     <a href="/marketing/product-selection" class="btn btn-success">➕ 마케팅 상품 추가</a>
@@ -152,13 +156,13 @@
             </div>
         </div>
 
-        <!-- 레퍼런스 관리 탭 -->
+        <!-- 레퍼런스 관리 탭 (수정됨) -->
         <div class="tab-pane fade" id="references-tab-pane" role="tabpanel">
             <div class="p-3 border-start border-end border-bottom">
                 <h3 class="mb-3">신규 레퍼런스 생성</h3>
                 {% if error == 'duplicate_reference' %}
                 <div class="alert alert-danger" role="alert">
-                    이미 사용 중인 레퍼런스 제목입니다.
+                    {{ error }}
                 </div>
                 {% endif %}
                 <form action="/marketing/reference/add" method="post" class="mb-4 p-3 border rounded bg-light">
@@ -168,7 +172,18 @@
                     </div>
                 </form>
 
-                <h3 class="mb-3">저장된 레퍼런스 목록</h3>
+                <!-- ▼▼▼ 필터 버튼 추가 ▼▼▼ -->
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h3 class="mb-0">저장된 레퍼런스 목록</h3>
+                    <div>
+                        <a href="?tab=references&ref_filter=all" class="btn btn-sm {{ 'btn-dark' if reference_filter == 'all' else 'btn-outline-dark' }}">전체</a>
+                        <a href="?tab=references&ref_filter=대안" class="btn btn-sm {{ 'btn-danger' if reference_filter == '대안' else 'btn-outline-danger' }}">대안</a>
+                        <a href="?tab=references&ref_filter=정보" class="btn btn-sm {{ 'btn-primary' if reference_filter == '정보' else 'btn-outline-primary' }}">정보</a>
+                        <a href="?tab=references&ref_filter=기타" class="btn btn-sm {{ 'btn-success' if reference_filter == '기타' else 'btn-outline-success' }}">기타</a>
+                    </div>
+                </div>
+                <!-- ▲▲▲ 필터 버튼 추가 ▲▲▲ -->
+
                 <table class="table table-hover align-middle">
                     <thead class="table-dark">
                         <tr>
@@ -199,8 +214,9 @@
         <!-- 계정 관리 탭 -->
         <div class="tab-pane fade" id="accounts-tab-pane" role="tabpanel">
             <div class="p-3 border-start border-end border-bottom">
+                <!-- ... (계정 관리 탭 코드는 여기에 그대로 유지됩니다) ... -->
                 <h3 class="mb-3">신규 계정 등록</h3>
-                {% if error %}<div class="alert alert-danger">{{ error }}</div>{% endif %}
+                {% if error == 'duplicate_account' %}<div class="alert alert-danger">{{ error }}</div>{% endif %}
                 <form action="/marketing/account/add" method="post" class="mb-4 p-3 border rounded bg-light">
                     <div class="row g-3 align-items-end">
                         <div class="col-md-3"><label class="form-label">네이버 아이디</label><input type="text" name="account_id" class="form-control" required></div>
@@ -247,6 +263,7 @@
         <!-- 카페 관리 탭 -->
         <div class="tab-pane fade" id="cafes-tab-pane" role="tabpanel">
             <div class="p-3 border-start border-end border-bottom">
+                <!-- ... (카페 관리 탭 코드는 여기에 그대로 유지됩니다) ... -->
                 <h3 class="mb-3">신규 타겟 카페 등록</h3>
                 <form action="/marketing/cafe/add" method="post" class="mb-4 p-3 border rounded bg-light">
                     <div class="row g-3 align-items-center">
@@ -319,11 +336,27 @@
             const tabTrigger = new bootstrap.Tab(triggerEl);
             tabTrigger.show();
         }
+
+        // 탭 클릭 시 URL 변경 (페이지 새로고침 방지)
+        const tabTriggers = document.querySelectorAll('#myTab a[data-bs-toggle="tab"]');
+        tabTriggers.forEach(el => {
+            el.addEventListener('shown.bs.tab', event => {
+                const newTab = event.target.getAttribute('href').substring(1).replace('-tab-pane', '');
+                const url = new URL(window.location);
+                url.searchParams.set('tab', newTab);
+                // 필터 파라미터는 유지하거나 초기화할 수 있습니다. 여기서는 탭 변경 시 필터 초기화를 위해 제거합니다.
+                url.searchParams.delete('cafe_id');
+                url.searchParams.delete('status_filter');
+                url.searchParams.delete('category_filter');
+                url.searchParams.delete('ref_filter');
+                history.pushState({}, '', url);
+            });
+        });
     });
 
-    // 계정 수정 모달 제어 스크립트
+    // 계정 수정 모달 제어
     const editAccountModal = document.getElementById('editAccountModal');
-    if (editAccountModal) {
+    if(editAccountModal) {
         editAccountModal.addEventListener('show.bs.modal', event => {
             const button = event.relatedTarget;
             const id = button.getAttribute('data-bs-id');
@@ -332,18 +365,13 @@
             const category = button.getAttribute('data-bs-category');
             const ipAddress = button.getAttribute('data-bs-ip');
             
-            const modalForm = editAccountModal.querySelector('#editAccountForm');
-            modalForm.action = `/marketing/account/update/${id}`;
+            const form = editAccountModal.querySelector('#editAccountForm');
+            form.action = `/marketing/account/update/${id}`;
             
-            const modalAccountIdInput = editAccountModal.querySelector('#edit-account-id');
-            const modalAccountPwInput = editAccountModal.querySelector('#edit-account-pw');
-            const modalCategorySelect = editAccountModal.querySelector('#edit-category');
-            const modalIpInput = editAccountModal.querySelector('#edit-ip-address');
-            
-            modalAccountIdInput.value = accountId;
-            modalAccountPwInput.value = accountPw;
-            modalCategorySelect.value = category;
-            modalIpInput.value = ipAddress;
+            editAccountModal.querySelector('#edit-account-id').value = accountId;
+            editAccountModal.querySelector('#edit-account-pw').value = accountPw;
+            editAccountModal.querySelector('#edit-category').value = category;
+            editAccountModal.querySelector('#edit-ip-address').value = ipAddress;
         });
     }
 </script>
