@@ -103,9 +103,10 @@
     {% endif %}
 
     <!-- (수정 모달 HTML은 변경 없음) -->
-    {% for keyword, posts in posts_by_keyword.items() %}
+{% for keyword, posts in posts_by_keyword.items() %}
     {% for post in posts %}
     <div class="modal fade modal-lg" id="editPostModal-{{ post.id }}" tabindex="-1" aria-hidden="true">
+        <!-- ▼▼▼ 여기에 'modal-dialog-scrollable' 추가 ▼▼▼ -->
         <div class="modal-dialog modal-dialog-scrollable">
             <div class="modal-content">
                 <form action="/marketing/post/update/{{ post.id }}" method="post">
@@ -114,6 +115,7 @@
                         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                     </div>
                     <div class="modal-body">
+                        <!-- (내용은 모두 동일) -->
                         <div class="row">
                             <div class="col-md-4"><label class="form-label">작성자</label><select class="form-select" name="worker_id" required>{% for worker in all_workers %}<option value="{{ worker.id }}" {{ 'selected' if post.worker_id == worker.id }}>{{ worker.username }}</option>{% endfor %}</select></div>
                             <div class="col-md-4"><label class="form-label">네이버 계정</label><select class="form-select" name="account_id" required onchange="updateCafeDropdown(this, 'edit_cafe_id_{{ post.id }}')">{% for acc in all_accounts %}<option value="{{ acc.id }}" {{ 'selected' if post.account_id == acc.id }}>{{ acc.account_id }}</option>{% endfor %}</select></div>
@@ -176,8 +178,9 @@
     {% endfor %}
     {% endfor %}
 
-    <!-- (새 글 등록 모달 HTML은 변경 없음) -->
+    <!-- 새 글 등록 모달 (modal-dialog-scrollable 추가) -->
     <div class="modal fade modal-lg" id="addPostModal" tabindex="-1" aria-hidden="true">
+        <!-- ▼▼▼ 여기에 'modal-dialog-scrollable' 추가 ▼▼▼ -->
         <div class="modal-dialog modal-dialog-scrollable">
             <div class="modal-content">
                 <form action="/marketing/post/add" method="post">
@@ -187,6 +190,7 @@
                         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                     </div>
                     <div class="modal-body">
+                        <!-- (내용은 모두 동일) -->
                         <div class="row">
                             <div class="col-md-6 mb-3">
                                 <label class="form-label">키워드 선택</label>
