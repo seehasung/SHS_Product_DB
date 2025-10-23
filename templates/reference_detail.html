@@ -22,6 +22,23 @@
   .dot-6 { background-color: #364fc7; } /* 계정 6 (남색) */
   .dot-7 { background-color: #7048e8; } /* 계정 7 (보라) */
   .dot-8 { background-color: #f06595; } /* 계정 8 (핑크) */
+
+  /* 레퍼런스 분류 뱃지 스타일 */
+  .ref-badge {
+    display: inline-block;
+    padding: 0.35em 0.65em;
+    font-size: .75em;
+    font-weight: 700;
+    line-height: 1;
+    color: #fff;
+    text-align: center;
+    white-space: nowrap;
+    vertical-align: baseline;
+    border-radius: 0.25rem;
+  }
+  .ref-대안 { background-color: #fa5252; } /* 빨강 */
+  .ref-정보 { background-color: #228be6; } /* 파랑 */
+  .ref-기타 { background-color: #40c057; } /* 초록 */
 </style>
 {% endblock %}
 
@@ -83,7 +100,12 @@
 <div class="container mt-4">
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h1>📝 레퍼런스 상세 정보</h1>
-        <a href="/marketing/cafe?tab=references" class="btn btn-secondary">← 목록으로</a>
+        <div>
+             <a href="/marketing/cafe?tab=references" class="btn btn-secondary">← 목록으로</a>
+             <form action="/marketing/reference/delete/{{ reference.id }}" method="post" class="d-inline" onsubmit="return confirm('이 레퍼런스를 정말 삭제하시겠습니까?');">
+                 <button type="submit" class="btn btn-danger">삭제</button>
+             </form>
+        </div>
     </div>
 
     <div class="row g-4">
@@ -93,16 +115,30 @@
                 <div class="card-header"><h3>본문 수정</h3></div>
                 <div class="card-body">
                     <form action="/marketing/reference/update/{{ reference.id }}" method="post">
-                        <!-- (기존 본문 수정 폼은 그대로 유지됩니다) -->
-                        <div class="mb-3">
-                            <label for="title" class="form-label">제목</label>
-                            <input type="text" class="form-control" id="title" name="title" value="{{ reference.title }}" required>
+                        <div class="row">
+                            <div class="col-md-9 mb-3">
+                                <label for="title" class="form-label">제목</label>
+                                <input type="text" class="form-control" id="title" name="title" value="{{ reference.title }}" required>
+                            </div>
+                            <div class="col-md-3 mb-3">
+                                <label for="ref_type" class="form-label">분류 <span class="ref-badge ref-{{ reference.ref_type or '기타' }}">{{ reference.ref_type or '미지정' }}</span></label>
+                                <select id="ref_type" name="ref_type" class="form-select">
+                                    <option value="대안" {{ 'selected' if reference.ref_type == '대안' }}>대안</option>
+                                    <option value="정보" {{ 'selected' if reference.ref_type == '정보' }}>정보</option>
+                                    <option value="기타" {{ 'selected' if reference.ref_type == '기타' or not reference.ref_type }}>기타</option>
+                                </select>
+                            </div>
                         </div>
                         <div class="mb-3">
                             <label for="content" class="form-label">본문</label>
                             <textarea class="form-control" id="content" name="content" rows="15">{{ reference.content }}</textarea>
                         </div>
                         <button type="submit" class="btn btn-primary">본문 저장</button>
+                        {% if reference.last_modified_by %}
+                        <span class="ms-3 text-muted small">
+                            마지막 수정: {{ reference.last_modified_by.username }}
+                        </span>
+                        {% endif %}
                     </form>
                 </div>
             </div>
@@ -113,6 +149,7 @@
             <div class="card shadow-sm h-100">
                 <div class="card-header"><h4>댓글 관리</h4></div>
                 <div class="card-body" style="max-height: 600px; overflow-y: auto;">
+                    <!-- 새 최상위 댓글 폼 -->
                     <form action="/marketing/comment/add/{{ reference.id }}" method="post" class="mb-4">
                         <div class="mb-2">
                             <label class="form-label">새 댓글 추가</label>
@@ -127,6 +164,7 @@
                         <button type="submit" class="btn btn-success">댓글 등록</button>
                     </form>
                     <hr>
+                    <!-- 댓글 목록 -->
                     <ol class="list-unstyled">
                         {% for comment in comments %}
                         <li class="mb-3">
@@ -177,6 +215,7 @@
 </div>
 
 <script>
+    // 댓글 수정 모달 제어
     const editCommentModal = document.getElementById('editCommentModal');
     if(editCommentModal) {
         editCommentModal.addEventListener('show.bs.modal', event => {
