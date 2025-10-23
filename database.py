@@ -13,7 +13,7 @@ engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
 Base = declarative_base()
 
-# --- 기존 User, Product 모델 (변경 없음) ---
+# --- (기존 User, Product, MarketingAccount 등 다른 모델은 변경 없음) ---
 class User(Base):
     __tablename__ = "users"
     id = Column(Integer, primary_key=True, index=True)
@@ -38,8 +38,6 @@ class Product(Base):
     taobao_options = Column(Text, nullable=True)
     thumbnail = Column(String(2083), nullable=True)
     details = Column(Text, nullable=True)
-
-# --- ▼▼▼ 수정된 마케팅 모델 ▼▼▼ ---
 
 class MarketingAccount(Base):
     __tablename__ = "marketing_accounts"
@@ -77,20 +75,19 @@ class MarketingProduct(Base):
 class Reference(Base):
     __tablename__ = "references"
     id = Column(Integer, primary_key=True, index=True)
-    title = Column(String, unique=True, index=True) # 제목을 고유값으로 설정
+    title = Column(String, unique=True, index=True)
     content = Column(Text, nullable=True)
-    ref_type = Column(String, default="기타") # '대안', '정보', '기타'
-    
-    last_modified_by_id = Column(Integer, ForeignKey("users.id"), nullable=True) # 마지막 수정자
+    ref_type = Column(String, default="기타")
+    last_modified_by_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     last_modified_by = relationship("User")
-
     comments = relationship("Comment", back_populates="reference", cascade="all, delete-orphan")
 
-# --- ▼▼▼ 신규 Comment 모델 추가 ▼▼▼ ---
+# --- ▼▼▼ Comment 모델 수정 ▼▼▼ ---
 class Comment(Base):
     __tablename__ = "comments"
     id = Column(Integer, primary_key=True, index=True)
-    account_sequence = Column(Integer, nullable=False, server_default='0') # 기본값을 '0'으로 설정
+    account_sequence = Column(Integer, nullable=False, server_default='0')
+    text = Column(Text, nullable=False) # ◀◀◀ 실수로 빠뜨렸던 'text' 열을 다시 추가했습니다.
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
     
     reference_id = Column(Integer, ForeignKey("references.id", ondelete="CASCADE"))
@@ -99,7 +96,7 @@ class Comment(Base):
     reference = relationship("Reference", back_populates="comments")
     parent = relationship("Comment", remote_side=[id], back_populates="replies")
     replies = relationship("Comment", back_populates="parent", cascade="all, delete-orphan")
-# --- ▲▲▲ 신규 Comment 모델 추가 ▲▲▲ ---
+# --- ▲▲▲ Comment 모델 수정 ▲▲▲ ---
 
 class PostLog(Base):
     __tablename__ = "post_logs"
@@ -119,3 +116,4 @@ __all__ = [
     "User", "Product", "MarketingAccount", "TargetCafe", "CafeMembership",
     "MarketingProduct", "Reference", "PostLog", "Comment", "SessionLocal", "Base"
 ]
+
