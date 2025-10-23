@@ -55,9 +55,98 @@
 
     <!-- 탭 콘텐츠 -->
     <div class="tab-content" id="myTabContent">
-        <!-- 전체 현황 탭 -->
+        <!-- ▼▼▼ 전체 현황 탭 (수정됨) ▼▼▼ -->
         <div class="tab-pane fade border-start border-end border-bottom p-3" id="status-tab-pane" role="tabpanel">
-             <div class="p-5 text-center">(TODO: 전체 현황 대시보드가 여기에 표시될 예정입니다.)</div>
+            <div class="p-3">
+                <!-- 작업자 현황 -->
+                <div class="row d-flex align-items-center mb-4">
+                    <div class="col-md-8">
+                        <h3>오늘 {{ request.session.user }}님의 작업 현황</h3>
+                        <div class="progress" style="height: 30px;">
+                            <div class="progress-bar bg-success" role="progressbar" 
+                                 style="width: {{ (completed_count / (daily_quota or 1)) * 100 }}%;" 
+                                 aria-valuenow="{{ completed_count }}" aria-valuemin="0" aria-valuemax="{{ daily_quota }}">
+                                {{ completed_count }} / {{ daily_quota }}
+                            </div>
+                        </div>
+                        <small class="text-muted">
+                            (오늘 완료: {{ completed_count }}개 / 일일 할당량: {{ daily_quota }}개 / 남은 작업: {{ remaining_tasks }}개)
+                        </small>
+                    </div>
+                    <!-- 작업 할당 버튼 -->
+                    <div class="col-md-4 text-end">
+                        {% if remaining_tasks > 0 %}
+                        <form action="/marketing/task/assign-next" method="post">
+                            <button type="submit" class="btn btn-primary btn-lg">
+                                🚀 다음 작업 할당받기
+                            </button>
+                        </form>
+                        {% else %}
+                        <button type="button" class="btn btn-success btn-lg" disabled>
+                            🎉 오늘 작업 완료!
+                        </button>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <hr>
+
+                <!-- 오늘 할 일 목록 -->
+                <h4 class="mb-3">오늘 진행할 작업 목록</h4>
+                <table class="table table-bordered table-hover text-center align-middle">
+                    <thead class="table-dark">
+                        <tr>
+                            <th style="width: 5%;">상태</th>
+                            <th style="width: 20%;">상품</th>
+                            <th>키워드</th>
+                            <th style="width: 15%;">네이버 계정</th>
+                            <th style="width: 15%;">타겟 카페</th>
+                            <th style="width: 10%;">관리</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for task in work_tasks %}
+                        <tr class="{{ 'table-success' if task.status == 'done' else '' }}">
+                            <td>
+                                {% if task.status == 'done' %}
+                                    <span class="fs-4" title="작업 완료">✅</span>
+                                {% else %}
+                                    <span class="fs-4" title="작업 대기">📋</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-start">{{ task.marketing_product.product.name if task.marketing_product and task.marketing_product.product else 'N/A' }}</td>
+                            <td>{{ task.keyword_text }}</td>
+                            <td>{{ task.account.account_id if task.account else 'N/A' }}</td>
+                            <td>{{ task.cafe.name if task.cafe else 'N/A' }}</td>
+                            <td>
+                                {% if task.status == 'todo' %}
+                                <!-- 
+                                    TODO: 이 버튼을 누르면 '글 관리'의 '새 글 등록' 팝업이 뜨고,
+                                    이 task의 정보(키워드, 계정, 카페)가 자동으로 채워져야 합니다.
+                                    글 등록이 완료되면, 해당 MarketingPost의 ID를 이 task의
+                                    completed_post_id에 저장하고, status를 'done'으로 변경해야 합니다.
+                                -->
+                                <button class="btn btn-sm btn-primary" disabled>작업하기 (미구현)</button>
+                                {% else %}
+                                <a href="/marketing/product/posts/{{ task.marketing_product_id }}" class="btn btn-sm btn-outline-secondary">글 보기</a>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                        {% if not work_tasks %}
+                        <tr>
+                            <td colspan="6" class="p-5 text-center text-muted">
+                                {% if daily_quota > 0 %}
+                                    [다음 작업 할당받기] 버튼을 눌러 작업을 시작하세요.
+                                {% else %}
+                                    할당된 작업이 없습니다. 관리자에게 문의하세요.
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
         </div>
         
         <!-- 연동 관리 탭 -->
