@@ -3,6 +3,8 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy import or_ # ▼▼▼ 'OR' 조건을 위해 import 추가 ▼▼▼
+
 import json
 import math
 
@@ -442,7 +444,10 @@ async def get_product_posts(
     # 폼에 필요한 전체 목록
     all_accounts = db.query(MarketingAccount).all()
     all_cafes = db.query(TargetCafe).all()
-    all_workers = db.query(User).all()
+    # ▼▼▼ 'all_workers' 쿼리 수정 ▼▼▼
+    all_workers = db.query(User).filter(
+        or_(User.can_manage_marketing == True, User.is_admin == True)
+    ).all()
     
     # ▼▼▼ '계정-카페' 연동 맵 생성 ▼▼▼
     all_memberships = db.query(CafeMembership).options(joinedload(CafeMembership.cafe)).all()
@@ -468,7 +473,7 @@ async def get_product_posts(
         "keywords_list": keywords_list, # "새 글 등록" 모달용
         "all_accounts": all_accounts,
         "all_cafes": all_cafes,
-        "all_workers": all_workers,
+        "all_workers": all_workers, # 필터링된 작업자 목록
         "membership_map": membership_map, # 맵을 템플릿으로 전달
         "total_pages": total_pages,
         "current_page": page,
