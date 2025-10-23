@@ -32,6 +32,7 @@ async def marketing_cafe(request: Request, db: Session = Depends(get_db)):
     tab = request.query_params.get('tab', 'status')
     error = request.query_params.get('error')
     
+    # --- ▼▼▼ [전체 현황] 탭을 위한 데이터 로직 (수정됨) ▼▼▼ ---
     username = request.session.get("user")
     current_user = db.query(User).filter(User.username == username).first()
     
@@ -41,7 +42,9 @@ async def marketing_cafe(request: Request, db: Session = Depends(get_db)):
     daily_quota = 0
     
     if current_user:
-        daily_quota = current_user.daily_quota
+        # ▼▼▼ None일 경우 0으로 처리하도록 수정 ▼▼▼
+        daily_quota = current_user.daily_quota or 0
+        # ▲▲▲ None일 경우 0으로 처리하도록 수정 ▲▲▲
         
         # 오늘 날짜로, 현재 사용자에게 할당된 모든 작업(WorkTask)을 조회
         work_tasks_query = db.query(WorkTask).options(
@@ -59,18 +62,18 @@ async def marketing_cafe(request: Request, db: Session = Depends(get_db)):
         completed_count = sum(1 for task in work_tasks if task.status == 'done')
     
     remaining_tasks = daily_quota - completed_count
+    # --- ▲▲▲ [전체 현황] 탭을 위한 데이터 로직 (수정됨) ▲▲▲ ---
 
+    # (기존 다른 탭들 데이터 조회 로직은 그대로 유지)
     error_messages = {
         'duplicate_account': "이미 사용 중인 아이디입니다.",
         'duplicate_reference': "이미 사용 중인 레퍼런스 제목입니다."
     }
     error_message = error_messages.get(error)
-
     selected_cafe_id = request.query_params.get('cafe_id')
     status_filter = request.query_params.get('status_filter', 'all')
     category_filter = request.query_params.get('category_filter', 'all')
     reference_filter = request.query_params.get('ref_filter', 'all')
-
     selected_cafe, memberships = None, []
     if selected_cafe_id:
         selected_cafe = db.query(TargetCafe).filter(TargetCafe.id == selected_cafe_id).first()
@@ -79,7 +82,6 @@ async def marketing_cafe(request: Request, db: Session = Depends(get_db)):
         if status_filter != 'all':
             query = query.filter(CafeMembership.status == status_filter)
         memberships = query.order_by(CafeMembership.account_id).all()
-
     cafes = db.query(TargetCafe).order_by(TargetCafe.name).all()
     accounts_query = db.query(MarketingAccount)
     if category_filter != 'all':
@@ -90,6 +92,8 @@ async def marketing_cafe(request: Request, db: Session = Depends(get_db)):
     if reference_filter != 'all':
         references_query = references_query.filter(Reference.ref_type == reference_filter)
     references = references_query.order_by(Reference.id.desc()).all()
+    
+    all_workers = db.query(User).filter(or_(User.can_manage_marketing == True, User.is_admin == True)).all()
 
     return templates.TemplateResponse("marketing_cafe.html", {
         "request": request, "cafes": cafes, "accounts": accounts,
@@ -98,12 +102,14 @@ async def marketing_cafe(request: Request, db: Session = Depends(get_db)):
         "category_filter": category_filter, "error": error_message,
         "references": references, "reference_filter": reference_filter,
         "active_tab": tab,
+        
         "work_tasks": work_tasks,
         "daily_quota": daily_quota,
         "completed_count": completed_count,
-        "remaining_tasks": remaining_tasks
-        
+        "remaining_tasks": remaining_tasks,
+        "all_workers": all_workers # 작업 생성 폼을 위해 전달
     })
+
     
 @router.post("/task/assign-next", response_class=RedirectResponse)
 async def assign_next_task(request: Request, db: Session = Depends(get_db)):
@@ -124,7 +130,7 @@ async def assign_next_task(request: Request, db: Session = Depends(get_db)):
     ).count()
     
     # 2. 할당량이 남았는지 확인
-    if completed_count < current_user.daily_quota:
+    if completed_count < (current_user.daily_quota or 0): # None 방지
         # 3. 이미 진행중('todo')인 작업이 있는지 확인
         existing_todo = db.query(WorkTask).filter(
             WorkTask.worker_id == current_user.id,
@@ -154,6 +160,7 @@ async def assign_next_task(request: Request, db: Session = Depends(get_db)):
             # --- (임시 로직 끝) ---
 
     return RedirectResponse(url="/marketing/cafe?tab=status", status_code=303)
+
 
 # --- Reference & Comment Management ---
 @router.post("/reference/add", response_class=RedirectResponse)
