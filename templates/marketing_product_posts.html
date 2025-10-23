@@ -102,8 +102,8 @@
     </nav>
     {% endif %}
 
-    <!-- (수정 모달 HTML은 변경 없음) -->
-{% for keyword, posts in posts_by_keyword.items() %}
+    <!-- 수정 모달 (modal-dialog-scrollable 추가) -->
+    {% for keyword, posts in posts_by_keyword.items() %}
     {% for post in posts %}
     <div class="modal fade modal-lg" id="editPostModal-{{ post.id }}" tabindex="-1" aria-hidden="true">
         <!-- ▼▼▼ 여기에 'modal-dialog-scrollable' 추가 ▼▼▼ -->
@@ -230,7 +230,7 @@
                                     <option value="" selected>분류 선택...</option>
                                     {% for type_name in references_by_type.keys() %}<option value="{{ type_name }}">{{ type_name }}</option>{% endfor %}
                                 </select>
-                                <select class="form-select" id="ref-title-select" onchange="loadReference(this, 'add_post_title', 'add_post_body', 'add_post_comments', 'add_reference_id')">
+                                <select class="form-select" id="ref-title-select">
                                     <option value="" selected>제목 선택...</option>
                                     {% for type, refs in references_by_type.items() %}
                                         {% for ref in refs %}
@@ -429,5 +429,5 @@ function loadReference(titleSelect, titleFieldId, bodyFieldId, commentsFieldId, 
 }
 </script>
 <!-- ▲▲▲ <script> 태그 수정 ▲▲▲ -->
+</script>
 {% endblock %}
-
