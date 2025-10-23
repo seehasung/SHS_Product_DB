@@ -47,9 +47,17 @@
                             {% for post in posts %}
                             <tr>
                                 <td>
-                                    <span class="fs-4">{{ '✅' if post.is_live else '❌' }}</span>
+                                    <span class="fs-4" title="{{ '등록 완료 (생존)' if post.is_live else ('등록 완료 (삭제됨)' if post.is_registration_complete else '작성중') }}">
+                                        {% if not post.is_registration_complete %}
+                                            ⚠️
+                                        {% elif post.is_live %}
+                                            ✅
+                                        {% else %}
+                                            ❌
+                                        {% endif %}
+                                    </span>
                                 </td>
-                                <td><a href="{{ post.post_url }}" target="_blank" title="{{ post.post_url }}" style="display: block; max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ post.post_url }}</a></td>
+                                <td><a href="{{ post.post_url }}" target="_blank" title="{{ post.post_url }}" style="display: block; max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ post.post_url or 'URL 미등록' }}</a></td>
                                 <td>{{ post.account.account_id if post.account else 'N/A' }}</td>
                                 <td>{{ post.cafe.name if post.cafe else 'N/A' }}</td>
                                 <td>{{ post.worker.username if post.worker else 'N/A' }}</td>
@@ -96,7 +104,7 @@
     <!-- 수정 모달 (각 글마다 고유하게 생성) -->
     {% for keyword, posts in posts_by_keyword.items() %}
     {% for post in posts %}
-    <div class="modal fade" id="editPostModal-{{ post.id }}" tabindex="-1" aria-hidden="true">
+    <div class="modal fade modal-lg" id="editPostModal-{{ post.id }}" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog">
             <div class="modal-content">
                 <form action="/marketing/post/update/{{ post.id }}" method="post">
@@ -105,36 +113,78 @@
                         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                     </div>
                     <div class="modal-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <label class="form-label">키워드</label>
+                                <input type="text" class="form-control" value="{{ post.keyword_text }}" disabled>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">작성자</label>
+                                <select class="form-select" name="worker_id" required>
+                                    {% for worker in all_workers %}<option value="{{ worker.id }}" {{ 'selected' if post.worker_id == worker.id }}>{{ worker.username }}</option>{% endfor %}
+                                </select>
+                            </div>
+                        </div>
+                        <hr>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <label class="form-label">네이버 계정</label>
+                                <select class="form-select" name="account_id" required onchange="updateCafeDropdown(this, 'edit_cafe_id_{{ post.id }}')">
+                                    {% for acc in all_accounts %}<option value="{{ acc.id }}" {{ 'selected' if post.account_id == acc.id }}>{{ acc.account_id }}</option>{% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">작성 카페</label>
+                                <select class="form-select" id="edit_cafe_id_{{ post.id }}" name="cafe_id" required>
+                                    <!-- JS가 선택된 계정의 카페 목록을 불러오거나, 기존 카페를 선택합니다. -->
+                                    {% for cafe in all_cafes %}<option value="{{ cafe.id }}" {{ 'selected' if post.cafe_id == cafe.id }}>{{ cafe.name }}</option>{% endfor %}
+                                </select>
+                            </div>
+                        </div>
+                        <hr>
                         <div class="mb-3">
-                            <label class="form-label">키워드</label>
-                            <input type="text" class="form-control" value="{{ post.keyword_text }}" disabled>
+                            <label class="form-label">레퍼런스 불러오기 (선택)</label>
+                            <div class="input-group">
+                                <select class="form-select" onchange="filterReferences(this, 'edit_ref_title_{{ post.id }}')">
+                                    <option value="" selected>분류 선택...</option>
+                                    <option value="대안">대안</option>
+                                    <option value="정보">정보</option>
+                                    <option value="기타">기타</option>
+                                </select>
+                                <select class="form-select" id="edit_ref_title_{{ post.id }}" onchange="loadReference(this, 'edit_post_title_{{ post.id }}', 'edit_post_body_{{ post.id }}', 'edit_post_comments_{{ post.id }}')">
+                                    <option value="" selected>제목 선택...</option>
+                                    {% for ref in all_references %}
+                                    <option value="{{ ref.id }}" data-ref-type="{{ ref.ref_type }}">{{ ref.title }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
                         </div>
                         <div class="mb-3">
-                            <label for="post_url-{{ post.id }}" class="form-label">글 URL</label>
-                            <input type="url" class="form-control" id="post_url-{{ post.id }}" name="post_url" value="{{ post.post_url }}" required>
+                            <label class="form-label">글 제목</label>
+                            <input type="text" class="form-control" id="edit_post_title_{{ post.id }}" name="post_title" value="{{ post.post_title }}">
                         </div>
                         <div class="mb-3">
-                            <label for="account_id-{{ post.id }}" class="form-label">네이버 계정</label>
-                            <select class="form-select" id="account_id-{{ post.id }}" name="account_id" required>
-                                {% for acc in all_accounts %}<option value="{{ acc.id }}" {{ 'selected' if post.account_id == acc.id }}>{{ acc.account_id }}</option>{% endfor %}
-                            </select>
+                            <label class="form-label">글 본문</label>
+                            <textarea class="form-control" id="edit_post_body_{{ post.id }}" name="post_body" rows="8">{{ post.post_body }}</textarea>
                         </div>
                         <div class="mb-3">
-                            <label for="cafe_id-{{ post.id }}" class="form-label">작성 카페</label>
-                            <select class="form-select" id="cafe_id-{{ post.id }}" name="cafe_id" required>
-                                {% for cafe in all_cafes %}<option value="{{ cafe.id }}" {{ 'selected' if post.cafe_id == cafe.id }}>{{ cafe.name }}</option>{% endfor %}
-                            </select>
+                            <label class="form-label">댓글 (JSON 형식)</label>
+                            <textarea class="form-control" id="edit_post_comments_{{ post.id }}" name="post_comments" rows="4">{{ post.post_comments }}</textarea>
                         </div>
-                        <div class="mb-3">
-                            <label for="worker_id-{{ post.id }}" class="form-label">작성자</label>
-                            <select class="form-select" id="worker_id-{{ post.id }}" name="worker_id" required>
-                                {% for worker in all_workers %}<option value="{{ worker.id }}" {{ 'selected' if post.worker_id == worker.id }}>{{ worker.username }}</option>{% endfor %}
-                            </select>
+                        <hr>
+                        <div class="form-check form-switch mb-2">
+                            <input type="hidden" name="is_registration_complete" value="False">
+                            <input class="form-check-input" type="checkbox" role="switch" id="is_registration_complete_{{ post.id }}" name="is_registration_complete" value="True" {{ 'checked' if post.is_registration_complete else '' }} onchange="toggleUrlField(this, 'url_field_{{ post.id }}')">
+                            <label class="form-check-label" for="is_registration_complete_{{ post.id }}">등록 완료 (체크 시 URL 입력)</label>
+                        </div>
+                        <div class="mb-3" id="url_field_{{ post.id }}" style="{{ 'display:block;' if post.is_registration_complete else 'display:none;' }}">
+                            <label class="form-label">글 URL</label>
+                            <input type="url" class="form-control" name="post_url" value="{{ post.post_url or '' }}">
                         </div>
                         <div class="form-check form-switch">
                             <input type="hidden" name="is_live" value="False">
                             <input class="form-check-input" type="checkbox" role="switch" id="is_live-{{ post.id }}" name="is_live" value="True" {{ 'checked' if post.is_live else '' }}>
-                            <label class="form-check-label" for="is_live-{{ post.id }}">글 상태 (체크 시 '살아있는 글')</label>
+                            <label class="form-check-label" for="is_live-{{ post.id }}">글 생존 여부 (체크 시 '살아있는 글')</label>
                         </div>
                     </div>
                     <div class="modal-footer">
@@ -148,8 +198,8 @@
     {% endfor %}
     {% endfor %}
 
-    <!-- 새 글 등록 모달 (수정됨) -->
-    <div class="modal fade" id="addPostModal" tabindex="-1" aria-hidden="true">
+    <!-- 새 글 등록 모달 -->
+    <div class="modal fade modal-lg" id="addPostModal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog">
             <div class="modal-content">
                 <form action="/marketing/post/add" method="post">
@@ -159,40 +209,77 @@
                         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                     </div>
                     <div class="modal-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <label class="form-label">키워드 선택</label>
+                                <select class="form-select" name="keyword_text" required>
+                                    <option value="" disabled selected>키워드를 선택하세요</option>
+                                    {% for kw in keywords_list %}<option value="{{ kw }}">{{ kw }}</option>{% endfor %}
+                                </select>
+                            </div>
+                             <div class="col-md-6">
+                                <label class="form-label">작성자 (시스템 유저)</label>
+                                <select class="form-select" name="worker_id" required>
+                                    <option value="" disabled selected>작업자를 선택하세요</option>
+                                    {% for worker in all_workers %}<option value="{{ worker.id }}">{{ worker.username }}</option>{% endfor %}
+                                </select>
+                            </div>
+                        </div>
+                        <hr>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <label class="form-label">네이버 계정</label>
+                                <select class="form-select" name="account_id" required onchange="updateCafeDropdown(this, 'add_cafe_id')">
+                                    <option value="" disabled selected>계정을 선택하세요</option>
+                                    {% for acc in all_accounts %}<option value="{{ acc.id }}">{{ acc.account_id }}</option>{% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">작성 카페</label>
+                                <select class="form-select" id="add_cafe_id" name="cafe_id" required disabled>
+                                    <option value="" disabled selected>네이버 계정을 먼저 선택하세요</option>
+                                </select>
+                            </div>
+                        </div>
+                        <hr>
                         <div class="mb-3">
-                            <label for="keyword_text" class="form-label">키워드 선택</label>
-                            <select class="form-select" id="keyword_text" name="keyword_text" required>
-                                <option value="" disabled selected>등록할 키워드를 선택하세요</option>
-                                {% for kw in keywords_list %}
-                                <option value="{{ kw }}">{{ kw }}</option>
-                                {% endfor %}
-                            </select>
+                            <label class="form-label">레퍼런스 불러오기 (선택)</label>
+                            <div class="input-group">
+                                <select class="form-select" id="ref-type-select" onchange="filterReferences(this, 'ref-title-select')">
+                                    <option value="" selected>분류 선택...</option>
+                                    <option value="대안">대안</option>
+                                    <option value="정보">정보</option>
+                                    <option value="기타">기타</option>
+                                </select>
+                                <select class="form-select" id="ref-title-select" onchange="loadReference(this, 'add_post_title', 'add_post_body', 'add_post_comments')">
+                                    <option value="" selected>제목 선택...</option>
+                                    {% for ref in all_references %}
+                                    <option value="{{ ref.id }}" data-ref-type="{{ ref.ref_type }}">{{ ref.title }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
                         </div>
                         <div class="mb-3">
-                            <label for="post_url" class="form-label">글 URL</label>
-                            <input type="url" class="form-control" id="post_url" name="post_url" required>
+                            <label class="form-label">글 제목</label>
+                            <input type="text" class="form-control" id="add_post_title" name="post_title">
                         </div>
                         <div class="mb-3">
-                            <label for="add_account_id" class="form-label">네이버 계정</label>
-                            <select class="form-select" id="add_account_id" name="account_id" required 
-                                    onchange="updateCafeDropdown(this, 'add_cafe_id')">
-                                <option value="" disabled selected>작업한 계정을 선택하세요</option>
-                                {% for acc in all_accounts %}<option value="{{ acc.id }}">{{ acc.account_id }}</option>{% endfor %}
-                            </select>
+                            <label class="form-label">글 본문</label>
+                            <textarea class="form-control" id="add_post_body" name="post_body" rows="8"></textarea>
                         </div>
                         <div class="mb-3">
-                            <label for="add_cafe_id" class="form-label">작성 카페</label>
-                            <select class="form-select" id="add_cafe_id" name="cafe_id" required disabled>
-                                <option value="" disabled selected>네이버 계정을 먼저 선택하세요</option>
-                                <!-- JavaScript가 이 부분을 채워줍니다. -->
-                            </select>
+                            <label class="form-label">댓글 (JSON 형식)</label>
+                            <textarea class="form-control" id="add_post_comments" name="post_comments" rows="4"></textarea>
                         </div>
-                        <div class="mb-3">
-                            <label for="worker_id" class="form-label">작성자 (시스템 유저)</label>
-                            <select class="form-select" id="worker_id" name="worker_id" required>
-                                <option value="" disabled selected>작업자를 선택하세요</option>
-                                {% for worker in all_workers %}<option value="{{ worker.id }}">{{ worker.username }}</option>{% endfor %}
-                            </select>
+                        <hr>
+                        <div class="form-check form-switch mb-2">
+                            <input type="hidden" name="is_registration_complete" value="False">
+                            <input class="form-check-input" type="checkbox" role="switch" id="is_registration_complete" name="is_registration_complete" value="True" onchange="toggleUrlField(this, 'url_field')">
+                            <label class="form-check-label" for="is_registration_complete">등록 완료 (체크 시 URL 입력)</label>
+                        </div>
+                        <div class="mb-3" id="url_field" style="display:none;">
+                            <label class="form-label">글 URL</label>
+                            <input type="url" class="form-control" name="post_url">
                         </div>
                     </div>
                     <div class="modal-footer">
@@ -205,27 +292,41 @@
     </div>
 </div>
 
-<!-- ▼▼▼ 종속형 드롭다운 JavaScript 추가 ▼▼▼ -->
 <script>
 // Python에서 전달받은 '계정-카페' 연동 맵
 const membershipMap = {{ membership_map | tojson | safe }};
 
+// Python에서 전달받은 '레퍼런스' 전체 데이터
+const allReferences = [
+    {% for ref in all_references %}
+    {
+        "id": {{ ref.id }},
+        "title": "{{ ref.title | e }}",
+        "content": `{{ ref.content | e }}`,
+        "ref_type": "{{ ref.ref_type }}",
+        "comments": [
+            {% for comment in ref.comments %}
+            {
+                "account_sequence": {{ comment.account_sequence }},
+                "text": `{{ comment.text | e }}`
+            }{% if not loop.last %},{% endif %}
+            {% endfor %}
+        ]
+    }{% if not loop.last %},{% endif %}
+    {% endfor %}
+];
+
 /**
  * 네이버 계정 드롭다운이 변경될 때 호출되는 함수
- * @param {HTMLSelectElement} accountSelect - 변경된 '네이버 계정' select 요소
- * @param {string} cafeSelectId - 업데이트할 '작성 카페' select 요소의 ID
  */
 function updateCafeDropdown(accountSelectElement, cafeSelectId) {
     const cafeSelect = document.getElementById(cafeSelectId);
     const selectedAccountId = accountSelectElement.value;
     
-    // 카페 드롭다운 초기화
     cafeSelect.innerHTML = '<option value="" disabled selected>계정을 먼저 선택하세요</option>';
     cafeSelect.disabled = true;
 
-    // 선택된 계정이 연동된 카페 목록이 있는지 확인
     if (selectedAccountId && membershipMap[selectedAccountId]) {
-        // 카페 목록이 있으면 드롭다운 활성화 및 옵션 추가
         cafeSelect.disabled = false;
         cafeSelect.innerHTML = '<option value="" disabled selected>작성한 카페를 선택하세요</option>';
         
@@ -237,7 +338,26 @@ function updateCafeDropdown(accountSelectElement, cafeSelectId) {
         });
     }
 }
-</script>
-<!-- ▲▲▲ 종속형 드롭다운 JavaScript 추가 ▲▲▲ -->
-{% endblock %}
+
+/**
+ * '등록 완료' 체크박스 클릭 시 URL 필드 토글
+ */
+function toggleUrlField(checkbox, fieldId) {
+    document.getElementById(fieldId).style.display = checkbox.checked ? 'block' : 'none';
+}
+
+/**
+ * 레퍼런스 분류 선택 시, 제목 드롭다운 필터링
+ */
+function filterReferences(typeSelect, titleSelectId) {
+    const selectedType = typeSelect.value;
+    const titleSelect = document.getElementById(titleSelectId);
+    
+    // 현재 선택된 값을 임시 저장 (필터링 후에도 유지하기 위함)
+    const currentTitleId = titleSelect.value;
+    
+    titleSelect.innerHTML = '<option value="" selected>제목 선택...</option>';
+    
+    allReferences.forEach(ref => {
+        if (selectedType === "" || ref.ref_T
 

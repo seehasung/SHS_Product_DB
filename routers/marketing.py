@@ -1,10 +1,9 @@
-from fastapi import APIRouter, Request, Form, Depends, Query # Query를 여기에 추가
+from fastapi import APIRouter, Request, Form, Depends, Query
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy import or_ # ▼▼▼ 'OR' 조건을 위해 import 추가 ▼▼▼
-
+from sqlalchemy import or_
 import json
 import math
 
@@ -61,7 +60,6 @@ async def marketing_cafe(request: Request, db: Session = Depends(get_db)):
     if reference_filter != 'all':
         references_query = references_query.filter(Reference.ref_type == reference_filter)
     references = references_query.order_by(Reference.id.desc()).all()
-    
 
     db.close() # 메인 페이지는 모든 조회가 끝난 후 닫습니다.
 
@@ -368,8 +366,7 @@ async def add_marketing_product(product_id: int, db: Session = Depends(get_db)):
     db.close()
     return RedirectResponse(url="/marketing/cafe?tab=products", status_code=303)
 
-# --- ▼▼▼ 신규 '글 관리' 라우트 추가 ▼▼▼ ---
-
+# --- '글 관리' 라우트 (페이지네이션 및 검색 기능 추가됨) ---
 @router.get("/product/posts/{mp_id}", response_class=HTMLResponse)
 async def get_product_posts(
     request: Request, 
@@ -420,11 +417,17 @@ async def get_product_posts(
         MarketingPost.keyword_text.in_(keywords_for_page)
     ).order_by(MarketingPost.keyword_text, MarketingPost.id).all()
 
-    # "기타" 글 가져오기 (키워드가 삭제/미지정된 글) - 이 부분은 검색과 무관하게 항상 표시 (선택사항)
+    # "기타" 글 가져오기 (키워드가 삭제/미지정된 글)
     other_posts = []
     if page == 1 and not keyword_search: # 첫 페이지 & 검색어가 없을 때만
         all_post_keywords = [p.keyword_text for p in posts]
-        db_posts_for_product = db.query(MarketingPost).filter(MarketingPost.marketing_product_id == mp_id).all()
+        # 현재 페이지의 키워드 외의 모든 글을 가져오는 대신, 키워드 목록에 없는 글만 가져오도록 수정
+        db_posts_for_product = db.query(MarketingPost).options(
+            joinedload(MarketingPost.worker),
+            joinedload(MarketingPost.account),
+            joinedload(MarketingPost.cafe)
+        ).filter(MarketingPost.marketing_product_id == mp_id).all()
+        
         for p in db_posts_for_product:
             if p.keyword_text not in keywords_list and p.keyword_text not in all_post_keywords:
                 other_posts.append(p)
@@ -444,36 +447,31 @@ async def get_product_posts(
     # 폼에 필요한 전체 목록
     all_accounts = db.query(MarketingAccount).all()
     all_cafes = db.query(TargetCafe).all()
-    # ▼▼▼ 'all_workers' 쿼리 수정 ▼▼▼
-    all_workers = db.query(User).filter(
-        or_(User.can_manage_marketing == True, User.is_admin == True)
-    ).all()
+    all_workers = db.query(User).filter(or_(User.can_manage_marketing == True, User.is_admin == True)).all()
     
-    # ▼▼▼ '계정-카페' 연동 맵 생성 ▼▼▼
+    # 레퍼런스 및 계-카 맵 추가
+    all_references = db.query(Reference).options(joinedload(Reference.comments)).order_by(Reference.ref_type, Reference.title).all()
+    
     all_memberships = db.query(CafeMembership).options(joinedload(CafeMembership.cafe)).all()
     membership_map = {}
     for membership in all_memberships:
-        if membership.status == 'active': # 활동중인 연동만
+        if membership.status == 'active':
             if membership.account_id not in membership_map:
                 membership_map[membership.account_id] = []
             if membership.cafe:
-                membership_map[membership.account_id].append({
-                    "id": membership.cafe.id,
-                    "name": membership.cafe.name
-                })
-    # ▲▲▲ '계정-카페' 연동 맵 생성 ▲▲▲
-
-
+                membership_map[membership.account_id].append({"id": membership.cafe.id, "name": membership.cafe.name})
+    
     db.close()
     
     return templates.TemplateResponse("marketing_product_posts.html", {
         "request": request,
         "marketing_product": marketing_product,
         "posts_by_keyword": posts_by_keyword,
-        "keywords_list": keywords_list, # "새 글 등록" 모달용
+        "keywords_list": keywords_list,
         "all_accounts": all_accounts,
         "all_cafes": all_cafes,
-        "all_workers": all_workers, # 필터링된 작업자 목록
+        "all_workers": all_workers,
+        "all_references": all_references, # 레퍼런스 목록 전달
         "membership_map": membership_map, # 맵을 템플릿으로 전달
         "total_pages": total_pages,
         "current_page": page,
@@ -485,24 +483,28 @@ async def add_marketing_post(
     request: Request,
     mp_id: int = Form(...),
     keyword_text: str = Form(...),
-    post_url: str = Form(...),
     account_id: int = Form(...),
     cafe_id: int = Form(...),
-    worker_id: int = Form(...), # ▼▼▼ 작업자 ID를 폼에서 받도록 수정 ▼▼▼
+    worker_id: int = Form(...),
+    post_title: str = Form(""),
+    post_body: str = Form(""),
+    post_comments: str = Form(""),
+    is_registration_complete: bool = Form(False),
+    post_url: str = Form(None),
     db: Session = Depends(get_db)
 ):
-    """새 글을 등록하는 라우트"""
-    username = request.session.get("user")
-    worker = db.query(User).filter(User.username == username).first()
-    
     new_post = MarketingPost(
         marketing_product_id=mp_id,
         keyword_text=keyword_text,
-        post_url=post_url,
         account_id=account_id,
         cafe_id=cafe_id,
-        worker_id=worker_id, # ◀ 폼에서 받은 worker_id로 저장
-        is_live=True
+        worker_id=worker_id,
+        post_title=post_title,
+        post_body=post_body,
+        post_comments=post_comments,
+        is_registration_complete=is_registration_complete,
+        post_url=post_url if is_registration_complete else None, # 완료 시에만 URL 저장
+        is_live=True if is_registration_complete else False # 완료 시에만 '생존'으로 시작
     )
     db.add(new_post)
     db.commit()
@@ -512,47 +514,49 @@ async def add_marketing_post(
 @router.post("/post/update/{post_id}", response_class=RedirectResponse)
 async def update_marketing_post(
     post_id: int,
-    post_url: str = Form(...),
     account_id: int = Form(...),
     cafe_id: int = Form(...),
     worker_id: int = Form(...),
-    is_live: bool = Form(False), # 체크박스는 값이 'on'일 때만 전송되므로, bool로 받으면 'on'일 때 True, 아니면 False가 됩니다.
+    post_title: str = Form(""),
+    post_body: str = Form(""),
+    post_comments: str = Form(""),
+    is_registration_complete: bool = Form(False),
+    post_url: str = Form(None),
+    is_live: bool = Form(False),
     db: Session = Depends(get_db)
 ):
-    """글 정보를 수정하는 라우트"""
     post = db.query(MarketingPost).filter(MarketingPost.id == post_id).first()
     mp_id = None
     if post:
-        mp_id = post.marketing_product_id # 리다이렉션을 위해 ID 저장
-        post.post_url = post_url
+        mp_id = post.marketing_product_id
         post.account_id = account_id
         post.cafe_id = cafe_id
         post.worker_id = worker_id
-        post.is_live = is_live # 폼에서 'on'으로 오면 True, 아니면 False가 됨
+        post.post_title = post_title
+        post.post_body = post_body
+        post.post_comments = post_comments
+        post.is_registration_complete = is_registration_complete
+        post.post_url = post_url if is_registration_complete else None
+        post.is_live = is_live if is_registration_complete else False
         db.commit()
     db.close()
     
-    if mp_id:
-        return RedirectResponse(url=f"/marketing/product/posts/{mp_id}", status_code=303)
-    return RedirectResponse(url="/marketing/cafe?tab=products", status_code=303)
+    redirect_url = f"/marketing/product/posts/{mp_id}" if mp_id else "/marketing/cafe?tab=products"
+    return RedirectResponse(url=redirect_url, status_code=303)
 
 
 @router.post("/post/delete/{post_id}", response_class=RedirectResponse)
 async def delete_marketing_post(post_id: int, db: Session = Depends(get_db)):
-    """글을 삭제하는 라우트"""
     post = db.query(MarketingPost).filter(MarketingPost.id == post_id).first()
     mp_id = None
     if post:
-        mp_id = post.marketing_product_id # 리다이렉션을 위해 ID 저장
+        mp_id = post.marketing_product_id
         db.delete(post)
         db.commit()
     db.close()
     
-    if mp_id:
-        return RedirectResponse(url=f"/marketing/product/posts/{mp_id}", status_code=303)
-    return RedirectResponse(url="/marketing/cafe?tab=products", status_code=303)
-
-# --- ▲▲▲ 신규 '글 관리' 라우트 추가 ▲▲▲ ---
+    redirect_url = f"/marketing/product/posts/{mp_id}" if mp_id else "/marketing/cafe?tab=products"
+    return RedirectResponse(url=redirect_url, status_code=303)
 
 # --- Other Marketing Pages ---
 @router.get("/blog", response_class=HTMLResponse)
