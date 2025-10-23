@@ -1,8 +1,8 @@
-"""Add account_sequence to Comment
+"""Create single initial schema after reset
 
-Revision ID: 65cd9e48a150
+Revision ID: 6d7ffe39d9a7
 Revises: 
-Create Date: 2025-10-23 10:15:18.815520
+Create Date: 2025-10-23 10:24:45.644424
 
 """
 from typing import Sequence, Union
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = '65cd9e48a150'
+revision: str = '6d7ffe39d9a7'
 down_revision: Union[str, Sequence[str], None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
