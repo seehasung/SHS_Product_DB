@@ -140,12 +140,14 @@
         border-radius: 15px;
         padding: 25px;
         box-shadow: 0 5px 20px rgba(0, 0, 0, 0.08);
+        overflow-x: auto;  /* 테이블이 넘치면 가로 스크롤 */
     }
     
     .products-table {
         width: 100%;
         border-collapse: separate;
         border-spacing: 0;
+        min-width: 1200px;  /* 테이블 최소 너비 설정 */
     }
     
     .products-table thead th {
@@ -156,7 +158,42 @@
         text-align: left;
         font-size: 0.9rem;
         border-bottom: 2px solid #e9ecef;
+        white-space: nowrap;  /* 헤더 텍스트 줄바꿈 방지 */
     }
+    
+    /* 각 컬럼별 최소 너비 설정 */
+    .products-table th:nth-child(1),
+    .products-table td:nth-child(1) { min-width: 100px; } /* 상품코드 */
+    
+    .products-table th:nth-child(2),
+    .products-table td:nth-child(2) { min-width: 80px; }  /* 썸네일 */
+    
+    .products-table th:nth-child(3),
+    .products-table td:nth-child(3) { min-width: 200px; } /* 상품명 */
+    
+    .products-table th:nth-child(4),
+    .products-table td:nth-child(4) { min-width: 90px; }  /* 가격 */
+    
+    .products-table th:nth-child(5),
+    .products-table td:nth-child(5) { min-width: 90px; }  /* 신고가 */
+    
+    .products-table th:nth-child(6),
+    .products-table td:nth-child(6) { min-width: 60px; text-align: center; }  /* 경동 */
+    
+    .products-table th:nth-child(7),
+    .products-table td:nth-child(7) { min-width: 60px; text-align: center; }  /* 관세 */
+    
+    .products-table th:nth-child(8),
+    .products-table td:nth-child(8) { min-width: 90px; }  /* 쿠팡 */
+    
+    .products-table th:nth-child(9),
+    .products-table td:nth-child(9) { min-width: 90px; }  /* 네이버 */
+    
+    .products-table th:nth-child(10),
+    .products-table td:nth-child(10) { min-width: 100px; } /* 타오바오 */
+    
+    .products-table th:nth-child(11),
+    .products-table td:nth-child(11) { min-width: 90px; }  /* 관리 */
     
     .products-table tbody tr {
         transition: background 0.2s ease;
@@ -170,6 +207,13 @@
     .products-table td {
         padding: 15px 10px;
         vertical-align: middle;
+        white-space: nowrap;  /* 셀 텍스트 줄바꿈 방지 */
+    }
+    
+    /* 상품명만 줄바꿈 허용 */
+    .products-table td:nth-child(3) {
+        white-space: normal;
+        word-break: keep-all;  /* 단어 단위로만 줄바꿈 */
     }
     
     /* 상품명 링크 스타일 */
@@ -210,7 +254,19 @@
         width: 20px;
         height: 20px;
         cursor: not-allowed;
-        opacity: 0.7;
+        accent-color: #0984e3;  /* 파란색 체크 */
+        transform: scale(1.2);  /* 크기 약간 크게 */
+    }
+    
+    .check-small:checked {
+        accent-color: #0984e3;  /* 체크 시 파란색 */
+        box-shadow: 0 0 5px rgba(9, 132, 227, 0.5);  /* 파란 빛 효과 */
+    }
+    
+    /* 체크박스 컨테이너 스타일 */
+    td input[type="checkbox"] {
+        display: inline-block;
+        vertical-align: middle;
     }
     
     /* 링크 버튼 */
@@ -222,45 +278,53 @@
         font-weight: 500;
         display: inline-block;
         transition: all 0.2s ease;
+        white-space: nowrap;  /* 버튼 텍스트 줄바꿈 방지 */
+        min-width: 70px;  /* 최소 너비 설정 */
+        text-align: center;
     }
     
     .link-btn-coupang {
-        background: #e74c3c;
+        background: #0984e3;  /* 파란색 */
         color: white;
     }
     
     .link-btn-coupang:hover {
-        background: #c0392b;
+        background: #0652DD;  /* 진한 파란색 */
         color: white;
         transform: translateY(-2px);
+        box-shadow: 0 3px 10px rgba(9, 132, 227, 0.3);
     }
     
     .link-btn-naver {
-        background: #03c75a;
+        background: #00c73c;  /* 네이버 공식 초록색 */
         color: white;
     }
     
     .link-btn-naver:hover {
-        background: #02a34a;
+        background: #00a832;  /* 진한 초록색 */
         color: white;
         transform: translateY(-2px);
+        box-shadow: 0 3px 10px rgba(0, 199, 60, 0.3);
     }
     
     .link-btn-taobao {
-        background: #ff6900;
+        background: #ff6900;  /* 타오바오 오렌지 */
         color: white;
     }
     
     .link-btn-taobao:hover {
-        background: #e55800;
+        background: #ff5500;  /* 진한 오렌지 */
         color: white;
         transform: translateY(-2px);
+        box-shadow: 0 3px 10px rgba(255, 105, 0, 0.3);
     }
     
     /* 액션 버튼 */
     .action-buttons {
         display: flex;
         gap: 5px;
+        white-space: nowrap;  /* 추가 */
+        justify-content: center;  /* 가운데 정렬 */
     }
     
     .btn-action {
@@ -275,6 +339,7 @@
         display: flex;
         align-items: center;
         justify-content: center;
+        flex-shrink: 0;  /* 버튼 크기 고정 */
     }
     
     .btn-action:hover {
@@ -369,9 +434,10 @@
     </div>
     
     <!-- 검색 섹션 -->
-    <div class="search-section">
-        <div class="search-container">
-            <div class="search-input-group">
+<div class="search-section">
+    <div class="search-container">
+        <div class="search-input-group" style="display: flex; gap: 10px;">
+            <div style="position: relative; flex: 1;">
                 <i class="bi bi-search search-icon"></i>
                 <input type="text" 
                        class="search-input" 
@@ -379,13 +445,28 @@
                        placeholder="상품명 또는 상품코드로 검색..."
                        autocomplete="off">
             </div>
-            
-            <!-- 자동완성 드롭다운 -->
-            <div class="autocomplete-dropdown" id="autocompleteDropdown">
-                <!-- 동적으로 생성됨 -->
-            </div>
+            <!-- 검색 버튼 추가 -->
+            <button class="btn btn-primary" onclick="executeSearch()" style="padding: 12px 24px; border-radius: 12px;">
+                <i class="bi bi-search"></i> 검색
+            </button>
+            <!-- 초기화 버튼 추가 -->
+            <button class="btn btn-secondary" onclick="clearSearch()" style="padding: 12px 24px; border-radius: 12px;">
+                <i class="bi bi-arrow-clockwise"></i> 초기화
+            </button>
+        </div>
+        
+        <!-- 자동완성 드롭다운 -->
+        <div class="autocomplete-dropdown" id="autocompleteDropdown">
+            <!-- 동적으로 생성됨 -->
+        </div>
+        
+        <!-- 검색 안내 메시지 -->
+        <div style="margin-top: 10px; font-size: 0.85rem; color: #6c757d;">
+            <i class="bi bi-info-circle"></i> 
+            입력 중에는 자동완성만 표시됩니다. Enter 키 또는 검색 버튼을 눌러 테이블을 필터링하세요.
         </div>
     </div>
+</div>
     
     <!-- 상품 테이블 -->
     <div class="products-table-container">
@@ -441,33 +522,69 @@ searchInput.addEventListener('input', function(e) {
     clearTimeout(searchTimeout);
     const searchTerm = e.target.value.trim().toLowerCase();
     
-    // 검색어가 없으면 전체 상품 표시
+    // 검색어가 없으면 드롭다운만 닫기
     if (searchTerm.length < 1) {
         autocompleteDropdown.classList.remove('show');
-        filteredProducts = [...allProducts];
-        currentPage = 1;
-        displayProducts(currentPage);
         return;
     }
     
-    // 필터링
-    filteredProducts = allProducts.filter(product => {
+    // 검색 결과 (자동완성용)
+    const searchResults = allProducts.filter(product => {
         const name = (product.name || '').toLowerCase();
         const code = (product.product_code || '').toLowerCase();
         return name.includes(searchTerm) || code.includes(searchTerm);
     });
     
-    currentPage = 1;
-    displayProducts(currentPage);
-    
+    // ⭐ 테이블은 변경하지 않고 자동완성만 표시
     searchTimeout = setTimeout(() => {
-        showAutocomplete(searchTerm);
+        showAutocomplete(searchResults, searchTerm);
     }, 300);
 });
 
+// ⭐ 검색 실행 함수 (엔터키 또는 검색 버튼 클릭 시)
+function executeSearch() {
+    const searchTerm = searchInput.value.trim().toLowerCase();
+    
+    if (searchTerm.length < 1) {
+        // 검색어가 없으면 전체 상품 표시
+        filteredProducts = [...allProducts];
+    } else {
+        // 검색어가 있으면 필터링
+        filteredProducts = allProducts.filter(product => {
+            const name = (product.name || '').toLowerCase();
+            const code = (product.product_code || '').toLowerCase();
+            return name.includes(searchTerm) || code.includes(searchTerm);
+        });
+    }
+
+        
+    currentPage = 1;
+    displayProducts(currentPage);
+    autocompleteDropdown.classList.remove('show');
+}
+
+// ⭐ 엔터키 이벤트 추가
+searchInput.addEventListener('keypress', function(e) {
+    if (e.key === 'Enter') {
+        e.preventDefault();
+        executeSearch();
+    }
+});
+
+// ⭐ 검색 버튼 추가 (선택사항)
+// HTML에 검색 버튼 추가 시 사용
+function addSearchButton() {
+    const searchButton = `
+        <button class="btn btn-primary" onclick="executeSearch()" style="margin-left: 10px;">
+            <i class="bi bi-search"></i> 검색
+        </button>
+    `;
+    // search-input-group에 버튼 추가
+}
+
 // 자동완성 표시
-function showAutocomplete(searchTerm) {
-    const matches = filteredProducts.slice(0, 8);
+function showAutocomplete(searchResults, searchTerm) {
+    const matches = searchResults.slice(0, 8);  // 최대 8개만 표시
     
     if (matches.length === 0) {
         autocompleteDropdown.innerHTML = `
@@ -500,6 +617,13 @@ function showAutocomplete(searchTerm) {
             </div>
         `;
     });
+    
+    // 엔터키 안내 추가
+    html += `
+        <div style="padding: 10px 15px; background: #f8f9fa; border-top: 1px solid #e9ecef; text-align: center; font-size: 0.85rem; color: #6c757d;">
+            <i class="bi bi-info-circle"></i> Enter 키를 누르면 테이블이 필터링됩니다
+        </div>
+    `;
     
     autocompleteDropdown.innerHTML = html;
     autocompleteDropdown.classList.add('show');
@@ -548,7 +672,7 @@ document.addEventListener('click', function(e) {
     }
 });
 
-// 키보드 네비게이션
+// 키보드 네비게이션 (수정됨)
 let selectedIndex = -1;
 searchInput.addEventListener('keydown', function(e) {
     const items = autocompleteDropdown.querySelectorAll('.autocomplete-item');
@@ -565,7 +689,12 @@ searchInput.addEventListener('keydown', function(e) {
         e.preventDefault();
         if (selectedIndex >= 0 && items[selectedIndex]) {
             items[selectedIndex].click();
+        } else {
+            executeSearch();  // 선택 항목이 없으면 검색 실행
         }
+    } else if (e.key === 'Escape') {
+        autocompleteDropdown.classList.remove('show');
+        selectedIndex = -1;
     }
 });
 
@@ -635,7 +764,7 @@ function displayProducts(page = 1) {
                 </a>
             </td>
             <td>${product.price ? `₩${product.price.toLocaleString()}` : '-'}</td>
-            <td>${product.customs_cost ? `₩${product.customs_cost.toLocaleString()}` : '-'}</td>
+            <td>${product.customs_cost ? `¥${product.customs_cost.toLocaleString()}` : '-'}</td>
             <td>
                 <input type="checkbox" class="check-small" 
                        ${product.kd_paid ? 'checked' : ''} 

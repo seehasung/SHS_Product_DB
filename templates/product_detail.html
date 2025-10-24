@@ -432,25 +432,170 @@
 
 {% block content %}
 <!-- 검색 바 -->
-<div class="search-bar-section">
-    <div class="container">
-        <div class="search-container">
-            <div class="search-input-group">
-                <i class="bi bi-search search-icon"></i>
-                <input type="text" 
-                       class="search-input" 
-                       id="productSearch"
-                       placeholder="다른 상품 검색..."
-                       autocomplete="off">
-            </div>
-            
-            <!-- 자동완성 드롭다운 -->
-            <div class="autocomplete-dropdown" id="autocompleteDropdown">
-                <!-- 동적 생성 -->
-            </div>
-        </div>
+<!-- 1. 상세 페이지 상단에 검색바 추가 (product-header 아래) -->
+<div class="search-container" style="padding: 20px 30px; background: white;">
+    <div class="search-input-group">
+        <i class="bi bi-search search-icon"></i>
+        <input type="text" 
+               class="form-control search-input" 
+               id="productSearch"
+               placeholder="다른 상품 검색..."
+               autocomplete="off">
+    </div>
+    <div class="autocomplete-dropdown" id="autocompleteDropdown">
+        <!-- 동적으로 생성됨 -->
     </div>
 </div>
+
+<!-- 2. 스타일 추가 -->
+<style>
+    .search-container {
+        position: relative;
+        max-width: 600px;
+        margin: 0 auto;
+    }
+    
+    .search-input-group {
+        position: relative;
+    }
+    
+    .search-input {
+        padding: 12px 20px 12px 45px;
+        border: 2px solid #e9ecef;
+        border-radius: 12px;
+        font-size: 1rem;
+        width: 100%;
+    }
+    
+    .search-input:focus {
+        outline: none;
+        border-color: #667eea;
+        box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.1);
+    }
+    
+    .search-icon {
+        position: absolute;
+        left: 15px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #adb5bd;
+        font-size: 1.2rem;
+        z-index: 1;
+    }
+    
+    .autocomplete-dropdown {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+        margin-top: 5px;
+        max-height: 400px;
+        overflow-y: auto;
+        z-index: 1000;
+        display: none;
+    }
+    
+    .autocomplete-dropdown.show {
+        display: block;
+    }
+    
+    .autocomplete-item {
+        display: flex;
+        align-items: center;
+        padding: 12px 15px;
+        cursor: pointer;
+        transition: background 0.2s ease;
+    }
+    
+    .autocomplete-item:hover {
+        background: #f8f9fa;
+    }
+</style>
+
+<!-- 3. JavaScript 추가 -->
+<script>
+// 전역 변수
+let searchTimeout = null;
+
+// 검색 입력 이벤트
+document.getElementById('productSearch').addEventListener('input', function(e) {
+    clearTimeout(searchTimeout);
+    const searchTerm = e.target.value.trim();
+    
+    if (searchTerm.length < 1) {
+        document.getElementById('autocompleteDropdown').classList.remove('show');
+        return;
+    }
+    
+    searchTimeout = setTimeout(() => {
+        searchProducts(searchTerm);
+    }, 300);
+});
+
+// 상품 검색 함수
+function searchProducts(searchTerm) {
+    fetch(`/products/search?q=${encodeURIComponent(searchTerm)}`)
+        .then(response => response.json())
+        .then(products => {
+            showAutocomplete(products, searchTerm);
+        })
+        .catch(error => {
+            console.error('검색 오류:', error);
+        });
+}
+
+// 자동완성 표시
+function showAutocomplete(products, searchTerm) {
+    const dropdown = document.getElementById('autocompleteDropdown');
+    
+    if (products.length === 0) {
+        dropdown.innerHTML = `
+            <div style="padding: 20px; text-align: center; color: #adb5bd;">
+                <i class="bi bi-search" style="font-size: 2rem;"></i>
+                <p style="margin-top: 10px;">검색 결과가 없습니다</p>
+            </div>
+        `;
+        dropdown.classList.add('show');
+        return;
+    }
+    
+    let html = '';
+    products.forEach(product => {
+        html += `
+            <div class="autocomplete-item" onclick="goToProduct(${product.id})">
+                <div style="flex: 1;">
+                    <div style="font-weight: 600;">${product.name}</div>
+                    <div style="font-size: 0.85rem; color: #adb5bd;">${product.product_code || '코드 없음'}</div>
+                </div>
+                <div style="color: #e74c3c; font-weight: bold;">
+                    ${product.price ? '₩' + product.price.toLocaleString() : '-'}
+                </div>
+            </div>
+        `;
+    });
+    
+    dropdown.innerHTML = html;
+    dropdown.classList.add('show');
+}
+
+// 상품 페이지로 이동
+function goToProduct(productId) {
+    window.location.href = `/products/${productId}`;
+}
+
+// 클릭 외부 영역 시 드롭다운 닫기
+document.addEventListener('click', function(e) {
+    const searchInput = document.getElementById('productSearch');
+    const dropdown = document.getElementById('autocompleteDropdown');
+    
+    if (!searchInput.contains(e.target) && !dropdown.contains(e.target)) {
+        dropdown.classList.remove('show');
+    }
+});
+</script>
 
 <div class="container">
     <!-- 액션 버튼 -->
