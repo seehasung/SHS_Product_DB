@@ -62,20 +62,35 @@
         font-size: 1rem;
     }
     
-    /* 폼 스타일 */
-    .form-floating {
-        position: relative;
+    /* 입력 그룹 스타일 - 심플하게 수정 */
+    .form-group {
         margin-bottom: 20px;
     }
     
+    .form-label {
+        color: #495057;
+        font-weight: 500;
+        margin-bottom: 8px;
+        font-size: 0.95rem;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    
+    .form-label i {
+        font-size: 1rem;
+        color: #667eea;
+    }
+    
+    /* 입력 필드 스타일 */
     .form-control {
         background: #f8f9fa;
         border: 2px solid transparent;
         border-radius: 12px;
-        padding: 15px 20px;
+        padding: 12px 15px;
         font-size: 1rem;
         transition: all 0.3s ease;
-        height: auto;
+        width: 100%;
     }
     
     .form-control:focus {
@@ -85,50 +100,26 @@
         outline: none;
     }
     
-    .form-label {
-        color: #495057;
-        font-weight: 500;
-        margin-bottom: 8px;
-        font-size: 0.9rem;
-        display: flex;
-        align-items: center;
-        gap: 5px;
-    }
-    
-    /* 버튼 스타일 */
-    .btn-login {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        border: none;
-        border-radius: 12px;
-        color: white;
-        padding: 15px 30px;
-        font-size: 1.1rem;
-        font-weight: 600;
-        width: 100%;
-        transition: all 0.3s ease;
-        margin-top: 10px;
+    /* 비밀번호 토글 컨테이너 */
+    .password-wrapper {
         position: relative;
-        overflow: hidden;
     }
     
-    .btn-login::before {
-        content: '';
+    .password-toggle {
         position: absolute;
-        top: 0;
-        left: -100%;
-        width: 100%;
-        height: 100%;
-        background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
-        transition: left 0.5s;
+        right: 15px;
+        top: 50%;
+        transform: translateY(-50%);
+        background: none;
+        border: none;
+        color: #adb5bd;
+        cursor: pointer;
+        padding: 5px;
+        transition: color 0.3s ease;
     }
     
-    .btn-login:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 10px 25px rgba(102, 126, 234, 0.4);
-    }
-    
-    .btn-login:hover::before {
-        left: 100%;
+    .password-toggle:hover {
+        color: #667eea;
     }
     
     /* 체크박스 스타일 */
@@ -155,6 +146,27 @@
         color: #636e72;
         cursor: pointer;
         user-select: none;
+    }
+    
+    /* 버튼 스타일 */
+    .btn-login {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border: none;
+        border-radius: 12px;
+        color: white;
+        padding: 14px 30px;
+        font-size: 1.1rem;
+        font-weight: 600;
+        width: 100%;
+        transition: all 0.3s ease;
+        margin-top: 10px;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .btn-login:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 25px rgba(102, 126, 234, 0.4);
     }
     
     /* 알림 메시지 */
@@ -197,7 +209,7 @@
     
     .login-links p {
         color: #636e72;
-        margin-bottom: 15px;
+        margin-bottom: 0;
     }
     
     .login-links a {
@@ -205,116 +217,31 @@
         text-decoration: none;
         font-weight: 600;
         transition: all 0.3s ease;
-        position: relative;
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
     }
     
-    .login-links a::after {
-        content: '';
-        position: absolute;
-        bottom: -2px;
-        left: 0;
-        width: 0;
-        height: 2px;
-        background: #667eea;
-        transition: width 0.3s ease;
+    .login-links a:hover {
+        text-decoration: underline;
     }
     
-    .login-links a:hover::after {
-        width: 100%;
-    }
-    
-    /* 소셜 로그인 버튼 */
-    .social-login {
-        margin-top: 25px;
-        padding-top: 25px;
-        border-top: 1px solid #e9ecef;
-    }
-    
-    .social-divider {
-        text-align: center;
-        color: #adb5bd;
-        margin-bottom: 20px;
-        position: relative;
-    }
-    
-    .social-divider::before,
-    .social-divider::after {
-        content: '';
-        position: absolute;
-        top: 50%;
-        width: 40%;
-        height: 1px;
-        background: #e9ecef;
-    }
-    
-    .social-divider::before {
-        left: 0;
-    }
-    
-    .social-divider::after {
-        right: 0;
-    }
-    
-    .btn-social {
-        width: 100%;
-        padding: 12px 20px;
-        border: 2px solid #e9ecef;
-        border-radius: 12px;
-        background: white;
-        color: #495057;
-        font-weight: 500;
-        transition: all 0.3s ease;
-        margin-bottom: 10px;
+    /* 보안 뱃지 */
+    .security-badge {
         display: flex;
         align-items: center;
         justify-content: center;
-        gap: 10px;
-    }
-    
-    .btn-social:hover {
-        border-color: #667eea;
-        background: #f8f9fa;
-        transform: translateY(-2px);
-    }
-    
-    /* 입력 필드 아이콘 */
-    .input-group {
-        position: relative;
-        margin-bottom: 20px;
-    }
-    
-    .input-icon {
-        position: absolute;
-        left: 15px;
-        top: 50%;
-        transform: translateY(-50%);
+        gap: 5px;
+        margin-top: 20px;
         color: #adb5bd;
-        z-index: 1;
+        font-size: 0.85rem;
     }
     
-    .form-control.with-icon {
-        padding-left: 45px;
+    .security-badge i {
+        color: #00b894;
     }
     
-    /* 비밀번호 표시/숨기기 토글 */
-    .password-toggle {
-        position: absolute;
-        right: 15px;
-        top: 50%;
-        transform: translateY(-50%);
-        background: none;
-        border: none;
-        color: #adb5bd;
-        cursor: pointer;
-        padding: 5px;
-        transition: color 0.3s ease;
-    }
-    
-    .password-toggle:hover {
-        color: #667eea;
-    }
-    
-    /* 로딩 애니메이션 */
+    /* 로딩 스피너 */
     .spinner {
         display: none;
         width: 20px;
@@ -344,21 +271,6 @@
             font-size: 2rem;
         }
     }
-    
-    /* 보안 뱃지 */
-    .security-badge {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 5px;
-        margin-top: 20px;
-        color: #adb5bd;
-        font-size: 0.85rem;
-    }
-    
-    .security-badge i {
-        color: #00b894;
-    }
 </style>
 {% endblock %}
 
@@ -386,16 +298,13 @@
         <!-- 로그인 폼 -->
         <form method="post" action="/login" id="loginForm">
             <!-- 아이디 입력 -->
-            <div class="input-group">
+            <div class="form-group">
                 <label for="username" class="form-label">
                     <i class="bi bi-person"></i> 아이디
                 </label>
-                <span class="input-icon">
-                    <i class="bi bi-person-fill"></i>
-                </span>
                 <input type="text" 
                        name="username" 
-                       class="form-control with-icon" 
+                       class="form-control" 
                        id="username"
                        placeholder="아이디를 입력하세요"
                        required 
@@ -403,22 +312,21 @@
             </div>
             
             <!-- 비밀번호 입력 -->
-            <div class="input-group">
+            <div class="form-group">
                 <label for="password" class="form-label">
                     <i class="bi bi-lock"></i> 비밀번호
                 </label>
-                <span class="input-icon">
-                    <i class="bi bi-lock-fill"></i>
-                </span>
-                <input type="password" 
-                       name="password" 
-                       class="form-control with-icon" 
-                       id="password"
-                       placeholder="비밀번호를 입력하세요"
-                       required>
-                <button type="button" class="password-toggle" onclick="togglePassword()">
-                    <i class="bi bi-eye" id="toggleIcon"></i>
-                </button>
+                <div class="password-wrapper">
+                    <input type="password" 
+                           name="password" 
+                           class="form-control" 
+                           id="password"
+                           placeholder="비밀번호를 입력하세요"
+                           required>
+                    <button type="button" class="password-toggle" onclick="togglePassword()">
+                        <i class="bi bi-eye" id="toggleIcon"></i>
+                    </button>
+                </div>
             </div>
             
             <!-- 로그인 상태 유지 -->
@@ -438,28 +346,16 @@
         
         <!-- 추가 링크 -->
         <div class="login-links">
-            <p>아직 계정이 없으신가요?</p>
-            <a href="/register">
-                <i class="bi bi-person-plus"></i> 회원가입
-            </a>
-            <span style="margin: 0 15px; color: #ddd;">|</span>
-            <a href="/forgot-password">
-                <i class="bi bi-key"></i> 비밀번호 찾기
-            </a>
+            <p>
+                <a href="/forgot-password">
+                    <i class="bi bi-key"></i> 비밀번호 찾기
+                </a>
+                <span style="margin: 0 10px; color: #ddd;">|</span>
+                <a href="/register">
+                    <i class="bi bi-person-plus"></i> 회원가입
+                </a>
+            </p>
         </div>
-        
-        <!-- 소셜 로그인 (옵션) -->
-        <!--
-        <div class="social-login">
-            <div class="social-divider">또는</div>
-            <button type="button" class="btn-social">
-                <i class="bi bi-google"></i> Google로 로그인
-            </button>
-            <button type="button" class="btn-social">
-                <i class="bi bi-github"></i> GitHub로 로그인
-            </button>
-        </div>
-        -->
         
         <!-- 보안 뱃지 -->
         <div class="security-badge">
@@ -513,35 +409,6 @@
         loginBtn.classList.add('loading');
         loginBtn.querySelector('.btn-text').textContent = '로그인 중...';
         loginBtn.disabled = true;
-    });
-    
-    // Enter 키로 제출
-    document.addEventListener('keypress', function(e) {
-        if (e.key === 'Enter') {
-            const activeElement = document.activeElement;
-            if (activeElement.tagName === 'INPUT') {
-                const form = activeElement.closest('form');
-                if (form) {
-                    const nextInput = form.querySelector('input:not(:focus)');
-                    if (nextInput && !activeElement.value) {
-                        e.preventDefault();
-                        nextInput.focus();
-                    }
-                }
-            }
-        }
-    });
-    
-    // 입력 필드 포커스 효과
-    const inputs = document.querySelectorAll('.form-control');
-    inputs.forEach(input => {
-        input.addEventListener('focus', function() {
-            this.parentElement.querySelector('.input-icon').style.color = '#667eea';
-        });
-        
-        input.addEventListener('blur', function() {
-            this.parentElement.querySelector('.input-icon').style.color = '#adb5bd';
-        });
     });
 </script>
 {% endblock %}

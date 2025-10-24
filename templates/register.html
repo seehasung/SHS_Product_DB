@@ -62,58 +62,39 @@
         font-size: 1rem;
     }
     
-    /* 단계 표시기 */
-    .step-indicator {
-        display: flex;
-        justify-content: center;
-        margin-bottom: 30px;
-        gap: 10px;
+    /* 입력 그룹 스타일 - 심플하게 수정 */
+    .form-group {
+        margin-bottom: 20px;
     }
     
-    .step {
-        width: 40px;
-        height: 40px;
-        border-radius: 50%;
-        background: #e9ecef;
+    .form-label {
+        color: #495057;
+        font-weight: 500;
+        margin-bottom: 8px;
+        font-size: 0.95rem;
         display: flex;
         align-items: center;
-        justify-content: center;
-        font-weight: bold;
-        color: #adb5bd;
-        position: relative;
-        transition: all 0.3s ease;
+        gap: 8px;
     }
     
-    .step.active {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: white;
-        transform: scale(1.1);
+    .form-label i {
+        font-size: 1rem;
+        color: #667eea;
     }
     
-    .step.completed {
-        background: linear-gradient(135deg, #00b894 0%, #55efc4 100%);
-        color: white;
+    .form-label .required {
+        color: #ff6b6b;
     }
     
-    .step-line {
-        position: absolute;
-        top: 50%;
-        left: 100%;
-        width: 30px;
-        height: 2px;
-        background: #e9ecef;
-        z-index: -1;
-    }
-    
-    /* 폼 스타일 */
+    /* 입력 필드 스타일 */
     .form-control {
         background: #f8f9fa;
         border: 2px solid transparent;
         border-radius: 12px;
-        padding: 15px 20px;
+        padding: 12px 15px;
         font-size: 1rem;
         transition: all 0.3s ease;
-        height: auto;
+        width: 100%;
     }
     
     .form-control:focus {
@@ -125,96 +106,32 @@
     
     .form-control.is-invalid {
         border-color: #ff6b6b;
-        background: #fff5f5;
     }
     
     .form-control.is-valid {
         border-color: #00b894;
-        background: #f0fff4;
     }
     
-    .form-label {
-        color: #495057;
-        font-weight: 500;
-        margin-bottom: 8px;
-        font-size: 0.9rem;
-        display: flex;
-        align-items: center;
-        gap: 5px;
-    }
-    
-    .form-label .required {
-        color: #ff6b6b;
-    }
-    
-    /* 입력 그룹 */
-    .input-group {
+    /* 비밀번호 토글 컨테이너 */
+    .password-wrapper {
         position: relative;
-        margin-bottom: 20px;
     }
     
-    .input-icon {
+    .password-toggle {
         position: absolute;
-        left: 15px;
+        right: 15px;
         top: 50%;
         transform: translateY(-50%);
+        background: none;
+        border: none;
         color: #adb5bd;
-        z-index: 1;
+        cursor: pointer;
+        padding: 5px;
+        transition: color 0.3s ease;
     }
     
-    .form-control.with-icon {
-        padding-left: 45px;
-    }
-    
-    /* 비밀번호 강도 표시기 */
-    .password-strength {
-        margin-top: 8px;
-        height: 4px;
-        background: #e9ecef;
-        border-radius: 2px;
-        overflow: hidden;
-    }
-    
-    .password-strength-bar {
-        height: 100%;
-        width: 0;
-        transition: all 0.3s ease;
-        border-radius: 2px;
-    }
-    
-    .password-strength-bar.weak {
-        width: 33%;
-        background: #ff6b6b;
-    }
-    
-    .password-strength-bar.medium {
-        width: 66%;
-        background: #feca57;
-    }
-    
-    .password-strength-bar.strong {
-        width: 100%;
-        background: #00b894;
-    }
-    
-    .password-requirements {
-        margin-top: 10px;
-        padding: 10px;
-        background: #f8f9fa;
-        border-radius: 8px;
-        font-size: 0.85rem;
-    }
-    
-    .requirement {
-        color: #adb5bd;
-        margin: 5px 0;
-        display: flex;
-        align-items: center;
-        gap: 5px;
-    }
-    
-    .requirement.met {
-        color: #00b894;
+    .password-toggle:hover {
+        color: #667eea;
     }
     
     /* 버튼 스타일 */
@@ -223,12 +140,12 @@
         border: none;
         border-radius: 12px;
         color: white;
-        padding: 15px 30px;
+        padding: 14px 30px;
         font-size: 1.1rem;
         font-weight: 600;
         width: 100%;
         transition: all 0.3s ease;
-        margin-top: 10px;
+        margin-top: 20px;
         position: relative;
         overflow: hidden;
     }
@@ -243,12 +160,12 @@
         cursor: not-allowed;
     }
     
-    /* 약관 동의 */
+    /* 약관 동의 섹션 */
     .terms-section {
         background: #f8f9fa;
         border-radius: 12px;
         padding: 15px;
-        margin-bottom: 20px;
+        margin: 20px 0;
     }
     
     .form-check {
@@ -269,6 +186,13 @@
         border-color: transparent;
     }
     
+    .form-check-label {
+        margin-left: 8px;
+        color: #495057;
+        cursor: pointer;
+        user-select: none;
+    }
+    
     /* 알림 메시지 */
     .alert {
         border: none;
@@ -281,30 +205,6 @@
     .alert-danger {
         background: linear-gradient(135deg, #ff6b6b 0%, #feca57 100%);
         color: white;
-    }
-    
-    .alert-info {
-        background: linear-gradient(135deg, #339af0 0%, #74c0fc 100%);
-        color: white;
-    }
-    
-    /* 링크 스타일 */
-    .register-links {
-        text-align: center;
-        margin-top: 25px;
-        padding-top: 25px;
-        border-top: 1px solid #e9ecef;
-    }
-    
-    .register-links a {
-        color: #667eea;
-        text-decoration: none;
-        font-weight: 600;
-        transition: all 0.3s ease;
-    }
-    
-    .register-links a:hover {
-        text-decoration: underline;
     }
     
     /* 유효성 검사 메시지 */
@@ -326,6 +226,25 @@
     .form-control.is-invalid ~ .invalid-feedback,
     .form-control.is-valid ~ .valid-feedback {
         display: block;
+    }
+    
+    /* 링크 스타일 */
+    .register-links {
+        text-align: center;
+        margin-top: 25px;
+        padding-top: 25px;
+        border-top: 1px solid #e9ecef;
+    }
+    
+    .register-links a {
+        color: #667eea;
+        text-decoration: none;
+        font-weight: 600;
+        transition: all 0.3s ease;
+    }
+    
+    .register-links a:hover {
+        text-decoration: underline;
     }
     
     /* 로딩 스피너 */
@@ -370,13 +289,6 @@
             <p>새로운 계정을 만들어보세요</p>
         </div>
         
-        <!-- 단계 표시기 -->
-        <div class="step-indicator">
-            <div class="step active">1</div>
-            <div class="step">2</div>
-            <div class="step">3</div>
-        </div>
-        
         <!-- 에러 알림 -->
         {% if error %}
         <div class="alert alert-danger">
@@ -387,22 +299,19 @@
         <!-- 회원가입 폼 -->
         <form method="post" action="/register" id="registerForm">
             <!-- 아이디 입력 -->
-            <div class="input-group">
+            <div class="form-group">
                 <label for="username" class="form-label">
                     <i class="bi bi-person"></i> 아이디 <span class="required">*</span>
                 </label>
-                <span class="input-icon">
-                    <i class="bi bi-person-fill"></i>
-                </span>
                 <input type="text" 
                        name="username" 
-                       class="form-control with-icon" 
+                       class="form-control" 
                        id="username"
-                       placeholder="아이디를 입력하세요 (영문, 숫자 조합)"
+                       placeholder="아이디를 입력하세요 (영문, 숫자 4-20자)"
                        pattern="[a-zA-Z0-9_]{4,20}"
                        required>
                 <div class="invalid-feedback">
-                    아이디는 4-20자의 영문, 숫자, 언더스코어만 사용 가능합니다.
+                    아이디는 4-20자의 영문, 숫자만 사용 가능합니다.
                 </div>
                 <div class="valid-feedback">
                     <i class="bi bi-check-circle"></i> 사용 가능한 아이디입니다.
@@ -410,52 +319,42 @@
             </div>
             
             <!-- 비밀번호 입력 -->
-            <div class="input-group">
+            <div class="form-group">
                 <label for="password" class="form-label">
                     <i class="bi bi-lock"></i> 비밀번호 <span class="required">*</span>
                 </label>
-                <span class="input-icon">
-                    <i class="bi bi-lock-fill"></i>
-                </span>
-                <input type="password" 
-                       name="password" 
-                       class="form-control with-icon" 
-                       id="password"
-                       placeholder="비밀번호를 입력하세요"
-                       minlength="8"
-                       required>
-                <div class="password-strength">
-                    <div class="password-strength-bar" id="strengthBar"></div>
+                <div class="password-wrapper">
+                    <input type="password" 
+                           name="password" 
+                           class="form-control" 
+                           id="password"
+                           placeholder="비밀번호를 입력하세요 (8자 이상)"
+                           minlength="8"
+                           required>
+                    <button type="button" class="password-toggle" onclick="togglePassword('password', 'toggleIcon1')">
+                        <i class="bi bi-eye" id="toggleIcon1"></i>
+                    </button>
                 </div>
-                <div class="password-requirements">
-                    <div class="requirement" id="req-length">
-                        <i class="bi bi-circle"></i> 최소 8자 이상
-                    </div>
-                    <div class="requirement" id="req-upper">
-                        <i class="bi bi-circle"></i> 대문자 포함
-                    </div>
-                    <div class="requirement" id="req-number">
-                        <i class="bi bi-circle"></i> 숫자 포함
-                    </div>
-                    <div class="requirement" id="req-special">
-                        <i class="bi bi-circle"></i> 특수문자 포함
-                    </div>
+                <div class="invalid-feedback">
+                    비밀번호는 8자 이상이어야 합니다.
                 </div>
             </div>
             
             <!-- 비밀번호 확인 -->
-            <div class="input-group">
+            <div class="form-group">
                 <label for="password_confirm" class="form-label">
                     <i class="bi bi-lock-fill"></i> 비밀번호 확인 <span class="required">*</span>
                 </label>
-                <span class="input-icon">
-                    <i class="bi bi-lock-fill"></i>
-                </span>
-                <input type="password" 
-                       class="form-control with-icon" 
-                       id="password_confirm"
-                       placeholder="비밀번호를 다시 입력하세요"
-                       required>
+                <div class="password-wrapper">
+                    <input type="password" 
+                           class="form-control" 
+                           id="password_confirm"
+                           placeholder="비밀번호를 다시 입력하세요"
+                           required>
+                    <button type="button" class="password-toggle" onclick="togglePassword('password_confirm', 'toggleIcon2')">
+                        <i class="bi bi-eye" id="toggleIcon2"></i>
+                    </button>
+                </div>
                 <div class="invalid-feedback">
                     비밀번호가 일치하지 않습니다.
                 </div>
@@ -465,21 +364,18 @@
             </div>
             
             <!-- 이메일 입력 (선택) -->
-            <div class="input-group">
+            <div class="form-group">
                 <label for="email" class="form-label">
                     <i class="bi bi-envelope"></i> 이메일 <small class="text-muted">(선택)</small>
                 </label>
-                <span class="input-icon">
-                    <i class="bi bi-envelope-fill"></i>
-                </span>
                 <input type="email" 
                        name="email" 
-                       class="form-control with-icon" 
+                       class="form-control" 
                        id="email"
                        placeholder="example@email.com">
             </div>
             
-            <!-- 약관 동의 -->
+            <!-- 약관 동의 (심플하게) -->
             <div class="terms-section">
                 <div class="form-check">
                     <input class="form-check-input" type="checkbox" id="agreeAll">
@@ -491,25 +387,19 @@
                 <div class="form-check">
                     <input class="form-check-input terms-check" type="checkbox" id="terms1" required>
                     <label class="form-check-label" for="terms1">
-                        <span class="required">*</span> 이용약관 동의 (필수)
+                        이용약관 동의 <span class="required">*</span>
                     </label>
                 </div>
                 <div class="form-check">
                     <input class="form-check-input terms-check" type="checkbox" id="terms2" required>
                     <label class="form-check-label" for="terms2">
-                        <span class="required">*</span> 개인정보 수집 및 이용 동의 (필수)
-                    </label>
-                </div>
-                <div class="form-check">
-                    <input class="form-check-input terms-check" type="checkbox" id="terms3">
-                    <label class="form-check-label" for="terms3">
-                        마케팅 정보 수신 동의 (선택)
+                        개인정보 수집 및 이용 동의 <span class="required">*</span>
                     </label>
                 </div>
             </div>
             
             <!-- 회원가입 버튼 -->
-            <button type="submit" class="btn btn-register" id="registerBtn" disabled>
+            <button type="submit" class="btn btn-register" id="registerBtn">
                 <span class="spinner"></span>
                 <span class="btn-text">회원가입</span>
             </button>
@@ -523,59 +413,40 @@
 </div>
 
 <script>
-    // 비밀번호 강도 체크
-    function checkPasswordStrength(password) {
-        let strength = 0;
-        const requirements = {
-            length: password.length >= 8,
-            upper: /[A-Z]/.test(password),
-            number: /[0-9]/.test(password),
-            special: /[!@#$%^&*(),.?":{}|<>]/.test(password)
-        };
+    // 비밀번호 표시/숨기기
+    function togglePassword(inputId, iconId) {
+        const passwordInput = document.getElementById(inputId);
+        const toggleIcon = document.getElementById(iconId);
         
-        // 요구사항 UI 업데이트
-        updateRequirement('req-length', requirements.length);
-        updateRequirement('req-upper', requirements.upper);
-        updateRequirement('req-number', requirements.number);
-        updateRequirement('req-special', requirements.special);
-        
-        // 강도 계산
-        Object.values(requirements).forEach(met => {
-            if (met) strength++;
-        });
-        
-        // 강도 바 업데이트
-        const strengthBar = document.getElementById('strengthBar');
-        strengthBar.className = 'password-strength-bar';
-        
-        if (strength <= 1) {
-            strengthBar.classList.add('weak');
-        } else if (strength <= 3) {
-            strengthBar.classList.add('medium');
+        if (passwordInput.type === 'password') {
+            passwordInput.type = 'text';
+            toggleIcon.classList.remove('bi-eye');
+            toggleIcon.classList.add('bi-eye-slash');
         } else {
-            strengthBar.classList.add('strong');
-        }
-        
-        return strength >= 3; // 최소 3개 요구사항 충족
-    }
-    
-    function updateRequirement(id, met) {
-        const req = document.getElementById(id);
-        if (met) {
-            req.classList.add('met');
-            req.querySelector('i').className = 'bi bi-check-circle-fill';
-        } else {
-            req.classList.remove('met');
-            req.querySelector('i').className = 'bi bi-circle';
+            passwordInput.type = 'password';
+            toggleIcon.classList.remove('bi-eye-slash');
+            toggleIcon.classList.add('bi-eye');
         }
     }
     
-    // 비밀번호 입력 이벤트
+    // 아이디 유효성 검사
+    document.getElementById('username').addEventListener('input', function() {
+        const isValid = /^[a-zA-Z0-9_]{4,20}$/.test(this.value);
+        this.classList.toggle('is-valid', isValid);
+        this.classList.toggle('is-invalid', !isValid && this.value.length > 0);
+    });
+    
+    // 비밀번호 유효성 검사 (심플하게)
     document.getElementById('password').addEventListener('input', function() {
-        const isStrong = checkPasswordStrength(this.value);
-        this.classList.toggle('is-valid', isStrong);
-        this.classList.toggle('is-invalid', !isStrong && this.value.length > 0);
-        checkFormValidity();
+        const isValid = this.value.length >= 8;
+        this.classList.toggle('is-valid', isValid);
+        this.classList.toggle('is-invalid', !isValid && this.value.length > 0);
+        
+        // 비밀번호 확인 필드도 체크
+        const confirmField = document.getElementById('password_confirm');
+        if (confirmField.value) {
+            confirmField.dispatchEvent(new Event('input'));
+        }
     });
     
     // 비밀번호 확인
@@ -584,15 +455,6 @@
         const isMatch = this.value === password && this.value.length > 0;
         this.classList.toggle('is-valid', isMatch);
         this.classList.toggle('is-invalid', !isMatch && this.value.length > 0);
-        checkFormValidity();
-    });
-    
-    // 아이디 유효성 검사
-    document.getElementById('username').addEventListener('input', function() {
-        const isValid = /^[a-zA-Z0-9_]{4,20}$/.test(this.value);
-        this.classList.toggle('is-valid', isValid);
-        this.classList.toggle('is-invalid', !isValid && this.value.length > 0);
-        checkFormValidity();
     });
     
     // 전체 동의 체크박스
@@ -601,7 +463,6 @@
         checkboxes.forEach(checkbox => {
             checkbox.checked = this.checked;
         });
-        checkFormValidity();
     });
     
     // 개별 약관 체크박스
@@ -610,34 +471,49 @@
             const allChecked = Array.from(document.querySelectorAll('.terms-check'))
                 .every(cb => cb.checked);
             document.getElementById('agreeAll').checked = allChecked;
-            checkFormValidity();
         });
     });
     
-    // 폼 유효성 검사
-    function checkFormValidity() {
-        const username = document.getElementById('username').classList.contains('is-valid');
-        const password = document.getElementById('password').classList.contains('is-valid');
-        const passwordConfirm = document.getElementById('password_confirm').classList.contains('is-valid');
-        const terms1 = document.getElementById('terms1').checked;
-        const terms2 = document.getElementById('terms2').checked;
-        
-        const isValid = username && password && passwordConfirm && terms1 && terms2;
-        document.getElementById('registerBtn').disabled = !isValid;
-    }
-    
     // 폼 제출
     document.getElementById('registerForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        // 유효성 검사
+        const username = document.getElementById('username');
+        const password = document.getElementById('password');
+        const passwordConfirm = document.getElementById('password_confirm');
+        const terms1 = document.getElementById('terms1');
+        const terms2 = document.getElementById('terms2');
+        
+        // 모든 필드 검증
+        if (!username.classList.contains('is-valid')) {
+            username.focus();
+            return;
+        }
+        
+        if (password.value.length < 8) {
+            password.focus();
+            return;
+        }
+        
+        if (password.value !== passwordConfirm.value) {
+            passwordConfirm.focus();
+            return;
+        }
+        
+        if (!terms1.checked || !terms2.checked) {
+            alert('필수 약관에 동의해주세요.');
+            return;
+        }
+        
+        // 로딩 상태
         const registerBtn = document.getElementById('registerBtn');
         registerBtn.classList.add('loading');
         registerBtn.querySelector('.btn-text').textContent = '가입 처리 중...';
         registerBtn.disabled = true;
+        
+        // 폼 제출
+        this.submit();
     });
-    
-    // 단계 애니메이션 (데모용)
-    setTimeout(() => {
-        document.querySelectorAll('.step')[0].classList.add('completed');
-        document.querySelectorAll('.step')[1].classList.add('active');
-    }, 3000);
 </script>
 {% endblock %}
