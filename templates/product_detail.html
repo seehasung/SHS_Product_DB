@@ -100,240 +100,220 @@
         }
     }
     
+    /* 자동완성 아이템 */
     .autocomplete-item {
         display: flex;
         align-items: center;
         padding: 15px 20px;
         cursor: pointer;
-        transition: all 0.2s;
-        border-bottom: 1px solid #f5f5f5;
+        transition: background 0.2s ease;
+        border-bottom: 1px solid #f0f0f0;
     }
     
     .autocomplete-item:hover {
-        background: linear-gradient(90deg, #f8f9fa 0%, #e9ecef 100%);
-        padding-left: 25px;
+        background: #f8f9fa;
     }
     
-    .autocomplete-item:first-child {
-        border-radius: 18px 18px 0 0;
-    }
-    
-    .autocomplete-item:last-child {
-        border-bottom: none;
-        border-radius: 0 0 18px 18px;
+    .autocomplete-item.selected {
+        background: #e7f0ff;
     }
     
     .autocomplete-thumbnail {
-        width: 60px;
-        height: 60px;
-        border-radius: 12px;
+        width: 50px;
+        height: 50px;
+        border-radius: 10px;
         object-fit: cover;
-        margin-right: 20px;
-        background: #f0f0f0;
-        border: 2px solid #e9ecef;
+        margin-right: 15px;
+        background: #f8f9fa;
+        border: 1px solid #e9ecef;
     }
     
     .autocomplete-info {
         flex: 1;
+        min-width: 0;
     }
     
     .autocomplete-name {
         font-weight: 600;
         color: #2d3436;
         margin-bottom: 5px;
-        font-size: 1.05rem;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
     }
     
     .autocomplete-price {
         font-size: 0.9rem;
         color: #636e72;
-        font-weight: 500;
     }
     
-    /* 형광펜 하이라이트 효과 - 더 밝고 눈에 띄게 */
     .highlight {
-        background: linear-gradient(180deg, transparent 40%, #ffd93d 40%, #ffd93d 85%, transparent 85%);
-        padding: 0 2px;
-        font-weight: bold;
-        animation: highlightPulse 0.5s ease;
+        background: #fff3cd;
+        padding: 2px 4px;
+        border-radius: 3px;
+        font-weight: 600;
     }
     
-    @keyframes highlightPulse {
-        0% {
-            background-size: 100% 100%;
-        }
-        50% {
-            background-size: 110% 110%;
-        }
-        100% {
-            background-size: 100% 100%;
-        }
-    }
-    
-    /* 메인 상품 카드 */
+    /* 메인 상품 카드 - 개선된 레이아웃 */
     .product-main-card {
         background: white;
         border-radius: 20px;
-        padding: 0;
-        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.08);
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
         overflow: hidden;
         margin-bottom: 30px;
     }
     
     /* 이미지 섹션 */
     .product-image-section {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         padding: 40px;
+        background: linear-gradient(135deg, #f5f6fa 0%, #ffffff 100%);
+        min-height: 500px;
         display: flex;
         align-items: center;
         justify-content: center;
-        min-height: 400px;
     }
     
     .product-image {
         max-width: 100%;
-        max-height: 400px;
+        max-height: 450px;
+        width: auto;
+        height: auto;
         border-radius: 15px;
-        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
         object-fit: contain;
-        background: white;
     }
     
     .no-image {
-        width: 300px;
-        height: 300px;
-        background: rgba(255, 255, 255, 0.2);
+        width: 100%;
+        height: 450px;
+        background: #f8f9fa;
         border-radius: 15px;
         display: flex;
         align-items: center;
         justify-content: center;
-        color: white;
-        font-size: 5rem;
+        color: #adb5bd;
+        font-size: 6rem;
     }
     
-    /* 정보 섹션 */
+    /* 정보 섹션 - 개선된 레이아웃 */
     .product-info-section {
         padding: 40px;
+        max-height: 500px;
+        overflow-y: auto;
     }
     
     .product-title {
-        font-size: 2.5rem;
-        font-weight: bold;
+        font-size: 1.8rem;
+        font-weight: 700;
         color: #2d3436;
         margin-bottom: 15px;
+        line-height: 1.3;
+        word-break: keep-all;
     }
     
     .product-code {
+        font-size: 0.95rem;
         color: #636e72;
-        font-size: 1rem;
-        margin-bottom: 30px;
+        margin-bottom: 25px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
     }
     
     /* 가격 표시 */
     .price-display {
-        background: linear-gradient(135deg, #00b894 0%, #55efc4 100%);
-        color: white;
-        padding: 20px 30px;
-        border-radius: 15px;
-        font-size: 1.5rem;
-        font-weight: bold;
-        display: inline-block;
+        font-size: 2rem;
+        font-weight: 700;
+        color: #e74c3c;
         margin-bottom: 30px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
     }
     
-    /* 배송 옵션 - 신고가 뱃지 추가 */
+    /* 배송 뱃지 - 컴팩트하게 */
     .shipping-badges {
         display: flex;
-        gap: 15px;
-        margin-bottom: 30px;
+        gap: 10px;
+        margin-bottom: 25px;
         flex-wrap: wrap;
-        align-items: center;
+        max-width: 100%;
     }
     
     .shipping-badge {
-        padding: 12px 20px;
-        border-radius: 12px;
+        padding: 8px 16px;
+        border-radius: 25px;
+        font-size: 0.9rem;
         font-weight: 600;
-        display: flex;
+        display: inline-flex;
         align-items: center;
-        gap: 8px;
+        gap: 6px;
         transition: all 0.3s ease;
     }
     
     .shipping-badge.active {
-        background: #d4f4dd;
-        color: #00b894;
-        box-shadow: 0 4px 15px rgba(0, 184, 148, 0.2);
+        background: linear-gradient(135deg, #00b894 0%, #00cec9 100%);
+        color: white;
+        box-shadow: 0 5px 15px rgba(0, 184, 148, 0.3);
     }
     
     .shipping-badge.inactive {
-        background: #f8f9fa;
-        color: #adb5bd;
+        background: #e9ecef;
+        color: #636e72;
     }
     
-    /* 신고가 뱃지 - 새로운 스타일 */
+    /* 신고가 뱃지 */
     .customs-price-badge {
-        padding: 12px 20px;
-        border-radius: 12px;
-        font-weight: 600;
-        background: linear-gradient(135deg, #ff6348 0%, #ff8c69 100%);
+        padding: 8px 16px;
+        border-radius: 25px;
+        background: linear-gradient(135deg, #f39c12 0%, #e67e22 100%);
         color: white;
+        font-weight: 600;
         display: inline-flex;
         align-items: center;
         gap: 8px;
-        box-shadow: 0 4px 20px rgba(255, 99, 72, 0.3);
-        animation: pulse 2s infinite;
-    }
-    
-    @keyframes pulse {
-        0% {
-            transform: scale(1);
-        }
-        50% {
-            transform: scale(1.05);
-        }
-        100% {
-            transform: scale(1);
-        }
+        box-shadow: 0 5px 15px rgba(243, 156, 18, 0.3);
+        font-size: 0.9rem;
     }
     
     .customs-price-badge i {
-        font-size: 1.1rem;
+        font-size: 1rem;
     }
     
     .customs-price-badge .price-value {
-        font-size: 1.1rem;
+        font-size: 1rem;
         font-weight: bold;
     }
     
-    /* 링크 버튼 */
+    /* 링크 버튼 - 썸네일 영역 내 포함 */
     .shop-links {
         display: flex;
-        gap: 15px;
-        margin-bottom: 30px;
+        gap: 10px;
+        margin-bottom: 25px;
         flex-wrap: wrap;
     }
     
     .shop-link {
-        padding: 12px 25px;
-        border-radius: 12px;
+        padding: 10px 20px;
+        border-radius: 10px;
         text-decoration: none;
         font-weight: 600;
+        font-size: 0.9rem;
         transition: all 0.3s ease;
         display: inline-flex;
         align-items: center;
-        gap: 8px;
+        gap: 6px;
         color: white;
     }
     
     .shop-link:hover {
-        transform: translateY(-3px);
-        box-shadow: 0 15px 35px rgba(0, 0, 0, 0.25);
+        transform: translateY(-2px);
+        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
         color: white;
     }
     
     .shop-link.coupang {
-        background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+        background: linear-gradient(135deg, #0984e3 0%, #0652DD 100%);
     }
     
     .shop-link.naver {
@@ -344,28 +324,35 @@
         background: linear-gradient(135deg, #ff6348 0%, #ff4757 100%);
     }
     
-    /* 상세 정보 섹션 */
+    /* 상세 정보 섹션 - 확장 및 개선 */
     .details-section {
-        background: linear-gradient(135deg, #f5f6fa 0%, #e9ecef 100%);
-        border-radius: 15px;
-        padding: 30px;
+        background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+        border-radius: 20px;
+        padding: 40px;
         margin-top: 30px;
+        box-shadow: 0 5px 20px rgba(0, 0, 0, 0.05);
+        width: 100%;
     }
     
     .details-title {
-        font-size: 1.3rem;
-        font-weight: 600;
+        font-size: 1.5rem;
+        font-weight: 700;
         color: #2d3436;
-        margin-bottom: 20px;
+        margin-bottom: 25px;
         display: flex;
         align-items: center;
         gap: 10px;
+        border-bottom: 3px solid #667eea;
+        padding-bottom: 15px;
     }
     
     .details-content {
-        color: #636e72;
-        line-height: 1.8;
-        font-size: 1rem;
+        color: #2d3436;
+        line-height: 2;
+        font-size: 1.15rem;
+        font-weight: 500;
+        white-space: pre-wrap;
+        word-break: keep-all;
     }
     
     /* 액션 버튼 */
@@ -373,6 +360,8 @@
         display: flex;
         gap: 15px;
         margin-top: 30px;
+        padding-top: 20px;
+        border-top: 1px solid #e9ecef;
     }
     
     .btn-action {
@@ -444,8 +433,8 @@
     }
     
     .option-card-title.coupang {
-        color: #e74c3c;
-        border-bottom-color: #e74c3c;
+        color: #0984e3;
+        border-bottom-color: #0984e3;
     }
     
     .option-card-title.naver {
@@ -460,8 +449,7 @@
     
     .option-table {
         width: 100%;
-        border-collapse: collapse;
-        margin-top: 15px;
+        margin-top: 20px;
     }
     
     .option-table th {
@@ -469,64 +457,49 @@
         padding: 12px;
         text-align: left;
         font-weight: 600;
-        color: #636e72;
-        font-size: 0.9rem;
+        color: #495057;
     }
     
     .option-table td {
         padding: 12px;
         border-bottom: 1px solid #f0f0f0;
-        color: #2d3436;
-    }
-    
-    .option-table tr:last-child td {
-        border-bottom: none;
     }
     
     .option-price {
+        text-align: right;
         font-weight: 600;
-        color: #667eea;
+        color: #e74c3c;
     }
     
     .no-options {
         text-align: center;
-        padding: 40px;
+        padding: 40px 20px;
         color: #adb5bd;
     }
     
-    .no-options i {
-        color: #dee2e6;
-        margin-bottom: 15px;
-    }
-    
     /* 반응형 디자인 */
-    @media (max-width: 768px) {
-        .product-title {
-            font-size: 1.8rem;
+    @media (max-width: 991px) {
+        .product-info-section {
+            max-height: none;
         }
         
-        .shipping-badges {
-            flex-direction: column;
-            align-items: stretch;
+        .product-image-section {
+            min-height: 300px;
         }
         
-        .shop-links {
-            flex-direction: column;
+        .details-section {
+            padding: 30px 20px;
         }
         
-        .action-buttons {
-            flex-direction: column;
-        }
-        
-        .options-container {
-            grid-template-columns: 1fr;
+        .details-content {
+            font-size: 1rem;
         }
     }
 </style>
 {% endblock %}
 
 {% block content %}
-<!-- 검색 바 - 개선된 디자인 -->
+<!-- 검색 바 -->
 <div class="search-bar-section">
     <div class="container">
         <div class="search-container">
@@ -535,7 +508,7 @@
                 <input type="text" 
                        id="productSearch" 
                        class="search-input" 
-                       placeholder="🔍 다른 상품 검색하기..." 
+                       placeholder="다른 상품 검색..." 
                        autocomplete="off">
             </div>
             <div id="autocompleteDropdown" class="autocomplete-dropdown"></div>
@@ -548,10 +521,10 @@
     <div class="product-main-card">
         <div class="row g-0">
             <!-- 이미지 섹션 -->
-            <div class="col-lg-6">
+            <div class="col-lg-5">
                 <div class="product-image-section">
-                    {% if product.image %}
-                        <img src="{{ product.image }}" alt="{{ product.name }}" class="product-image">
+                    {% if product.thumbnail %}
+                        <img src="{{ product.thumbnail }}" alt="{{ product.name }}" class="product-image">
                     {% else %}
                         <div class="no-image">
                             <i class="bi bi-image"></i>
@@ -561,7 +534,7 @@
             </div>
             
             <!-- 정보 섹션 -->
-            <div class="col-lg-6">
+            <div class="col-lg-7">
                 <div class="product-info-section">
                     <h1 class="product-title">{{ product.name }}</h1>
                     <div class="product-code">
@@ -598,7 +571,7 @@
                         {% else %}
                         <div class="customs-price-badge">
                             <i class="bi bi-currency-exchange"></i>
-                            <span>신고가: 미정</span>
+                            <span>신고가: ¥0</span>
                         </div>
                         {% endif %}
                     </div>
@@ -624,17 +597,6 @@
                         {% endif %}
                     </div>
                     
-                    <!-- 상세 정보 -->
-                    <div class="details-section">
-                        <h3 class="details-title">
-                            <i class="bi bi-info-circle-fill"></i>
-                            상세 정보
-                        </h3>
-                        <div class="details-content">
-                            {{ product.details | replace('\n', '<br>') | safe if product.details else '상세 정보가 없습니다.' }}
-                        </div>
-                    </div>
-                    
                     <!-- 액션 버튼 -->
                     <div class="action-buttons">
                         <button onclick="location.href='/products/edit/{{ product.id }}'" class="btn-action btn-edit">
@@ -651,6 +613,19 @@
             </div>
         </div>
     </div>
+    
+    <!-- 상세 정보 섹션 - 전체 너비로 확장 -->
+    {% if product.details %}
+    <div class="details-section">
+        <h3 class="details-title">
+            <i class="bi bi-info-circle-fill"></i>
+            상세 정보
+        </h3>
+        <div class="details-content">
+            {{ product.details | safe }}
+        </div>
+    </div>
+    {% endif %}
     
     <!-- 옵션 카드들 -->
     <div class="options-container">
@@ -751,10 +726,30 @@
 
 <script>
 // 전역 변수
+let allProducts = [];
 let searchInput = document.getElementById('productSearch');
 let autocompleteDropdown = document.getElementById('autocompleteDropdown');
 let searchTimeout = null;
 let selectedIndex = -1;
+
+// 페이지 로드 시 전체 상품 가져오기
+document.addEventListener('DOMContentLoaded', function() {
+    fetchAllProducts();
+});
+
+// 전체 상품 목록 가져오기
+function fetchAllProducts() {
+    fetch('/products/api/all')
+        .then(response => response.json())
+        .then(data => {
+            allProducts = data.products || [];
+            console.log('전체 상품 로드:', allProducts.length);
+        })
+        .catch(error => {
+            console.error('상품 목록 로드 실패:', error);
+            // 대체: 기본 검색 사용
+        });
+}
 
 // 자동완성 검색
 searchInput.addEventListener('input', function(e) {
@@ -768,20 +763,36 @@ searchInput.addEventListener('input', function(e) {
     }
     
     searchTimeout = setTimeout(() => {
-        searchProducts(searchTerm);
+        if (allProducts.length > 0) {
+            // 로컬 검색
+            const filtered = allProducts.filter(product => {
+                const name = (product.name || '').toLowerCase();
+                const code = (product.product_code || '').toLowerCase();
+                return name.includes(searchTerm) || code.includes(searchTerm);
+            });
+            showAutocomplete(filtered, searchTerm);
+        } else {
+            // API 검색 폴백
+            searchProducts(searchTerm);
+        }
     }, 300);
 });
 
-// 상품 검색 API 호출
+// 상품 검색 API 호출 (폴백)
 function searchProducts(searchTerm) {
-    fetch(`/products/api/search?q=${encodeURIComponent(searchTerm)}`)
+    // 간단한 검색 쿼리
+    fetch('/products?keyword=' + encodeURIComponent(searchTerm), {
+        headers: {
+            'Accept': 'application/json'
+        }
+    })
         .then(response => response.json())
-        .then(products => {
+        .then(data => {
+            const products = data.products || [];
             showAutocomplete(products, searchTerm);
         })
         .catch(error => {
             console.error('검색 오류:', error);
-            // 에러 시 빈 결과 표시
             showAutocomplete([], searchTerm);
         });
 }
@@ -810,8 +821,8 @@ function showAutocomplete(products, searchTerm) {
             <div class="autocomplete-item" 
                  onclick="goToProduct(${product.id})"
                  data-index="${index}">
-                ${product.image ? 
-                    `<img src="${product.image}" class="autocomplete-thumbnail" onerror="this.src='/static/img/no-image.png'">` :
+                ${product.thumbnail ? 
+                    `<img src="${product.thumbnail}" class="autocomplete-thumbnail" onerror="this.style.display='none'">` :
                     `<div class="autocomplete-thumbnail" style="display: flex; align-items: center; justify-content: center; background: #f8f9fa;">
                         <i class="bi bi-image" style="color: #adb5bd; font-size: 1.5rem;"></i>
                     </div>`
@@ -844,22 +855,39 @@ function showAutocomplete(products, searchTerm) {
     selectedIndex = -1;
 }
 
-// 텍스트 하이라이트 - 형광펜 효과
+// 텍스트 하이라이트
 function highlightText(text, searchTerm) {
     if (!searchTerm || !text) return text;
     
-    // 대소문자 구분 없이 검색
     const regex = new RegExp(`(${searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
     return text.replace(regex, '<span class="highlight">$1</span>');
 }
 
 // 상품 페이지로 이동
 function goToProduct(productId) {
-    // 현재 페이지가 같은 상품이면 새로고침
     if (window.location.pathname === `/products/${productId}`) {
         window.location.reload();
     } else {
         window.location.href = `/products/${productId}`;
+    }
+}
+
+// 상품 삭제
+function deleteProduct(productId) {
+    if (confirm('정말로 이 상품을 삭제하시겠습니까?')) {
+        // Form 방식으로 전송
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = '/products/delete';
+        
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = 'product_id';
+        input.value = productId;
+        
+        form.appendChild(input);
+        document.body.appendChild(form);
+        form.submit();
     }
 }
 
@@ -888,7 +916,6 @@ searchInput.addEventListener('keydown', function(e) {
         if (selectedIndex >= 0 && items[selectedIndex]) {
             items[selectedIndex].click();
         } else if (searchInput.value.trim()) {
-            // 선택된 항목이 없으면 첫 번째 결과로 이동
             if (items.length > 0) {
                 items[0].click();
             }
@@ -900,57 +927,16 @@ searchInput.addEventListener('keydown', function(e) {
     }
 });
 
-// 선택된 항목 스타일 업데이트
+// 선택 표시 업데이트
 function updateSelection(items) {
     items.forEach((item, index) => {
         if (index === selectedIndex) {
-            item.style.background = 'linear-gradient(90deg, #f0f3ff 0%, #e6eaff 100%)';
-            item.style.paddingLeft = '25px';
-            // 선택된 항목이 보이도록 스크롤
-            item.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+            item.classList.add('selected');
+            item.scrollIntoView({ block: 'nearest' });
         } else {
-            item.style.background = '';
-            item.style.paddingLeft = '20px';
+            item.classList.remove('selected');
         }
     });
 }
-
-// 상품 삭제
-function deleteProduct(productId) {
-    if (confirm('정말로 이 상품을 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다.')) {
-        // Form 데이터로 전송
-        const form = document.createElement('form');
-        form.method = 'POST';
-        form.action = `/products/delete/${productId}`;
-        
-        document.body.appendChild(form);
-        form.submit();
-    }
-}
-
-// 이미지 에러 처리
-document.addEventListener('DOMContentLoaded', function() {
-    const images = document.querySelectorAll('img');
-    images.forEach(img => {
-        img.onerror = function() {
-            if (this.parentElement.classList.contains('product-image-section')) {
-                this.style.display = 'none';
-                const placeholder = document.createElement('div');
-                placeholder.className = 'no-image';
-                placeholder.innerHTML = '<i class="bi bi-image"></i>';
-                this.parentElement.appendChild(placeholder);
-            }
-        };
-    });
-});
-
-// 검색창 포커스 시 애니메이션
-searchInput.addEventListener('focus', function() {
-    this.parentElement.style.transform = 'scale(1.02)';
-});
-
-searchInput.addEventListener('blur', function() {
-    this.parentElement.style.transform = 'scale(1)';
-});
 </script>
 {% endblock %}
