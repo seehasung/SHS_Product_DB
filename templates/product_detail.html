@@ -9,6 +9,28 @@
         background: #f5f6fa;
         min-height: 100vh;
     }
+
+    .search-home-btn {
+    width: 50px;
+    height: 50px;
+    border-radius: 50px;
+    background: rgba(255, 255, 255, 0.95);
+    color: #667eea;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    text-decoration: none;
+    transition: all 0.3s ease;
+    box-shadow: 0 5px 20px rgba(0, 0, 0, 0.1);
+}
+
+    .search-home-btn:hover {
+        background: white;
+        transform: scale(1.1);
+        color: #764ba2;
+        box-shadow: 0 8px 30px rgba(0, 0, 0, 0.2);
+    }
     
     /* 검색 바 섹션 - 개선된 디자인 */
     .search-bar-section {
@@ -20,6 +42,7 @@
         z-index: 100;
         margin-bottom: 30px;
     }
+    
     
     .search-container {
         position: relative;
@@ -510,16 +533,23 @@
 <!-- 검색 바 -->
 <div class="search-bar-section">
     <div class="container">
-        <div class="search-container">
-            <div class="search-input-group">
-                <i class="bi bi-search search-icon"></i>
-                <input type="text" 
-                       id="productSearch" 
-                       class="search-input" 
-                       placeholder="다른 상품 검색..." 
-                       autocomplete="off">
+        <div style="display: flex; align-items: center; gap: 20px;">
+            <!-- 홈 버튼 추가 -->
+            <a href="/" class="search-home-btn" title="홈으로">
+                <i class="bi bi-house-door-fill"></i>
+            </a>
+            <!-- 기존 검색 컨테이너 -->
+            <div class="search-container" style="flex: 1;">
+                <div class="search-input-group">
+                    <i class="bi bi-search search-icon"></i>
+                    <input type="text" 
+                           id="productSearch" 
+                           class="search-input" 
+                           placeholder="다른 상품 검색..." 
+                           autocomplete="off">
+                </div>
+                <div id="autocompleteDropdown" class="autocomplete-dropdown"></div>
             </div>
-            <div id="autocompleteDropdown" class="autocomplete-dropdown"></div>
         </div>
     </div>
 </div>
