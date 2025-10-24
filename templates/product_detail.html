@@ -347,12 +347,20 @@
     }
     
     .details-content {
-        color: #2d3436;
+        color: #000000ff;
         line-height: 2;
-        font-size: 1.15rem;
-        font-weight: 500;
-        white-space: pre-wrap;
-        word-break: keep-all;
+        font-size: 1.35rem;
+        font-weight: 600;
+        white-space: normal;  /* pre-wrap 대신 normal */
+        text-align: left;  /* 왼쪽 정렬 */
+        text-indent: 0;  /* 들여쓰기 제거 */
+        padding: 0;  /* 패딩 제거 */
+    }
+
+    /* 줄바꿈 처리 */
+    .details-content br {
+        display: block;
+        margin: 10px 0;
     }
     
     /* 액션 버튼 */
@@ -622,7 +630,12 @@
             상세 정보
         </h3>
         <div class="details-content">
-            {{ product.details | safe }}
+            {% if product.details %}
+                <!-- 앞뒤 공백 제거하고 줄바꿈은 <br>로 변환 -->
+                {{ product.details.strip() | replace('\n', '<br>') | safe }}
+            {% else %}
+                상세 정보가 없습니다.
+            {% endif %}
         </div>
     </div>
     {% endif %}
