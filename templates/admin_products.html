@@ -98,25 +98,21 @@
         align-items: center;
         padding: 12px 15px;
         cursor: pointer;
-        transition: background 0.2s;
-        border-bottom: 1px solid #f0f0f0;
+        transition: background 0.2s ease;
     }
     
     .autocomplete-item:hover {
         background: #f8f9fa;
     }
     
-    .autocomplete-item:last-child {
-        border-bottom: none;
-    }
-    
     .autocomplete-thumbnail {
-        width: 50px;
-        height: 50px;
+        width: 45px;
+        height: 45px;
         border-radius: 8px;
         object-fit: cover;
         margin-right: 15px;
-        background: #f0f0f0;
+        background: #f8f9fa;
+        border: 1px solid #e9ecef;
     }
     
     .autocomplete-info {
@@ -124,40 +120,18 @@
     }
     
     .autocomplete-name {
-        font-weight: 500;
+        font-weight: 600;
         color: #2d3436;
-        margin-bottom: 5px;
     }
     
     .autocomplete-code {
         font-size: 0.85rem;
-        color: #636e72;
+        color: #adb5bd;
     }
     
-    /* 하이라이트 스타일 */
     .highlight {
-        background: #ffd93d;
-        padding: 2px 0;
-        border-radius: 2px;
-    }
-    
-    /* 버튼 스타일 */
-    .btn-add {
-        padding: 12px 24px;
-        border-radius: 10px;
-        font-weight: 500;
-        transition: all 0.3s ease;
-        border: none;
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: white;
-        display: inline-flex;
-        align-items: center;
-        gap: 8px;
-    }
-    
-    .btn-add:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+        background: #fff3cd;
+        font-weight: 600;
     }
     
     /* 상품 테이블 */
@@ -166,7 +140,6 @@
         border-radius: 15px;
         padding: 25px;
         box-shadow: 0 5px 20px rgba(0, 0, 0, 0.08);
-        overflow-x: auto;
     }
     
     .products-table {
@@ -175,91 +148,113 @@
         border-spacing: 0;
     }
     
-    .products-table thead {
+    .products-table thead th {
         background: #f8f9fa;
-    }
-    
-    .products-table th {
-        padding: 12px 10px;
-        text-align: left;
-        font-weight: 600;
         color: #636e72;
+        font-weight: 600;
+        padding: 15px 10px;
+        text-align: left;
         font-size: 0.9rem;
         border-bottom: 2px solid #e9ecef;
-        white-space: nowrap;
-    }
-    
-    .products-table td {
-        padding: 12px 10px;
-        border-bottom: 1px solid #f0f0f0;
-        vertical-align: middle;
     }
     
     .products-table tbody tr {
-        transition: background 0.2s;
+        transition: background 0.2s ease;
+        border-bottom: 1px solid #f0f1f3;
     }
     
     .products-table tbody tr:hover {
         background: #f8f9fa;
     }
     
+    .products-table td {
+        padding: 15px 10px;
+        vertical-align: middle;
+    }
+    
+    /* 상품명 링크 스타일 */
+    .product-name-link {
+        text-decoration: none;
+        color: #2d3436;
+        font-weight: 600;
+        transition: color 0.2s ease;
+    }
+    
+    .product-name-link:hover {
+        color: #667eea;
+    }
+    
     /* 썸네일 스타일 */
     .product-thumbnail {
-        width: 50px;
-        height: 50px;
-        border-radius: 8px;
+        width: 60px;
+        height: 60px;
         object-fit: cover;
-        background: #f0f0f0;
+        border-radius: 8px;
+        border: 1px solid #e9ecef;
     }
     
     .no-thumbnail {
-        width: 50px;
-        height: 50px;
+        width: 60px;
+        height: 60px;
+        background: #f8f9fa;
         border-radius: 8px;
-        background: #e9ecef;
         display: flex;
         align-items: center;
         justify-content: center;
         color: #adb5bd;
+        font-size: 1.5rem;
+    }
+    
+    /* 체크박스 스타일 */
+    .check-small {
+        width: 20px;
+        height: 20px;
+        cursor: not-allowed;
+        opacity: 0.7;
     }
     
     /* 링크 버튼 */
     .link-btn {
-        padding: 6px 10px;
-        border-radius: 6px;
+        padding: 6px 12px;
+        border-radius: 8px;
         text-decoration: none;
         font-size: 0.85rem;
         font-weight: 500;
-        transition: all 0.3s ease;
         display: inline-block;
-        background: #f0f0f0;
-        color: #636e72;
+        transition: all 0.2s ease;
     }
     
-    .link-btn:hover {
-        transform: translateY(-2px);
-    }
-    
-    .link-btn-coupang:hover {
+    .link-btn-coupang {
         background: #e74c3c;
         color: white;
     }
     
+    .link-btn-coupang:hover {
+        background: #c0392b;
+        color: white;
+        transform: translateY(-2px);
+    }
+    
+    .link-btn-naver {
+        background: #03c75a;
+        color: white;
+    }
+    
     .link-btn-naver:hover {
-        background: #00c73c;
+        background: #02a34a;
+        color: white;
+        transform: translateY(-2px);
+    }
+    
+    .link-btn-taobao {
+        background: #ff6900;
         color: white;
     }
     
     .link-btn-taobao:hover {
-        background: #ff6348;
+        background: #e55800;
         color: white;
-    }
-    
-    /* 체크박스 */
-    .check-small {
-        width: 18px;
-        height: 18px;
-        cursor: pointer;
+        transform: translateY(-2px);
     }
     
     /* 액션 버튼 */
@@ -269,30 +264,54 @@
     }
     
     .btn-action {
-        padding: 6px 10px;
-        border-radius: 6px;
+        width: 35px;
+        height: 35px;
         border: none;
-        background: #f0f0f0;
+        border-radius: 8px;
+        background: #f8f9fa;
         color: #636e72;
         cursor: pointer;
-        transition: all 0.3s ease;
-        font-size: 0.85rem;
+        transition: all 0.2s ease;
+        display: flex;
+        align-items: center;
+        justify-content: center;
     }
     
     .btn-action:hover {
         background: #667eea;
         color: white;
+        transform: translateY(-2px);
     }
     
     .btn-action.delete:hover {
-        background: #ff6b6b;
+        background: #e74c3c;
+    }
+    
+    /* 추가 버튼 */
+    .btn-add {
+        padding: 10px 20px;
+        border-radius: 10px;
+        border: none;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    
+    .btn-add:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
     }
     
     /* 페이지네이션 */
     .pagination-container {
+        margin-top: 20px;
         display: flex;
         justify-content: center;
-        margin-top: 30px;
     }
     
     .pagination {
@@ -336,14 +355,16 @@
         <div style="display: flex; gap: 15px; align-items: center;">
             <select class="form-select" style="width: 150px;" onchange="changeItemsPerPage(this.value)">
                 <option value="10">10개씩 보기</option>
-                <option value="15" selected>15개씩 보기</option>
                 <option value="20">20개씩 보기</option>
                 <option value="30">30개씩 보기</option>
                 <option value="50">50개씩 보기</option>
+                <option value="100">100개씩 보기</option>
+                <option value="all">전체 보기</option>
             </select>
-            <button class="btn-add" data-bs-toggle="modal" data-bs-target="#productModal">
+            <!-- 상품 추가 버튼 - 페이지 이동으로 변경 -->
+            <a href="/products/add" class="btn-add">
                 <i class="bi bi-plus-lg"></i> 상품 추가
-            </button>
+            </a>
         </div>
     </div>
     
@@ -376,7 +397,7 @@
         <table class="products-table">
             <thead>
                 <tr>
-                    <th>ID</th>
+                    <th>상품코드</th>
                     <th>썸네일</th>
                     <th>상품명</th>
                     <th>가격</th>
@@ -403,131 +424,6 @@
     </div>
 </div>
 
-<!-- 상품 추가/수정 모달 -->
-<div class="modal fade" id="productModal" tabindex="-1">
-    <div class="modal-dialog modal-lg">
-        <div class="modal-content" style="border-radius: 20px;">
-            <div class="modal-header" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border-radius: 20px 20px 0 0;">
-                <h5 class="modal-title" id="modalTitle">
-                    <i class="bi bi-box-seam"></i> 상품 추가
-                </h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body" style="padding: 30px;">
-                <form id="productForm">
-                    <input type="hidden" id="productId" name="id">
-                    
-                    <!-- 기본 정보 -->
-                    <div class="row mb-3">
-                        <div class="col-md-6">
-                            <label class="form-label">상품명 <span style="color: #ff6b6b;">*</span></label>
-                            <input type="text" class="form-control" id="productName" name="name" required>
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label">상품코드</label>
-                            <input type="text" class="form-control" id="productCode" name="product_code">
-                        </div>
-                    </div>
-                    
-                    <div class="row mb-3">
-                        <div class="col-md-6">
-                            <label class="form-label">가격</label>
-                            <input type="number" class="form-control" id="productPrice" name="price">
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label">신고가</label>
-                            <input type="number" class="form-control" id="customsCost" name="customs_cost">
-                        </div>
-                    </div>
-                    
-                    <div class="row mb-3">
-                        <div class="col-md-12">
-                            <label class="form-label">썸네일 URL</label>
-                            <input type="url" class="form-control" id="productThumbnail" name="thumbnail">
-                        </div>
-                    </div>
-                    
-                    <!-- 쇼핑몰 링크 -->
-                    <div class="row mb-3">
-                        <div class="col-md-12">
-                            <label class="form-label">쿠팡 링크</label>
-                            <input type="url" class="form-control" id="coupangLink" name="coupang_link">
-                        </div>
-                    </div>
-                    
-                    <div class="row mb-3">
-                        <div class="col-md-12">
-                            <label class="form-label">네이버 링크</label>
-                            <input type="url" class="form-control" id="naverLink" name="naver_link">
-                        </div>
-                    </div>
-                    
-                    <div class="row mb-3">
-                        <div class="col-md-12">
-                            <label class="form-label">타오바오 링크</label>
-                            <input type="url" class="form-control" id="taobaoLink" name="taobao_link">
-                        </div>
-                    </div>
-                    
-                    <!-- 통관 정보 -->
-                    <div class="row mb-3">
-                        <div class="col-md-6">
-                            <div class="form-check">
-                                <input class="form-check-input" type="checkbox" id="kdPaid" name="kd_paid">
-                                <label class="form-check-label" for="kdPaid">
-                                    경동 결제 완료
-                                </label>
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="form-check">
-                                <input class="form-check-input" type="checkbox" id="customsPaid" name="customs_paid">
-                                <label class="form-check-label" for="customsPaid">
-                                    관세 결제 완료
-                                </label>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <!-- 옵션 정보 -->
-                    <div class="row mb-3">
-                        <div class="col-12">
-                            <label class="form-label">쿠팡 옵션</label>
-                            <textarea class="form-control" id="coupangOptions" name="coupang_options" rows="2"></textarea>
-                        </div>
-                    </div>
-                    
-                    <div class="row mb-3">
-                        <div class="col-12">
-                            <label class="form-label">네이버 옵션</label>
-                            <textarea class="form-control" id="naverOptions" name="naver_options" rows="2"></textarea>
-                        </div>
-                    </div>
-                    
-                    <div class="row mb-3">
-                        <div class="col-12">
-                            <label class="form-label">타오바오 옵션</label>
-                            <textarea class="form-control" id="taobaoOptions" name="taobao_options" rows="2"></textarea>
-                        </div>
-                    </div>
-                    
-                    <!-- 상세 설명 -->
-                    <div class="row">
-                        <div class="col-12">
-                            <label class="form-label">상세 설명</label>
-                            <textarea class="form-control" id="productDetails" name="details" rows="4"></textarea>
-                        </div>
-                    </div>
-                </form>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">취소</button>
-                <button type="button" class="btn btn-primary" onclick="saveProduct()">저장</button>
-            </div>
-        </div>
-    </div>
-</div>
-
 <script>
 // 전역 변수
 let allProducts = {{ products | tojson | safe }};
@@ -537,7 +433,7 @@ let searchTimeout = null;
 
 // 페이지네이션 변수
 let currentPage = 1;
-let itemsPerPage = 15; // 한 페이지당 15개 표시
+let itemsPerPage = 10; // 기본값 10개로 변경
 let filteredProducts = [...allProducts];
 
 // 자동완성 검색
@@ -683,129 +579,50 @@ function updateSelection(items) {
     });
 }
 
-// 경동 상태 업데이트
-function updateKdStatus(productId, checked) {
-    fetch(`/products/update-kd/${productId}`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ kd_paid: checked })
-    });
-}
-
-// 관세 상태 업데이트
-function updateCustomsStatus(productId, checked) {
-    fetch(`/products/update-customs/${productId}`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ customs_paid: checked })
-    });
-}
-
-// 상품 편집
+// 상품 편집 - 페이지 이동으로 변경
 function editProduct(productId) {
-    const product = allProducts.find(p => p.id === productId);
-    if (product) {
-        document.getElementById('modalTitle').innerHTML = '<i class="bi bi-box-seam"></i> 상품 수정';
-        document.getElementById('productId').value = product.id;
-        document.getElementById('productName').value = product.name || '';
-        document.getElementById('productCode').value = product.product_code || '';
-        document.getElementById('productPrice').value = product.price || '';
-        document.getElementById('customsCost').value = product.customs_cost || '';
-        document.getElementById('productThumbnail').value = product.thumbnail || '';
-        document.getElementById('coupangLink').value = product.coupang_link || '';
-        document.getElementById('naverLink').value = product.naver_link || '';
-        document.getElementById('taobaoLink').value = product.taobao_link || '';
-        document.getElementById('kdPaid').checked = product.kd_paid || false;
-        document.getElementById('customsPaid').checked = product.customs_paid || false;
-        document.getElementById('coupangOptions').value = product.coupang_options || '';
-        document.getElementById('naverOptions').value = product.naver_options || '';
-        document.getElementById('taobaoOptions').value = product.taobao_options || '';
-        document.getElementById('productDetails').value = product.details || '';
-        
-        const modal = new bootstrap.Modal(document.getElementById('productModal'));
-        modal.show();
-    }
+    window.location.href = `/products/edit/${productId}`;
 }
 
 // 상품 삭제
 function deleteProduct(productId) {
     if (confirm('정말로 이 상품을 삭제하시겠습니까?')) {
-        fetch(`/products/delete/${productId}`, {
-            method: 'POST'
-        }).then(response => {
-            if (response.ok) {
-                location.reload();
-            }
-        });
+        // Form 데이터로 전송
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = '/products/delete';
+        
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = 'product_id';
+        input.value = productId;
+        
+        form.appendChild(input);
+        document.body.appendChild(form);
+        form.submit();
     }
 }
-
-// 상품 저장
-function saveProduct() {
-    const form = document.getElementById('productForm');
-    const formData = new FormData(form);
-    const productId = document.getElementById('productId').value;
-    
-    const data = {
-        name: formData.get('name'),
-        product_code: formData.get('product_code'),
-        price: formData.get('price') ? parseInt(formData.get('price')) : null,
-        customs_cost: formData.get('customs_cost') ? parseInt(formData.get('customs_cost')) : 0,
-        thumbnail: formData.get('thumbnail'),
-        coupang_link: formData.get('coupang_link'),
-        naver_link: formData.get('naver_link'),
-        taobao_link: formData.get('taobao_link'),
-        kd_paid: document.getElementById('kdPaid').checked,
-        customs_paid: document.getElementById('customsPaid').checked,
-        coupang_options: formData.get('coupang_options'),
-        naver_options: formData.get('naver_options'),
-        taobao_options: formData.get('taobao_options'),
-        details: formData.get('details')
-    };
-    
-    const url = productId ? `/products/update/${productId}` : '/products/add';
-    const method = productId ? 'PUT' : 'POST';
-    
-    fetch(url, {
-        method: method,
-        headers: {
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(data)
-    })
-    .then(response => response.json())
-    .then(result => {
-        if (result.success) {
-            alert('상품이 저장되었습니다.');
-            location.reload();
-        } else {
-            alert('저장 중 오류가 발생했습니다.');
-        }
-    });
-}
-
-// 새 상품 추가 모달 초기화
-document.querySelector('.btn-add').addEventListener('click', function() {
-    document.getElementById('modalTitle').innerHTML = '<i class="bi bi-box-seam"></i> 상품 추가';
-    document.getElementById('productForm').reset();
-    document.getElementById('productId').value = '';
-});
 
 // 페이지네이션 함수들
 function displayProducts(page = 1) {
     const tbody = document.getElementById('productTableBody');
-    const start = (page - 1) * itemsPerPage;
-    const end = start + itemsPerPage;
-    const pageProducts = filteredProducts.slice(start, end);
+    
+    // "전체 보기"인 경우 처리
+    let start, end, pageProducts;
+    if (itemsPerPage === 'all') {
+        start = 0;
+        end = filteredProducts.length;
+        pageProducts = filteredProducts;
+    } else {
+        start = (page - 1) * itemsPerPage;
+        end = start + itemsPerPage;
+        pageProducts = filteredProducts.slice(start, end);
+    }
     
     // 테이블 내용 다시 그리기
     tbody.innerHTML = pageProducts.map(product => `
         <tr data-product-id="${product.id}">
-            <td>${product.id}</td>
+            <td>${product.product_code || '-'}</td>
             <td>
                 ${product.thumbnail ? 
                     `<img src="${product.thumbnail}" alt="${product.name}" class="product-thumbnail">` :
@@ -813,22 +630,21 @@ function displayProducts(page = 1) {
                 }
             </td>
             <td>
-                <div>
-                    <strong>${product.name}</strong><br>
-                    <small class="text-muted">${product.product_code || '코드 없음'}</small>
-                </div>
+                <a href="/products/${product.id}" class="product-name-link">
+                    ${product.name}
+                </a>
             </td>
             <td>${product.price ? `₩${product.price.toLocaleString()}` : '-'}</td>
             <td>${product.customs_cost ? `₩${product.customs_cost.toLocaleString()}` : '-'}</td>
             <td>
                 <input type="checkbox" class="check-small" 
                        ${product.kd_paid ? 'checked' : ''} 
-                       onchange="updateKdStatus(${product.id}, this.checked)">
+                       disabled>
             </td>
             <td>
                 <input type="checkbox" class="check-small" 
                        ${product.customs_paid ? 'checked' : ''}
-                       onchange="updateCustomsStatus(${product.id}, this.checked)">
+                       disabled>
             </td>
             <td>
                 ${product.coupang_link ? 
@@ -866,14 +682,21 @@ function displayProducts(page = 1) {
     
     // 상품 개수 정보 표시
     const startNum = filteredProducts.length > 0 ? start + 1 : 0;
-    const endNum = Math.min(end, filteredProducts.length);
+    const endNum = itemsPerPage === 'all' ? filteredProducts.length : Math.min(end, filteredProducts.length);
     document.getElementById('productInfo').textContent = 
         `${startNum}-${endNum} / 전체 ${filteredProducts.length}개`;
 }
 
 function updatePagination() {
-    const totalPages = Math.ceil(filteredProducts.length / itemsPerPage);
     const pagination = document.querySelector('.pagination');
+    
+    // "전체 보기"인 경우 페이지네이션 숨기기
+    if (itemsPerPage === 'all') {
+        pagination.innerHTML = '';
+        return;
+    }
+    
+    const totalPages = Math.ceil(filteredProducts.length / itemsPerPage);
     
     let paginationHTML = `
         <button class="page-btn" onclick="goToPage(${currentPage - 1})" ${currentPage === 1 ? 'disabled' : ''}>
@@ -881,12 +704,12 @@ function updatePagination() {
         </button>
     `;
     
-    // 페이지 번호 버튼 (최대 5개 표시)
-    let startPage = Math.max(1, currentPage - 2);
-    let endPage = Math.min(totalPages, startPage + 4);
+    // 페이지 번호 버튼 (최대 10개 표시)
+    let startPage = Math.max(1, currentPage - 4);
+    let endPage = Math.min(totalPages, startPage + 9);
     
-    if (endPage - startPage < 4) {
-        startPage = Math.max(1, endPage - 4);
+    if (endPage - startPage < 9) {
+        startPage = Math.max(1, endPage - 9);
     }
     
     for (let i = startPage; i <= endPage; i++) {
@@ -907,6 +730,8 @@ function updatePagination() {
 }
 
 function goToPage(page) {
+    if (itemsPerPage === 'all') return;
+    
     const totalPages = Math.ceil(filteredProducts.length / itemsPerPage);
     if (page < 1 || page > totalPages) return;
     
@@ -914,15 +739,23 @@ function goToPage(page) {
     displayProducts(currentPage);
 }
 
-// 페이지당 표시 개수 변경 (선택사항)
-function changeItemsPerPage(num) {
-    itemsPerPage = parseInt(num);
+// 페이지당 표시 개수 변경
+function changeItemsPerPage(value) {
+    if (value === 'all') {
+        itemsPerPage = 'all';
+    } else {
+        itemsPerPage = parseInt(value);
+    }
     currentPage = 1;
     displayProducts(currentPage);
 }
 
 // 페이지 로드 시 초기 표시
 document.addEventListener('DOMContentLoaded', function() {
+    // 전체 데이터 확인
+    console.log(`총 상품 수: ${allProducts.length}개`);
+    
+    // 초기 표시
     displayProducts(1);
 });
 </script>
