@@ -311,14 +311,42 @@
         width: 22px;
         height: 22px;
         cursor: not-allowed;
-        transform: scale(1.2);
-        transition: all 0.3s ease;
+        -webkit-appearance: none;
+        appearance: none;
+        background: white;
+        border: 2px solid #dee2e6;
+        border-radius: 4px;
+        position: relative;
+        transition: all 0.3s;
     }
     
     /* 체크된 체크박스만 진한 초록색 */
     .check-small:checked {
-        accent-color: #00c73c !important;  /* 진한 초록색 */
-        filter: brightness(1.1);
+    background: #00c73c !important;
+    border-color: #00c73c !important;
+    box-shadow: 0 0 0 2px rgba(0, 199, 60, 0.2),  /* 이중 그림자 */
+                0 0 15px rgba(0, 199, 60, 0.4) !important;
+}
+
+    /* 비활성화 상태에서도 선명하게 */
+    .check-small:disabled:checked {
+        opacity: 1 !important;
+    }
+
+    .check-small:checked::after {
+        content: "✓";
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        color: white;
+        font-size: 16px;
+        font-weight: bold;
+    }
+    
+    /* 체크된 셀 배경 효과 */
+    td:has(input[type="checkbox"]:checked) {
+        background-color: rgba(0, 199, 60, 0.08) !important;  /* 연한 초록 배경 */
     }
     
     /* 체크박스 컨테이너 */
@@ -346,13 +374,15 @@
     }
     
     .link-btn-coupang {
-        background: #e74c3c;
+        background: #0984e3;  /* 파란색으로 변경 */
         color: white;
     }
     
     .link-btn-coupang:hover {
-        background: #c0392b;
+        background: #0652DD;  /* 진한 파란색 */
+        color: white;
         transform: translateY(-2px);
+        box-shadow: 0 3px 10px rgba(9, 132, 227, 0.3);
     }
     
     .link-btn-naver {
