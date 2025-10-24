@@ -1149,3 +1149,21 @@ async def marketing_homepage(request: Request):
 @router.get("/kin", response_class=HTMLResponse)
 async def marketing_kin(request: Request):
     return templates.TemplateResponse("marketing_kin.html", {"request": request})
+
+@router.get("/marketing/schedules", response_class=HTMLResponse)
+async def marketing_schedules(request: Request):
+    """전체 스케줄 페이지"""
+    # 데이터베이스에서 스케줄 조회
+    # schedules = db.query(MarketingSchedule).all()
+    
+    return templates.TemplateResponse("marketing_schedules.html", {
+        "request": request,
+        # "schedules": schedules
+    })
+
+@router.get("/marketing/schedules/create", response_class=HTMLResponse)
+async def create_schedule(request: Request):
+    """스케줄 생성 페이지"""
+    return templates.TemplateResponse("create_schedule.html", {
+        "request": request
+    })

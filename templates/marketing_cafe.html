@@ -21,6 +21,32 @@
   .ref-정보 { background-color: #228be6; } /* 파랑 */
   .ref-기타 { background-color: #40c057; } /* 초록 */
   .ref-미지정 { background-color: #868e96; } /* 회색 */
+
+    /* marketing_cafe.html <style> 태그에 추가 */
+    .btn-info {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border: none;
+        font-weight: 600;
+    }
+
+    .btn-info:hover {
+        background: linear-gradient(135deg, #5a6fd8 0%, #6c4196 100%);
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+    }
+
+    .btn-outline-info {
+        color: #667eea;
+        border-color: #667eea;
+        font-weight: 600;
+    }
+
+    .btn-outline-info:hover {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border-color: transparent;
+        color: white;
+    }
+
 </style>
 {% endblock %}
 
@@ -58,6 +84,20 @@
         <!-- ▼▼▼ 전체 현황 탭 (수정됨) ▼▼▼ -->
         <div class="tab-pane fade border-start border-end border-bottom p-3" id="status-tab-pane" role="tabpanel">
             <div class="p-3">
+
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h3>📅 스케줄 관리</h3>
+                    <div>
+                        <a href="/marketing/schedules" class="btn btn-info btn-lg">
+                            <i class="bi bi-calendar-week"></i> 전체 스케줄 보기
+                        </a>
+                        <a href="/marketing/schedules/create" class="btn btn-outline-info btn-lg ms-2">
+                            <i class="bi bi-calendar-plus"></i> 스케줄 생성
+                        </a>
+                    </div>
+                </div>
+                
+                <hr>
                 <!-- 작업자 현황 -->
                 <div class="row d-flex align-items-center mb-4">
                     <div class="col-md-8">
