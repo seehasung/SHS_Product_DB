@@ -33,6 +33,7 @@
     
     /* 페이지 타이틀 우측 액션 그룹 */
     .title-actions {
+        color: #9770f1ff;
         display: flex;
         align-items: center;
         gap: 15px;
@@ -77,7 +78,7 @@
     
     .search-input:focus {
         outline: none;
-        border-color: #667eea;
+        border-color: rgba(102, 126, 234, 1);
         box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.1);
     }
     
@@ -555,7 +556,13 @@
 <div class="container-fluid" style="padding: 20px;">
     <!-- 페이지 타이틀 -->
     <div class="page-title">
-        <h1><i class="bi bi-box-seam"></i> 상품 관리</h1>
+        <div style="display: flex; align-items: center; gap: 20px;">
+            <!-- 홈 버튼 추가 -->
+            <a href="/" class="btn-home" title="홈으로">
+                <i class="bi bi-house-door-fill"></i>
+            </a>
+            <h1><i class="bi bi-box-seam"></i> 상품 관리</h1>
+        </div>
         <div class="title-actions">
             <select class="items-per-page-select" id="itemsPerPageSelect" onchange="changeItemsPerPage(this.value)">
                 <option value="10">10개씩</option>
