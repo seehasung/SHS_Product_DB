@@ -70,79 +70,64 @@ def delete_user(user_id: int = Form(...)):
 # ✅ 상품 목록 보기 (JSON 직렬화 문제 해결)
 @router.get("/products", response_class=HTMLResponse)
 def product_list(request: Request):
-    """
-    상품 목록 페이지
-    페이지네이션은 프론트엔드에서 처리
-    """
+    """상품 목록 페이지 - 전체 상품 반환"""
     db = SessionLocal()
     
-    try:
-        # 모든 상품을 가져옴 (페이지네이션 없이)
-        all_products = db.query(Product).all()
+    # 정렬 키 함수
+    def custom_sort_key(product):
+        try:
+            parts = product.product_code.split('-') if product.product_code else []
+            if len(parts) >= 2 and parts[0].isdigit() and parts[1].isdigit():
+                return (int(parts[0]), int(parts[1]))
+            return (float('inf'),)
+        except:
+            return (float('inf'),)
+
+    # 전체 상품 가져오기
+    all_products = db.query(Product).all()
+    
+    # Python에서 정렬
+    sorted_products = sorted(all_products, key=custom_sort_key)
+    
+    # ⭐ 전체 상품을 딕셔너리로 변환
+    products_list = []
+    for product in sorted_products:
+        product_dict = {
+            'id': product.id,
+            'product_code': product.product_code or '',
+            'name': product.name or '',
+            'price': product.price or 0,
+            'kd_paid': bool(product.kd_paid) if product.kd_paid is not None else False,
+            'customs_paid': bool(product.customs_paid) if product.customs_paid is not None else False,
+            'customs_cost': product.customs_cost or 0,
+            'coupang_link': product.coupang_link or '',
+            'taobao_link': product.taobao_link or '',
+            'thumbnail': product.thumbnail or '',
+            'details': product.details or '',
+            'coupang_options': product.coupang_options or '[]',
+            'taobao_options': product.taobao_options or '[]'
+        }
         
-        # 정렬 (상품코드 기준)
-        def custom_sort_key(product):
-            try:
-                if product.product_code:
-                    parts = product.product_code.split('-')
-                    if len(parts) >= 2 and parts[0].isdigit() and parts[1].isdigit():
-                        return (int(parts[0]), int(parts[1]))
-                return (float('inf'),)
-            except:
-                return (float('inf'),)
-        
-        # Python에서 정렬
-        sorted_products = sorted(all_products, key=custom_sort_key)
-        
-        # 딕셔너리로 변환 (JSON 직렬화 가능)
-        products_list = []
-        for product in sorted_products:
-            product_dict = {
-                'id': product.id,
-                'product_code': product.product_code or '',
-                'name': product.name or '',
-                'price': product.price or 0,
-                'kd_paid': bool(product.kd_paid),
-                'customs_paid': bool(product.customs_paid),
-                'customs_cost': product.customs_cost or 0,
-                'coupang_link': product.coupang_link or '',
-                'taobao_link': product.taobao_link or '',
-                'thumbnail': product.thumbnail or '',
-                'details': product.details or '',
-                'coupang_options': product.coupang_options or '[]',
-                'taobao_options': product.taobao_options or '[]'
-            }
+        # 네이버 필드 (있는 경우만)
+        if hasattr(product, 'naver_link'):
+            product_dict['naver_link'] = product.naver_link or ''
+        else:
+            product_dict['naver_link'] = ''
             
-            # 네이버 필드 (있는 경우만)
-            if hasattr(product, 'naver_link'):
-                product_dict['naver_link'] = product.naver_link or ''
-            else:
-                product_dict['naver_link'] = ''
-                
-            if hasattr(product, 'naver_options'):
-                product_dict['naver_options'] = product.naver_options or '[]'
-            else:
-                product_dict['naver_options'] = '[]'
-            
-            products_list.append(product_dict)
+        if hasattr(product, 'naver_options'):
+            product_dict['naver_options'] = product.naver_options or '[]'
+        else:
+            product_dict['naver_options'] = '[]'
         
-        # 전체 상품 수 로그
-        print(f"📊 전체 상품 수: {len(products_list)}개")
-        
-        db.close()
-        
-        return templates.TemplateResponse("admin_products.html", {
-            "request": request,
-            "products": products_list  # 전체 상품 리스트 전달
-        })
-        
-    except Exception as e:
-        print(f"❌ 상품 목록 오류: {e}")
-        db.close()
-        return templates.TemplateResponse("error.html", {
-            "request": request,
-            "error": f"상품 목록을 불러올 수 없습니다: {str(e)}"
-        })
+        products_list.append(product_dict)
+    
+    db.close()
+    
+    # ⭐ 전체 상품 리스트 전송 (페이지네이션 없음)
+    return templates.TemplateResponse("admin_products.html", {
+        "request": request,
+        "products": products_list  # 전체 상품 전송!
+    })
 
 # ✅ 상품 등록 폼 (/products/add 라우트 추가 - index.html에서 사용)
 @router.get("/products/add", response_class=HTMLResponse)
