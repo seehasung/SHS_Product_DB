@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Request, Form
 from sqlalchemy.exc import IntegrityError
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 from typing import List, Optional
@@ -226,6 +226,8 @@ def edit_product_form(request: Request, product_id: int):
         "taobao_options": json.loads(product.taobao_options or "[]")
     })
 
+
+
 # ✅ 상품 수정 처리 (수정된 최종 버전)
 @router.post("/products/edit/{product_id}")
 def edit_product(
@@ -304,3 +306,226 @@ def product_delete(product_id: int = Form(...)):
         db.commit()
     db.close()
     return RedirectResponse("/products", status_code=302)
+
+@router.get("/search")
+def search_products(q: str = Query("", description="검색어")):
+    """상품 검색 API - 자동완성에 사용"""
+    
+    if not q or len(q.strip()) < 1:
+        return JSONResponse(content=[])
+    
+    db = SessionLocal()
+    try:
+        # 검색어를 소문자로 변환
+        search_term = q.strip().lower()
+        
+        # 상품명 또는 상품코드로 검색
+        # SQLite용 쿼리 (ILIKE 대신 LIKE 사용)
+        products = db.query(Product).filter(
+            db.or_(
+                Product.name.contains(search_term),
+                Product.product_code.contains(search_term)
+            )
+        ).limit(10).all()
+        
+        # 결과를 JSON 형식으로 변환
+        results = []
+        for product in products:
+            results.append({
+                'id': product.id,
+                'name': product.name,
+                'product_code': product.product_code,
+                'price': product.price,
+                'thumbnail': product.thumbnail
+            })
+        
+        return JSONResponse(content=results)
+        
+    except Exception as e:
+        print(f"검색 오류: {e}")
+        return JSONResponse(content=[], status_code=500)
+    finally:
+        db.close()
+
+# 상품 상세 페이지 라우트 (네이버 옵션 추가)
+@router.get("/{product_id}", response_class=HTMLResponse)
+def product_detail(request: Request, product_id: int):
+    """상품 상세 정보 페이지"""
+    
+    db = SessionLocal()
+    try:
+        # 상품 조회
+        product = db.query(Product).filter(Product.id == product_id).first()
+        
+        if not product:
+            return templates.TemplateResponse("error.html", {
+                "request": request,
+                "error": "상품을 찾을 수 없습니다."
+            })
+        
+        # 옵션 파싱 함수
+        def parse_options(options_str):
+            if not options_str:
+                return []
+            
+            options = []
+            try:
+                # JSON 형식이면 파싱
+                import json
+                options_data = json.loads(options_str)
+                if isinstance(options_data, list):
+                    return options_data
+            except:
+                # JSON이 아니면 텍스트로 파싱
+                # 형식: "옵션1:가격1, 옵션2:가격2"
+                for opt in options_str.split(','):
+                    if ':' in opt:
+                        name, price = opt.strip().split(':', 1)
+                        try:
+                            options.append({
+                                'name': name.strip(),
+                                'price': int(price.strip())
+                            })
+                        except:
+                            pass
+            
+            return options
+        
+        # 각 플랫폼별 옵션 파싱
+        coupang_options = parse_options(product.coupang_options)
+        taobao_options = parse_options(product.taobao_options)
+        
+        # 네이버 옵션 파싱 (새로 추가)
+        naver_options = []
+        if hasattr(product, 'naver_options'):
+            naver_options = parse_options(product.naver_options)
+        
+        return templates.TemplateResponse("product_detail.html", {
+            "request": request,
+            "product": product,
+            "coupang_options": coupang_options,
+            "taobao_options": taobao_options,
+            "naver_options": naver_options  # 네이버 옵션 추가
+        })
+        
+    finally:
+        db.close()
+        
+@router.get("/add", response_class=HTMLResponse)
+def add_product_page(request: Request):
+    """새 상품 등록 페이지"""
+    if not request.session.get("user"):
+        return RedirectResponse("/login", status_code=303)
+    
+    # 빈 상품 객체로 템플릿 렌더링
+    return templates.TemplateResponse("product_form.html", {
+        "request": request,
+        "product": None,  # 신규 등록이므로 None
+        "coupang_options": [],
+        "naver_options": [],
+        "taobao_options": []
+    })
+
+# 상품 등록 처리 (POST) - /products/add
+@router.post("/add", response_class=HTMLResponse)
+def add_product(
+    request: Request,
+    product_code: str = Form(...),
+    name: str = Form(...),
+    price: int = Form(...),
+    kd_paid: bool = Form(False),
+    customs_paid: bool = Form(False),
+    customs_cost: int = Form(0),
+    coupang_link: str = Form(None),
+    naver_link: str = Form(None),
+    taobao_link: str = Form(None),
+    thumbnail: str = Form(None),
+    details: str = Form(None),
+    coupang_option_names: list = Form([]),
+    coupang_option_prices: list = Form([]),
+    naver_option_names: list = Form([]),
+    naver_option_prices: list = Form([]),
+    taobao_option_names: list = Form([]),
+    taobao_option_prices: list = Form([])
+):
+    """새 상품 등록 처리"""
+    if not request.session.get("user"):
+        return RedirectResponse("/login", status_code=303)
+    
+    db = SessionLocal()
+    
+    try:
+        # 상품 코드 중복 체크
+        existing = db.query(Product).filter(Product.product_code == product_code).first()
+        if existing:
+            # 중복 에러 표시
+            return templates.TemplateResponse("product_form.html", {
+                "request": request,
+                "error": "이미 존재하는 상품 코드입니다.",
+                "product": None,
+                "coupang_options": [],
+                "naver_options": [],
+                "taobao_options": []
+            })
+        
+        # 옵션 데이터 JSON으로 변환
+        coupang_options = []
+        for i in range(len(coupang_option_names)):
+            if i < len(coupang_option_prices):
+                coupang_options.append({
+                    "name": coupang_option_names[i],
+                    "price": int(coupang_option_prices[i])
+                })
+        
+        naver_options = []
+        for i in range(len(naver_option_names)):
+            if i < len(naver_option_prices):
+                naver_options.append({
+                    "name": naver_option_names[i],
+                    "price": int(naver_option_prices[i])
+                })
+        
+        taobao_options = []
+        for i in range(len(taobao_option_names)):
+            if i < len(taobao_option_prices):
+                taobao_options.append({
+                    "name": taobao_option_names[i],
+                    "price": int(taobao_option_prices[i])
+                })
+        
+        # 새 상품 생성
+        new_product = Product(
+            product_code=product_code,
+            name=name,
+            price=price,
+            kd_paid=kd_paid,
+            customs_paid=customs_paid,
+            customs_cost=customs_cost,
+            coupang_link=coupang_link,
+            naver_link=naver_link,
+            taobao_link=taobao_link,
+            thumbnail=thumbnail,
+            details=details,
+            coupang_options=json.dumps(coupang_options) if coupang_options else None,
+            naver_options=json.dumps(naver_options) if naver_options else None,
+            taobao_options=json.dumps(taobao_options) if taobao_options else None
+        )
+        
+        db.add(new_product)
+        db.commit()
+        
+        # 등록 성공 후 상품 상세 페이지로 이동
+        return RedirectResponse(f"/products/{new_product.id}", status_code=303)
+        
+    except Exception as e:
+        db.rollback()
+        return templates.TemplateResponse("product_form.html", {
+            "request": request,
+            "error": f"상품 등록 중 오류가 발생했습니다: {str(e)}",
+            "product": None,
+            "coupang_options": [],
+            "naver_options": [],
+            "taobao_options": []
+        })
+    finally:
+        db.close()

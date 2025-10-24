@@ -1,125 +1,929 @@
 {% extends "base.html" %}
-{% block title %}상품 목록{% endblock %}
+{% block title %}상품 관리{% endblock %}
+
+{% block head %}
+{{ super() }}
+<style>
+    /* 배경 및 전체 레이아웃 */
+    body {
+        background: #f5f6fa;
+        min-height: 100vh;
+    }
+    
+    /* 페이지 타이틀 */
+    .page-title {
+        background: white;
+        padding: 20px 30px;
+        margin-bottom: 25px;
+        border-radius: 15px;
+        box-shadow: 0 5px 20px rgba(0, 0, 0, 0.08);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    
+    .page-title h1 {
+        font-size: 1.8rem;
+        font-weight: 600;
+        color: #2d3436;
+        margin: 0;
+    }
+    
+    /* 검색 섹션 */
+    .search-section {
+        background: white;
+        border-radius: 15px;
+        padding: 25px;
+        margin-bottom: 25px;
+        box-shadow: 0 5px 20px rgba(0, 0, 0, 0.08);
+        position: relative;
+    }
+    
+    .search-container {
+        position: relative;
+    }
+    
+    .search-input-group {
+        position: relative;
+        display: flex;
+        gap: 10px;
+    }
+    
+    .search-input {
+        flex: 1;
+        padding: 12px 20px 12px 45px;
+        border: 2px solid #e9ecef;
+        border-radius: 12px;
+        font-size: 1rem;
+        transition: all 0.3s ease;
+    }
+    
+    .search-input:focus {
+        outline: none;
+        border-color: #667eea;
+        box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.1);
+    }
+    
+    .search-icon {
+        position: absolute;
+        left: 15px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #adb5bd;
+        font-size: 1.2rem;
+    }
+    
+    /* 자동완성 드롭다운 */
+    .autocomplete-dropdown {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+        margin-top: 5px;
+        max-height: 400px;
+        overflow-y: auto;
+        z-index: 1000;
+        display: none;
+    }
+    
+    .autocomplete-dropdown.show {
+        display: block;
+    }
+    
+    .autocomplete-item {
+        display: flex;
+        align-items: center;
+        padding: 12px 15px;
+        cursor: pointer;
+        transition: background 0.2s;
+        border-bottom: 1px solid #f0f0f0;
+    }
+    
+    .autocomplete-item:hover {
+        background: #f8f9fa;
+    }
+    
+    .autocomplete-item:last-child {
+        border-bottom: none;
+    }
+    
+    .autocomplete-thumbnail {
+        width: 50px;
+        height: 50px;
+        border-radius: 8px;
+        object-fit: cover;
+        margin-right: 15px;
+        background: #f0f0f0;
+    }
+    
+    .autocomplete-info {
+        flex: 1;
+    }
+    
+    .autocomplete-name {
+        font-weight: 500;
+        color: #2d3436;
+        margin-bottom: 5px;
+    }
+    
+    .autocomplete-code {
+        font-size: 0.85rem;
+        color: #636e72;
+    }
+    
+    /* 하이라이트 스타일 */
+    .highlight {
+        background: #ffd93d;
+        padding: 2px 0;
+        border-radius: 2px;
+    }
+    
+    /* 버튼 스타일 */
+    .btn-add {
+        padding: 12px 24px;
+        border-radius: 10px;
+        font-weight: 500;
+        transition: all 0.3s ease;
+        border: none;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+    }
+    
+    .btn-add:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+    }
+    
+    /* 상품 테이블 */
+    .products-table-container {
+        background: white;
+        border-radius: 15px;
+        padding: 25px;
+        box-shadow: 0 5px 20px rgba(0, 0, 0, 0.08);
+        overflow-x: auto;
+    }
+    
+    .products-table {
+        width: 100%;
+        border-collapse: separate;
+        border-spacing: 0;
+    }
+    
+    .products-table thead {
+        background: #f8f9fa;
+    }
+    
+    .products-table th {
+        padding: 12px 10px;
+        text-align: left;
+        font-weight: 600;
+        color: #636e72;
+        font-size: 0.9rem;
+        border-bottom: 2px solid #e9ecef;
+        white-space: nowrap;
+    }
+    
+    .products-table td {
+        padding: 12px 10px;
+        border-bottom: 1px solid #f0f0f0;
+        vertical-align: middle;
+    }
+    
+    .products-table tbody tr {
+        transition: background 0.2s;
+    }
+    
+    .products-table tbody tr:hover {
+        background: #f8f9fa;
+    }
+    
+    /* 썸네일 스타일 */
+    .product-thumbnail {
+        width: 50px;
+        height: 50px;
+        border-radius: 8px;
+        object-fit: cover;
+        background: #f0f0f0;
+    }
+    
+    .no-thumbnail {
+        width: 50px;
+        height: 50px;
+        border-radius: 8px;
+        background: #e9ecef;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #adb5bd;
+    }
+    
+    /* 링크 버튼 */
+    .link-btn {
+        padding: 6px 10px;
+        border-radius: 6px;
+        text-decoration: none;
+        font-size: 0.85rem;
+        font-weight: 500;
+        transition: all 0.3s ease;
+        display: inline-block;
+        background: #f0f0f0;
+        color: #636e72;
+    }
+    
+    .link-btn:hover {
+        transform: translateY(-2px);
+    }
+    
+    .link-btn-coupang:hover {
+        background: #e74c3c;
+        color: white;
+    }
+    
+    .link-btn-naver:hover {
+        background: #00c73c;
+        color: white;
+    }
+    
+    .link-btn-taobao:hover {
+        background: #ff6348;
+        color: white;
+    }
+    
+    /* 체크박스 */
+    .check-small {
+        width: 18px;
+        height: 18px;
+        cursor: pointer;
+    }
+    
+    /* 액션 버튼 */
+    .action-buttons {
+        display: flex;
+        gap: 5px;
+    }
+    
+    .btn-action {
+        padding: 6px 10px;
+        border-radius: 6px;
+        border: none;
+        background: #f0f0f0;
+        color: #636e72;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        font-size: 0.85rem;
+    }
+    
+    .btn-action:hover {
+        background: #667eea;
+        color: white;
+    }
+    
+    .btn-action.delete:hover {
+        background: #ff6b6b;
+    }
+    
+    /* 페이지네이션 */
+    .pagination-container {
+        display: flex;
+        justify-content: center;
+        margin-top: 30px;
+    }
+    
+    .pagination {
+        display: flex;
+        gap: 5px;
+    }
+    
+    .page-btn {
+        padding: 10px 15px;
+        border-radius: 8px;
+        border: none;
+        background: white;
+        color: #636e72;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        font-weight: 500;
+    }
+    
+    .page-btn:hover {
+        background: #f8f9fa;
+    }
+    
+    .page-btn.active {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+    }
+    
+    .page-btn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+        background: #e9ecef;
+    }
+</style>
+{% endblock %}
 
 {% block content %}
-<div class="container mt-4">
-    <h2 class="mb-3">📦 상품 DB 관리</h2>
-
-    <div id="create-success-alert" style="display: none;" class="alert alert-success">
-        🎉 상품 등록 성공!
+<div class="container-fluid py-4">
+    <!-- 페이지 타이틀 -->
+    <div class="page-title">
+        <h1><i class="bi bi-box-seam"></i> 상품 관리</h1>
+        <div style="display: flex; gap: 15px; align-items: center;">
+            <select class="form-select" style="width: 150px;" onchange="changeItemsPerPage(this.value)">
+                <option value="10">10개씩 보기</option>
+                <option value="15" selected>15개씩 보기</option>
+                <option value="20">20개씩 보기</option>
+                <option value="30">30개씩 보기</option>
+                <option value="50">50개씩 보기</option>
+            </select>
+            <button class="btn-add" data-bs-toggle="modal" data-bs-target="#productModal">
+                <i class="bi bi-plus-lg"></i> 상품 추가
+            </button>
+        </div>
     </div>
-    <div id="edit-success-alert" style="display: none;" class="alert alert-success">
-        🎉 상품 수정 성공!
+    
+    <!-- 검색 섹션 -->
+    <div class="search-section">
+        <div class="search-container">
+            <div class="search-input-group">
+                <i class="bi bi-search search-icon"></i>
+                <input type="text" 
+                       class="search-input" 
+                       id="productSearch"
+                       placeholder="상품명 또는 상품코드로 검색..."
+                       autocomplete="off">
+            </div>
+            
+            <!-- 자동완성 드롭다운 -->
+            <div class="autocomplete-dropdown" id="autocompleteDropdown">
+                <!-- 동적으로 생성됨 -->
+            </div>
+        </div>
     </div>
+    
+    <!-- 상품 테이블 -->
+    <div class="products-table-container">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+            <h5 style="margin: 0; color: #636e72; font-size: 1rem;">
+                <span id="productInfo">전체 0개</span>
+            </h5>
+        </div>
+        <table class="products-table">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>썸네일</th>
+                    <th>상품명</th>
+                    <th>가격</th>
+                    <th>신고가</th>
+                    <th>경동</th>
+                    <th>관세</th>
+                    <th>쿠팡</th>
+                    <th>네이버</th>
+                    <th>타오바오</th>
+                    <th>관리</th>
+                </tr>
+            </thead>
+            <tbody id="productTableBody">
+                <!-- JavaScript로 동적 생성됨 -->
+            </tbody>
+        </table>
+        
+        <!-- 페이지네이션 -->
+        <div class="pagination-container">
+            <div class="pagination">
+                <!-- JavaScript로 동적 생성됨 -->
+            </div>
+        </div>
+    </div>
+</div>
 
-    <script>
-        document.addEventListener('DOMContentLoaded', (event) => {
-            const params = new URLSearchParams(window.location.search);
-            const successType = params.get('success');
-            let alertElement = null;
+<!-- 상품 추가/수정 모달 -->
+<div class="modal fade" id="productModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content" style="border-radius: 20px;">
+            <div class="modal-header" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border-radius: 20px 20px 0 0;">
+                <h5 class="modal-title" id="modalTitle">
+                    <i class="bi bi-box-seam"></i> 상품 추가
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" style="padding: 30px;">
+                <form id="productForm">
+                    <input type="hidden" id="productId" name="id">
+                    
+                    <!-- 기본 정보 -->
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">상품명 <span style="color: #ff6b6b;">*</span></label>
+                            <input type="text" class="form-control" id="productName" name="name" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">상품코드</label>
+                            <input type="text" class="form-control" id="productCode" name="product_code">
+                        </div>
+                    </div>
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">가격</label>
+                            <input type="number" class="form-control" id="productPrice" name="price">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">신고가</label>
+                            <input type="number" class="form-control" id="customsCost" name="customs_cost">
+                        </div>
+                    </div>
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-12">
+                            <label class="form-label">썸네일 URL</label>
+                            <input type="url" class="form-control" id="productThumbnail" name="thumbnail">
+                        </div>
+                    </div>
+                    
+                    <!-- 쇼핑몰 링크 -->
+                    <div class="row mb-3">
+                        <div class="col-md-12">
+                            <label class="form-label">쿠팡 링크</label>
+                            <input type="url" class="form-control" id="coupangLink" name="coupang_link">
+                        </div>
+                    </div>
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-12">
+                            <label class="form-label">네이버 링크</label>
+                            <input type="url" class="form-control" id="naverLink" name="naver_link">
+                        </div>
+                    </div>
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-12">
+                            <label class="form-label">타오바오 링크</label>
+                            <input type="url" class="form-control" id="taobaoLink" name="taobao_link">
+                        </div>
+                    </div>
+                    
+                    <!-- 통관 정보 -->
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="kdPaid" name="kd_paid">
+                                <label class="form-check-label" for="kdPaid">
+                                    경동 결제 완료
+                                </label>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="customsPaid" name="customs_paid">
+                                <label class="form-check-label" for="customsPaid">
+                                    관세 결제 완료
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 옵션 정보 -->
+                    <div class="row mb-3">
+                        <div class="col-12">
+                            <label class="form-label">쿠팡 옵션</label>
+                            <textarea class="form-control" id="coupangOptions" name="coupang_options" rows="2"></textarea>
+                        </div>
+                    </div>
+                    
+                    <div class="row mb-3">
+                        <div class="col-12">
+                            <label class="form-label">네이버 옵션</label>
+                            <textarea class="form-control" id="naverOptions" name="naver_options" rows="2"></textarea>
+                        </div>
+                    </div>
+                    
+                    <div class="row mb-3">
+                        <div class="col-12">
+                            <label class="form-label">타오바오 옵션</label>
+                            <textarea class="form-control" id="taobaoOptions" name="taobao_options" rows="2"></textarea>
+                        </div>
+                    </div>
+                    
+                    <!-- 상세 설명 -->
+                    <div class="row">
+                        <div class="col-12">
+                            <label class="form-label">상세 설명</label>
+                            <textarea class="form-control" id="productDetails" name="details" rows="4"></textarea>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">취소</button>
+                <button type="button" class="btn btn-primary" onclick="saveProduct()">저장</button>
+            </div>
+        </div>
+    </div>
+</div>
 
-            if (successType === 'create') {
-                alertElement = document.getElementById('create-success-alert');
-            } else if (successType === 'edit') {
-                alertElement = document.getElementById('edit-success-alert');
-            }
+<script>
+// 전역 변수
+let allProducts = {{ products | tojson | safe }};
+let searchInput = document.getElementById('productSearch');
+let autocompleteDropdown = document.getElementById('autocompleteDropdown');
+let searchTimeout = null;
 
-            if (alertElement) {
-                alertElement.style.display = 'block';
-                confetti({ particleCount: 150, spread: 180 });
-                history.replaceState(null, '', window.location.pathname);
+// 페이지네이션 변수
+let currentPage = 1;
+let itemsPerPage = 15; // 한 페이지당 15개 표시
+let filteredProducts = [...allProducts];
+
+// 자동완성 검색
+searchInput.addEventListener('input', function(e) {
+    clearTimeout(searchTimeout);
+    const searchTerm = e.target.value.trim().toLowerCase();
+    
+    // 검색어가 없으면 전체 상품 표시
+    if (searchTerm.length < 1) {
+        autocompleteDropdown.classList.remove('show');
+        filteredProducts = [...allProducts];
+        currentPage = 1;
+        displayProducts(currentPage);
+        return;
+    }
+    
+    // 필터링
+    filteredProducts = allProducts.filter(product => {
+        const name = (product.name || '').toLowerCase();
+        const code = (product.product_code || '').toLowerCase();
+        return name.includes(searchTerm) || code.includes(searchTerm);
+    });
+    
+    currentPage = 1;
+    displayProducts(currentPage);
+    
+    searchTimeout = setTimeout(() => {
+        showAutocomplete(searchTerm);
+    }, 300);
+});
+
+// 자동완성 표시
+function showAutocomplete(searchTerm) {
+    const matches = filteredProducts.slice(0, 8);
+    
+    if (matches.length === 0) {
+        autocompleteDropdown.innerHTML = `
+            <div style="padding: 20px; text-align: center; color: #adb5bd;">
+                <i class="bi bi-search" style="font-size: 2rem;"></i>
+                <p style="margin-top: 10px;">검색 결과가 없습니다</p>
+            </div>
+        `;
+        autocompleteDropdown.classList.add('show');
+        return;
+    }
+    
+    let html = '';
+    matches.forEach(product => {
+        const highlightedName = highlightText(product.name || '', searchTerm);
+        const highlightedCode = highlightText(product.product_code || '코드 없음', searchTerm);
+        
+        html += `
+            <div class="autocomplete-item" onclick="selectProduct(${product.id})">
+                ${product.thumbnail ? 
+                    `<img src="${product.thumbnail}" class="autocomplete-thumbnail">` :
+                    `<div class="autocomplete-thumbnail" style="display: flex; align-items: center; justify-content: center;">
+                        <i class="bi bi-image" style="color: #adb5bd;"></i>
+                    </div>`
+                }
+                <div class="autocomplete-info">
+                    <div class="autocomplete-name">${highlightedName}</div>
+                    <div class="autocomplete-code">${highlightedCode}</div>
+                </div>
+            </div>
+        `;
+    });
+    
+    autocompleteDropdown.innerHTML = html;
+    autocompleteDropdown.classList.add('show');
+}
+
+// 텍스트 하이라이트
+function highlightText(text, searchTerm) {
+    if (!searchTerm) return text;
+    
+    const regex = new RegExp(`(${searchTerm})`, 'gi');
+    return text.replace(regex, '<span class="highlight">$1</span>');
+}
+
+// 상품 선택
+function selectProduct(productId) {
+    const product = allProducts.find(p => p.id === productId);
+    if (product) {
+        searchInput.value = product.name;
+        autocompleteDropdown.classList.remove('show');
+        
+        // 선택한 상품이 있는 페이지로 이동
+        const productIndex = filteredProducts.findIndex(p => p.id === productId);
+        if (productIndex !== -1) {
+            const targetPage = Math.ceil((productIndex + 1) / itemsPerPage);
+            goToPage(targetPage);
+            
+            // 해당 행 하이라이트
+            setTimeout(() => {
+                const row = document.querySelector(`tr[data-product-id="${productId}"]`);
+                if (row) {
+                    row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    row.style.background = '#fff3cd';
+                    setTimeout(() => {
+                        row.style.background = '';
+                    }, 2000);
+                }
+            }, 100);
+        }
+    }
+}
+
+// 클릭 외부 영역 시 드롭다운 닫기
+document.addEventListener('click', function(e) {
+    if (!searchInput.contains(e.target) && !autocompleteDropdown.contains(e.target)) {
+        autocompleteDropdown.classList.remove('show');
+    }
+});
+
+// 키보드 네비게이션
+let selectedIndex = -1;
+searchInput.addEventListener('keydown', function(e) {
+    const items = autocompleteDropdown.querySelectorAll('.autocomplete-item');
+    
+    if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        selectedIndex = Math.min(selectedIndex + 1, items.length - 1);
+        updateSelection(items);
+    } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        selectedIndex = Math.max(selectedIndex - 1, -1);
+        updateSelection(items);
+    } else if (e.key === 'Enter') {
+        e.preventDefault();
+        if (selectedIndex >= 0 && items[selectedIndex]) {
+            items[selectedIndex].click();
+        }
+    }
+});
+
+function updateSelection(items) {
+    items.forEach((item, index) => {
+        if (index === selectedIndex) {
+            item.style.background = '#f8f9fa';
+        } else {
+            item.style.background = '';
+        }
+    });
+}
+
+// 경동 상태 업데이트
+function updateKdStatus(productId, checked) {
+    fetch(`/products/update-kd/${productId}`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ kd_paid: checked })
+    });
+}
+
+// 관세 상태 업데이트
+function updateCustomsStatus(productId, checked) {
+    fetch(`/products/update-customs/${productId}`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ customs_paid: checked })
+    });
+}
+
+// 상품 편집
+function editProduct(productId) {
+    const product = allProducts.find(p => p.id === productId);
+    if (product) {
+        document.getElementById('modalTitle').innerHTML = '<i class="bi bi-box-seam"></i> 상품 수정';
+        document.getElementById('productId').value = product.id;
+        document.getElementById('productName').value = product.name || '';
+        document.getElementById('productCode').value = product.product_code || '';
+        document.getElementById('productPrice').value = product.price || '';
+        document.getElementById('customsCost').value = product.customs_cost || '';
+        document.getElementById('productThumbnail').value = product.thumbnail || '';
+        document.getElementById('coupangLink').value = product.coupang_link || '';
+        document.getElementById('naverLink').value = product.naver_link || '';
+        document.getElementById('taobaoLink').value = product.taobao_link || '';
+        document.getElementById('kdPaid').checked = product.kd_paid || false;
+        document.getElementById('customsPaid').checked = product.customs_paid || false;
+        document.getElementById('coupangOptions').value = product.coupang_options || '';
+        document.getElementById('naverOptions').value = product.naver_options || '';
+        document.getElementById('taobaoOptions').value = product.taobao_options || '';
+        document.getElementById('productDetails').value = product.details || '';
+        
+        const modal = new bootstrap.Modal(document.getElementById('productModal'));
+        modal.show();
+    }
+}
+
+// 상품 삭제
+function deleteProduct(productId) {
+    if (confirm('정말로 이 상품을 삭제하시겠습니까?')) {
+        fetch(`/products/delete/${productId}`, {
+            method: 'POST'
+        }).then(response => {
+            if (response.ok) {
+                location.reload();
             }
         });
-    </script>
+    }
+}
 
-    <div class="d-flex justify-content-between mb-3">
-        <form method="get" action="/products" class="d-flex">
-            <input type="text" name="keyword" class="form-control me-2" placeholder="상품명 검색" value="{{ keyword }}">
-            <button type="submit" class="btn btn-primary">🔍 검색</button>
-        </form>
-        <div>
-            <a href="/products/create" class="btn btn-success">➕ 신규 상품 등록</a>
-            <a href="/" class="btn btn-secondary">🏠 홈으로</a>
-        </div>
-    </div>
-
-    <table class="table table-bordered table-hover text-center align-middle">
-        <thead class="table-dark">
-            <tr>
-                <th>ID</th>
-                <th>썸네일</th>
-                <th>상품명</th>
-                <th>가격</th>
-                <th>신고가</th>
-                <th>경동</th>
-                <th>관세</th>
-                <th>쿠팡</th>
-                <th>타오바오</th>
-                <th>관리</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for p in products %}
-            <tr>
-                <td>{{ p.product_code }}</td>
-                <td><img src="{{ p.thumbnail }}" width="60"></td>
-                <td>
-                    <a href="/products/{{ p.id }}" class="text-decoration-none">{{ p.name }}</a>
-                </td>
-                <td>{{ "{:,}".format(p.price) }}</td>
-                <td>
-                    {% if p.customs_cost %}
-                        {{ "{:,}".format(p.customs_cost) }}
-                    {% else %}
-                        0
-                    {% endif %}
-                </td>
-                <td>{{ '✅' if p.kd_paid else '❌' }}</td>
-                <td>{{ '✅' if p.customs_paid else '❌' }}</td>
-                <td><a href="{{ p.coupang_link }}" target="_blank" class="btn btn-outline-secondary btn-sm">Coupang</a></td>
-                <td><a href="{{ p.taobao_link }}" target="_blank" class="btn btn-outline-secondary btn-sm">Taobao</a></td>
-                <td>
-                    <div class="d-flex justify-content-center align-items-center gap-2">
-                        <a href="/products/edit/{{ p.id }}" class="btn btn-sm btn-outline-primary">✏️ 수정</a>
-                        <form method="post" action="/products/delete" onsubmit="return confirm('정말 삭제하시겠습니까?');" class="d-inline">
-                            <input type="hidden" name="product_id" value="{{ p.id }}">
-                            <button type="submit" class="btn btn-sm btn-outline-danger">🗑️ 삭제</button>
-                        </form>
-                    </div>
-                </td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
+// 상품 저장
+function saveProduct() {
+    const form = document.getElementById('productForm');
+    const formData = new FormData(form);
+    const productId = document.getElementById('productId').value;
     
-    <div class="d-flex justify-content-between align-items-center mt-4">
-        <div>
-            <span class="me-2">페이지당 항목 수:</span>
-            {% for num in [5, 10, 30, 50] %}
-                <a href="?page=1&size={{ num }}&keyword={{ keyword }}" 
-                   class="btn btn-sm {{ 'btn-primary' if page_size == num else 'btn-outline-secondary' }}">
-                    {{ num }}
-                </a>
-            {% endfor %}
-        </div>
+    const data = {
+        name: formData.get('name'),
+        product_code: formData.get('product_code'),
+        price: formData.get('price') ? parseInt(formData.get('price')) : null,
+        customs_cost: formData.get('customs_cost') ? parseInt(formData.get('customs_cost')) : 0,
+        thumbnail: formData.get('thumbnail'),
+        coupang_link: formData.get('coupang_link'),
+        naver_link: formData.get('naver_link'),
+        taobao_link: formData.get('taobao_link'),
+        kd_paid: document.getElementById('kdPaid').checked,
+        customs_paid: document.getElementById('customsPaid').checked,
+        coupang_options: formData.get('coupang_options'),
+        naver_options: formData.get('naver_options'),
+        taobao_options: formData.get('taobao_options'),
+        details: formData.get('details')
+    };
+    
+    const url = productId ? `/products/update/${productId}` : '/products/add';
+    const method = productId ? 'PUT' : 'POST';
+    
+    fetch(url, {
+        method: method,
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(result => {
+        if (result.success) {
+            alert('상품이 저장되었습니다.');
+            location.reload();
+        } else {
+            alert('저장 중 오류가 발생했습니다.');
+        }
+    });
+}
 
-        <nav>
-            <ul class="pagination">
-                <li class="page-item {{ 'disabled' if current_page == 1 else '' }}">
-                    <a class="page-link" href="?page={{ current_page - 1 }}&size={{ page_size }}&keyword={{ keyword }}">이전</a>
-                </li>
+// 새 상품 추가 모달 초기화
+document.querySelector('.btn-add').addEventListener('click', function() {
+    document.getElementById('modalTitle').innerHTML = '<i class="bi bi-box-seam"></i> 상품 추가';
+    document.getElementById('productForm').reset();
+    document.getElementById('productId').value = '';
+});
 
-                {% for page_num in range(1, total_pages + 1) %}
-                <li class="page-item {{ 'active' if page_num == current_page else '' }}">
-                    <a class="page-link" href="?page={{ page_num }}&size={{ page_size }}&keyword={{ keyword }}">{{ page_num }}</a>
-                </li>
-                {% endfor %}
+// 페이지네이션 함수들
+function displayProducts(page = 1) {
+    const tbody = document.getElementById('productTableBody');
+    const start = (page - 1) * itemsPerPage;
+    const end = start + itemsPerPage;
+    const pageProducts = filteredProducts.slice(start, end);
+    
+    // 테이블 내용 다시 그리기
+    tbody.innerHTML = pageProducts.map(product => `
+        <tr data-product-id="${product.id}">
+            <td>${product.id}</td>
+            <td>
+                ${product.thumbnail ? 
+                    `<img src="${product.thumbnail}" alt="${product.name}" class="product-thumbnail">` :
+                    `<div class="no-thumbnail"><i class="bi bi-image"></i></div>`
+                }
+            </td>
+            <td>
+                <div>
+                    <strong>${product.name}</strong><br>
+                    <small class="text-muted">${product.product_code || '코드 없음'}</small>
+                </div>
+            </td>
+            <td>${product.price ? `₩${product.price.toLocaleString()}` : '-'}</td>
+            <td>${product.customs_cost ? `₩${product.customs_cost.toLocaleString()}` : '-'}</td>
+            <td>
+                <input type="checkbox" class="check-small" 
+                       ${product.kd_paid ? 'checked' : ''} 
+                       onchange="updateKdStatus(${product.id}, this.checked)">
+            </td>
+            <td>
+                <input type="checkbox" class="check-small" 
+                       ${product.customs_paid ? 'checked' : ''}
+                       onchange="updateCustomsStatus(${product.id}, this.checked)">
+            </td>
+            <td>
+                ${product.coupang_link ? 
+                    `<a href="${product.coupang_link}" target="_blank" class="link-btn link-btn-coupang">바로가기</a>` : 
+                    '-'
+                }
+            </td>
+            <td>
+                ${product.naver_link ? 
+                    `<a href="${product.naver_link}" target="_blank" class="link-btn link-btn-naver">바로가기</a>` : 
+                    '-'
+                }
+            </td>
+            <td>
+                ${product.taobao_link ? 
+                    `<a href="${product.taobao_link}" target="_blank" class="link-btn link-btn-taobao">바로가기</a>` : 
+                    '-'
+                }
+            </td>
+            <td>
+                <div class="action-buttons">
+                    <button class="btn-action" onclick="editProduct(${product.id})" title="수정">
+                        <i class="bi bi-pencil"></i>
+                    </button>
+                    <button class="btn-action delete" onclick="deleteProduct(${product.id})" title="삭제">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                </div>
+            </td>
+        </tr>
+    `).join('');
+    
+    // 페이지 버튼 업데이트
+    updatePagination();
+    
+    // 상품 개수 정보 표시
+    const startNum = filteredProducts.length > 0 ? start + 1 : 0;
+    const endNum = Math.min(end, filteredProducts.length);
+    document.getElementById('productInfo').textContent = 
+        `${startNum}-${endNum} / 전체 ${filteredProducts.length}개`;
+}
 
-                <li class="page-item {{ 'disabled' if current_page == total_pages else '' }}">
-                    <a class="page-link" href="?page={{ current_page + 1 }}&size={{ page_size }}&keyword={{ keyword }}">다음</a>
-                </li>
-            </ul>
-        </nav>
-    </div>
-    </div>
+function updatePagination() {
+    const totalPages = Math.ceil(filteredProducts.length / itemsPerPage);
+    const pagination = document.querySelector('.pagination');
+    
+    let paginationHTML = `
+        <button class="page-btn" onclick="goToPage(${currentPage - 1})" ${currentPage === 1 ? 'disabled' : ''}>
+            <i class="bi bi-chevron-left"></i>
+        </button>
+    `;
+    
+    // 페이지 번호 버튼 (최대 5개 표시)
+    let startPage = Math.max(1, currentPage - 2);
+    let endPage = Math.min(totalPages, startPage + 4);
+    
+    if (endPage - startPage < 4) {
+        startPage = Math.max(1, endPage - 4);
+    }
+    
+    for (let i = startPage; i <= endPage; i++) {
+        paginationHTML += `
+            <button class="page-btn ${i === currentPage ? 'active' : ''}" onclick="goToPage(${i})">
+                ${i}
+            </button>
+        `;
+    }
+    
+    paginationHTML += `
+        <button class="page-btn" onclick="goToPage(${currentPage + 1})" ${currentPage === totalPages ? 'disabled' : ''}>
+            <i class="bi bi-chevron-right"></i>
+        </button>
+    `;
+    
+    pagination.innerHTML = paginationHTML;
+}
+
+function goToPage(page) {
+    const totalPages = Math.ceil(filteredProducts.length / itemsPerPage);
+    if (page < 1 || page > totalPages) return;
+    
+    currentPage = page;
+    displayProducts(currentPage);
+}
+
+// 페이지당 표시 개수 변경 (선택사항)
+function changeItemsPerPage(num) {
+    itemsPerPage = parseInt(num);
+    currentPage = 1;
+    displayProducts(currentPage);
+}
+
+// 페이지 로드 시 초기 표시
+document.addEventListener('DOMContentLoaded', function() {
+    displayProducts(1);
+});
+</script>
 {% endblock %}

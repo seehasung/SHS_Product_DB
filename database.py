@@ -42,9 +42,11 @@ class Product(Base):
     customs_paid = Column(Boolean, default=False)
     customs_cost = Column(Integer, default=0)
     coupang_link = Column(String(2083), nullable=True)
+    naver_link = Column(String(2083), nullable=True)  # ⭐ 새로 추가!
     taobao_link = Column(String(2083), nullable=True)
     coupang_options = Column(Text, nullable=True)
     taobao_options = Column(Text, nullable=True)
+    naver_options = Column(Text, nullable=True)  # ⭐ 새로 추가!
     thumbnail = Column(String(2083), nullable=True)
     details = Column(Text, nullable=True)
     
