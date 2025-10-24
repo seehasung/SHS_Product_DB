@@ -10,11 +10,11 @@
         min-height: 100vh;
     }
     
-    /* 검색 바 섹션 */
+    /* 검색 바 섹션 - 개선된 디자인 */
     .search-bar-section {
-        background: white;
-        padding: 20px 0;
-        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        padding: 30px 0;
+        box-shadow: 0 5px 30px rgba(0, 0, 0, 0.15);
         position: sticky;
         top: 0;
         z-index: 100;
@@ -23,7 +23,7 @@
     
     .search-container {
         position: relative;
-        max-width: 600px;
+        max-width: 700px;
         margin: 0 auto;
     }
     
@@ -31,79 +31,106 @@
         position: relative;
     }
     
+    /* 검색창 - 더 눈에 띄고 둥글게 */
     .search-input {
         width: 100%;
-        padding: 12px 20px 12px 45px;
-        border: 2px solid #e9ecef;
-        border-radius: 50px;
-        font-size: 1rem;
+        padding: 16px 24px 16px 55px;
+        border: 3px solid rgba(255, 255, 255, 0.9);
+        border-radius: 50px;  /* 완전히 둥근 모서리 */
+        font-size: 1.1rem;
+        font-weight: 500;
         transition: all 0.3s ease;
+        background: rgba(255, 255, 255, 0.95);
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
     }
     
     .search-input:focus {
         outline: none;
-        border-color: #667eea;
-        box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.1);
+        border-color: white;
+        box-shadow: 0 12px 40px rgba(0, 0, 0, 0.2);
+        background: white;
+        transform: translateY(-2px);
+    }
+    
+    .search-input::placeholder {
+        color: #8b92a8;
+        font-weight: 400;
     }
     
     .search-icon {
         position: absolute;
-        left: 15px;
+        left: 20px;
         top: 50%;
         transform: translateY(-50%);
-        color: #adb5bd;
-        font-size: 1.2rem;
+        color: #667eea;
+        font-size: 1.4rem;
+        font-weight: bold;
     }
     
-    /* 자동완성 드롭다운 */
+    /* 자동완성 드롭다운 - 둥글게 */
     .autocomplete-dropdown {
         position: absolute;
         top: 100%;
         left: 0;
         right: 0;
         background: white;
-        border-radius: 15px;
-        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
-        margin-top: 10px;
-        max-height: 400px;
+        border-radius: 20px;  /* 둥근 모서리 */
+        box-shadow: 0 15px 50px rgba(0, 0, 0, 0.2);
+        margin-top: 15px;
+        max-height: 450px;
         overflow-y: auto;
         z-index: 1000;
         display: none;
+        border: 2px solid #f0f0f0;
     }
     
     .autocomplete-dropdown.show {
         display: block;
+        animation: slideDown 0.3s ease;
+    }
+    
+    @keyframes slideDown {
+        from {
+            opacity: 0;
+            transform: translateY(-10px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
     }
     
     .autocomplete-item {
         display: flex;
         align-items: center;
-        padding: 12px 15px;
+        padding: 15px 20px;
         cursor: pointer;
-        transition: background 0.2s;
-        border-bottom: 1px solid #f0f0f0;
+        transition: all 0.2s;
+        border-bottom: 1px solid #f5f5f5;
     }
     
     .autocomplete-item:hover {
-        background: #f8f9fa;
+        background: linear-gradient(90deg, #f8f9fa 0%, #e9ecef 100%);
+        padding-left: 25px;
     }
     
     .autocomplete-item:first-child {
-        border-radius: 15px 15px 0 0;
+        border-radius: 18px 18px 0 0;
     }
     
     .autocomplete-item:last-child {
         border-bottom: none;
-        border-radius: 0 0 15px 15px;
+        border-radius: 0 0 18px 18px;
     }
     
     .autocomplete-thumbnail {
-        width: 50px;
-        height: 50px;
-        border-radius: 8px;
+        width: 60px;
+        height: 60px;
+        border-radius: 12px;
         object-fit: cover;
-        margin-right: 15px;
+        margin-right: 20px;
         background: #f0f0f0;
+        border: 2px solid #e9ecef;
     }
     
     .autocomplete-info {
@@ -111,20 +138,36 @@
     }
     
     .autocomplete-name {
-        font-weight: 500;
+        font-weight: 600;
         color: #2d3436;
         margin-bottom: 5px;
+        font-size: 1.05rem;
     }
     
     .autocomplete-price {
-        font-size: 0.85rem;
+        font-size: 0.9rem;
         color: #636e72;
+        font-weight: 500;
     }
     
+    /* 형광펜 하이라이트 효과 - 더 밝고 눈에 띄게 */
     .highlight {
-        background: #ffd93d;
-        padding: 2px 0;
-        border-radius: 2px;
+        background: linear-gradient(180deg, transparent 40%, #ffd93d 40%, #ffd93d 85%, transparent 85%);
+        padding: 0 2px;
+        font-weight: bold;
+        animation: highlightPulse 0.5s ease;
+    }
+    
+    @keyframes highlightPulse {
+        0% {
+            background-size: 100% 100%;
+        }
+        50% {
+            background-size: 110% 110%;
+        }
+        100% {
+            background-size: 100% 100%;
+        }
     }
     
     /* 메인 상품 카드 */
@@ -198,31 +241,69 @@
         margin-bottom: 30px;
     }
     
-    /* 배송 옵션 */
+    /* 배송 옵션 - 신고가 뱃지 추가 */
     .shipping-badges {
         display: flex;
         gap: 15px;
         margin-bottom: 30px;
         flex-wrap: wrap;
+        align-items: center;
     }
     
     .shipping-badge {
         padding: 12px 20px;
-        border-radius: 10px;
-        font-weight: 500;
+        border-radius: 12px;
+        font-weight: 600;
         display: flex;
         align-items: center;
         gap: 8px;
+        transition: all 0.3s ease;
     }
     
     .shipping-badge.active {
         background: #d4f4dd;
         color: #00b894;
+        box-shadow: 0 4px 15px rgba(0, 184, 148, 0.2);
     }
     
     .shipping-badge.inactive {
         background: #f8f9fa;
         color: #adb5bd;
+    }
+    
+    /* 신고가 뱃지 - 새로운 스타일 */
+    .customs-price-badge {
+        padding: 12px 20px;
+        border-radius: 12px;
+        font-weight: 600;
+        background: linear-gradient(135deg, #ff6348 0%, #ff8c69 100%);
+        color: white;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        box-shadow: 0 4px 20px rgba(255, 99, 72, 0.3);
+        animation: pulse 2s infinite;
+    }
+    
+    @keyframes pulse {
+        0% {
+            transform: scale(1);
+        }
+        50% {
+            transform: scale(1.05);
+        }
+        100% {
+            transform: scale(1);
+        }
+    }
+    
+    .customs-price-badge i {
+        font-size: 1.1rem;
+    }
+    
+    .customs-price-badge .price-value {
+        font-size: 1.1rem;
+        font-weight: bold;
     }
     
     /* 링크 버튼 */
@@ -235,7 +316,7 @@
     
     .shop-link {
         padding: 12px 25px;
-        border-radius: 10px;
+        border-radius: 12px;
         text-decoration: none;
         font-weight: 600;
         transition: all 0.3s ease;
@@ -246,8 +327,8 @@
     }
     
     .shop-link:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        transform: translateY(-3px);
+        box-shadow: 0 15px 35px rgba(0, 0, 0, 0.25);
         color: white;
     }
     
@@ -282,98 +363,29 @@
     }
     
     .details-content {
-        background: white;
-        padding: 25px;
-        border-radius: 10px;
-        line-height: 1.8;
-        font-size: 1.1rem;
-        color: #495057;
-    }
-    
-    /* 옵션 카드 */
-    .options-container {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
-        gap: 25px;
-        margin-bottom: 30px;
-    }
-    
-    .option-card {
-        background: white;
-        border-radius: 15px;
-        padding: 25px;
-        box-shadow: 0 5px 20px rgba(0, 0, 0, 0.08);
-    }
-    
-    .option-card-title {
-        font-size: 1.2rem;
-        font-weight: 600;
-        color: #2d3436;
-        margin-bottom: 20px;
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        padding-bottom: 10px;
-        border-bottom: 2px solid #e9ecef;
-    }
-    
-    .option-card-title.coupang i { color: #e74c3c; }
-    .option-card-title.naver i { color: #00c73c; }
-    .option-card-title.taobao i { color: #ff6348; }
-    
-    .option-table {
-        width: 100%;
-    }
-    
-    .option-table th {
-        background: #f8f9fa;
-        padding: 12px;
-        text-align: left;
-        font-weight: 600;
         color: #636e72;
-        border-radius: 8px 8px 0 0;
-    }
-    
-    .option-table td {
-        padding: 12px;
-        border-bottom: 1px solid #f0f0f0;
-    }
-    
-    .option-table tr:last-child td {
-        border-bottom: none;
-    }
-    
-    .option-price {
-        font-weight: 600;
-        color: #00b894;
+        line-height: 1.8;
+        font-size: 1rem;
     }
     
     /* 액션 버튼 */
     .action-buttons {
         display: flex;
         gap: 15px;
-        margin-bottom: 30px;
-        flex-wrap: wrap;
+        margin-top: 30px;
     }
     
     .btn-action {
-        padding: 12px 25px;
-        border-radius: 10px;
-        font-weight: 500;
+        padding: 12px 30px;
+        border-radius: 12px;
+        border: none;
+        font-weight: 600;
+        font-size: 1rem;
+        cursor: pointer;
         transition: all 0.3s ease;
-        text-decoration: none;
         display: inline-flex;
         align-items: center;
         gap: 8px;
-    }
-    
-    .btn-home {
-        background: #e9ecef;
-        color: #495057;
-    }
-    
-    .btn-home:hover {
-        background: #dee2e6;
     }
     
     .btn-edit {
@@ -383,275 +395,212 @@
     
     .btn-edit:hover {
         transform: translateY(-2px);
-        box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+        box-shadow: 0 10px 30px rgba(102, 126, 234, 0.3);
     }
     
-    .btn-list {
-        background: white;
+    .btn-delete {
+        background: linear-gradient(135deg, #ee5a6f 0%, #e74c3c 100%);
+        color: white;
+    }
+    
+    .btn-delete:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 30px rgba(238, 90, 111, 0.3);
+    }
+    
+    .btn-back {
+        background: #e9ecef;
         color: #636e72;
-        border: 2px solid #e9ecef;
     }
     
-    .btn-list:hover {
+    .btn-back:hover {
+        background: #dee2e6;
+        transform: translateY(-2px);
+    }
+    
+    /* 옵션 카드 */
+    .options-container {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+        gap: 30px;
+    }
+    
+    .option-card {
+        background: white;
+        border-radius: 15px;
+        padding: 25px;
+        box-shadow: 0 5px 25px rgba(0, 0, 0, 0.08);
+    }
+    
+    .option-card-title {
+        font-size: 1.2rem;
+        font-weight: 600;
+        margin-bottom: 20px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding-bottom: 15px;
+        border-bottom: 2px solid #f0f0f0;
+    }
+    
+    .option-card-title.coupang {
+        color: #e74c3c;
+        border-bottom-color: #e74c3c;
+    }
+    
+    .option-card-title.naver {
+        color: #00c73c;
+        border-bottom-color: #00c73c;
+    }
+    
+    .option-card-title.taobao {
+        color: #ff6348;
+        border-bottom-color: #ff6348;
+    }
+    
+    .option-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 15px;
+    }
+    
+    .option-table th {
         background: #f8f9fa;
+        padding: 12px;
+        text-align: left;
+        font-weight: 600;
+        color: #636e72;
+        font-size: 0.9rem;
     }
     
-    /* 빈 옵션 메시지 */
+    .option-table td {
+        padding: 12px;
+        border-bottom: 1px solid #f0f0f0;
+        color: #2d3436;
+    }
+    
+    .option-table tr:last-child td {
+        border-bottom: none;
+    }
+    
+    .option-price {
+        font-weight: 600;
+        color: #667eea;
+    }
+    
     .no-options {
         text-align: center;
-        padding: 30px;
+        padding: 40px;
         color: #adb5bd;
     }
     
-    /* 반응형 */
+    .no-options i {
+        color: #dee2e6;
+        margin-bottom: 15px;
+    }
+    
+    /* 반응형 디자인 */
     @media (max-width: 768px) {
         .product-title {
             font-size: 1.8rem;
         }
         
-        .product-image-section {
-            padding: 20px;
-            min-height: 300px;
-        }
-        
-        .product-info-section {
-            padding: 25px;
+        .shipping-badges {
+            flex-direction: column;
+            align-items: stretch;
         }
         
         .shop-links {
             flex-direction: column;
         }
         
-        .shop-link {
-            width: 100%;
-            justify-content: center;
+        .action-buttons {
+            flex-direction: column;
+        }
+        
+        .options-container {
+            grid-template-columns: 1fr;
         }
     }
 </style>
 {% endblock %}
 
 {% block content %}
-<!-- 검색 바 -->
-<!-- 1. 상세 페이지 상단에 검색바 추가 (product-header 아래) -->
-<div class="search-container" style="padding: 20px 30px; background: white;">
-    <div class="search-input-group">
-        <i class="bi bi-search search-icon"></i>
-        <input type="text" 
-               class="form-control search-input" 
-               id="productSearch"
-               placeholder="다른 상품 검색..."
-               autocomplete="off">
-    </div>
-    <div class="autocomplete-dropdown" id="autocompleteDropdown">
-        <!-- 동적으로 생성됨 -->
+<!-- 검색 바 - 개선된 디자인 -->
+<div class="search-bar-section">
+    <div class="container">
+        <div class="search-container">
+            <div class="search-input-group">
+                <i class="bi bi-search search-icon"></i>
+                <input type="text" 
+                       id="productSearch" 
+                       class="search-input" 
+                       placeholder="🔍 다른 상품 검색하기..." 
+                       autocomplete="off">
+            </div>
+            <div id="autocompleteDropdown" class="autocomplete-dropdown"></div>
+        </div>
     </div>
 </div>
 
-<!-- 2. 스타일 추가 -->
-<style>
-    .search-container {
-        position: relative;
-        max-width: 600px;
-        margin: 0 auto;
-    }
-    
-    .search-input-group {
-        position: relative;
-    }
-    
-    .search-input {
-        padding: 12px 20px 12px 45px;
-        border: 2px solid #e9ecef;
-        border-radius: 12px;
-        font-size: 1rem;
-        width: 100%;
-    }
-    
-    .search-input:focus {
-        outline: none;
-        border-color: #667eea;
-        box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.1);
-    }
-    
-    .search-icon {
-        position: absolute;
-        left: 15px;
-        top: 50%;
-        transform: translateY(-50%);
-        color: #adb5bd;
-        font-size: 1.2rem;
-        z-index: 1;
-    }
-    
-    .autocomplete-dropdown {
-        position: absolute;
-        top: 100%;
-        left: 0;
-        right: 0;
-        background: white;
-        border-radius: 12px;
-        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
-        margin-top: 5px;
-        max-height: 400px;
-        overflow-y: auto;
-        z-index: 1000;
-        display: none;
-    }
-    
-    .autocomplete-dropdown.show {
-        display: block;
-    }
-    
-    .autocomplete-item {
-        display: flex;
-        align-items: center;
-        padding: 12px 15px;
-        cursor: pointer;
-        transition: background 0.2s ease;
-    }
-    
-    .autocomplete-item:hover {
-        background: #f8f9fa;
-    }
-</style>
-
-<!-- 3. JavaScript 추가 -->
-<script>
-// 전역 변수
-let searchTimeout = null;
-
-// 검색 입력 이벤트
-document.getElementById('productSearch').addEventListener('input', function(e) {
-    clearTimeout(searchTimeout);
-    const searchTerm = e.target.value.trim();
-    
-    if (searchTerm.length < 1) {
-        document.getElementById('autocompleteDropdown').classList.remove('show');
-        return;
-    }
-    
-    searchTimeout = setTimeout(() => {
-        searchProducts(searchTerm);
-    }, 300);
-});
-
-// 상품 검색 함수
-function searchProducts(searchTerm) {
-    fetch(`/products/search?q=${encodeURIComponent(searchTerm)}`)
-        .then(response => response.json())
-        .then(products => {
-            showAutocomplete(products, searchTerm);
-        })
-        .catch(error => {
-            console.error('검색 오류:', error);
-        });
-}
-
-// 자동완성 표시
-function showAutocomplete(products, searchTerm) {
-    const dropdown = document.getElementById('autocompleteDropdown');
-    
-    if (products.length === 0) {
-        dropdown.innerHTML = `
-            <div style="padding: 20px; text-align: center; color: #adb5bd;">
-                <i class="bi bi-search" style="font-size: 2rem;"></i>
-                <p style="margin-top: 10px;">검색 결과가 없습니다</p>
-            </div>
-        `;
-        dropdown.classList.add('show');
-        return;
-    }
-    
-    let html = '';
-    products.forEach(product => {
-        html += `
-            <div class="autocomplete-item" onclick="goToProduct(${product.id})">
-                <div style="flex: 1;">
-                    <div style="font-weight: 600;">${product.name}</div>
-                    <div style="font-size: 0.85rem; color: #adb5bd;">${product.product_code || '코드 없음'}</div>
-                </div>
-                <div style="color: #e74c3c; font-weight: bold;">
-                    ${product.price ? '₩' + product.price.toLocaleString() : '-'}
-                </div>
-            </div>
-        `;
-    });
-    
-    dropdown.innerHTML = html;
-    dropdown.classList.add('show');
-}
-
-// 상품 페이지로 이동
-function goToProduct(productId) {
-    window.location.href = `/products/${productId}`;
-}
-
-// 클릭 외부 영역 시 드롭다운 닫기
-document.addEventListener('click', function(e) {
-    const searchInput = document.getElementById('productSearch');
-    const dropdown = document.getElementById('autocompleteDropdown');
-    
-    if (!searchInput.contains(e.target) && !dropdown.contains(e.target)) {
-        dropdown.classList.remove('show');
-    }
-});
-</script>
-
 <div class="container">
-    <!-- 액션 버튼 -->
-    <div class="action-buttons">
-        <a href="/" class="btn-action btn-home">
-            <i class="bi bi-house"></i> 홈으로
-        </a>
-        <a href="/products/edit/{{ product.id }}" class="btn-action btn-edit">
-            <i class="bi bi-pencil"></i> 수정하기
-        </a>
-        <a href="/products" class="btn-action btn-list">
-            <i class="bi bi-list-ul"></i> 목록으로
-        </a>
-    </div>
-    
     <!-- 메인 상품 카드 -->
     <div class="product-main-card">
         <div class="row g-0">
             <!-- 이미지 섹션 -->
-            <div class="col-lg-5">
+            <div class="col-lg-6">
                 <div class="product-image-section">
-                    {% if product.thumbnail %}
-                    <img src="{{ product.thumbnail }}" alt="{{ product.name }}" class="product-image">
+                    {% if product.image %}
+                        <img src="{{ product.image }}" alt="{{ product.name }}" class="product-image">
                     {% else %}
-                    <div class="no-image">
-                        <i class="bi bi-image"></i>
-                    </div>
+                        <div class="no-image">
+                            <i class="bi bi-image"></i>
+                        </div>
                     {% endif %}
                 </div>
             </div>
             
             <!-- 정보 섹션 -->
-            <div class="col-lg-7">
+            <div class="col-lg-6">
                 <div class="product-info-section">
                     <h1 class="product-title">{{ product.name }}</h1>
-                    <div class="product-code">상품코드: {{ product.product_code or 'N/A' }}</div>
-                    
-                    <!-- 가격 -->
-                    <div class="price-display">
-                        <i class="bi bi-tag-fill"></i>
-                        ₩ {{ "{:,}".format(product.price) }}
+                    <div class="product-code">
+                        <i class="bi bi-upc-scan"></i> 상품코드: {{ product.product_code if product.product_code else 'N/A' }}
                     </div>
                     
-                    <!-- 배송 옵션 -->
+                    <!-- 가격 표시 -->
+                    <div class="price-display">
+                        <i class="bi bi-tag-fill"></i>
+                        ₩ {{ "{:,}".format(product.price) if product.price else 0 }}
+                    </div>
+                    
+                    <!-- 배송 옵션 뱃지들 -->
                     <div class="shipping-badges">
+                        <!-- 경동 물류 -->
                         <div class="shipping-badge {{ 'active' if product.kd_paid else 'inactive' }}">
                             <i class="bi {{ 'bi-check-circle-fill' if product.kd_paid else 'bi-x-circle' }}"></i>
-                            경동 대납
+                            경동 물류
                         </div>
+                        
+                        <!-- 관세 대납 -->
                         <div class="shipping-badge {{ 'active' if product.customs_paid else 'inactive' }}">
                             <i class="bi {{ 'bi-check-circle-fill' if product.customs_paid else 'bi-x-circle' }}"></i>
                             관세 대납
-                            {% if product.customs_paid and product.customs_cost > 0 %}
-                                ({{ "{:,}".format(product.customs_cost) }}원)
-                            {% endif %}
                         </div>
+                        
+                        <!-- 신고가 뱃지 - 별도로 항상 표시 -->
+                        {% if product.customs_cost and product.customs_cost > 0 %}
+                        <div class="customs-price-badge">
+                            <i class="bi bi-currency-exchange"></i>
+                            <span>신고가:</span>
+                            <span class="price-value">¥{{ "{:,}".format(product.customs_cost) }}</span>
+                        </div>
+                        {% else %}
+                        <div class="customs-price-badge">
+                            <i class="bi bi-currency-exchange"></i>
+                            <span>신고가: 미정</span>
+                        </div>
+                        {% endif %}
                     </div>
                     
                     <!-- 쇼핑몰 링크 -->
@@ -684,6 +633,19 @@ document.addEventListener('click', function(e) {
                         <div class="details-content">
                             {{ product.details | replace('\n', '<br>') | safe if product.details else '상세 정보가 없습니다.' }}
                         </div>
+                    </div>
+                    
+                    <!-- 액션 버튼 -->
+                    <div class="action-buttons">
+                        <button onclick="location.href='/products/edit/{{ product.id }}'" class="btn-action btn-edit">
+                            <i class="bi bi-pencil-fill"></i> 수정
+                        </button>
+                        <button onclick="deleteProduct({{ product.id }})" class="btn-action btn-delete">
+                            <i class="bi bi-trash-fill"></i> 삭제
+                        </button>
+                        <button onclick="location.href='/products'" class="btn-action btn-back">
+                            <i class="bi bi-arrow-left"></i> 목록으로
+                        </button>
                     </div>
                 </div>
             </div>
@@ -724,12 +686,12 @@ document.addEventListener('click', function(e) {
         </div>
         
         <!-- 네이버 옵션 -->
-        {% if naver_options %}
         <div class="option-card">
             <h4 class="option-card-title naver">
                 <i class="bi bi-bag-fill"></i>
                 네이버 옵션
             </h4>
+            {% if naver_options %}
             <table class="option-table">
                 <thead>
                     <tr>
@@ -746,8 +708,13 @@ document.addEventListener('click', function(e) {
                     {% endfor %}
                 </tbody>
             </table>
+            {% else %}
+            <div class="no-options">
+                <i class="bi bi-inbox" style="font-size: 2rem;"></i>
+                <p>등록된 옵션이 없습니다</p>
+            </div>
+            {% endif %}
         </div>
-        {% endif %}
         
         <!-- 타오바오 옵션 -->
         <div class="option-card">
@@ -787,6 +754,7 @@ document.addEventListener('click', function(e) {
 let searchInput = document.getElementById('productSearch');
 let autocompleteDropdown = document.getElementById('autocompleteDropdown');
 let searchTimeout = null;
+let selectedIndex = -1;
 
 // 자동완성 검색
 searchInput.addEventListener('input', function(e) {
@@ -795,6 +763,7 @@ searchInput.addEventListener('input', function(e) {
     
     if (searchTerm.length < 1) {
         autocompleteDropdown.classList.remove('show');
+        selectedIndex = -1;
         return;
     }
     
@@ -805,13 +774,15 @@ searchInput.addEventListener('input', function(e) {
 
 // 상품 검색 API 호출
 function searchProducts(searchTerm) {
-    fetch(`/products/search?q=${encodeURIComponent(searchTerm)}`)
+    fetch(`/products/api/search?q=${encodeURIComponent(searchTerm)}`)
         .then(response => response.json())
         .then(products => {
             showAutocomplete(products, searchTerm);
         })
         .catch(error => {
             console.error('검색 오류:', error);
+            // 에러 시 빈 결과 표시
+            showAutocomplete([], searchTerm);
         });
 }
 
@@ -819,9 +790,10 @@ function searchProducts(searchTerm) {
 function showAutocomplete(products, searchTerm) {
     if (products.length === 0) {
         autocompleteDropdown.innerHTML = `
-            <div style="padding: 20px; text-align: center; color: #adb5bd;">
-                <i class="bi bi-search" style="font-size: 2rem;"></i>
-                <p style="margin-top: 10px;">검색 결과가 없습니다</p>
+            <div style="padding: 30px; text-align: center; color: #adb5bd;">
+                <i class="bi bi-search" style="font-size: 2.5rem; color: #dee2e6;"></i>
+                <p style="margin-top: 15px; font-weight: 500;">검색 결과가 없습니다</p>
+                <p style="font-size: 0.9rem; color: #adb5bd;">다른 키워드로 검색해보세요</p>
             </div>
         `;
         autocompleteDropdown.classList.add('show');
@@ -829,51 +801,77 @@ function showAutocomplete(products, searchTerm) {
     }
     
     let html = '';
-    products.forEach(product => {
+    products.slice(0, 10).forEach((product, index) => {
         const highlightedName = highlightText(product.name || '', searchTerm);
+        const highlightedCode = highlightText(product.product_code || '', searchTerm);
         const price = product.price ? `₩${product.price.toLocaleString()}` : '가격 미정';
         
         html += `
-            <div class="autocomplete-item" onclick="goToProduct(${product.id})">
-                ${product.thumbnail ? 
-                    `<img src="${product.thumbnail}" class="autocomplete-thumbnail">` :
-                    `<div class="autocomplete-thumbnail" style="display: flex; align-items: center; justify-content: center;">
-                        <i class="bi bi-image" style="color: #adb5bd;"></i>
+            <div class="autocomplete-item" 
+                 onclick="goToProduct(${product.id})"
+                 data-index="${index}">
+                ${product.image ? 
+                    `<img src="${product.image}" class="autocomplete-thumbnail" onerror="this.src='/static/img/no-image.png'">` :
+                    `<div class="autocomplete-thumbnail" style="display: flex; align-items: center; justify-content: center; background: #f8f9fa;">
+                        <i class="bi bi-image" style="color: #adb5bd; font-size: 1.5rem;"></i>
                     </div>`
                 }
                 <div class="autocomplete-info">
                     <div class="autocomplete-name">${highlightedName}</div>
-                    <div class="autocomplete-price">${price}</div>
+                    <div class="autocomplete-price">
+                        ${price} 
+                        ${product.product_code ? `• 코드: ${highlightedCode}` : ''}
+                    </div>
+                </div>
+                <div style="margin-left: auto; color: #667eea;">
+                    <i class="bi bi-arrow-right-circle" style="font-size: 1.3rem;"></i>
                 </div>
             </div>
         `;
     });
     
+    // 더 많은 결과가 있으면 표시
+    if (products.length > 10) {
+        html += `
+            <div style="padding: 15px; background: #f8f9fa; text-align: center; color: #636e72; font-size: 0.9rem; border-top: 1px solid #e9ecef;">
+                <i class="bi bi-info-circle"></i> ${products.length - 10}개의 추가 결과가 더 있습니다
+            </div>
+        `;
+    }
+    
     autocompleteDropdown.innerHTML = html;
     autocompleteDropdown.classList.add('show');
+    selectedIndex = -1;
 }
 
-// 텍스트 하이라이트
+// 텍스트 하이라이트 - 형광펜 효과
 function highlightText(text, searchTerm) {
-    if (!searchTerm) return text;
-    const regex = new RegExp(`(${searchTerm})`, 'gi');
+    if (!searchTerm || !text) return text;
+    
+    // 대소문자 구분 없이 검색
+    const regex = new RegExp(`(${searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
     return text.replace(regex, '<span class="highlight">$1</span>');
 }
 
 // 상품 페이지로 이동
 function goToProduct(productId) {
-    window.location.href = `/products/${productId}`;
+    // 현재 페이지가 같은 상품이면 새로고침
+    if (window.location.pathname === `/products/${productId}`) {
+        window.location.reload();
+    } else {
+        window.location.href = `/products/${productId}`;
+    }
 }
 
 // 클릭 외부 영역 시 드롭다운 닫기
 document.addEventListener('click', function(e) {
     if (!searchInput.contains(e.target) && !autocompleteDropdown.contains(e.target)) {
         autocompleteDropdown.classList.remove('show');
+        selectedIndex = -1;
     }
 });
 
 // 키보드 네비게이션
-let selectedIndex = -1;
 searchInput.addEventListener('keydown', function(e) {
     const items = autocompleteDropdown.querySelectorAll('.autocomplete-item');
     
@@ -889,32 +887,70 @@ searchInput.addEventListener('keydown', function(e) {
         e.preventDefault();
         if (selectedIndex >= 0 && items[selectedIndex]) {
             items[selectedIndex].click();
+        } else if (searchInput.value.trim()) {
+            // 선택된 항목이 없으면 첫 번째 결과로 이동
+            if (items.length > 0) {
+                items[0].click();
+            }
         }
     } else if (e.key === 'Escape') {
         autocompleteDropdown.classList.remove('show');
         searchInput.blur();
+        selectedIndex = -1;
     }
 });
 
+// 선택된 항목 스타일 업데이트
 function updateSelection(items) {
     items.forEach((item, index) => {
         if (index === selectedIndex) {
-            item.style.background = '#f8f9fa';
+            item.style.background = 'linear-gradient(90deg, #f0f3ff 0%, #e6eaff 100%)';
+            item.style.paddingLeft = '25px';
+            // 선택된 항목이 보이도록 스크롤
+            item.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
         } else {
             item.style.background = '';
+            item.style.paddingLeft = '20px';
         }
     });
 }
 
+// 상품 삭제
+function deleteProduct(productId) {
+    if (confirm('정말로 이 상품을 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다.')) {
+        // Form 데이터로 전송
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = `/products/delete/${productId}`;
+        
+        document.body.appendChild(form);
+        form.submit();
+    }
+}
+
 // 이미지 에러 처리
-document.querySelectorAll('img').forEach(img => {
-    img.onerror = function() {
-        this.style.display = 'none';
-        const placeholder = document.createElement('div');
-        placeholder.className = 'no-image';
-        placeholder.innerHTML = '<i class="bi bi-image"></i>';
-        this.parentElement.appendChild(placeholder);
-    };
+document.addEventListener('DOMContentLoaded', function() {
+    const images = document.querySelectorAll('img');
+    images.forEach(img => {
+        img.onerror = function() {
+            if (this.parentElement.classList.contains('product-image-section')) {
+                this.style.display = 'none';
+                const placeholder = document.createElement('div');
+                placeholder.className = 'no-image';
+                placeholder.innerHTML = '<i class="bi bi-image"></i>';
+                this.parentElement.appendChild(placeholder);
+            }
+        };
+    });
+});
+
+// 검색창 포커스 시 애니메이션
+searchInput.addEventListener('focus', function() {
+    this.parentElement.style.transform = 'scale(1.02)';
+});
+
+searchInput.addEventListener('blur', function() {
+    this.parentElement.style.transform = 'scale(1)';
 });
 </script>
 {% endblock %}
