@@ -67,7 +67,7 @@ def delete_user(user_id: int = Form(...)):
     db.close()
     return RedirectResponse("/admin/users", status_code=302)
 
-# ✅ 상품 목록 보기
+# ✅ 상품 목록 보기 (JSON 직렬화 문제 해결)
 @router.get("/products", response_class=HTMLResponse)
 def product_list(
     request: Request,
@@ -95,7 +95,6 @@ def product_list(
     if keyword:
         query = query.filter(Product.name.contains(keyword))
     
-    # --- ▼▼▼ 정렬 로직 변경 ▼▼▼ ---
     # 1. DB에서 모든 검색 결과를 가져옴
     all_filtered_products = query.all()
 
@@ -109,32 +108,65 @@ def product_list(
     # 4. 현재 페이지에 해당하는 부분만 잘라내기
     offset = (page - 1) * size
     paginated_products = sorted_products[offset : offset + size]
-    # --- ▲▲▲ 정렬 로직 변경 ▲▲▲ ---
+    
+    # ⭐⭐⭐ JSON 직렬화 문제 해결: SQLAlchemy 객체를 딕셔너리로 변환 ⭐⭐⭐
+    products_data = []
+    for product in paginated_products:
+        product_dict = {
+            'id': product.id,
+            'product_code': product.product_code or '',
+            'name': product.name or '',
+            'price': product.price or 0,
+            'kd_paid': product.kd_paid if product.kd_paid is not None else False,
+            'customs_paid': product.customs_paid if product.customs_paid is not None else False,
+            'customs_cost': product.customs_cost or 0,
+            'coupang_link': product.coupang_link or '',
+            'taobao_link': product.taobao_link or '',
+            'thumbnail': product.thumbnail or '',
+            'details': product.details or '',
+            'coupang_options': product.coupang_options or '[]',
+            'taobao_options': product.taobao_options or '[]'
+        }
+        
+        # 네이버 필드 (테이블에 컬럼이 없을 수도 있음)
+        if hasattr(product, 'naver_link'):
+            product_dict['naver_link'] = product.naver_link or ''
+        else:
+            product_dict['naver_link'] = ''
+            
+        if hasattr(product, 'naver_options'):
+            product_dict['naver_options'] = product.naver_options or '[]'
+        else:
+            product_dict['naver_options'] = '[]'
+        
+        products_data.append(product_dict)
 
     db.close()
     
     return templates.TemplateResponse("admin_products.html", {
         "request": request,
-        "products": paginated_products, # 정렬 및 페이징된 최종 목록 전달
+        "products": products_data,  # ⭐ 딕셔너리 리스트 전달
         "keyword": keyword,
         "total_pages": total_pages,
         "current_page": page,
         "page_size": size,
         "total_products": total_products
     })
-# ✅ 상품 등록 폼
-@router.get("/products/create", response_class=HTMLResponse)
-def product_create_form(request: Request):
+
+# ✅ 상품 등록 폼 (/products/add 라우트 추가 - index.html에서 사용)
+@router.get("/products/add", response_class=HTMLResponse)
+def product_add_form(request: Request):
     return templates.TemplateResponse("product_form.html", {
         "request": request,
         "product": None,
         "coupang_options": [],
-        "taobao_options": []
+        "taobao_options": [],
+        "naver_options": []  # 네이버 옵션 추가
     })
-    
-# ✅ 상품 등록 처리 (수정된 최종 버전)
-@router.post("/products/create")
-def product_create(
+
+# ✅ 상품 등록 처리 (/products/add POST)
+@router.post("/products/add")
+def product_add(
     request: Request,
     product_code: str = Form(...),
     name: str = Form(...),
@@ -144,10 +176,13 @@ def product_create(
     customs_cost: int = Form(0),
     coupang_link: Optional[str] = Form(""),
     taobao_link: Optional[str] = Form(""),
+    naver_link: Optional[str] = Form(""),  # 네이버 링크 추가
     coupang_option_names: Optional[List[str]] = Form([]),
     coupang_option_prices: Optional[List[int]] = Form([]),
     taobao_option_names: Optional[List[str]] = Form([]),
     taobao_option_prices: Optional[List[int]] = Form([]),
+    naver_option_names: Optional[List[str]] = Form([]),  # 네이버 옵션 추가
+    naver_option_prices: Optional[List[int]] = Form([]),  # 네이버 옵션 추가
     thumbnail: Optional[str] = Form(""),
     details: Optional[str] = Form("")
 ):
@@ -156,6 +191,9 @@ def product_create(
     ])
     taobao_options = json.dumps([
         {"name": n, "price": p} for n, p in zip(taobao_option_names, taobao_option_prices)
+    ])
+    naver_options = json.dumps([
+        {"name": n, "price": p} for n, p in zip(naver_option_names, naver_option_prices)
     ])
 
     db = SessionLocal()
@@ -175,6 +213,13 @@ def product_create(
             thumbnail=thumbnail,
             details=details
         )
+        
+        # 네이버 필드 (컬럼이 있는 경우만)
+        if hasattr(Product, 'naver_link'):
+            new_product.naver_link = naver_link
+        if hasattr(Product, 'naver_options'):
+            new_product.naver_options = naver_options
+        
         db.add(new_product)
         db.commit()
         db.close()
@@ -187,6 +232,7 @@ def product_create(
             "kd_paid": (kd_paid == "on"), "customs_paid": (customs_paid == "on"),
             "customs_cost": customs_cost,
             "coupang_link": coupang_link, "taobao_link": taobao_link,
+            "naver_link": naver_link,
             "thumbnail": thumbnail, "details": details
         }
         return templates.TemplateResponse("product_form.html", {
@@ -194,9 +240,100 @@ def product_create(
             "error": "이미 사용 중인 상품 ID입니다.",
             "product": form_data,
             "coupang_options": json.loads(coupang_options or "[]"),
-            "taobao_options": json.loads(taobao_options or "[]")
+            "taobao_options": json.loads(taobao_options or "[]"),
+            "naver_options": json.loads(naver_options or "[]")
         })
 
+# ✅ 상품 등록 폼 (기존 /products/create 유지)
+@router.get("/products/create", response_class=HTMLResponse)
+def product_create_form(request: Request):
+    return templates.TemplateResponse("product_form.html", {
+        "request": request,
+        "product": None,
+        "coupang_options": [],
+        "taobao_options": [],
+        "naver_options": []  # 네이버 옵션 추가
+    })
+    
+# ✅ 상품 등록 처리 (기존 /products/create 유지)
+@router.post("/products/create")
+def product_create(
+    request: Request,
+    product_code: str = Form(...),
+    name: str = Form(...),
+    price: int = Form(...),
+    kd_paid: Optional[str] = Form(None),
+    customs_paid: Optional[str] = Form(None),
+    customs_cost: int = Form(0),
+    coupang_link: Optional[str] = Form(""),
+    taobao_link: Optional[str] = Form(""),
+    naver_link: Optional[str] = Form(""),  # 네이버 링크 추가
+    coupang_option_names: Optional[List[str]] = Form([]),
+    coupang_option_prices: Optional[List[int]] = Form([]),
+    taobao_option_names: Optional[List[str]] = Form([]),
+    taobao_option_prices: Optional[List[int]] = Form([]),
+    naver_option_names: Optional[List[str]] = Form([]),  # 네이버 옵션 추가
+    naver_option_prices: Optional[List[int]] = Form([]),  # 네이버 옵션 추가
+    thumbnail: Optional[str] = Form(""),
+    details: Optional[str] = Form("")
+):
+    coupang_options = json.dumps([
+        {"name": n, "price": p} for n, p in zip(coupang_option_names, coupang_option_prices)
+    ])
+    taobao_options = json.dumps([
+        {"name": n, "price": p} for n, p in zip(taobao_option_names, taobao_option_prices)
+    ])
+    naver_options = json.dumps([
+        {"name": n, "price": p} for n, p in zip(naver_option_names, naver_option_prices)
+    ])
+
+    db = SessionLocal()
+    
+    try:
+        new_product = Product(
+            product_code=product_code,
+            name=name,
+            price=price,
+            kd_paid=(kd_paid == "on"),
+            customs_paid=(customs_paid == "on"),
+            customs_cost=customs_cost,
+            coupang_link=coupang_link,
+            taobao_link=taobao_link,
+            coupang_options=coupang_options,
+            taobao_options=taobao_options,
+            thumbnail=thumbnail,
+            details=details
+        )
+        
+        # 네이버 필드 (컬럼이 있는 경우만)
+        if hasattr(Product, 'naver_link'):
+            new_product.naver_link = naver_link
+        if hasattr(Product, 'naver_options'):
+            new_product.naver_options = naver_options
+        
+        db.add(new_product)
+        db.commit()
+        db.close()
+        return RedirectResponse("/products?success=create", status_code=302)
+    except IntegrityError:
+        db.rollback()
+        db.close()
+        form_data = {
+            "product_code": product_code, "name": name, "price": price,
+            "kd_paid": (kd_paid == "on"), "customs_paid": (customs_paid == "on"),
+            "customs_cost": customs_cost,
+            "coupang_link": coupang_link, "taobao_link": taobao_link,
+            "naver_link": naver_link,
+            "thumbnail": thumbnail, "details": details
+        }
+        return templates.TemplateResponse("product_form.html", {
+            "request": request,
+            "error": "이미 사용 중인 상품 ID입니다.",
+            "product": form_data,
+            "coupang_options": json.loads(coupang_options or "[]"),
+            "taobao_options": json.loads(taobao_options or "[]"),
+            "naver_options": json.loads(naver_options or "[]")
+        })
 
 # ✅ 상품 상세 보기
 @router.get("/products/{product_id}", response_class=HTMLResponse)
@@ -206,11 +343,21 @@ def product_detail(request: Request, product_id: int):
     db.close()
     if not product:
         return RedirectResponse("/products", status_code=302)
+    
+    # 네이버 옵션 파싱
+    naver_options = []
+    if hasattr(product, 'naver_options') and product.naver_options:
+        try:
+            naver_options = json.loads(product.naver_options)
+        except:
+            naver_options = []
+    
     return templates.TemplateResponse("product_detail.html", {
         "request": request,
         "product": product,
         "coupang_options": json.loads(product.coupang_options or "[]"),
-        "taobao_options": json.loads(product.taobao_options or "[]")
+        "taobao_options": json.loads(product.taobao_options or "[]"),
+        "naver_options": naver_options  # 네이버 옵션 추가
     })
 
 # ✅ 상품 수정 폼
@@ -219,19 +366,27 @@ def edit_product_form(request: Request, product_id: int):
     db = SessionLocal()
     product = db.query(Product).filter(Product.id == product_id).first()
     db.close()
+    
+    # 네이버 옵션 파싱
+    naver_options = []
+    if hasattr(product, 'naver_options') and product.naver_options:
+        try:
+            naver_options = json.loads(product.naver_options)
+        except:
+            naver_options = []
+    
     return templates.TemplateResponse("product_form.html", {
         "request": request,
         "product": product,
         "coupang_options": json.loads(product.coupang_options or "[]"),
-        "taobao_options": json.loads(product.taobao_options or "[]")
+        "taobao_options": json.loads(product.taobao_options or "[]"),
+        "naver_options": naver_options  # 네이버 옵션 추가
     })
 
-
-
-# ✅ 상품 수정 처리 (수정된 최종 버전)
+# ✅ 상품 수정 처리
 @router.post("/products/edit/{product_id}")
 def edit_product(
-    request: Request, # request 파라미터 추가
+    request: Request,  # request 파라미터 추가
     product_id: int,
     product_code: str = Form(...),
     name: str = Form(...),
@@ -241,10 +396,13 @@ def edit_product(
     customs_cost: int = Form(0),
     coupang_link: Optional[str] = Form(""),
     taobao_link: Optional[str] = Form(""),
+    naver_link: Optional[str] = Form(""),  # 네이버 링크 추가
     coupang_option_names: Optional[List[str]] = Form([]),
     coupang_option_prices: Optional[List[int]] = Form([]),
     taobao_option_names: Optional[List[str]] = Form([]),
     taobao_option_prices: Optional[List[int]] = Form([]),
+    naver_option_names: Optional[List[str]] = Form([]),  # 네이버 옵션 추가
+    naver_option_prices: Optional[List[int]] = Form([]),  # 네이버 옵션 추가
     thumbnail: Optional[str] = Form(""),
     details: Optional[str] = Form("")
 ):
@@ -253,6 +411,9 @@ def edit_product(
     ])
     taobao_options = json.dumps([
         {"name": n, "price": p} for n, p in zip(taobao_option_names, taobao_option_prices)
+    ])
+    naver_options = json.dumps([
+        {"name": n, "price": p} for n, p in zip(naver_option_names, naver_option_prices)
     ])
 
     db = SessionLocal()
@@ -272,9 +433,16 @@ def edit_product(
             product.taobao_options = taobao_options
             product.thumbnail = thumbnail
             product.details = details
+            
+            # 네이버 필드 (컬럼이 있는 경우만)
+            if hasattr(product, 'naver_link'):
+                product.naver_link = naver_link
+            if hasattr(product, 'naver_options'):
+                product.naver_options = naver_options
+            
             db.commit()
         db.close()
-        return RedirectResponse("/products?success=edit", status_code=302) # create -> edit 으로 수정
+        return RedirectResponse("/products?success=edit", status_code=302)
     except IntegrityError:
         db.rollback()
         db.close()
@@ -285,6 +453,7 @@ def edit_product(
             "kd_paid": (kd_paid == "on"), "customs_paid": (customs_paid == "on"),
             "customs_cost": customs_cost,
             "coupang_link": coupang_link, "taobao_link": taobao_link,
+            "naver_link": naver_link,
             "thumbnail": thumbnail, "details": details
         })
         return templates.TemplateResponse("product_form.html", {
@@ -292,9 +461,9 @@ def edit_product(
             "error": "이미 사용 중인 상품 ID입니다.",
             "product": form_data_from_product,
             "coupang_options": json.loads(coupang_options or "[]"),
-            "taobao_options": json.loads(taobao_options or "[]")
+            "taobao_options": json.loads(taobao_options or "[]"),
+            "naver_options": json.loads(naver_options or "[]")
         })
-        
         
 # ✅ 상품 삭제
 @router.post("/products/delete")
@@ -307,6 +476,7 @@ def product_delete(product_id: int = Form(...)):
     db.close()
     return RedirectResponse("/products", status_code=302)
 
+# ✅ 상품 검색 API (자동완성)
 @router.get("/search")
 def search_products(q: str = Query("", description="검색어")):
     """상품 검색 API - 자동완성에 사용"""
@@ -347,185 +517,75 @@ def search_products(q: str = Query("", description="검색어")):
     finally:
         db.close()
 
-# 상품 상세 페이지 라우트 (네이버 옵션 추가)
-@router.get("/{product_id}", response_class=HTMLResponse)
-def product_detail(request: Request, product_id: int):
-    """상품 상세 정보 페이지"""
-    
+# ✅ 상품 상세 페이지 라우트 (네이버 옵션 추가)
+@router.get("/product/{product_id}")
+def product_page(request: Request, product_id: int):
     db = SessionLocal()
-    try:
-        # 상품 조회
-        product = db.query(Product).filter(Product.id == product_id).first()
-        
-        if not product:
-            return templates.TemplateResponse("error.html", {
-                "request": request,
-                "error": "상품을 찾을 수 없습니다."
-            })
-        
-        # 옵션 파싱 함수
-        def parse_options(options_str):
-            if not options_str:
-                return []
-            
-            options = []
-            try:
-                # JSON 형식이면 파싱
-                import json
-                options_data = json.loads(options_str)
-                if isinstance(options_data, list):
-                    return options_data
-            except:
-                # JSON이 아니면 텍스트로 파싱
-                # 형식: "옵션1:가격1, 옵션2:가격2"
-                for opt in options_str.split(','):
-                    if ':' in opt:
-                        name, price = opt.strip().split(':', 1)
-                        try:
-                            options.append({
-                                'name': name.strip(),
-                                'price': int(price.strip())
-                            })
-                        except:
-                            pass
-            
-            return options
-        
-        # 각 플랫폼별 옵션 파싱
-        coupang_options = parse_options(product.coupang_options)
-        taobao_options = parse_options(product.taobao_options)
-        
-        # 네이버 옵션 파싱 (새로 추가)
-        naver_options = []
-        if hasattr(product, 'naver_options'):
-            naver_options = parse_options(product.naver_options)
-        
-        return templates.TemplateResponse("product_detail.html", {
-            "request": request,
-            "product": product,
-            "coupang_options": coupang_options,
-            "taobao_options": taobao_options,
-            "naver_options": naver_options  # 네이버 옵션 추가
-        })
-        
-    finally:
-        db.close()
-        
-@router.get("/add", response_class=HTMLResponse)
-def add_product_page(request: Request):
-    """새 상품 등록 페이지"""
-    if not request.session.get("user"):
-        return RedirectResponse("/login", status_code=303)
+    product = db.query(Product).filter(Product.id == product_id).first()
     
-    # 빈 상품 객체로 템플릿 렌더링
-    return templates.TemplateResponse("product_form.html", {
+    if not product:
+        db.close()
+        return RedirectResponse("/products", status_code=302)
+    
+    # JSON 옵션 파싱
+    try:
+        coupang_options = json.loads(product.coupang_options) if product.coupang_options else []
+    except:
+        coupang_options = []
+    
+    try:
+        taobao_options = json.loads(product.taobao_options) if product.taobao_options else []
+    except:
+        taobao_options = []
+    
+    # 네이버 옵션 파싱
+    naver_options = []
+    if hasattr(product, 'naver_options') and product.naver_options:
+        try:
+            naver_options = json.loads(product.naver_options)
+        except:
+            naver_options = []
+    
+    db.close()
+    
+    return templates.TemplateResponse("product_page.html", {
         "request": request,
-        "product": None,  # 신규 등록이므로 None
-        "coupang_options": [],
-        "naver_options": [],
-        "taobao_options": []
+        "product": product,
+        "coupang_options": coupang_options,
+        "taobao_options": taobao_options,
+        "naver_options": naver_options,  # 네이버 옵션 추가
     })
 
-# 상품 등록 처리 (POST) - /products/add
-@router.post("/add", response_class=HTMLResponse)
-def add_product(
-    request: Request,
-    product_code: str = Form(...),
-    name: str = Form(...),
-    price: int = Form(...),
-    kd_paid: bool = Form(False),
-    customs_paid: bool = Form(False),
-    customs_cost: int = Form(0),
-    coupang_link: str = Form(None),
-    naver_link: str = Form(None),
-    taobao_link: str = Form(None),
-    thumbnail: str = Form(None),
-    details: str = Form(None),
-    coupang_option_names: list = Form([]),
-    coupang_option_prices: list = Form([]),
-    naver_option_names: list = Form([]),
-    naver_option_prices: list = Form([]),
-    taobao_option_names: list = Form([]),
-    taobao_option_prices: list = Form([])
-):
-    """새 상품 등록 처리"""
-    if not request.session.get("user"):
-        return RedirectResponse("/login", status_code=303)
-    
+# ✅ 경동 상태 업데이트 API
+@router.post("/products/update-kd/{product_id}")
+def update_kd_status(product_id: int, kd_paid: bool = Form(...)):
     db = SessionLocal()
-    
     try:
-        # 상품 코드 중복 체크
-        existing = db.query(Product).filter(Product.product_code == product_code).first()
-        if existing:
-            # 중복 에러 표시
-            return templates.TemplateResponse("product_form.html", {
-                "request": request,
-                "error": "이미 존재하는 상품 코드입니다.",
-                "product": None,
-                "coupang_options": [],
-                "naver_options": [],
-                "taobao_options": []
-            })
-        
-        # 옵션 데이터 JSON으로 변환
-        coupang_options = []
-        for i in range(len(coupang_option_names)):
-            if i < len(coupang_option_prices):
-                coupang_options.append({
-                    "name": coupang_option_names[i],
-                    "price": int(coupang_option_prices[i])
-                })
-        
-        naver_options = []
-        for i in range(len(naver_option_names)):
-            if i < len(naver_option_prices):
-                naver_options.append({
-                    "name": naver_option_names[i],
-                    "price": int(naver_option_prices[i])
-                })
-        
-        taobao_options = []
-        for i in range(len(taobao_option_names)):
-            if i < len(taobao_option_prices):
-                taobao_options.append({
-                    "name": taobao_option_names[i],
-                    "price": int(taobao_option_prices[i])
-                })
-        
-        # 새 상품 생성
-        new_product = Product(
-            product_code=product_code,
-            name=name,
-            price=price,
-            kd_paid=kd_paid,
-            customs_paid=customs_paid,
-            customs_cost=customs_cost,
-            coupang_link=coupang_link,
-            naver_link=naver_link,
-            taobao_link=taobao_link,
-            thumbnail=thumbnail,
-            details=details,
-            coupang_options=json.dumps(coupang_options) if coupang_options else None,
-            naver_options=json.dumps(naver_options) if naver_options else None,
-            taobao_options=json.dumps(taobao_options) if taobao_options else None
-        )
-        
-        db.add(new_product)
-        db.commit()
-        
-        # 등록 성공 후 상품 상세 페이지로 이동
-        return RedirectResponse(f"/products/{new_product.id}", status_code=303)
-        
+        product = db.query(Product).filter(Product.id == product_id).first()
+        if product:
+            product.kd_paid = kd_paid
+            db.commit()
+            return JSONResponse({"success": True})
+        return JSONResponse({"success": False, "error": "Product not found"}, status_code=404)
     except Exception as e:
         db.rollback()
-        return templates.TemplateResponse("product_form.html", {
-            "request": request,
-            "error": f"상품 등록 중 오류가 발생했습니다: {str(e)}",
-            "product": None,
-            "coupang_options": [],
-            "naver_options": [],
-            "taobao_options": []
-        })
+        return JSONResponse({"success": False, "error": str(e)}, status_code=500)
+    finally:
+        db.close()
+
+# ✅ 관세 상태 업데이트 API
+@router.post("/products/update-customs/{product_id}")
+def update_customs_status(product_id: int, customs_paid: bool = Form(...)):
+    db = SessionLocal()
+    try:
+        product = db.query(Product).filter(Product.id == product_id).first()
+        if product:
+            product.customs_paid = customs_paid
+            db.commit()
+            return JSONResponse({"success": True})
+        return JSONResponse({"success": False, "error": "Product not found"}, status_code=404)
+    except Exception as e:
+        db.rollback()
+        return JSONResponse({"success": False, "error": str(e)}, status_code=500)
     finally:
         db.close()
