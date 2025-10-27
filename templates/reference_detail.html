@@ -81,7 +81,7 @@
                     </div>
                     <!-- (답글 폼은 그대로 유지) -->
                     <div class="collapse mt-3" id="reply-form-{{ comment.id }}">
-                        <form action="/marketing/comment/add/{{ reference.id }}" method="post">
+                        <form action="/marketing/comment/add/{{ reference_id }}" method="post">
                             <input type="hidden" name="parent_id" value="{{ comment.id }}">
                             <div class="input-group">
                                 <select name="account_sequence" class="form-select" style="max-width: 120px;">

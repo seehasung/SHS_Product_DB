@@ -348,7 +348,11 @@ async def add_cafe_alias(
     if not cafe_name or not cafe_url:
         return RedirectResponse(url="/marketing/cafe?tab=cafes&error=missing_fields", status_code=303)
     
-    return await add_cafe(request, cafe_name, cafe_url, db)
+    # 직접 데이터베이스에 저장
+    new_cafe = TargetCafe(name=cafe_name, url=cafe_url)
+    db.add(new_cafe)
+    db.commit()
+    return RedirectResponse(url="/marketing/cafe?tab=cafes", status_code=303)
 
 @router.post("/cafes/edit/{cafe_id}", response_class=RedirectResponse)
 async def edit_cafe(
