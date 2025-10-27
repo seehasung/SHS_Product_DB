@@ -105,7 +105,7 @@
                 <div class="card-header"><h4>댓글 관리</h4></div>
                 <div class="card-body" style="max-height: 600px; overflow-y: auto;">
                     <!-- 새 최상위 댓글 폼 -->
-                    <form action="/marketing/comment/add/{{ reference.id }}" method="post" class="mb-4">
+                    <form action="/marketing/comment/add/{{ reference.id }}" method="post" class="mb-4" onsubmit="return submitOnce(this);">
                         <input type="hidden" name="parent_id" value="0">
                         <div class="mb-2">
                             <label class="form-label">새 댓글 추가</label>
@@ -160,7 +160,7 @@
                                         <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="collapse" href="#reply-form-{{ comment.id }}">답글</button>
                                     </div>
                                     <div class="collapse mt-3" id="reply-form-{{ comment.id }}">
-                                        <form action="/marketing/comment/add/{{ reference.id }}" method="post">
+                                        <form action="/marketing/comment/add/{{ reference.id }}" method="post" onsubmit="return submitOnce(this);">
                                             <input type="hidden" name="parent_id" value="{{ comment.id }}">
                                             <div class="input-group">
                                                 <select name="account_sequence" class="form-select" style="max-width: 120px;">
@@ -169,8 +169,7 @@
                                                 </select>
                                                 <textarea name="text" class="form-control" rows="2" required></textarea>
                                             </div>
-                                            <button type="submit" class="btn btn-sm btn-primary mt-2" 
-                                                onclick="this.disabled=true; this.form.submit();">답글 등록</button>
+                                            <button type="submit" class="btn btn-sm btn-primary mt-2">답글 등록</button>
                                         </form>
                                     </div>
                                     
@@ -252,7 +251,39 @@
 </div>
 
 <script>
-    // (스크립트는 그대로 유지)
+    // 폼 중복 제출 방지 함수
+    const submittedForms = new Set();
+    
+    function submitOnce(form) {
+        const formId = form.getAttribute('action') + '_' + new Date().getTime();
+        
+        if (submittedForms.has(form)) {
+            return false; // 이미 제출된 폼이면 중단
+        }
+        
+        // 폼을 제출 중인 것으로 표시
+        submittedForms.add(form);
+        
+        // 제출 버튼 비활성화
+        const submitBtn = form.querySelector('button[type="submit"]');
+        if (submitBtn) {
+            submitBtn.disabled = true;
+            submitBtn.textContent = '등록 중...';
+        }
+        
+        // 3초 후 다시 활성화 (혹시 오류로 페이지가 새로고침 안되는 경우 대비)
+        setTimeout(() => {
+            submittedForms.delete(form);
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.textContent = submitBtn.classList.contains('btn-success') ? '댓글 등록' : '답글 등록';
+            }
+        }, 3000);
+        
+        return true; // 제출 진행
+    }
+    
+    // 댓글 수정 모달
     const editCommentModal = document.getElementById('editCommentModal');
     if(editCommentModal) {
         editCommentModal.addEventListener('show.bs.modal', event => {
