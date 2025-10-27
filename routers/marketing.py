@@ -305,6 +305,11 @@ async def delete_account(account_id: int, db: Session = Depends(get_db)):
         db.commit()
     return RedirectResponse(url="/marketing/cafe?tab=accounts", status_code=303)
 
+@router.post("/account/delete/{account_id}", response_class=RedirectResponse)
+async def delete_account_alias(account_id: int, db: Session = Depends(get_db)):
+    """계정 삭제 (별칭 라우트)"""
+    return await delete_account(account_id, db)
+
 # --- Cafe CRUD ---
 @router.get("/cafes/add", response_class=HTMLResponse)
 async def add_cafe_page(request: Request):
@@ -361,6 +366,11 @@ async def delete_cafe(cafe_id: int, db: Session = Depends(get_db)):
         db.commit()
     return RedirectResponse(url="/marketing/cafe?tab=cafes", status_code=303)
 
+@router.post("/cafe/delete/{cafe_id}", response_class=RedirectResponse)
+async def delete_cafe_alias(cafe_id: int, db: Session = Depends(get_db)):
+    """카페 삭제 (별칭 라우트)"""
+    return await delete_cafe(cafe_id, db)
+
 # --- Membership CRUD ---
 @router.post("/memberships/add", response_class=RedirectResponse)
 async def add_membership(
@@ -370,10 +380,20 @@ async def add_membership(
     status: str = Form("active"),
     db: Session = Depends(get_db)
 ):
+    # 중복 연동 체크
+    existing = db.query(CafeMembership).filter(
+        CafeMembership.account_id == account_id,
+        CafeMembership.cafe_id == cafe_id
+    ).first()
+    
+    if existing:
+        # 이미 연동된 경우 에러 메시지와 함께 리다이렉트
+        return RedirectResponse(url=f"/marketing/cafe?tab=memberships&cafe_id={cafe_id}&error=duplicate_membership", status_code=303)
+    
     new_membership = CafeMembership(account_id=account_id, cafe_id=cafe_id, status=status)
     db.add(new_membership)
     db.commit()
-    return RedirectResponse(url="/marketing/cafe?tab=memberships", status_code=303)
+    return RedirectResponse(url=f"/marketing/cafe?tab=memberships&cafe_id={cafe_id}", status_code=303)
 
 @router.post("/membership/add", response_class=RedirectResponse)
 async def add_membership_alias(
@@ -485,6 +505,8 @@ async def edit_reference(
                 pass
         
         db.commit()
+        # 생성된 레퍼런스의 상세 페이지로 이동
+        return RedirectResponse(url=f"/marketing/reference/{new_ref.id}", status_code=303)
     return RedirectResponse(url="/marketing/cafe?tab=references", status_code=303)
 
 @router.post("/reference/add", response_class=RedirectResponse)

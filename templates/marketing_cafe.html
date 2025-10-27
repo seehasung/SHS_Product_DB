@@ -192,6 +192,12 @@
         <!-- 연동 관리 탭 -->
         <div class="tab-pane fade border-start border-end border-bottom p-3" id="memberships-tab-pane" role="tabpanel">
             <h3 class="mb-3">신규 카페-계정 연동</h3>
+            {% if error == 'duplicate_membership' %}
+            <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                이미 연동된 계정입니다. 다른 계정을 선택해주세요.
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+            {% endif %}
             <form action="/marketing/membership/add" method="post" class="mb-4 p-3 border rounded bg-light">
                 <div class="row g-3 align-items-end">
                     <div class="col-md-3"><label class="form-label">계정 선택</label><select name="account_id" class="form-select">{% for acc in accounts %}<option value="{{ acc.id }}">{{ acc.account_id }}</option>{% endfor %}</select></div>
@@ -224,7 +230,7 @@
                     <table class="table table-bordered table-hover text-center align-middle">
                         <thead class="table-dark">
                             <tr>
-                                <th>계정 아이디</th><th>신규 글</th><th>수정 글</th><th>상태</th><th>저장</th>
+                                <th>계정 아이디</th><th>신규 글</th><th>수정 글</th><th>상태</th><th>저장</th><th>삭제</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -243,6 +249,11 @@
                                 </td>
                                 <td><button type="submit" class="btn btn-sm btn-outline-primary">저장</button></td>
                             </form>
+                                <td>
+                                    <form action="/marketing/memberships/delete/{{ membership.id }}" method="post" style="display:inline;" onsubmit="return confirm('정말로 이 연동을 삭제하시겠습니까?');">
+                                        <button type="submit" class="btn btn-sm btn-danger">삭제</button>
+                                    </form>
+                                </td>
                             </tr>
                             {% endfor %}
                         </tbody>
@@ -274,7 +285,7 @@
                         <td class="text-start">{{ mp.product.name }}</td>
                         <td>
                             <a href="/marketing/product/posts/{{ mp.id }}" class="btn btn-sm btn-primary">글 관리</a>
-                            <a href="/marketing/product/keywords/{{ mp.id }}" class="btn btn-sm btn-outline-secondary">키워드 관리</a>
+                            <a href="/marketing/product/keywords/manage/{{ mp.id }}" class="btn btn-sm btn-outline-secondary">키워드 관리</a>
                         </td>
                     </tr>
                     {% endfor %}
@@ -354,9 +365,9 @@
             <div class="d-flex justify-content-between align-items-center mb-3">
                 <h3 class="mb-0">등록된 계정 목록</h3>
                 <div>
-                    <a href="?tab=accounts&category_filter=all" class="btn btn-sm {{ 'btn-dark' if category_filter == 'all' else 'btn-outline-dark' }}">전체</a>
-                    <a href="?tab=accounts&category_filter=최적화" class="btn btn-sm {{ 'btn-primary' if category_filter == '최적화' else 'btn-outline-primary' }}">최적화</a>
-                    <a href="?tab=accounts&category_filter=댓글" class="btn btn-sm {{ 'btn-info' if category_filter == '댓글' else 'btn-outline-info' }}">댓글</a>
+                    <a href="?tab=accounts&account_filter=all" class="btn btn-sm {{ 'btn-dark' if account_filter == 'all' else 'btn-outline-dark' }}">전체</a>
+                    <a href="?tab=accounts&account_filter=최적화" class="btn btn-sm {{ 'btn-primary' if account_filter == '최적화' else 'btn-outline-primary' }}">최적화</a>
+                    <a href="?tab=accounts&account_filter=댓글" class="btn btn-sm {{ 'btn-info' if account_filter == '댓글' else 'btn-outline-info' }}">댓글</a>
                 </div>
             </div>
             <table class="table table-bordered table-hover text-center align-middle">
