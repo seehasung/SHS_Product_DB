@@ -176,7 +176,22 @@ async def marketing_cafe(request: Request, db: Session = Depends(get_db)):
     references_query = db.query(Reference).options(joinedload(Reference.last_modified_by))
     if reference_filter != 'all':
         references_query = references_query.filter(Reference.ref_type == reference_filter)
-    references = references_query.order_by(Reference.id.desc()).all()
+    references_raw = references_query.order_by(Reference.id.desc()).all()
+    
+    # SQLAlchemy 객체를 JSON 직렬화 가능한 딕셔너리로 변환
+    references = []
+    for ref in references_raw:
+        ref_dict = {
+            'id': ref.id,
+            'title': ref.title,
+            'ref_type': ref.ref_type,
+            'content': ref.content,
+            'comment': ref.comment,
+            'created_at': ref.created_at.isoformat() if ref.created_at else None,
+            'last_modified': ref.last_modified.isoformat() if ref.last_modified else None,
+            'last_modified_by_name': ref.last_modified_by.username if ref.last_modified_by else None
+        }
+        references.append(ref_dict)
     
     all_workers = db.query(User).filter(or_(User.can_manage_marketing == True, User.is_admin == True)).all()
 
@@ -203,7 +218,7 @@ async def marketing_cafe(request: Request, db: Session = Depends(get_db)):
 
 # --- 스케줄 관리 라우터 추가 ---
 
-@router.get("/marketing/schedules", response_class=HTMLResponse)
+@router.get("/schedules", response_class=HTMLResponse)
 async def get_schedules(
     request: Request,
     selected_date: Optional[str] = Query(None),
