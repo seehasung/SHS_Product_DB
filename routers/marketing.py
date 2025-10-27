@@ -1198,15 +1198,31 @@ async def view_schedules(
     
     schedules = query.order_by(PostSchedule.id).all()
     
-    # 작업자 목록 (필터용)
+    # 작업자 목록
     workers = db.query(User).filter(
         or_(User.can_manage_marketing == True, User.is_admin == True)
     ).all()
     
-    # 마케팅 상품 목록 (자동 생성용)
+    # 마케팅 상품 목록
     marketing_products = db.query(MarketingProduct).options(
         joinedload(MarketingProduct.product)
     ).all()
+    
+    # ⭐ product_keywords_map 생성
+    product_keywords_map = {}
+    for mp in marketing_products:
+        if mp.keywords:
+            try:
+                keywords_data = json.loads(mp.keywords)
+                keywords = [item['keyword'] for item in keywords_data if item.get('active', True)]
+                product_keywords_map[mp.id] = keywords
+            except:
+                product_keywords_map[mp.id] = []
+        else:
+            product_keywords_map[mp.id] = []
+    
+    # 계정 목록 추가
+    accounts = db.query(MarketingAccount).all()
     
     # 통계 계산
     total_schedules = len(schedules)
@@ -1215,7 +1231,7 @@ async def view_schedules(
     pending_schedules = sum(1 for s in schedules if s.status == "pending")
     skipped_schedules = sum(1 for s in schedules if s.status == "skipped")
     
-    # 🔴 누락된 today_stats 추가!
+    # today_stats 생성
     today_stats = {
         'total': total_schedules,
         'completed': completed_schedules,
@@ -1224,7 +1240,7 @@ async def view_schedules(
         'skipped': skipped_schedules
     }
     
-    # 작성되지 않은 글 목록 (연결용)
+    # 작성되지 않은 글 목록
     unlinked_posts = db.query(MarketingPost).filter(
         MarketingPost.id.notin_(
             db.query(PostSchedule.marketing_post_id).filter(
@@ -1240,6 +1256,8 @@ async def view_schedules(
         "schedules": schedules,
         "workers": workers,
         "marketing_products": marketing_products,
+        "product_keywords_map": product_keywords_map,  # ⭐ 추가!
+        "accounts": accounts,  # ⭐ 추가!
         "unlinked_posts": unlinked_posts,
         "selected_date": target_date,
         "today": date.today(),
