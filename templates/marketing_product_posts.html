@@ -379,7 +379,7 @@
                             </div>
                             <div class="col-md-4 mb-3">
                                 <label class="form-label">네이버 계정</label>
-                                <select class="form-select" name="account_id" required onchange="updateCafeDropdown(this, 'edit_cafe_id_{{ post.id }}')">
+                                <select class="form-select" name="account_id" required onchange="updateCafeDropdownEdit(this, 'edit_cafe_id_{{ post.id }}', {{ post.cafe_id or 'null' }})">
                                     {% for acc in all_accounts %}
                                     <option value="{{ acc.id }}" {{ 'selected' if post.account_id == acc.id }}>{{ acc.account_id }}</option>
                                     {% endfor %}
@@ -388,9 +388,7 @@
                             <div class="col-md-4 mb-3">
                                 <label class="form-label">작성 카페</label>
                                 <select class="form-select" id="edit_cafe_id_{{ post.id }}" name="cafe_id" required>
-                                    {% for cafe in all_cafes %}
-                                    <option value="{{ cafe.id }}" {{ 'selected' if post.cafe_id == cafe.id }}>{{ cafe.name }}</option>
-                                    {% endfor %}
+                                    <!-- 카페 옵션은 JavaScript로 동적 생성 -->
                                 </select>
                             </div>
                         </div>
@@ -445,16 +443,16 @@
                         <hr>
                         <div class="form-check form-switch mb-2">
                             <input type="hidden" name="is_registration_complete" value="False">
-                            <input class="form-check-input" type="checkbox" role="switch" id="is_registration_complete_{{ post.id }}" name="is_registration_complete" value="True" {{ 'checked' if post.is_registration_complete else '' }} onchange="toggleUrlField(this, 'url_field_{{ post.id }}')">
+                            <input class="form-check-input" type="checkbox" role="switch" id="is_registration_complete_{{ post.id }}" name="is_registration_complete" value="True" {{ 'checked' if post.is_registration_complete else '' }} onchange="toggleUrlAndLiveField(this, 'url_field_{{ post.id }}', 'is_live-{{ post.id }}')">
                             <label class="form-check-label" for="is_registration_complete_{{ post.id }}">등록 완료 (체크 시 URL 입력)</label>
                         </div>
                         <div class="mb-3" id="url_field_{{ post.id }}" style="{{ 'display:block;' if post.is_registration_complete else 'display:none;' }}">
                             <label class="form-label">글 URL</label>
-                            <input type="url" class="form-control" name="post_url" value="{{ post.post_url or '' }}" {{ 'required' if post.is_registration_complete else '' }}>
+                            <input type="url" class="form-control" name="post_url" value="{{ post.post_url or '' }}" {{ 'required' if post.is_registration_complete else '' }} onchange="checkLiveCheckbox('is_live-{{ post.id }}', this.value)">
                         </div>
                         <div class="form-check form-switch">
                             <input type="hidden" name="is_live" value="False">
-                            <input class="form-check-input" type="checkbox" role="switch" id="is_live-{{ post.id }}" name="is_live" value="True" {{ 'checked' if post.is_live else '' }}>
+                            <input class="form-check-input" type="checkbox" role="switch" id="is_live-{{ post.id }}" name="is_live" value="True" {{ 'checked' if post.is_live else '' }} {{ 'disabled' if not (post.is_registration_complete and post.post_url) else '' }}>
                             <label class="form-check-label" for="is_live-{{ post.id }}">글 생존 여부 (체크 시 '살아있는 글')</label>
                         </div>
                     </div>
@@ -580,12 +578,17 @@
                         <hr>
                         <div class="form-check form-switch mb-2">
                             <input type="hidden" name="is_registration_complete" value="False">
-                            <input class="form-check-input" type="checkbox" role="switch" id="is_registration_complete" name="is_registration_complete" value="True" onchange="toggleUrlField(this, 'url_field')">
+                            <input class="form-check-input" type="checkbox" role="switch" id="is_registration_complete" name="is_registration_complete" value="True" onchange="toggleUrlAndLiveField(this, 'url_field', 'is_live')">
                             <label class="form-check-label" for="is_registration_complete">등록 완료 (체크 시 URL 입력)</label>
                         </div>
                         <div class="mb-3" id="url_field" style="display:none;">
                             <label class="form-label">글 URL</label>
-                            <input type="url" class="form-control" name="post_url">
+                            <input type="url" class="form-control" name="post_url" onchange="checkLiveCheckbox('is_live', this.value)">
+                        </div>
+                        <div class="form-check form-switch">
+                            <input type="hidden" name="is_live" value="False">
+                            <input class="form-check-input" type="checkbox" role="switch" id="is_live" name="is_live" value="True" disabled>
+                            <label class="form-check-label" for="is_live">글 생존 여부 (체크 시 '살아있는 글')</label>
                         </div>
                     </div>
                     <div class="modal-footer">
@@ -627,7 +630,7 @@ const allReferences = [
 ];
 
 /**
- * 네이버 계정 드롭다운이 변경될 때 호출되는 함수
+ * 네이버 계정 드롭다운이 변경될 때 호출되는 함수 (새 글 추가용)
  */
 function updateCafeDropdown(accountSelectElement, cafeSelectId) {
     const cafeSelect = document.getElementById(cafeSelectId);
@@ -650,18 +653,65 @@ function updateCafeDropdown(accountSelectElement, cafeSelectId) {
 }
 
 /**
- * '등록 완료' 체크박스 클릭 시 URL 필드 토글 및 'required' 속성 제어
+ * 네이버 계정 드롭다운이 변경될 때 호출되는 함수 (수정용)
  */
-function toggleUrlField(checkbox, fieldId) {
-    const urlFieldDiv = document.getElementById(fieldId);
+function updateCafeDropdownEdit(accountSelectElement, cafeSelectId, currentCafeId) {
+    const cafeSelect = document.getElementById(cafeSelectId);
+    const selectedAccountId = accountSelectElement.value;
+    
+    cafeSelect.innerHTML = '';
+    cafeSelect.disabled = true;
+
+    if (selectedAccountId && membershipMap[selectedAccountId]) {
+        cafeSelect.disabled = false;
+        
+        membershipMap[selectedAccountId].forEach(cafe => {
+            const option = document.createElement('option');
+            option.value = cafe.id;
+            option.textContent = cafe.name;
+            if (currentCafeId && cafe.id == currentCafeId) {
+                option.selected = true;
+            }
+            cafeSelect.appendChild(option);
+        });
+    }
+}
+
+/**
+ * '등록 완료' 체크박스 클릭 시 URL 필드 토글 및 글 생존 체크박스 제어
+ */
+function toggleUrlAndLiveField(checkbox, urlFieldId, liveCheckboxId) {
+    const urlFieldDiv = document.getElementById(urlFieldId);
     const urlInput = urlFieldDiv.querySelector('input[name="post_url"]');
+    const liveCheckbox = document.getElementById(liveCheckboxId);
     
     if (checkbox.checked) {
         urlFieldDiv.style.display = 'block';
         urlInput.required = true;
+        // URL이 있으면 생존 체크박스 활성화
+        if (urlInput.value) {
+            liveCheckbox.disabled = false;
+        }
     } else {
         urlFieldDiv.style.display = 'none';
         urlInput.required = false;
+        urlInput.value = '';
+        // 생존 체크박스 비활성화 및 체크 해제
+        liveCheckbox.disabled = true;
+        liveCheckbox.checked = false;
+    }
+}
+
+/**
+ * URL 입력 시 글 생존 체크박스 활성화/비활성화
+ */
+function checkLiveCheckbox(liveCheckboxId, urlValue) {
+    const liveCheckbox = document.getElementById(liveCheckboxId);
+    if (urlValue && urlValue.trim() !== '') {
+        liveCheckbox.disabled = false;
+    } else {
+        liveCheckbox.disabled = true;
+        liveCheckbox.checked = false;
     }
 }
 
@@ -672,20 +722,38 @@ function filterReferences(typeSelect, titleSelectId) {
     const selectedType = typeSelect.value;
     const titleSelect = document.getElementById(titleSelectId);
     
-    const currentTitleId = titleSelect.value;
-
-    const options = titleSelect.querySelectorAll('option[data-ref-type]');
-    
-    options.forEach(option => {
-        const optionType = option.getAttribute('data-ref-type');
-        if (selectedType === "" || optionType === selectedType) {
+    // 모든 옵션 숨기기
+    const allOptions = titleSelect.querySelectorAll('option');
+    allOptions.forEach(option => {
+        if (option.value === "") {
+            // 기본 옵션은 항상 표시
             option.style.display = 'block';
         } else {
             option.style.display = 'none';
         }
     });
     
-    if (currentTitleId && titleSelect.querySelector(`option[value="${currentTitleId}"]`).style.display === 'none') {
+    // 선택된 타입의 레퍼런스만 표시
+    if (selectedType && referencesData) {
+        referencesData.forEach(ref => {
+            if (ref.ref_type === selectedType) {
+                const option = titleSelect.querySelector(`option[value="${ref.id}"]`);
+                if (option) {
+                    option.style.display = 'block';
+                }
+            }
+        });
+    } else if (!selectedType) {
+        // 타입이 선택되지 않으면 모든 레퍼런스 표시
+        const refOptions = titleSelect.querySelectorAll('option[data-ref-type]');
+        refOptions.forEach(option => {
+            option.style.display = 'block';
+        });
+    }
+    
+    // 현재 선택된 옵션이 숨겨졌으면 초기화
+    const currentOption = titleSelect.options[titleSelect.selectedIndex];
+    if (currentOption && currentOption.style.display === 'none') {
         titleSelect.value = "";
     }
 }
@@ -921,6 +989,18 @@ function loadReference(titleSelect, titleFieldId, bodyFieldId, commentsFieldId, 
 
 // 페이지 로드 시 기존 댓글 렌더링
 document.addEventListener('DOMContentLoaded', function() {
+    // 수정 모달의 카페 드롭다운 초기화
+    {% for keyword, posts in posts_by_keyword.items() %}
+    {% for post in posts %}
+    {% if post.account_id %}
+    updateCafeDropdownEdit(
+        document.querySelector('#editPostModal-{{ post.id }} select[name="account_id"]'),
+        'edit_cafe_id_{{ post.id }}',
+        {{ post.cafe_id or 'null' }}
+    );
+    {% endif %}
+    {% endfor %}
+    {% endfor %}
     // 모든 수정 모달의 댓글 초기 렌더링
     document.querySelectorAll('[id^="edit_post_comments_"]').forEach(textarea => {
         const postId = textarea.id.replace('edit_post_comments_', '');
