@@ -172,7 +172,7 @@ def generate_temp_password(length=12):
 @router.get("/forgot-password", response_class=HTMLResponse)
 def forgot_password_page(request: Request):
     """비밀번호 찾기 페이지 표시"""
-    return templates.TemplateResponse("forgot_password.html", {
+    return templates.TemplateResponse("forgot-password.html", {
         "request": request
     })
 
@@ -190,7 +190,7 @@ def forgot_password(
         user = db.query(User).filter(User.username == username).first()
         
         if not user:
-            return templates.TemplateResponse("forgot_password.html", {
+            return templates.TemplateResponse("forgot-password.html", {
                 "request": request,
                 "error": "등록되지 않은 아이디입니다."
             })
@@ -206,7 +206,7 @@ def forgot_password(
         db.commit()
         
         # 성공 페이지 표시 (임시 비밀번호 표시)
-        return templates.TemplateResponse("forgot_password.html", {
+        return templates.TemplateResponse("forgot-password.html", {
             "request": request,
             "temp_password": temp_password,
             "username": username
@@ -214,7 +214,7 @@ def forgot_password(
         
     except Exception as e:
         db.rollback()
-        return templates.TemplateResponse("forgot_password.html", {
+        return templates.TemplateResponse("forgot-password.html", {
             "request": request,
             "error": "임시 비밀번호 발급 중 오류가 발생했습니다."
         })
