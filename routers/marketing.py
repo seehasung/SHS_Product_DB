@@ -292,8 +292,6 @@ async def get_schedules(
         "product_keywords_map": product_keywords_map,
         "unlinked_posts": unlinked_posts,
         "today": today,  # ⭐⭐⭐ 이 줄 추가!!!
-
-
     })
 
 @router.post("/schedule/add", response_class=RedirectResponse)
