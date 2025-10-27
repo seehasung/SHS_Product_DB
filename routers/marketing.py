@@ -39,7 +39,7 @@ async def marketing_cafe(request: Request, db: Session = Depends(get_db)):
     username = request.session.get("user")
     current_user = db.query(User).filter(User.username == username).first()
     
-    today = datetime.date.today()
+    today = date.today()
     work_tasks = []
     completed_count = 0
     daily_quota = 0
