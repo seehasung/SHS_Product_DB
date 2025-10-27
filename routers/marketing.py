@@ -215,6 +215,19 @@ async def edit_account(
         db.commit()
     return RedirectResponse(url="/marketing/cafe?tab=accounts", status_code=303)
 
+@router.post("/account/update/{account_id}", response_class=RedirectResponse)
+async def update_account(
+    account_id: int,
+    request: Request,
+    new_account_id: str = Form(...),
+    new_account_pw: str = Form(...),
+    new_ip_address: str = Form(None),
+    new_category: str = Form('최적화'),
+    db: Session = Depends(get_db)
+):
+    """계정 업데이트 (별칭 라우트)"""
+    return await edit_account(account_id, request, new_account_id, new_account_pw, new_ip_address, new_category, db)
+
 @router.post("/accounts/delete/{account_id}", response_class=RedirectResponse)
 async def delete_account(account_id: int, db: Session = Depends(get_db)):
     account = db.query(MarketingAccount).filter(MarketingAccount.id == account_id).first()
@@ -282,6 +295,17 @@ async def add_membership(
     db.add(new_membership)
     db.commit()
     return RedirectResponse(url="/marketing/cafe?tab=memberships", status_code=303)
+
+@router.post("/membership/add", response_class=RedirectResponse)
+async def add_membership_alias(
+    request: Request,
+    account_id: int = Form(...),
+    cafe_id: int = Form(...),
+    status: str = Form("active"),
+    db: Session = Depends(get_db)
+):
+    """멤버십 추가 (별칭 라우트)"""
+    return await add_membership(request, account_id, cafe_id, status, db)
 
 @router.post("/memberships/delete/{membership_id}", response_class=RedirectResponse)
 async def delete_membership(membership_id: int, db: Session = Depends(get_db)):
@@ -409,6 +433,36 @@ async def reference_detail(request: Request, ref_id: int, db: Session = Depends(
         "reference": reference,
         "comments": reference.comments
     })
+
+@router.post("/comment/add/{ref_id}", response_class=RedirectResponse)
+async def add_comment(
+    ref_id: int,
+    request: Request,
+    text: str = Form(...),
+    account_sequence: int = Form(0),
+    parent_id: int = Form(None),
+    db: Session = Depends(get_db)
+):
+    """레퍼런스에 댓글 추가"""
+    username = request.session.get("user")
+    if not username:
+        return RedirectResponse("/login", status_code=302)
+    
+    current_user = db.query(User).filter(User.username == username).first()
+    if not current_user or not (current_user.can_manage_marketing or current_user.is_admin):
+        return RedirectResponse("/", status_code=302)
+    
+    new_comment = Comment(
+        reference_id=ref_id,
+        text=text,
+        account_sequence=account_sequence,
+        parent_id=parent_id
+    )
+    
+    db.add(new_comment)
+    db.commit()
+    
+    return RedirectResponse(url=f"/marketing/reference/{ref_id}", status_code=303)
 
 # --- 전체 현황 탭 처리 ---
 @router.post("/tasks/complete/{task_id}", response_class=RedirectResponse)
@@ -703,6 +757,25 @@ async def get_product_posts(
             references_by_type["기타"].append(ref)
     
     all_memberships = db.query(CafeMembership).options(joinedload(CafeMembership.cafe)).all()
+    
+    # 계정-카페 연동 맵 생성
+    membership_map = {}
+    for membership in all_memberships:
+        if membership.account_id not in membership_map:
+            membership_map[membership.account_id] = []
+        membership_map[membership.account_id].append({
+            "id": membership.cafe.id,
+            "name": membership.cafe.name
+        })
+    
+    # 키워드 리스트 생성
+    keywords_list = []
+    if marketing_product.keywords:
+        try:
+            keywords_data = json.loads(marketing_product.keywords)
+            keywords_list = [kw.get('keyword', '') for kw in keywords_data if kw.get('keyword', '').strip()]
+        except:
+            keywords_list = []
 
     # ⭐ 템플릿 이름 수정: marketing_posts.html → marketing_product_posts.html
     return templates.TemplateResponse("marketing_product_posts.html", {
@@ -715,6 +788,8 @@ async def get_product_posts(
         "all_references": all_references,
         "references_by_type": references_by_type,
         "all_memberships": all_memberships,
+        "membership_map": membership_map,  # 추가
+        "keywords_list": keywords_list,  # 추가
         "page": page,
         "current_page": page,  # 추가
         "total_pages": total_pages,

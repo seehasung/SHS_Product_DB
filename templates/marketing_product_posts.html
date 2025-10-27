@@ -600,7 +600,7 @@
 
 <script>
 // Python에서 전달받은 '계정-카페' 연동 맵
-const membershipMap = {{ membership_map | tojson | safe }};
+const membershipMap = {{ membership_map | tojson | safe if membership_map else '{}' }};
 
 // Python에서 전달받은 '레퍼런스' 전체 데이터
 const allReferences = [
