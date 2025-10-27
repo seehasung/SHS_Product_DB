@@ -399,6 +399,12 @@
                 <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
             </div>
             {% endif %}
+            {% if error == 'duplicate_url' %}
+            <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                이미 등록된 카페 URL입니다. 다른 URL을 입력해주세요.
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+            {% endif %}
             <form action="/marketing/cafe/add" method="post" class="mb-4 p-3 border rounded bg-light">
                 <div class="row g-3 align-items-center">
                     <div class="col-md-5"><input type="text" name="cafe_name" class="form-control" placeholder="카페 이름" required></div>

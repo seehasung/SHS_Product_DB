@@ -350,6 +350,11 @@ async def add_cafe_alias(
     if not cafe_name or not cafe_url:
         return RedirectResponse(url="/marketing/cafe?tab=cafes&error=missing_fields", status_code=303)
     
+    # 중복 URL 체크
+    existing_cafe = db.query(TargetCafe).filter(TargetCafe.url == cafe_url).first()
+    if existing_cafe:
+        return RedirectResponse(url="/marketing/cafe?tab=cafes&error=duplicate_url", status_code=303)
+    
     # 직접 데이터베이스에 저장
     new_cafe = TargetCafe(name=cafe_name, url=cafe_url)
     db.add(new_cafe)
@@ -546,17 +551,17 @@ async def delete_reference(ref_id: int, db: Session = Depends(get_db)):
 async def update_reference(
     ref_id: int,
     request: Request,
-    ref_title: str = Form(None),
-    ref_content: str = Form(""),
+    title: str = Form(None),
+    content: str = Form(""),
     ref_type: str = Form("기타"),
     db: Session = Depends(get_db)
 ):
     """레퍼런스 업데이트"""
     reference = db.query(Reference).filter(Reference.id == ref_id).first()
     if reference:
-        if ref_title:
-            reference.title = ref_title
-        reference.content = ref_content
+        if title:
+            reference.title = title
+        reference.content = content
         reference.ref_type = ref_type
         db.commit()
     return RedirectResponse(url=f"/marketing/reference/{ref_id}", status_code=303)

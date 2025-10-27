@@ -79,20 +79,6 @@
                             </form>
                         </div>
                     </div>
-                    <!-- (답글 폼은 그대로 유지) -->
-                    <div class="collapse mt-3" id="reply-form-{{ comment.id }}">
-                        <form action="/marketing/comment/add/{{ reference_id }}" method="post">
-                            <input type="hidden" name="parent_id" value="{{ comment.id }}">
-                            <div class="input-group">
-                                <select name="account_sequence" class="form-select" style="max-width: 120px;">
-                                    <option value="0">작성자</option>
-                                    {% for i in range(1, 9) %}<option value="{{ i }}">계정 {{ i }}</option>{% endfor %}
-                                </select>
-                                <textarea name="text" class="form-control" rows="2" required></textarea>
-                            </div>
-                            <button type="submit" class="btn btn-sm btn-primary mt-2">답글 등록</button>
-                        </form>
-                    </div>
                 </div>
             </div>
             {% if comment.replies %}
@@ -180,6 +166,20 @@
                                 <span class="me-3 fs-5 fw-bold text-primary">{{ loop.index }}.</span>
                                 <div class="w-100">
                                     {{ render_comments([comment], reference.id) }}
+                                    <!-- 답글 폼 추가 -->
+                                    <div class="collapse mt-3" id="reply-form-{{ comment.id }}">
+                                        <form action="/marketing/comment/add/{{ reference.id }}" method="post">
+                                            <input type="hidden" name="parent_id" value="{{ comment.id }}">
+                                            <div class="input-group">
+                                                <select name="account_sequence" class="form-select" style="max-width: 120px;">
+                                                    <option value="0">작성자</option>
+                                                    {% for i in range(1, 9) %}<option value="{{ i }}">계정 {{ i }}</option>{% endfor %}
+                                                </select>
+                                                <textarea name="text" class="form-control" rows="2" required></textarea>
+                                            </div>
+                                            <button type="submit" class="btn btn-sm btn-primary mt-2">답글 등록</button>
+                                        </form>
+                                    </div>
                                 </div>
                             </div>
                         </li>
