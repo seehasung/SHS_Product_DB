@@ -615,131 +615,271 @@ function filterStatus(status) {
 
 // 완료 토글
 function toggleComplete(scheduleId, checkbox) {
-    fetch(`/marketing/schedule/${scheduleId}/toggle-complete`, {
+    fetch(`/marketing/api/schedule/complete/${scheduleId}`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-            is_completed: checkbox.checked
-        })
-    }).then(response => {
-        if (response.ok) {
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
             location.reload();
         } else {
+            alert(data.message || '처리 중 오류가 발생했습니다');
             checkbox.checked = !checkbox.checked;
-            alert('상태 변경에 실패했습니다.');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        checkbox.checked = !checkbox.checked;
+    });
+}
+
+// 진행 중으로 변경
+function setInProgress(scheduleId) {
+    const formData = new FormData();
+    formData.append('status', 'in_progress');
+    
+    fetch(`/marketing/api/schedule/status/${scheduleId}`, {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            location.reload();
+        } else {
+            alert(data.message || '처리 중 오류가 발생했습니다');
         }
     });
 }
 
-// 상태 변경
-function changeStatus(scheduleId, newStatus) {
-    if (confirm(`상태를 변경하시겠습니까?`)) {
-        // 상태 변경 API 호출 (구현 필요)
-        alert('상태 변경 기능 구현 예정');
-    }
-}
-
-// 카페 옵션 업데이트
-function updateCafeOptions(accountId) {
-    const cafeSelect = document.querySelector('select[name="cafe_id"]');
-    cafeSelect.innerHTML = '<option value="">선택하세요</option>';
-    
-    if (accountId && membershipMap[accountId]) {
-        cafeSelect.disabled = false;
-        membershipMap[accountId].forEach(cafe => {
-            const option = document.createElement('option');
-            option.value = cafe.id;
-            option.textContent = cafe.name;
-            cafeSelect.appendChild(option);
-        });
-    } else {
-        cafeSelect.disabled = true;
-        cafeSelect.innerHTML = '<option value="">계정을 먼저 선택하세요</option>';
-    }
-}
-
-// 키워드 옵션 업데이트
-function updateKeywordOptions(productId) {
-    const keywordSelect = document.querySelector('select[name="keyword_text"]');
-    keywordSelect.innerHTML = '<option value="">선택하세요</option>';
-    
-    if (productId && productKeywordsMap[productId]) {
-        keywordSelect.disabled = false;
-        productKeywordsMap[productId].forEach(keyword => {
-            const option = document.createElement('option');
-            option.value = keyword;
-            option.textContent = keyword;
-            keywordSelect.appendChild(option);
-        });
-    } else {
-        keywordSelect.disabled = true;
-        keywordSelect.innerHTML = '<option value="">상품을 먼저 선택하세요</option>';
-    }
-}
-
-// 글 연결
-function linkPost(scheduleId) {
-    const form = document.getElementById('linkPostForm');
-    form.action = `/marketing/schedule/${scheduleId}/link-post`;
-    const modal = new bootstrap.Modal(document.getElementById('linkPostModal'));
-    modal.show();
-}
-
-// 스케줄 수정
-function editSchedule(scheduleId) {
-    // 수정 기능 구현 (별도 페이지 또는 모달)
-    alert('수정 기능 구현 예정');
-}
-
-// 스케줄 삭제
-function deleteSchedule(scheduleId) {
-    if (confirm('이 스케줄을 삭제하시겠습니까?')) {
-        fetch(`/marketing/schedule/${scheduleId}/delete`, {
-            method: 'POST'
-        }).then(response => {
-            if (response.ok) {
+// 건너뛰기
+function skipSchedule(scheduleId) {
+    if (confirm('이 스케줄을 건너뛰시겠습니까?')) {
+        const formData = new FormData();
+        formData.append('status', 'skipped');
+        
+        fetch(`/marketing/api/schedule/status/${scheduleId}`, {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
                 location.reload();
             } else {
-                alert('삭제에 실패했습니다.');
+                alert(data.message || '처리 중 오류가 발생했습니다');
             }
         });
     }
 }
 
-// 작업자 체크박스 처리 (대량 생성)
-document.addEventListener('DOMContentLoaded', function() {
-    const workerCheckboxes = document.querySelectorAll('.worker-checkbox');
-    const hiddenInput = document.getElementById('worker_ids_hidden');
-    
-    function updateWorkerIds() {
-        const checkedIds = Array.from(workerCheckboxes)
-            .filter(cb => cb.checked)
-            .map(cb => cb.value);
-        hiddenInput.value = checkedIds.join(',');
+// 삭제
+function deleteSchedule(scheduleId) {
+    if (confirm('이 스케줄을 삭제하시겠습니까?')) {
+        fetch(`/marketing/api/schedule/${scheduleId}`, {
+            method: 'DELETE'
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                location.reload();
+            } else {
+                alert(data.message || '처리 중 오류가 발생했습니다');
+            }
+        });
     }
-    
-    workerCheckboxes.forEach(cb => {
-        cb.addEventListener('change', updateWorkerIds);
-    });
-    
-    // 초기 값 설정
-    updateWorkerIds();
-    
-    // 툴팁 초기화
-    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
-    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
-        return new bootstrap.Tooltip(tooltipTriggerEl)
-    });
-});
+}
 
-// 오늘 날짜로 이동 단축키 (T 키)
-document.addEventListener('keydown', function(e) {
-    if (e.key === 't' || e.key === 'T') {
-        const today = new Date().toISOString().split('T')[0];
-        window.location.href = `/marketing/schedules?selected_date=${today}`;
+// 수정 모달 열기
+function editSchedule(scheduleId) {
+    fetch(`/marketing/api/schedule/edit/${scheduleId}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // 모달에 데이터 채우기
+                document.getElementById('edit-schedule-id').value = data.data.id;
+                document.getElementById('edit-worker').value = data.data.worker_id || '';
+                document.getElementById('edit-account').value = data.data.account_id || '';
+                document.getElementById('edit-cafe').value = data.data.cafe_id || '';
+                document.getElementById('edit-keyword').value = data.data.keyword_text || '';
+                document.getElementById('edit-notes').value = data.data.notes || '';
+                
+                // 옵션 목록 업데이트
+                updateSelectOptions('edit-worker', data.workers, 'name');
+                updateSelectOptions('edit-account', data.accounts, 'name');
+                updateSelectOptions('edit-cafe', data.cafes, 'name');
+                
+                // 모달 표시
+                const modal = new bootstrap.Modal(document.getElementById('editScheduleModal'));
+                modal.show();
+            }
+        });
+}
+
+// 셀렉트 옵션 업데이트
+function updateSelectOptions(selectId, options, labelField) {
+    const select = document.getElementById(selectId);
+    const currentValue = select.value;
+    
+    // 기존 옵션 제거
+    select.innerHTML = '<option value="">선택하세요</option>';
+    
+    // 새 옵션 추가
+    options.forEach(opt => {
+        const option = document.createElement('option');
+        option.value = opt.id;
+        option.textContent = opt[labelField];
+        select.appendChild(option);
+    });
+    
+    // 기존 값 복원
+    select.value = currentValue;
+}
+
+// 수정 저장
+function saveScheduleEdit() {
+    const scheduleId = document.getElementById('edit-schedule-id').value;
+    const formData = new FormData();
+    
+    const workerId = document.getElementById('edit-worker').value;
+    const accountId = document.getElementById('edit-account').value;
+    const cafeId = document.getElementById('edit-cafe').value;
+    const keyword = document.getElementById('edit-keyword').value;
+    const notes = document.getElementById('edit-notes').value;
+    
+    if (workerId) formData.append('worker_id', workerId);
+    if (accountId) formData.append('account_id', accountId);
+    if (cafeId) formData.append('cafe_id', cafeId);
+    if (keyword) formData.append('keyword_text', keyword);
+    formData.append('notes', notes);
+    
+    fetch(`/marketing/api/schedule/edit/${scheduleId}`, {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            location.reload();
+        } else {
+            alert(data.message || '수정 중 오류가 발생했습니다');
+        }
+    });
+}
+
+// 작성된 글 연결
+function linkPost(scheduleId) {
+    const postId = prompt('연결할 글의 ID를 입력하세요:');
+    if (postId) {
+        const formData = new FormData();
+        formData.append('post_id', postId);
+        
+        fetch(`/marketing/api/schedule/link-post/${scheduleId}`, {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                location.reload();
+            } else {
+                alert(data.message || '연결 중 오류가 발생했습니다');
+            }
+        });
     }
-});
+}
+
+// 자동 생성
+function generateSchedule() {
+    const productId = document.getElementById('generate-product').value;
+    const startDate = document.getElementById('generate-start').value;
+    const endDate = document.getElementById('generate-end').value;
+    
+    if (!productId || !startDate || !endDate) {
+        alert('모든 필드를 입력해주세요');
+        return;
+    }
+    
+    const formData = new FormData();
+    formData.append('product_id', productId);
+    formData.append('start_date', startDate);
+    formData.append('end_date', endDate);
+    
+    // 로딩 표시
+    const button = event.target;
+    button.disabled = true;
+    button.textContent = '생성 중...';
+    
+    fetch('/marketing/api/generate-schedule', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert(data.message);
+            location.reload();
+        } else {
+            alert(data.message || '생성 중 오류가 발생했습니다');
+        }
+    })
+    .finally(() => {
+        button.disabled = false;
+        button.textContent = '자동 생성';
+    });
+}
 </script>
+
+<!-- 수정 모달 HTML -->
+<div class="modal fade" id="editScheduleModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">스케줄 수정</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="edit-schedule-id">
+                
+                <div class="mb-3">
+                    <label class="form-label">작업자</label>
+                    <select id="edit-worker" class="form-control">
+                        <option value="">선택하세요</option>
+                    </select>
+                </div>
+                
+                <div class="mb-3">
+                    <label class="form-label">계정</label>
+                    <select id="edit-account" class="form-control">
+                        <option value="">선택하세요</option>
+                    </select>
+                </div>
+                
+                <div class="mb-3">
+                    <label class="form-label">카페</label>
+                    <select id="edit-cafe" class="form-control">
+                        <option value="">선택하세요</option>
+                    </select>
+                </div>
+                
+                <div class="mb-3">
+                    <label class="form-label">키워드</label>
+                    <input type="text" id="edit-keyword" class="form-control">
+                </div>
+                
+                <div class="mb-3">
+                    <label class="form-label">메모</label>
+                    <textarea id="edit-notes" class="form-control" rows="3"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">취소</button>
+                <button type="button" class="btn btn-primary" onclick="saveScheduleEdit()">저장</button>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}
