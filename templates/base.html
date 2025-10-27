@@ -216,7 +216,8 @@
     {% block head %}{% endblock %}
 </head>
 <body>
-    <!-- 네비게이션 바 -->
+    <!-- 네비게이션 바 (로그인 시에만 표시) -->
+    {% if username %}
     <nav class="navbar navbar-expand-lg navbar-custom">
         <div class="container-fluid">
             <a class="navbar-brand" href="/">
@@ -236,7 +237,6 @@
                         </a>
                     </li>
                     
-                    {% if username %}
                     <!-- 상품 관리 권한 -->
                     {% if can_manage_products %}
                     <li class="nav-item">
@@ -276,11 +276,9 @@
                         </ul>
                     </li>
                     {% endif %}
-                    {% endif %}
                 </ul>
                 
                 <!-- 사용자 정보 -->
-                {% if username %}
                 <div class="dropdown">
                     <div class="user-dropdown" data-bs-toggle="dropdown">
                         <i class="bi bi-person-circle"></i> {{ username }}
@@ -298,26 +296,24 @@
                         </a></li>
                     </ul>
                 </div>
-                {% else %}
-                <a href="/login" class="btn btn-light">
-                    <i class="bi bi-box-arrow-in-right"></i> 로그인
-                </a>
-                {% endif %}
             </div>
         </div>
     </nav>
+    {% endif %}
     
     <!-- 메인 컨텐츠 -->
     <main class="main-content">
         {% block content %}{% endblock %}
     </main>
     
-    <!-- 푸터 -->
+    <!-- 푸터 (로그인 시에만 표시) -->
+    {% if username %}
     <footer class="footer">
         <div class="container">
-            <p class="mb-0">© 2025 💲S.CORP💲 시스템. All rights reserved.</p>
+            <p class="mb-0">© 2025 관리 시스템. All rights reserved.</p>
         </div>
     </footer>
+    {% endif %}
     
     <!-- 로딩 스피너 -->
     <div class="loading-spinner">
