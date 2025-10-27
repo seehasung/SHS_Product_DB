@@ -426,8 +426,8 @@
                             <div class="comment-editor-toggle">
                                 <label class="form-label mb-0">💬 댓글</label>
                                 <div class="btn-group btn-group-sm" role="group">
-                                    <button type="button" class="btn btn-outline-primary" onclick="toggleCommentView('edit', {{ post.id }}, 'visual')">👁️ 보기</button>
-                                    <button type="button" class="btn btn-outline-secondary active" onclick="toggleCommentView('edit', {{ post.id }}, 'text')">✏️ 편집</button>
+                                    <button type="button" class="btn btn-outline-primary" onclick="toggleCommentView('edit', '{{ post.id }}', 'visual')">👁️ 보기</button>
+                                    <button type="button" class="btn btn-secondary active" onclick="toggleCommentView('edit', '{{ post.id }}', 'text')">✏️ 편집</button>
                                 </div>
                             </div>
                             
@@ -767,18 +767,31 @@ function toggleCommentView(modalType, postId, viewMode) {
     
     const viewer = document.getElementById(viewerId);
     const textarea = document.getElementById(textareaId);
-    const buttons = viewer.parentElement.querySelectorAll('.btn-group button');
+    
+    if (!viewer || !textarea) {
+        console.error('Viewer or textarea not found:', viewerId, textareaId);
+        return;
+    }
+    
+    // 버튼 그룹 찾기 - viewer의 부모 요소에서 찾기
+    const commentSection = viewer.closest('.mb-3');
+    const buttons = commentSection ? commentSection.querySelectorAll('.btn-group button') : [];
     
     if (viewMode === 'visual') {
         // 시각적 뷰 모드
         viewer.style.display = 'block';
         textarea.style.display = 'none';
-        buttons[0].classList.add('active');
-        buttons[0].classList.remove('btn-outline-primary');
-        buttons[0].classList.add('btn-primary');
-        buttons[1].classList.remove('active');
-        buttons[1].classList.add('btn-outline-secondary');
-        buttons[1].classList.remove('btn-secondary');
+        
+        if (buttons.length >= 2) {
+            // 보기 버튼 활성화
+            buttons[0].classList.add('active');
+            buttons[0].classList.remove('btn-outline-primary');
+            buttons[0].classList.add('btn-primary');
+            // 편집 버튼 비활성화
+            buttons[1].classList.remove('active');
+            buttons[1].classList.add('btn-outline-secondary');
+            buttons[1].classList.remove('btn-secondary');
+        }
         
         // 텍스트를 시각적으로 렌더링
         renderComments(textarea.value, viewerId);
@@ -786,12 +799,17 @@ function toggleCommentView(modalType, postId, viewMode) {
         // 텍스트 편집 모드
         viewer.style.display = 'none';
         textarea.style.display = 'block';
-        buttons[0].classList.remove('active');
-        buttons[0].classList.add('btn-outline-primary');
-        buttons[0].classList.remove('btn-primary');
-        buttons[1].classList.add('active');
-        buttons[1].classList.remove('btn-outline-secondary');
-        buttons[1].classList.add('btn-secondary');
+        
+        if (buttons.length >= 2) {
+            // 보기 버튼 비활성화
+            buttons[0].classList.remove('active');
+            buttons[0].classList.add('btn-outline-primary');
+            buttons[0].classList.remove('btn-primary');
+            // 편집 버튼 활성화
+            buttons[1].classList.add('active');
+            buttons[1].classList.remove('btn-outline-secondary');
+            buttons[1].classList.add('btn-secondary');
+        }
     }
 }
 
