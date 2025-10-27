@@ -195,9 +195,9 @@ async def get_schedules(
         try:
             target_date = datetime.datetime.strptime(selected_date, "%Y-%m-%d").date()
         except ValueError:
-            target_date = datetime.datetime.now().date()
+            target_date = datetime.strptime(selected_date, "%Y-%m-%d").date()
     else:
-        target_date = datetime.datetime.now().date()
+        target_date = datetime.now().date()
     
     # 해당 날짜의 스케줄 가져오기
     schedules = db.query(PostSchedule).options(
@@ -211,7 +211,7 @@ async def get_schedules(
     ).order_by(PostSchedule.worker_id, PostSchedule.cafe_id).all()
     
     # 오늘의 통계
-    today = datetime.datetime.now().date()
+    today = datetime.now().date()
     today_schedules = db.query(PostSchedule).filter(
         PostSchedule.scheduled_date == today
     ).all()
