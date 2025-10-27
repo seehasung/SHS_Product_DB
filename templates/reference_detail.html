@@ -95,8 +95,8 @@
                     </div>
                 </div>
             </div>
-            {% if comment.structured_replies %}
-                {{ render_comments(comment.structured_replies, ref_id) }}
+            {% if comment.replies %}
+                {{ render_comments(comment.replies, ref_id) }}
             {% endif %}
         </li>
         {% endfor %}
@@ -172,9 +172,9 @@
                         <button type="submit" class="btn btn-success">댓글 등록</button>
                     </form>
                     <hr>
-                    <!-- (댓글 목록 부분은 그대로 유지) -->
+                    <!-- 댓글 목록 -->
                     <ol class="list-unstyled">
-                        {% for comment in comments %}
+                        {% for comment in organized_comments %}
                         <li class="mb-3">
                             <div class="d-flex">
                                 <span class="me-3 fs-5 fw-bold text-primary">{{ loop.index }}.</span>

@@ -530,6 +530,25 @@ async def delete_reference(ref_id: int, db: Session = Depends(get_db)):
         db.commit()
     return RedirectResponse(url="/marketing/cafe?tab=references", status_code=303)
 
+@router.post("/reference/update/{ref_id}", response_class=RedirectResponse)
+async def update_reference(
+    ref_id: int,
+    request: Request,
+    ref_title: str = Form(None),
+    ref_content: str = Form(""),
+    ref_type: str = Form("기타"),
+    db: Session = Depends(get_db)
+):
+    """레퍼런스 업데이트"""
+    reference = db.query(Reference).filter(Reference.id == ref_id).first()
+    if reference:
+        if ref_title:
+            reference.title = ref_title
+        reference.content = ref_content
+        reference.ref_type = ref_type
+        db.commit()
+    return RedirectResponse(url=f"/marketing/reference/{ref_id}", status_code=303)
+
 @router.get("/reference/{ref_id}", response_class=HTMLResponse)
 async def reference_detail(request: Request, ref_id: int, db: Session = Depends(get_db)):
     """레퍼런스 상세 보기"""
@@ -601,6 +620,31 @@ async def add_comment(
     db.add(new_comment)
     db.commit()
     
+    return RedirectResponse(url=f"/marketing/reference/{ref_id}", status_code=303)
+
+@router.post("/comment/edit/{ref_id}/{comment_id}", response_class=RedirectResponse)
+async def edit_comment(
+    ref_id: int,
+    comment_id: int,
+    request: Request,
+    text: str = Form(...),
+    account_sequence: int = Form(0),
+    db: Session = Depends(get_db)
+):
+    """댓글 수정"""
+    username = request.session.get("user")
+    if not username:
+        return RedirectResponse("/login", status_code=302)
+    
+    current_user = db.query(User).filter(User.username == username).first()
+    if not current_user or not (current_user.can_manage_marketing or current_user.is_admin):
+        return RedirectResponse("/", status_code=302)
+    
+    comment = db.query(Comment).filter(Comment.id == comment_id).first()
+    if comment:
+        comment.text = text
+        comment.account_sequence = account_sequence
+        db.commit()
     return RedirectResponse(url=f"/marketing/reference/{ref_id}", status_code=303)
 
 # --- 전체 현황 탭 처리 ---
@@ -725,7 +769,7 @@ async def manage_keywords_page(mp_id: int, request: Request, db: Session = Depen
         except json.JSONDecodeError:
             keywords_data = []
     
-    return templates.TemplateResponse("marketing_keywords_manage.html", {
+    return templates.TemplateResponse("marketing_product_keywords.html", {
         "request": request,
         "marketing_product": marketing_product,
         "keywords_data": keywords_data
