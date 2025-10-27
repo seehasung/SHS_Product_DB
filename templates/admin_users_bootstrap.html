@@ -1,117 +1,450 @@
-<!DOCTYPE html>
-<html lang="ko">
-<head>
-    <meta charset="UTF-8">
-    <title>사용자 관리</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
-</head>
-<body class="bg-light">
+{% extends "base.html" %}
+{% block title %}사용자 관리{% endblock %}
 
-<div class="container mt-5">
-    <h2 class="mb-4">👤 사용자 관리</h2>
+{% block head %}
+{{ super() }}
+<style>
+    body {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        min-height: 100vh;
+    }
+    
+    .container-fluid {
+        max-width: 1600px;
+        margin: 0 auto;
+        padding: 30px;
+    }
+    
+    /* 헤더 스타일 */
+    .page-header {
+        background: white;
+        border-radius: 15px;
+        padding: 25px 30px;
+        margin-bottom: 30px;
+        box-shadow: 0 5px 20px rgba(0, 0, 0, 0.1);
+    }
+    
+    .page-title {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 0;
+    }
+    
+    .page-title h1 {
+        font-size: 1.8rem;
+        font-weight: bold;
+        color: #2d3436;
+        margin: 0;
+    }
+    
+    /* 검색 바 */
+    .search-bar {
+        background: white;
+        border-radius: 12px;
+        padding: 20px;
+        margin-bottom: 25px;
+        box-shadow: 0 3px 15px rgba(0, 0, 0, 0.08);
+    }
+    
+    .search-input-wrapper {
+        position: relative;
+        max-width: 500px;
+    }
+    
+    .search-icon {
+        position: absolute;
+        left: 15px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #adb5bd;
+        font-size: 1.1rem;
+    }
+    
+    .search-input {
+        padding: 12px 15px 12px 45px;
+        border: 2px solid #e9ecef;
+        border-radius: 10px;
+        width: 100%;
+        font-size: 1rem;
+        transition: all 0.3s;
+    }
+    
+    .search-input:focus {
+        border-color: #667eea;
+        outline: none;
+        box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    }
+    
+    /* 사용자 테이블 */
+    .users-table-container {
+        background: white;
+        border-radius: 12px;
+        padding: 25px;
+        box-shadow: 0 3px 15px rgba(0, 0, 0, 0.08);
+        overflow-x: auto;
+    }
+    
+    .users-table {
+        width: 100%;
+        border-collapse: separate;
+        border-spacing: 0;
+        min-width: 1200px;
+    }
+    
+    .users-table thead th {
+        background: #f8f9fa;
+        color: #495057;
+        font-weight: 600;
+        padding: 15px 12px;
+        text-align: left;
+        font-size: 0.9rem;
+        border-bottom: 2px solid #e9ecef;
+        white-space: nowrap;
+    }
+    
+    .users-table tbody tr {
+        transition: background 0.2s ease;
+        border-bottom: 1px solid #f0f1f3;
+    }
+    
+    .users-table tbody tr:hover {
+        background: #f8f9fa;
+    }
+    
+    .users-table td {
+        padding: 12px;
+        vertical-align: middle;
+    }
+    
+    /* 권한 체크박스 */
+    .permission-checkbox {
+        width: 20px;
+        height: 20px;
+        cursor: pointer;
+    }
+    
+    .permission-checkbox:checked {
+        background-color: #667eea;
+        border-color: #667eea;
+    }
+    
+    /* 일일 할당량 입력 */
+    .quota-input {
+        width: 80px;
+        padding: 6px 10px;
+        border: 2px solid #e9ecef;
+        border-radius: 8px;
+        text-align: center;
+        font-weight: 600;
+        transition: all 0.3s;
+    }
+    
+    .quota-input:enabled {
+        background: white;
+    }
+    
+    .quota-input:disabled {
+        background: #f8f9fa;
+        color: #adb5bd;
+        cursor: not-allowed;
+    }
+    
+    .quota-input:focus:enabled {
+        border-color: #667eea;
+        outline: none;
+        box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    }
+    
+    /* 버튼 스타일 */
+    .btn-action {
+        padding: 6px 12px;
+        border-radius: 8px;
+        font-size: 0.85rem;
+        font-weight: 500;
+        border: none;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+    }
+    
+    .btn-primary-custom {
+        background: #667eea;
+        color: white;
+    }
+    
+    .btn-primary-custom:hover {
+        background: #5a67d8;
+        transform: translateY(-2px);
+    }
+    
+    .btn-danger-custom {
+        background: #e74c3c;
+        color: white;
+    }
+    
+    .btn-danger-custom:hover {
+        background: #c0392b;
+        transform: translateY(-2px);
+    }
+    
+    .btn-warning-custom {
+        background: #f39c12;
+        color: white;
+    }
+    
+    .btn-warning-custom:hover {
+        background: #e67e22;
+        transform: translateY(-2px);
+    }
+    
+    .btn-home {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 10px 20px;
+        border-radius: 10px;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        font-weight: 500;
+        transition: all 0.3s ease;
+    }
+    
+    .btn-home:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 20px rgba(102, 126, 234, 0.3);
+        color: white;
+    }
+    
+    .btn-logs {
+        background: white;
+        color: #667eea;
+        border: 2px solid #667eea;
+        padding: 10px 20px;
+        border-radius: 10px;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        font-weight: 500;
+        transition: all 0.3s ease;
+    }
+    
+    .btn-logs:hover {
+        background: #667eea;
+        color: white;
+        transform: translateY(-2px);
+    }
+    
+    /* 뱃지 */
+    .badge-admin {
+        background: #e74c3c;
+        color: white;
+        padding: 4px 10px;
+        border-radius: 20px;
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+    
+    .badge-user {
+        background: #95a5a6;
+        color: white;
+        padding: 4px 10px;
+        border-radius: 20px;
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+</style>
+{% endblock %}
 
-    <div class="mb-3 d-flex justify-content-between">
-        <div>
-            <a href="/" class="btn btn-secondary">← 홈으로</a>
-            <a href="/logs" class="btn btn-info">📜 로그 보기</a>
+{% block content %}
+<div class="container-fluid">
+    <!-- 페이지 헤더 -->
+    <div class="page-header">
+        <div class="page-title">
+            <div style="display: flex; align-items: center; gap: 15px;">
+                <h1><i class="bi bi-people-fill"></i> 사용자 관리</h1>
+            </div>
+            <div style="display: flex; gap: 10px;">
+                <a href="/admin/logs" class="btn-logs">
+                    <i class="bi bi-clock-history"></i> 로그인 기록
+                </a>
+                <a href="/" class="btn-home">
+                    <i class="bi bi-house-door"></i> 홈으로
+                </a>
+            </div>
         </div>
-        <form class="d-flex" method="get" action="/admin/users">
-            <input class="form-control me-2" type="text" name="search" placeholder="사용자 검색" value="{{ search }}">
-            <button class="btn btn-primary" type="submit">검색</button>
+    </div>
+    
+    <!-- 검색 바 -->
+    <div class="search-bar">
+        <form method="get" action="/admin/users">
+            <div class="search-input-wrapper">
+                <i class="bi bi-search search-icon"></i>
+                <input type="text" 
+                       name="search" 
+                       class="search-input" 
+                       placeholder="사용자 이름으로 검색..." 
+                       value="{{ search }}">
+            </div>
         </form>
     </div>
-
-    <div class="table-responsive">
-        <table class="table table-bordered table-hover bg-white text-center align-middle">
-            <thead class="table-dark">
-            <tr>
-                <th>ID</th>
-                <th>이름</th>
-                <!-- ▼▼▼ '일일 할당량' 열 추가 ▼▼▼ -->
-                <th>일일 할당량</th>
-                <!-- ▲▲▲ '일일 할당량' 열 추가 ▲▲▲ -->
-                <th>최고 관리자</th>
-                <th>상품 관리</th>
-                <th>마케팅 관리</th>
-                <th>관리</th>
-            </tr>
+    
+    <!-- 사용자 테이블 -->
+    <div class="users-table-container">
+        <table class="users-table">
+            <thead>
+                <tr>
+                    <th width="5%">ID</th>
+                    <th width="15%">사용자명</th>
+                    <th width="10%" class="text-center">관리자</th>
+                    <th width="10%" class="text-center">상품 관리</th>
+                    <th width="10%" class="text-center">마케팅 관리</th>
+                    <th width="10%" class="text-center">일일 할당량</th>
+                    <th width="25%" class="text-center">관리</th>
+                </tr>
             </thead>
             <tbody>
-            {% for user in users %}
-            <tr>
-                <td>{{ user.id }}</td>
-                <td>
-                    <form method="post" action="/admin/users/update" class="d-flex">
-                        <input type="hidden" name="user_id" value="{{ user.id }}">
-                        <input type="text" name="new_username" value="{{ user.username }}" class="form-control form-control-sm me-2">
-                        <button type="submit" class="btn btn-sm btn-outline-secondary">변경</button>
-                    </form>
-                </td>
-                <!-- ▼▼▼ '일일 할당량' 입력 폼 추가 ▼▼▼ -->
-                <td>
-                    <form method="post" action="/admin/users/set-quota/{{ user.id }}" class="d-flex justify-content-center">
-                        <input type="number" name="daily_quota" value="{{ user.daily_quota }}" class="form-control form-control-sm me-2" style="width: 80px;">
-                        <button type="submit" class="btn btn-sm btn-outline-success">저장</button>
-                    </form>
-                </td>
-                <!-- ▲▲▲ '일일 할당량' 입력 폼 추가 ▲▲▲ -->
+                {% for user in users %}
+                <tr>
+                    <td>{{ user.id }}</td>
+                    <td>
+                        <strong>{{ user.username }}</strong>
+                        {% if user.is_admin %}
+                        <span class="badge-admin">ADMIN</span>
+                        {% else %}
+                        <span class="badge-user">USER</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-center">
+                        <form method="post" action="/admin/users/toggle-admin/{{ user.id }}" style="display: inline;">
+                            <input type="checkbox" 
+                                   class="form-check-input permission-checkbox" 
+                                   {{ 'checked' if user.is_admin else '' }}
+                                   onchange="this.form.submit()"
+                                   {{ 'disabled' if user.username == 'shsboss274' else '' }}>
+                        </form>
+                    </td>
+                    <td class="text-center">
+                        <form method="post" action="/admin/users/toggle-products/{{ user.id }}" style="display: inline;">
+                            <input type="checkbox" 
+                                   class="form-check-input permission-checkbox" 
+                                   {{ 'checked' if user.can_manage_products else '' }}
+                                   onchange="this.form.submit()">
+                        </form>
+                    </td>
+                    <td class="text-center">
+                        <form method="post" action="/admin/users/toggle-marketing/{{ user.id }}" style="display: inline;">
+                            <input type="checkbox" 
+                                   class="form-check-input permission-checkbox" 
+                                   {{ 'checked' if user.can_manage_marketing else '' }}
+                                   onchange="this.form.submit()">
+                        </form>
+                    </td>
+                    <td class="text-center">
+                        <form method="post" action="/admin/users/set-quota/{{ user.id }}" style="display: inline;">
+                            <input type="number" 
+                                   name="daily_quota" 
+                                   class="quota-input" 
+                                   value="{{ user.daily_quota or 0 }}"
+                                   min="0"
+                                   max="50"
+                                   {{ 'disabled' if not user.can_manage_marketing else '' }}
+                                   onchange="this.form.submit()">
+                        </form>
+                    </td>
+                    <td class="text-center">
+                        <div style="display: flex; gap: 5px; justify-content: center;">
+                            <!-- 이름 수정 버튼 -->
+                            <button type="button" 
+                                    class="btn-action btn-primary-custom" 
+                                    data-bs-toggle="modal" 
+                                    data-bs-target="#editModal{{ user.id }}">
+                                <i class="bi bi-pencil"></i> 수정
+                            </button>
+                            
+                            <!-- 비밀번호 초기화 버튼 -->
+                            {% if user.username != 'shsboss274' %}
+                            <form method="post" action="/admin/users/reset-password" style="display: inline;" onsubmit="return confirm('{{ user.username }}의 비밀번호를 1234로 초기화하시겠습니까?');">
+                                <input type="hidden" name="user_id" value="{{ user.id }}">
+                                <button type="submit" class="btn-action btn-warning-custom">
+                                    <i class="bi bi-key"></i> PW 초기화
+                                </button>
+                            </form>
+                            
+                            <!-- 삭제 버튼 -->
+                            <form method="post" action="/admin/users/delete" style="display: inline;" onsubmit="return confirm('{{ user.username }}를 정말 삭제하시겠습니까?');">
+                                <input type="hidden" name="user_id" value="{{ user.id }}">
+                                <button type="submit" class="btn-action btn-danger-custom">
+                                    <i class="bi bi-trash"></i> 삭제
+                                </button>
+                            </form>
+                            {% endif %}
+                        </div>
+                    </td>
+                </tr>
                 
-                <!-- 최고 관리자 권한 -->
-                <td>
-                    {% if user.username != 'shsboss274' %}
-                    <form method="post" action="/admin/users/toggle-admin/{{ user.id }}" class="d-inline">
-                        <input type="hidden" name="user_id" value="{{ user.id }}">
-                        <button type="submit" class="btn btn-sm {{ 'btn-danger' if user.is_admin else 'btn-outline-secondary' }}">
-                            {{ '✅' if user.is_admin else '❌' }}
-                        </button>
-                    </form>
-                    {% else %}
-                    <span class="btn btn-sm btn-danger disabled">✅</span>
-                    {% endif %}
-                </td>
-                <!-- 상품 관리 권한 -->
-                <td>
-                    <form method="post" action="/admin/users/toggle-products/{{ user.id }}" class="d-inline">
-                        <input type="hidden" name="user_id" value="{{ user.id }}">
-                        <button type="submit" class="btn btn-sm {{ 'btn-success' if user.can_manage_products else 'btn-outline-secondary' }}">
-                            {{ '✅' if user.can_manage_products else '❌' }}
-                        </button>
-                    </form>
-                </td>
-                <!-- 마케팅 관리 권한 -->
-                <td>
-                    <form method="post" action="/admin/users/toggle-marketing/{{ user.id }}" class="d-inline">
-                        <input type="hidden" name="user_id" value="{{ user.id }}">
-                        <button type="submit" class="btn btn-sm {{ 'btn-primary' if user.can_manage_marketing else 'btn-outline-secondary' }}">
-                            {{ '✅' if user.can_manage_marketing else '❌' }}
-                        </button>
-                    </form>
-                </td>
-                <!-- 삭제/초기화 관리 -->
-                <td>
-                    {% if user.username != 'shsboss274' %}
-                    <form method="post" action="/admin/users/reset-password" class="d-inline mb-1" onsubmit="return confirm('\'{{ user.username }}\' 님의 비밀번호를 \'1234\'로 초기화하시겠습니까?');">
-                        <input type="hidden" name="user_id" value="{{ user.id }}">
-                        <button type="submit" class="btn btn-sm btn-outline-warning">비번초기화</button>
-                    </form>
-                    <form method="post" action="/admin/users/delete" class="d-inline" onsubmit="return confirm('\'{{ user.username }}\' 님을 정말 삭제하시겠습니까?');">
-                        <input type="hidden" name="user_id" value="{{ user.id }}">
-                        <button type="submit" class="btn btn-sm btn-outline-danger">삭제</button>
-                    </form>
-                    {% else %}
-                    <button type="button" class="btn btn-sm btn-outline-warning" disabled>비번초기화</button>
-                    <button type="button" class="btn btn-sm btn-outline-danger" disabled>삭제</button>
-                    {% endif %}
-                </td>
-            </tr>
-            {% endfor %}
+                <!-- 이름 수정 모달 -->
+                <div class="modal fade" id="editModal{{ user.id }}" tabindex="-1">
+                    <div class="modal-dialog">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title">사용자 이름 수정</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                            </div>
+                            <form method="post" action="/admin/users/update">
+                                <div class="modal-body">
+                                    <input type="hidden" name="user_id" value="{{ user.id }}">
+                                    <div class="mb-3">
+                                        <label class="form-label">새 사용자명</label>
+                                        <input type="text" 
+                                               name="new_username" 
+                                               class="form-control" 
+                                               value="{{ user.username }}" 
+                                               required>
+                                    </div>
+                                </div>
+                                <div class="modal-footer">
+                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">취소</button>
+                                    <button type="submit" class="btn btn-primary">저장</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+                
+                {% if not users %}
+                <tr>
+                    <td colspan="7" class="text-center" style="padding: 60px;">
+                        <div style="color: #adb5bd;">
+                            <i class="bi bi-inbox" style="font-size: 3rem; margin-bottom: 15px;"></i>
+                            <p style="font-size: 1.1rem;">사용자가 없습니다.</p>
+                        </div>
+                    </td>
+                </tr>
+                {% endif %}
             </tbody>
         </table>
     </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-</body>
-</html>
-
+<script>
+// 할당량 변경 시 확인 메시지 (선택사항)
+document.querySelectorAll('.quota-input').forEach(input => {
+    input.addEventListener('change', function(e) {
+        if (!this.disabled) {
+            const value = this.value;
+            if (value < 0 || value > 50) {
+                alert('할당량은 0~50 사이의 값이어야 합니다.');
+                e.preventDefault();
+                return false;
+            }
+        }
+    });
+});
+</script>
+{% endblock %}

@@ -1,22 +1,338 @@
-<!-- templates/view_logs.html -->
-<!DOCTYPE html>
-<html>
-<head>
-    <title>로그 보기</title>
-</head>
-<body>
-    <h2>사용자 로그 보기</h2>
+{% extends "base.html" %}
+{% block title %}로그인 기록{% endblock %}
 
-    {% if username %}
-      <p>{{ username }}님 👋 | <a href="/logout">로그아웃</a></p>
-    {% endif %}
+{% block head %}
+{{ super() }}
+<style>
+    body {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        min-height: 100vh;
+    }
+    
+    .container-fluid {
+        max-width: 1400px;
+        margin: 0 auto;
+        padding: 30px;
+    }
+    
+    /* 헤더 스타일 */
+    .page-header {
+        background: white;
+        border-radius: 15px;
+        padding: 25px 30px;
+        margin-bottom: 30px;
+        box-shadow: 0 5px 20px rgba(0, 0, 0, 0.1);
+    }
+    
+    .page-title {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 0;
+    }
+    
+    .page-title h1 {
+        font-size: 1.8rem;
+        font-weight: bold;
+        color: #2d3436;
+        margin: 0;
+    }
+    
+    /* 통계 카드 */
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 20px;
+        margin-bottom: 30px;
+    }
+    
+    .stat-card {
+        background: white;
+        border-radius: 12px;
+        padding: 20px;
+        box-shadow: 0 3px 15px rgba(0, 0, 0, 0.08);
+        transition: transform 0.3s, box-shadow 0.3s;
+    }
+    
+    .stat-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+    }
+    
+    .stat-icon {
+        width: 50px;
+        height: 50px;
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.5rem;
+        margin-bottom: 15px;
+    }
+    
+    .stat-total .stat-icon { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; }
+    .stat-today .stat-icon { background: linear-gradient(135deg, #00b894 0%, #55efc4 100%); color: white; }
+    .stat-week .stat-icon { background: linear-gradient(135deg, #fdcb6e 0%, #ffeaa7 100%); color: white; }
+    .stat-failed .stat-icon { background: linear-gradient(135deg, #e17055 0%, #fab1a0 100%); color: white; }
+    
+    .stat-value {
+        font-size: 2rem;
+        font-weight: bold;
+        color: #2d3436;
+        margin-bottom: 5px;
+    }
+    
+    .stat-label {
+        color: #636e72;
+        font-size: 0.9rem;
+    }
+    
+    /* 검색 바 */
+    .search-bar {
+        background: white;
+        border-radius: 12px;
+        padding: 20px;
+        margin-bottom: 25px;
+        box-shadow: 0 3px 15px rgba(0, 0, 0, 0.08);
+    }
+    
+    .search-input-wrapper {
+        position: relative;
+        max-width: 500px;
+    }
+    
+    .search-icon {
+        position: absolute;
+        left: 15px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #adb5bd;
+        font-size: 1.1rem;
+    }
+    
+    .search-input {
+        padding: 12px 15px 12px 45px;
+        border: 2px solid #e9ecef;
+        border-radius: 10px;
+        width: 100%;
+        font-size: 1rem;
+        transition: all 0.3s;
+    }
+    
+    .search-input:focus {
+        border-color: #667eea;
+        outline: none;
+        box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    }
+    
+    /* 로그 테이블 */
+    .logs-table-container {
+        background: white;
+        border-radius: 12px;
+        padding: 25px;
+        box-shadow: 0 3px 15px rgba(0, 0, 0, 0.08);
+        overflow-x: auto;
+    }
+    
+    .logs-table {
+        width: 100%;
+        border-collapse: separate;
+        border-spacing: 0;
+    }
+    
+    .logs-table thead th {
+        background: #f8f9fa;
+        color: #495057;
+        font-weight: 600;
+        padding: 15px 12px;
+        text-align: left;
+        font-size: 0.9rem;
+        border-bottom: 2px solid #e9ecef;
+        white-space: nowrap;
+    }
+    
+    .logs-table tbody tr {
+        transition: background 0.2s ease;
+        border-bottom: 1px solid #f0f1f3;
+    }
+    
+    .logs-table tbody tr:hover {
+        background: #f8f9fa;
+    }
+    
+    .logs-table td {
+        padding: 12px;
+        vertical-align: middle;
+    }
+    
+    /* 상태 뱃지 */
+    .status-badge {
+        padding: 5px 12px;
+        border-radius: 20px;
+        font-size: 0.85rem;
+        font-weight: 500;
+        display: inline-block;
+    }
+    
+    .status-success {
+        background: #d4edda;
+        color: #155724;
+    }
+    
+    .status-failed {
+        background: #f8d7da;
+        color: #721c24;
+    }
+    
+    /* 버튼 스타일 */
+    .btn-home {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 10px 20px;
+        border-radius: 10px;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        font-weight: 500;
+        transition: all 0.3s ease;
+        border: none;
+    }
+    
+    .btn-home:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 20px rgba(102, 126, 234, 0.3);
+        color: white;
+    }
+    
+    .btn-refresh {
+        background: white;
+        color: #667eea;
+        border: 2px solid #667eea;
+        padding: 10px 20px;
+        border-radius: 10px;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        font-weight: 500;
+        transition: all 0.3s ease;
+    }
+    
+    .btn-refresh:hover {
+        background: #667eea;
+        color: white;
+        transform: translateY(-2px);
+    }
+</style>
+{% endblock %}
 
-    <a href="/" style="margin-bottom: 10px; display: inline-block;">🏠 홈으로</a>
-
-    <pre style="white-space: pre-wrap; background-color: #f4f4f4; padding: 10px; border: 1px solid #ccc;">
-{% for line in logs %}
-{{ line }}
-{% endfor %}
-    </pre>
-</body>
-</html>
+{% block content %}
+<div class="container-fluid">
+    <!-- 페이지 헤더 -->
+    <div class="page-header">
+        <div class="page-title">
+            <div style="display: flex; align-items: center; gap: 15px;">
+                <h1><i class="bi bi-clock-history"></i> 로그인 기록</h1>
+            </div>
+            <div style="display: flex; gap: 10px;">
+                <a href="/admin/users" class="btn-home">
+                    <i class="bi bi-people"></i> 사용자 관리
+                </a>
+                <a href="/" class="btn-home">
+                    <i class="bi bi-house-door"></i> 홈으로
+                </a>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 통계 카드 -->
+    <div class="stats-grid">
+        <div class="stat-card stat-total">
+            <div class="stat-icon"><i class="bi bi-list-ul"></i></div>
+            <div class="stat-value">{{ stats.total }}</div>
+            <div class="stat-label">전체 로그</div>
+        </div>
+        <div class="stat-card stat-today">
+            <div class="stat-icon"><i class="bi bi-calendar-day"></i></div>
+            <div class="stat-value">{{ stats.today }}</div>
+            <div class="stat-label">오늘 로그인</div>
+        </div>
+        <div class="stat-card stat-week">
+            <div class="stat-icon"><i class="bi bi-calendar-week"></i></div>
+            <div class="stat-value">{{ stats.week }}</div>
+            <div class="stat-label">이번 주</div>
+        </div>
+        <div class="stat-card stat-failed">
+            <div class="stat-icon"><i class="bi bi-exclamation-triangle"></i></div>
+            <div class="stat-value">{{ stats.failed }}</div>
+            <div class="stat-label">실패한 시도</div>
+        </div>
+    </div>
+    
+    <!-- 검색 바 -->
+    <div class="search-bar">
+        <form method="get" action="/admin/logs">
+            <div class="search-input-wrapper">
+                <i class="bi bi-search search-icon"></i>
+                <input type="text" 
+                       name="user_filter" 
+                       class="search-input" 
+                       placeholder="사용자 이름으로 검색..." 
+                       value="{{ user_filter }}">
+            </div>
+        </form>
+    </div>
+    
+    <!-- 로그 테이블 -->
+    <div class="logs-table-container">
+        <table class="logs-table">
+            <thead>
+                <tr>
+                    <th width="5%">ID</th>
+                    <th width="15%">사용자</th>
+                    <th width="20%">로그인 시간</th>
+                    <th width="15%">IP 주소</th>
+                    <th width="30%">User Agent</th>
+                    <th width="10%" class="text-center">상태</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for log in logs %}
+                <tr>
+                    <td>{{ log.id }}</td>
+                    <td><strong>{{ log.user.username if log.user else 'Unknown' }}</strong></td>
+                    <td>{{ log.login_time.strftime('%Y-%m-%d %H:%M:%S') if log.login_time else '-' }}</td>
+                    <td><code>{{ log.ip_address or '-' }}</code></td>
+                    <td style="max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" 
+                        title="{{ log.user_agent or '-' }}">
+                        {{ log.user_agent or '-' }}
+                    </td>
+                    <td class="text-center">
+                        {% if log.success %}
+                        <span class="status-badge status-success">
+                            <i class="bi bi-check-circle"></i> 성공
+                        </span>
+                        {% else %}
+                        <span class="status-badge status-failed">
+                            <i class="bi bi-x-circle"></i> 실패
+                        </span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+                {% if not logs %}
+                <tr>
+                    <td colspan="6" class="text-center" style="padding: 60px;">
+                        <div style="color: #adb5bd;">
+                            <i class="bi bi-inbox" style="font-size: 3rem; margin-bottom: 15px;"></i>
+                            <p style="font-size: 1.1rem;">로그인 기록이 없습니다.</p>
+                        </div>
+                    </td>
+                </tr>
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

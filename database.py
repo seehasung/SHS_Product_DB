@@ -31,6 +31,7 @@ class User(Base):
     work_tasks = relationship("WorkTask", back_populates="worker")
     post_logs = relationship("PostLog", back_populates="worker")
     references_modified = relationship("Reference", back_populates="last_modified_by")
+    login_logs = relationship("LoginLog", back_populates="user")
 
 class Product(Base):
     __tablename__ = "products"
@@ -275,10 +276,25 @@ class PostingRound(Base):
     # 관계
     marketing_product = relationship("MarketingProduct", back_populates="rounds")
 
+
+class LoginLog(Base):
+    """로그인 기록 테이블"""
+    __tablename__ = "login_logs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    login_time = Column(DateTime, default=datetime.datetime.utcnow)
+    ip_address = Column(String, nullable=True)
+    user_agent = Column(String, nullable=True)
+    success = Column(Boolean, default=True)  # 로그인 성공 여부
+    
+    # 관계
+    user = relationship("User", back_populates="login_logs")
+
 # __all__ 리스트 업데이트
 __all__ = [
     "User", "Product", "MarketingAccount", "TargetCafe", "CafeMembership",
     "MarketingProduct", "Reference", "PostLog", "Comment", "MarketingPost",
-    "WorkTask", "PostSchedule", "AccountCafeUsage", "PostingRound",
+    "WorkTask", "PostSchedule", "AccountCafeUsage", "PostingRound", "LoginLog",
     "SessionLocal", "Base", "engine"
 ]

@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 from passlib.hash import bcrypt
 from datetime import date # 날짜 기반 세션 만료를 위해 추가
 
-from database import SessionLocal, User
+from database import SessionLocal, User, LoginLog
 
 router = APIRouter(prefix="/admin")
 templates = Jinja2Templates(directory="templates")
@@ -126,3 +126,60 @@ async def delete_user(user_id: int = Form(...), db: Session = Depends(get_db)):
     # db.close() # <--- 삭제
     return RedirectResponse("/admin/users", status_code=303) # 302 -> 303으로 변경
 
+
+# ✅ 로그인 기록 보기 (관리자 전용)
+@router.get("/logs", response_class=HTMLResponse)
+async def view_logs(
+    request: Request, 
+    user_filter: str = "",
+    db: Session = Depends(get_db)
+):
+    """로그인 기록 보기"""
+    # 세션 만료 체크
+    if request.session.get("login_date") != date.today().isoformat():
+        request.session.clear()
+    
+    username = request.session.get("user")
+    if not username:
+        return RedirectResponse("/login", status_code=302)
+    
+    current_user = db.query(User).filter(User.username == username).first()
+    if not current_user or not current_user.is_admin:
+        return RedirectResponse("/", status_code=302)
+    
+    # 로그 조회 (최신 순)
+    from sqlalchemy.orm import joinedload
+    logs_query = db.query(LoginLog).options(joinedload(LoginLog.user))
+    
+    # 사용자 필터링
+    if user_filter:
+        logs_query = logs_query.join(User).filter(User.username.contains(user_filter))
+    
+    logs = logs_query.order_by(LoginLog.login_time.desc()).limit(500).all()
+    
+    # 통계 계산
+    from datetime import datetime, timedelta
+    today = datetime.now().date()
+    week_ago = today - timedelta(days=7)
+    
+    # 오늘 로그인
+    today_logs = [log for log in logs if log.login_time.date() == today]
+    # 이번 주 로그인
+    week_logs = [log for log in logs if log.login_time.date() >= week_ago]
+    # 실패한 로그인
+    failed_logs = [log for log in logs if not log.success]
+    
+    stats = {
+        'total': len(logs),
+        'today': len(today_logs),
+        'week': len(week_logs),
+        'failed': len(failed_logs)
+    }
+    
+    return templates.TemplateResponse("view_logs.html", {
+        "request": request,
+        "username": username,
+        "logs": logs,
+        "user_filter": user_filter,
+        "stats": stats
+    })

@@ -4,9 +4,10 @@ from fastapi import APIRouter, Request, Form
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from passlib.hash import bcrypt
-from database import SessionLocal, User
+from database import SessionLocal, User, LoginLog
 import random
 import string
+import datetime
 
 router = APIRouter()
 templates = Jinja2Templates(directory="templates")
@@ -23,9 +24,24 @@ def login(request: Request, username: str = Form(...), password: str = Form(...)
     """로그인 처리"""
     db = SessionLocal()
     user = db.query(User).filter(User.username == username).first()
-    db.close()
+    
+    # IP 주소 추출
+    client_host = request.client.host if request.client else "Unknown"
+    user_agent = request.headers.get("user-agent", "Unknown")
     
     if user and bcrypt.verify(password, user.password):
+        # 로그인 성공 - 기록 저장
+        login_log = LoginLog(
+            user_id=user.id,
+            login_time=datetime.datetime.utcnow(),
+            ip_address=client_host,
+            user_agent=user_agent,
+            success=True
+        )
+        db.add(login_log)
+        db.commit()
+        db.close()
+        
         # 세션 설정
         from datetime import date
         request.session["user"] = username
@@ -35,6 +51,19 @@ def login(request: Request, username: str = Form(...), password: str = Form(...)
         request.session["login_date"] = date.today().isoformat()
         return RedirectResponse("/", status_code=303)
     else:
+        # 로그인 실패 - 실패 기록 저장 (user가 존재하는 경우만)
+        if user:
+            login_log = LoginLog(
+                user_id=user.id,
+                login_time=datetime.datetime.utcnow(),
+                ip_address=client_host,
+                user_agent=user_agent,
+                success=False
+            )
+            db.add(login_log)
+            db.commit()
+        
+        db.close()
         return templates.TemplateResponse("login.html", {
             "request": request,
             "error": "아이디 또는 비밀번호가 올바르지 않습니다."
