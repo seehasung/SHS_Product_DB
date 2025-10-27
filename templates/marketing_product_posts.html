@@ -604,9 +604,10 @@
 <script>
 // Python에서 전달받은 '계정-카페' 연동 맵
 const membershipMap = {{ membership_map | tojson | safe if membership_map else '{}' }};
+console.log('MembershipMap loaded:', membershipMap);
 
 // Python에서 전달받은 '레퍼런스' 전체 데이터
-const allReferences = [
+const referencesData = allReferences = [
     {% for type, refs in references_by_type.items() %}
         {% for ref in refs %}
         {
@@ -636,20 +637,38 @@ function updateCafeDropdown(accountSelectElement, cafeSelectId) {
     const cafeSelect = document.getElementById(cafeSelectId);
     const selectedAccountId = accountSelectElement.value;
     
-    cafeSelect.innerHTML = '<option value="" disabled selected>계정을 먼저 선택하세요</option>';
-    cafeSelect.disabled = true;
-
-    if (selectedAccountId && membershipMap[selectedAccountId]) {
-        cafeSelect.disabled = false;
-        cafeSelect.innerHTML = '<option value="" disabled selected>작성한 카페를 선택하세요</option>';
-        
-        membershipMap[selectedAccountId].forEach(cafe => {
-            const option = document.createElement('option');
-            option.value = cafe.id;
-            option.textContent = cafe.name;
-            cafeSelect.appendChild(option);
-        });
+    console.log('updateCafeDropdown called:', selectedAccountId, membershipMap[selectedAccountId]);
+    
+    // 카페 드롭다운 초기화
+    cafeSelect.innerHTML = '';
+    
+    if (!selectedAccountId) {
+        // 계정이 선택되지 않은 경우
+        cafeSelect.innerHTML = '<option value="" disabled selected>네이버 계정을 먼저 선택하세요</option>';
+        cafeSelect.disabled = true;
+        return;
     }
+    
+    // 연동된 카페 목록 가져오기
+    const cafes = membershipMap[selectedAccountId];
+    
+    if (!cafes || cafes.length === 0) {
+        // 연동된 카페가 없는 경우
+        cafeSelect.innerHTML = '<option value="" disabled selected>연동된 카페가 없습니다</option>';
+        cafeSelect.disabled = true;
+        return;
+    }
+    
+    // 카페 옵션 추가
+    cafeSelect.disabled = false;
+    cafeSelect.innerHTML = '<option value="" disabled selected>카페를 선택하세요</option>';
+    
+    cafes.forEach(cafe => {
+        const option = document.createElement('option');
+        option.value = cafe.id;
+        option.textContent = cafe.name;
+        cafeSelect.appendChild(option);
+    });
 }
 
 /**
@@ -659,21 +678,46 @@ function updateCafeDropdownEdit(accountSelectElement, cafeSelectId, currentCafeI
     const cafeSelect = document.getElementById(cafeSelectId);
     const selectedAccountId = accountSelectElement.value;
     
+    console.log('updateCafeDropdownEdit called:', selectedAccountId, currentCafeId, membershipMap[selectedAccountId]);
+    
+    // 카페 드롭다운 초기화
     cafeSelect.innerHTML = '';
-    cafeSelect.disabled = true;
-
-    if (selectedAccountId && membershipMap[selectedAccountId]) {
-        cafeSelect.disabled = false;
-        
-        membershipMap[selectedAccountId].forEach(cafe => {
-            const option = document.createElement('option');
-            option.value = cafe.id;
-            option.textContent = cafe.name;
-            if (currentCafeId && cafe.id == currentCafeId) {
-                option.selected = true;
-            }
-            cafeSelect.appendChild(option);
-        });
+    
+    if (!selectedAccountId) {
+        // 계정이 선택되지 않은 경우
+        cafeSelect.innerHTML = '<option value="" disabled selected>네이버 계정을 먼저 선택하세요</option>';
+        cafeSelect.disabled = true;
+        return;
+    }
+    
+    // 연동된 카페 목록 가져오기
+    const cafes = membershipMap[selectedAccountId];
+    
+    if (!cafes || cafes.length === 0) {
+        // 연동된 카페가 없는 경우
+        cafeSelect.innerHTML = '<option value="" disabled selected>연동된 카페가 없습니다</option>';
+        cafeSelect.disabled = true;
+        return;
+    }
+    
+    // 카페 옵션 추가
+    cafeSelect.disabled = false;
+    
+    let hasCurrentCafe = false;
+    cafes.forEach(cafe => {
+        const option = document.createElement('option');
+        option.value = cafe.id;
+        option.textContent = cafe.name;
+        if (currentCafeId && cafe.id == currentCafeId) {
+            option.selected = true;
+            hasCurrentCafe = true;
+        }
+        cafeSelect.appendChild(option);
+    });
+    
+    // 현재 선택된 카페가 없으면 첫 번째 옵션 선택
+    if (!hasCurrentCafe && cafes.length > 0) {
+        cafeSelect.selectedIndex = 0;
     }
 }
 
@@ -681,18 +725,36 @@ function updateCafeDropdownEdit(accountSelectElement, cafeSelectId, currentCafeI
  * '등록 완료' 체크박스 클릭 시 URL 필드 토글 및 글 생존 체크박스 제어
  */
 function toggleUrlAndLiveField(checkbox, urlFieldId, liveCheckboxId) {
+    console.log('toggleUrlAndLiveField called:', checkbox.checked, urlFieldId, liveCheckboxId);
+    
     const urlFieldDiv = document.getElementById(urlFieldId);
+    if (!urlFieldDiv) {
+        console.error('URL field div not found:', urlFieldId);
+        return;
+    }
+    
     const urlInput = urlFieldDiv.querySelector('input[name="post_url"]');
+    if (!urlInput) {
+        console.error('URL input not found in div:', urlFieldId);
+        return;
+    }
+    
     const liveCheckbox = document.getElementById(liveCheckboxId);
+    if (!liveCheckbox) {
+        console.error('Live checkbox not found:', liveCheckboxId);
+        return;
+    }
     
     if (checkbox.checked) {
+        // URL 입력 필드 표시
         urlFieldDiv.style.display = 'block';
         urlInput.required = true;
         // URL이 있으면 생존 체크박스 활성화
-        if (urlInput.value) {
+        if (urlInput.value && urlInput.value.trim() !== '') {
             liveCheckbox.disabled = false;
         }
     } else {
+        // URL 입력 필드 숨기기
         urlFieldDiv.style.display = 'none';
         urlInput.required = false;
         urlInput.value = '';
@@ -722,34 +784,34 @@ function filterReferences(typeSelect, titleSelectId) {
     const selectedType = typeSelect.value;
     const titleSelect = document.getElementById(titleSelectId);
     
-    // 모든 옵션 숨기기
+    console.log('filterReferences called:', selectedType, titleSelectId);
+    console.log('Available references:', referencesData);
+    
+    if (!titleSelect) {
+        console.error('Title select not found:', titleSelectId);
+        return;
+    }
+    
+    // 모든 옵션 가져오기
     const allOptions = titleSelect.querySelectorAll('option');
+    
+    // 선택된 타입에 따라 필터링
     allOptions.forEach(option => {
         if (option.value === "") {
             // 기본 옵션은 항상 표시
             option.style.display = 'block';
         } else {
-            option.style.display = 'none';
+            // 레퍼런스 옵션
+            const refType = option.getAttribute('data-ref-type');
+            if (selectedType && selectedType !== "") {
+                // 특정 타입이 선택된 경우
+                option.style.display = (refType === selectedType) ? 'block' : 'none';
+            } else {
+                // 타입이 선택되지 않은 경우 모두 표시
+                option.style.display = 'block';
+            }
         }
     });
-    
-    // 선택된 타입의 레퍼런스만 표시
-    if (selectedType && referencesData) {
-        referencesData.forEach(ref => {
-            if (ref.ref_type === selectedType) {
-                const option = titleSelect.querySelector(`option[value="${ref.id}"]`);
-                if (option) {
-                    option.style.display = 'block';
-                }
-            }
-        });
-    } else if (!selectedType) {
-        // 타입이 선택되지 않으면 모든 레퍼런스 표시
-        const refOptions = titleSelect.querySelectorAll('option[data-ref-type]');
-        refOptions.forEach(option => {
-            option.style.display = 'block';
-        });
-    }
     
     // 현재 선택된 옵션이 숨겨졌으면 초기화
     const currentOption = titleSelect.options[titleSelect.selectedIndex];
