@@ -34,6 +34,7 @@ def get_db():
 async def marketing_cafe(request: Request, db: Session = Depends(get_db)):
     tab = request.query_params.get('tab', 'status')
     error = request.query_params.get('error')
+    success = request.query_params.get('success')
     cafe_id = request.query_params.get('cafe_id', None)
     if cafe_id:
         cafe_id = int(cafe_id)
@@ -187,6 +188,7 @@ async def marketing_cafe(request: Request, db: Session = Depends(get_db)):
         "references_by_type": references_by_type,
         "tab": tab,
         "error": error,
+        "success": success,
         "all_products": all_products,
         "marketing_products": marketing_products,
         "work_tasks": work_tasks,
@@ -352,7 +354,7 @@ async def add_cafe_alias(
     new_cafe = TargetCafe(name=cafe_name, url=cafe_url)
     db.add(new_cafe)
     db.commit()
-    return RedirectResponse(url="/marketing/cafe?tab=cafes", status_code=303)
+    return RedirectResponse(url="/marketing/cafe?tab=cafes&success=cafe_added", status_code=303)
 
 @router.post("/cafes/edit/{cafe_id}", response_class=RedirectResponse)
 async def edit_cafe(

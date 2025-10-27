@@ -296,7 +296,7 @@
         <!-- 레퍼런스 관리 탭 -->
         <div class="tab-pane fade border-start border-end border-bottom p-3" id="references-tab-pane" role="tabpanel">
             <h3 class="mb-3">신규 레퍼런스 생성</h3>
-            {% if error == 'duplicate_reference' %}
+            {% if error == '중복된 레퍼런스 제목입니다!' %}
             <div class="alert alert-danger" role="alert">
                 {{ error }}
             </div>
@@ -393,10 +393,16 @@
         <!-- 카페 관리 탭 -->
         <div class="tab-pane fade border-start border-end border-bottom p-3" id="cafes-tab-pane" role="tabpanel">
             <h3 class="mb-3">신규 타겟 카페 등록</h3>
+            {% if success == 'cafe_added' %}
+            <div class="alert alert-success alert-dismissible fade show" role="alert">
+                신규 카페가 성공적으로 추가되었습니다!
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+            {% endif %}
             <form action="/marketing/cafe/add" method="post" class="mb-4 p-3 border rounded bg-light">
                 <div class="row g-3 align-items-center">
-                    <div class="col-md-5"><input type="text" name="name" class="form-control" placeholder="카페 이름" required></div>
-                    <div class="col-md-5"><input type="url" name="url" class="form-control" placeholder="카페 URL" required></div>
+                    <div class="col-md-5"><input type="text" name="cafe_name" class="form-control" placeholder="카페 이름" required></div>
+                    <div class="col-md-5"><input type="url" name="cafe_url" class="form-control" placeholder="카페 URL" required></div>
                     <div class="col-md-2"><button type="submit" class="btn btn-primary w-100">➕ 추가</button></div>
                 </div>
             </form>

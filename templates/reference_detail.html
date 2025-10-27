@@ -96,7 +96,7 @@
                 </div>
             </div>
             {% if comment.replies %}
-                {{ render_comments(comment.replies, reference.id) }}
+                {{ render_comments(comment.replies, reference_id) }}
             {% endif %}
         </li>
         {% endfor %}
