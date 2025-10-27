@@ -186,7 +186,7 @@ async def marketing_cafe(request: Request, db: Session = Depends(get_db)):
         "references": references,
         "references_by_type": references_by_type,
         "tab": tab,
-        "error": error_message,
+        "error": error,
         "all_products": all_products,
         "marketing_products": marketing_products,
         "work_tasks": work_tasks,
