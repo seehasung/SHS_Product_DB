@@ -203,7 +203,7 @@ async def marketing_cafe(request: Request, db: Session = Depends(get_db)):
 
 # --- 스케줄 관리 라우터 추가 ---
 
-@router.get("/schedules", response_class=HTMLResponse)
+@router.get("/marketing/schedules", response_class=HTMLResponse)
 async def get_schedules(
     request: Request,
     selected_date: Optional[str] = Query(None),
@@ -1232,56 +1232,6 @@ async def marketing_homepage(request: Request):
 @router.get("/kin", response_class=HTMLResponse)
 async def marketing_kin(request: Request):
     return templates.TemplateResponse("marketing_kin.html", {"request": request})
-
-@router.get("/marketing/schedules", response_class=HTMLResponse)
-async def get_schedules(request: Request):
-    db = SessionLocal()
-    
-    try:
-        # 날짜 관련 변수들
-        today = date.today()
-        selected_date = request.query_params.get('date')
-        
-        if selected_date:
-            selected_date = datetime.strptime(selected_date, '%Y-%m-%d').date()
-        else:
-            selected_date = today
-        
-        # 스케줄 데이터 조회
-        schedules = db.query(MarketingSchedule).all()  # 실제 쿼리
-        
-        # 연결되지 않은 포스트 조회 (279번 라인 경고 수정)
-        linked_post_ids = db.query(MarketingSchedule.post_id).filter(
-            MarketingSchedule.post_id.isnot(None)
-        ).subquery()
-        
-        # IN 절 사용 시 select() 명시적 사용
-        from sqlalchemy import select
-        unlinked_posts = db.query(MarketingPost).filter(
-            ~MarketingPost.id.in_(select(linked_post_ids))
-        ).all()
-        
-        # 통계 계산
-        total_schedules = len(schedules)
-        completed_schedules = len([s for s in schedules if s.status == 'completed'])
-        pending_schedules = len([s for s in schedules if s.status == 'pending'])
-        
-        return templates.TemplateResponse("marketing_schedules.html", {
-            "request": request,
-            "schedules": schedules,
-            "unlinked_posts": unlinked_posts,
-            "today": today,  # ⭐ 필수!
-            "selected_date": selected_date,  # ⭐ 필수!
-            "total_schedules": total_schedules,
-            "completed_schedules": completed_schedules,
-            "pending_schedules": pending_schedules
-        })
-        
-    except Exception as e:
-        print(f"Error in get_schedules: {e}")
-        raise
-    finally:
-        db.close()
 
 @router.get("/marketing/schedules/create", response_class=HTMLResponse)
 async def create_schedule(request: Request):
