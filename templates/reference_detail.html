@@ -48,45 +48,7 @@
 </style>
 {% endblock %}
 
-{% macro render_comments(comments, reference_id) %}
-    <ul class="list-unstyled ps-4">
-        {% for comment in comments %}
-        <li class="mt-3">
-            <div class="card bg-light">
-                <div class="card-body">
-                    <p class="card-text">
-                        <!-- ▼▼▼ 텍스트를 뱃지 안으로 이동 ▼▼▼ -->
-                        <span class="account-badge dot-{{ comment.account_sequence }}">
-                            {% if comment.account_sequence == 0 %}
-                                작성자
-                            {% else %}
-                                계정 {{ comment.account_sequence }}
-                            {% endif %}
-                        </span>
-                        <!-- ▲▲▲ 텍스트를 뱃지 안으로 이동 ▲▲▲ -->
-                        {{ comment.text | replace('\n', '<br>') | safe }}
-                    </p>
-                    <div class="d-flex justify-content-between align-items-center">
-                        <small class="text-muted">{{ comment.created_at.strftime('%Y-%m-%d %H:%M') }}</small>
-                        <div>
-                            <button class="btn btn-sm btn-outline-info" data-bs-toggle="modal" data-bs-target="#editCommentModal"
-                                    data-bs-comment-id="{{ comment.id }}"
-                                    data-bs-comment-text="{{ comment.text }}"
-                                    data-bs-account-sequence="{{ comment.account_sequence }}">수정</button>
-                            <form action="/marketing/comment/delete/{{ reference_id }}/{{ comment.id }}" method="post" class="d-inline" onsubmit="return confirm('이 댓글을 정말 삭제하시겠습니까?');">
-                                <button type="submit" class="btn btn-sm btn-outline-danger">삭제</button>
-                            </form>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            {% if comment.replies %}
-                {{ render_comments(comment.replies, reference_id) }}
-            {% endif %}
-        </li>
-        {% endfor %}
-    </ul>
-{% endmacro %}
+{# 매크로 제거 - 직접 렌더링으로 중복 방지 #}
 
 {% block content %}
 <div class="container mt-4">
@@ -164,8 +126,35 @@
                             <div class="d-flex">
                                 <span class="me-3 fs-5 fw-bold text-primary">{{ loop.index }}.</span>
                                 <div class="w-100">
-                                    {{ render_comments([comment], reference.id) }}
-                                    <!-- 답글 버튼과 폼 추가 -->
+                                    <!-- 메인 댓글 -->
+                                    <div class="card bg-light">
+                                        <div class="card-body">
+                                            <p class="card-text">
+                                                <span class="account-badge dot-{{ comment.account_sequence }}">
+                                                    {% if comment.account_sequence == 0 %}
+                                                        작성자
+                                                    {% else %}
+                                                        계정 {{ comment.account_sequence }}
+                                                    {% endif %}
+                                                </span>
+                                                {{ comment.text | replace('\n', '<br>') | safe }}
+                                            </p>
+                                            <div class="d-flex justify-content-between align-items-center">
+                                                <small class="text-muted">{{ comment.created_at.strftime('%Y-%m-%d %H:%M') }}</small>
+                                                <div>
+                                                    <button class="btn btn-sm btn-outline-info" data-bs-toggle="modal" data-bs-target="#editCommentModal"
+                                                            data-bs-comment-id="{{ comment.id }}"
+                                                            data-bs-comment-text="{{ comment.text }}"
+                                                            data-bs-account-sequence="{{ comment.account_sequence }}">수정</button>
+                                                    <form action="/marketing/comment/delete/{{ reference.id }}/{{ comment.id }}" method="post" class="d-inline" onsubmit="return confirm('이 댓글을 정말 삭제하시겠습니까?');">
+                                                        <button type="submit" class="btn btn-sm btn-outline-danger">삭제</button>
+                                                    </form>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- 답글 버튼과 폼 -->
                                     <div class="mt-2">
                                         <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="collapse" href="#reply-form-{{ comment.id }}">답글</button>
                                     </div>
@@ -182,6 +171,42 @@
                                             <button type="submit" class="btn btn-sm btn-primary mt-2">답글 등록</button>
                                         </form>
                                     </div>
+                                    
+                                    <!-- 답글들 직접 렌더링 -->
+                                    {% if comment.replies %}
+                                    <ul class="list-unstyled ps-4 mt-3">
+                                        {% for reply in comment.replies %}
+                                        <li class="mt-3">
+                                            <div class="card bg-light">
+                                                <div class="card-body">
+                                                    <p class="card-text">
+                                                        <span class="account-badge dot-{{ reply.account_sequence }}">
+                                                            {% if reply.account_sequence == 0 %}
+                                                                작성자
+                                                            {% else %}
+                                                                계정 {{ reply.account_sequence }}
+                                                            {% endif %}
+                                                        </span>
+                                                        {{ reply.text | replace('\n', '<br>') | safe }}
+                                                    </p>
+                                                    <div class="d-flex justify-content-between align-items-center">
+                                                        <small class="text-muted">{{ reply.created_at.strftime('%Y-%m-%d %H:%M') }}</small>
+                                                        <div>
+                                                            <button class="btn btn-sm btn-outline-info" data-bs-toggle="modal" data-bs-target="#editCommentModal"
+                                                                    data-bs-comment-id="{{ reply.id }}"
+                                                                    data-bs-comment-text="{{ reply.text }}"
+                                                                    data-bs-account-sequence="{{ reply.account_sequence }}">수정</button>
+                                                            <form action="/marketing/comment/delete/{{ reference.id }}/{{ reply.id }}" method="post" class="d-inline" onsubmit="return confirm('이 댓글을 정말 삭제하시겠습니까?');">
+                                                                <button type="submit" class="btn btn-sm btn-outline-danger">삭제</button>
+                                                            </form>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </li>
+                                        {% endfor %}
+                                    </ul>
+                                    {% endif %}
                                 </div>
                             </div>
                         </li>
