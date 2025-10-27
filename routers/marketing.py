@@ -337,18 +337,11 @@ async def add_cafe(
 @router.post("/cafe/add", response_class=RedirectResponse)
 async def add_cafe_alias(
     request: Request,
-    cafe_name: str = Form(None),
-    cafe_url: str = Form(None),
+    cafe_name: str = Form(...),
+    cafe_url: str = Form(...),
     db: Session = Depends(get_db)
 ):
     """카페 추가 (별칭 라우트)"""
-    print(f"DEBUG: Received cafe_name={cafe_name}, cafe_url={cafe_url}")
-    
-    # 필드 검증
-    if not cafe_name or not cafe_url:
-        print(f"DEBUG: Missing fields - cafe_name: {cafe_name}, cafe_url: {cafe_url}")
-        return RedirectResponse(url="/marketing/cafe?tab=cafes&error=missing_fields", status_code=303)
-    
     return await add_cafe(request, cafe_name, cafe_url, db)
 
 @router.post("/cafes/edit/{cafe_id}", response_class=RedirectResponse)
@@ -466,7 +459,7 @@ async def add_reference(
                 pass
         
         db.commit()
-        return RedirectResponse(url="/marketing/cafe?tab=references", status_code=303)
+        return RedirectResponse(url=f"/marketing/reference/{new_ref.id}", status_code=303)
     except IntegrityError:
         db.rollback()
         return RedirectResponse(url="/marketing/cafe?tab=references&error=duplicate_reference", status_code=303)
@@ -596,7 +589,7 @@ async def reference_detail(request: Request, ref_id: int, db: Session = Depends(
     return templates.TemplateResponse("reference_detail.html", {
         "request": request,
         "reference": reference,
-        "comments": organized_comments
+        "organized_comments": organized_comments
     })
 
 @router.post("/comment/add/{ref_id}", response_class=RedirectResponse)
@@ -626,6 +619,29 @@ async def add_comment(
     
     db.add(new_comment)
     db.commit()
+    
+    return RedirectResponse(url=f"/marketing/reference/{ref_id}", status_code=303)
+
+@router.post("/comment/delete/{ref_id}/{comment_id}", response_class=RedirectResponse)
+async def delete_comment(
+    ref_id: int,
+    comment_id: int,
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    """댓글 삭제"""
+    username = request.session.get("user")
+    if not username:
+        return RedirectResponse("/login", status_code=302)
+    
+    current_user = db.query(User).filter(User.username == username).first()
+    if not current_user or not (current_user.can_manage_marketing or current_user.is_admin):
+        return RedirectResponse("/", status_code=302)
+    
+    comment = db.query(Comment).filter(Comment.id == comment_id).first()
+    if comment:
+        db.delete(comment)
+        db.commit()
     
     return RedirectResponse(url=f"/marketing/reference/{ref_id}", status_code=303)
 
@@ -770,16 +786,28 @@ async def manage_keywords_page(mp_id: int, request: Request, db: Session = Depen
     
     # 키워드 데이터 파싱
     keywords_data = []
+    keywords_text = ""
+    keywords_list = []
+    total_keywords_count = 0
+    
     if marketing_product.keywords:
         try:
             keywords_data = json.loads(marketing_product.keywords)
+            # 텍스트 형태로 변환
+            keywords_text = "\n".join([item.get("keyword", "") for item in keywords_data if item.get("keyword")])
+            # 리스트 형태로 변환
+            keywords_list = keywords_data
+            total_keywords_count = len(keywords_data)
         except json.JSONDecodeError:
             keywords_data = []
     
     return templates.TemplateResponse("marketing_product_keywords.html", {
         "request": request,
         "marketing_product": marketing_product,
-        "keywords_data": keywords_data
+        "keywords_data": keywords_data,
+        "keywords_text": keywords_text,
+        "keywords_list": keywords_list,
+        "total_keywords_count": total_keywords_count
     })
 
 # --- 키워드 관리 라우트 ---
