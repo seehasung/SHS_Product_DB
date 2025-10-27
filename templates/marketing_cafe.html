@@ -57,6 +57,24 @@
         <a href="/" class="btn btn-secondary">← 홈으로</a>
     </div>
 
+    <!-- 오류 메시지 표시 -->
+    {% if error == 'duplicate' %}
+    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+        <i class="bi bi-exclamation-triangle-fill"></i> <strong>중복 오류!</strong> 이미 연동된 계정입니다!
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+    {% elif error == 'duplicate_name' %}
+    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+        <i class="bi bi-exclamation-triangle-fill"></i> <strong>중복 오류!</strong> 이미 존재하는 카페명입니다!
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+    {% elif error == 'duplicate_url' %}
+    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+        <i class="bi bi-exclamation-triangle-fill"></i> <strong>중복 오류!</strong> 이미 존재하는 카페 URL입니다!
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+    {% endif %}
+
     <!-- 탭 메뉴 -->
     <ul class="nav nav-tabs" id="myTab" role="tablist">
         <li class="nav-item" role="presentation">
@@ -224,7 +242,7 @@
                     <table class="table table-bordered table-hover text-center align-middle">
                         <thead class="table-dark">
                             <tr>
-                                <th>계정 아이디</th><th>신규 글</th><th>수정 글</th><th>상태</th><th>저장</th>
+                                <th>계정 아이디</th><th>신규 글</th><th>수정 글</th><th>상태</th><th>저장</th><th>삭제</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -243,6 +261,11 @@
                                 </td>
                                 <td><button type="submit" class="btn btn-sm btn-outline-primary">저장</button></td>
                             </form>
+                            <td>
+                                <form action="/marketing/membership/delete/{{ membership.id }}" method="post" style="display:inline;" onsubmit="return confirm('정말로 이 연동을 삭제하시겠습니까?');">
+                                    <button type="submit" class="btn btn-sm btn-outline-danger">삭제</button>
+                                </form>
+                            </td>
                             </tr>
                             {% endfor %}
                         </tbody>
@@ -292,10 +315,21 @@
             {% endif %}
             <form action="/marketing/reference/add" method="post" class="mb-4 p-3 border rounded bg-light">
                 <div class="row g-3 align-items-end">
-                    <div class="col-md-10"><label class="form-label">레퍼런스 제목</label><input type="text" name="title" class="form-control" required></div>
-                    <div class="col-md-2"><button type="submit" class="btn btn-primary w-100">➕ 생성</button></div>
+                    <div class="col-md-10">
+                        <label class="form-label">신규 레퍼런스 생성 (바로 생성하려면 버튼 클릭)</label>
+                        <button type="submit" class="btn btn-success w-100">➕ 새 레퍼런스 생성</button>
+                    </div>
                 </div>
             </form>
+            
+            <hr>
+            
+            <!-- 레퍼런스 검색 -->
+            <div class="mb-4">
+                <label class="form-label">레퍼런스 검색 (자동완성)</label>
+                <input type="text" id="reference_search" class="form-control" placeholder="레퍼런스 제목을 검색하세요..." oninput="searchReferences(this.value)">
+                <div id="search_results" class="list-group mt-2" style="display: none;"></div>
+            </div>
 
             <div class="d-flex justify-content-between align-items-center mb-3">
                 <h3 class="mb-0">저장된 레퍼런스 목록</h3>
@@ -501,6 +535,51 @@
             editAccountModal.querySelector('#edit-ip-address').value = ipAddress;
         });
     }
+    
+    // 레퍼런스 검색 자동완성
+    const allReferencesData = {{ references|tojson|safe }};
+    
+    function searchReferences(query) {
+        const resultsDiv = document.getElementById('search_results');
+        
+        if (!query || query.trim() === '') {
+            resultsDiv.style.display = 'none';
+            return;
+        }
+        
+        const searchLower = query.toLowerCase();
+        const matches = allReferencesData.filter(ref => 
+            ref.title.toLowerCase().includes(searchLower)
+        );
+        
+        if (matches.length === 0) {
+            resultsDiv.innerHTML = '<div class="list-group-item">검색 결과가 없습니다</div>';
+            resultsDiv.style.display = 'block';
+            return;
+        }
+        
+        resultsDiv.innerHTML = '';
+        matches.forEach(ref => {
+            const item = document.createElement('a');
+            item.href = `/marketing/reference/${ref.id}`;
+            item.className = 'list-group-item list-group-item-action';
+            
+            // 검색어 하이라이트 (노란색)
+            const titleHtml = ref.title.replace(
+                new RegExp(query, 'gi'),
+                match => `<mark style="background-color: #ffeb3b;">${match}</mark>`
+            );
+            
+            const badge = ref.ref_type ? 
+                `<span class="badge bg-${ref.ref_type === '대안' ? 'danger' : ref.ref_type === '정보' ? 'primary' : 'success'} me-2">${ref.ref_type}</span>` : 
+                '';
+            
+            item.innerHTML = badge + titleHtml;
+            resultsDiv.appendChild(item);
+        });
+        
+        resultsDiv.style.display = 'block';
+    }
+
 </script>
 {% endblock %}
-

@@ -24,6 +24,23 @@ router = APIRouter(prefix="/marketing")
 templates = Jinja2Templates(directory="templates")
 
 # --- Helper Functions ---
+
+def sort_product_code(product_code):
+    """
+    상품 코드를 정렬하기 위한 키 생성 함수
+    예: "1-1" → (1, 1), "10-2" → (10, 2)
+    """
+    if not product_code or '-' not in product_code:
+        return (999999, 999999)  # 형식이 맞지 않으면 맨 뒤로
+    
+    try:
+        parts = product_code.split('-')
+        main = int(parts[0])
+        sub = int(parts[1]) if len(parts) > 1 else 0
+        return (main, sub)
+    except (ValueError, IndexError):
+        return (999999, 999999)
+
 def get_db():
     db = SessionLocal()
     try:
@@ -117,12 +134,19 @@ async def marketing_cafe(request: Request, db: Session = Depends(get_db)):
         if status_filter != 'all':
             query = query.filter(CafeMembership.status == status_filter)
         memberships = query.order_by(CafeMembership.account_id).all()
-    cafes = db.query(TargetCafe).order_by(TargetCafe.name).all()
+    
+    # 카페 목록 조회 및 정렬 (1, 2, 10, 11 순서로)
+    cafes_raw = db.query(TargetCafe).all()
+    cafes = sorted(cafes_raw, key=lambda c: sort_product_code(c.name))
+    
     accounts_query = db.query(MarketingAccount)
     if category_filter != 'all':
         accounts_query = accounts_query.filter(MarketingAccount.category == category_filter)
     accounts = accounts_query.order_by(MarketingAccount.id).all()
-    marketing_products = db.query(MarketingProduct).options(joinedload(MarketingProduct.product)).order_by(MarketingProduct.id).all()
+    
+    # 마케팅 상품 목록 조회 및 정렬 (1-1, 1-2, 10-1 순서로)
+    marketing_products_raw = db.query(MarketingProduct).options(joinedload(MarketingProduct.product)).all()
+    marketing_products = sorted(marketing_products_raw, key=lambda mp: sort_product_code(mp.product.product_code if mp.product else ""))
     
     # 상품별 키워드 통계 추가
     for mp in marketing_products:
@@ -582,11 +606,16 @@ async def assign_next_task(request: Request, db: Session = Depends(get_db)):
 
 # --- Reference & Comment Management (기존 유지) ---
 @router.post("/reference/add", response_class=RedirectResponse)
-async def add_reference(request: Request, title: str = Form(...), db: Session = Depends(get_db)):
+async def add_reference(request: Request, title: Optional[str] = Form(None), db: Session = Depends(get_db)):
     username = request.session.get("user")
     user = None
     if username:
         user = db.query(User).filter(User.username == username).first()
+    
+    # 제목이 없으면 기본 제목 생성
+    if not title or title.strip() == '':
+        title = "새 레퍼런스"
+    
     try:
         new_ref = Reference(title=title, ref_type='기타', last_modified_by_id=user.id if user else None)
         db.add(new_ref)
@@ -836,14 +865,43 @@ async def delete_marketing_account(account_id: int, db: Session = Depends(get_db
 
 # --- Cafe Membership Management (기존 유지) ---
 @router.post("/membership/add", response_class=RedirectResponse)
-async def add_cafe_membership(account_id: int = Form(...), cafe_id: int = Form(...), new_post_count: int = Form(0), edited_post_count: int = Form(0), db: Session = Depends(get_db)):
-    existing = db.query(CafeMembership).filter_by(account_id=account_id, cafe_id=cafe_id).first()
-    if not existing:
-        status = "graduated" if (new_post_count + edited_post_count) >= 10 else "active"
-        new_membership = CafeMembership(account_id=account_id, cafe_id=cafe_id, new_post_count=new_post_count, edited_post_count=edited_post_count, status=status)
-        db.add(new_membership)
-        db.commit()
-    return RedirectResponse(url=f"/marketing/cafe?tab=memberships&cafe_id={cafe_id}", status_code=303)
+async def add_cafe_membership(
+    request: Request,
+    account_id: int = Form(...), 
+    cafe_id: int = Form(...), 
+    new_post_count: int = Form(0), 
+    edited_post_count: int = Form(0), 
+    db: Session = Depends(get_db)
+):
+    # 중복 체크
+    existing = db.query(CafeMembership).filter_by(
+        account_id=account_id, 
+        cafe_id=cafe_id
+    ).first()
+    
+    if existing:
+        # 중복일 경우 오류와 함께 리다이렉트
+        return RedirectResponse(
+            url=f"/marketing/cafe?tab=memberships&cafe_id={cafe_id}&error=duplicate", 
+            status_code=303
+        )
+    
+    # 신규 연동 생성
+    status = "graduated" if (new_post_count + edited_post_count) >= 10 else "active"
+    new_membership = CafeMembership(
+        account_id=account_id, 
+        cafe_id=cafe_id, 
+        new_post_count=new_post_count, 
+        edited_post_count=edited_post_count, 
+        status=status
+    )
+    db.add(new_membership)
+    db.commit()
+    
+    return RedirectResponse(
+        url=f"/marketing/cafe?tab=memberships&cafe_id={cafe_id}", 
+        status_code=303
+    )
 
 @router.post("/membership/update/{membership_id}", response_class=RedirectResponse)
 async def update_membership(membership_id: int, status: str = Form(...), new_post_count: int = Form(...), edited_post_count: int = Form(...), db: Session = Depends(get_db)):
@@ -861,9 +919,31 @@ async def update_membership(membership_id: int, status: str = Form(...), new_pos
     redirect_url = f"/marketing/cafe?tab=memberships&cafe_id={cafe_id_redirect}" if cafe_id_redirect else "/marketing/cafe?tab=memberships"
     return RedirectResponse(url=redirect_url, status_code=303)
 
+# 연동 삭제 라우트 추가
+@router.post("/membership/delete/{membership_id}", response_class=RedirectResponse)
+async def delete_membership(membership_id: int, db: Session = Depends(get_db)):
+    membership = db.query(CafeMembership).filter(CafeMembership.id == membership_id).first()
+    cafe_id_redirect = None
+    if membership:
+        cafe_id_redirect = membership.cafe_id
+        db.delete(membership)
+        db.commit()
+    redirect_url = f"/marketing/cafe?tab=memberships&cafe_id={cafe_id_redirect}" if cafe_id_redirect else "/marketing/cafe?tab=memberships"
+    return RedirectResponse(url=redirect_url, status_code=303)
+
 # --- Target Cafe Management (기존 유지) ---
 @router.post("/cafe/add", response_class=RedirectResponse)
 async def add_target_cafe(name: str = Form(...), url: str = Form(...), db: Session = Depends(get_db)):
+    # 카페명 중복 체크
+    existing_name = db.query(TargetCafe).filter(TargetCafe.name == name).first()
+    if existing_name:
+        return RedirectResponse(url="/marketing/cafe?tab=cafes&error=duplicate_name", status_code=303)
+    
+    # URL 중복 체크
+    existing_url = db.query(TargetCafe).filter(TargetCafe.url == url).first()
+    if existing_url:
+        return RedirectResponse(url="/marketing/cafe?tab=cafes&error=duplicate_url", status_code=303)
+    
     try:
         new_cafe = TargetCafe(name=name, url=url)
         db.add(new_cafe)
@@ -886,7 +966,9 @@ async def delete_target_cafe(cafe_id: int, db: Session = Depends(get_db)):
 @router.get("/product-selection", response_class=HTMLResponse)
 async def select_marketing_product(request: Request, db: Session = Depends(get_db)):
     existing_ids = [mp.product_id for mp in db.query(MarketingProduct.product_id).all()]
-    available_products = db.query(Product).filter(Product.id.notin_(existing_ids)).all()
+    available_products_raw = db.query(Product).filter(Product.id.notin_(existing_ids)).all()
+    # 상품 코드 순으로 정렬 (1-1, 1-2, 10-1 순서)
+    available_products = sorted(available_products_raw, key=lambda p: sort_product_code(p.product_code))
     return templates.TemplateResponse("marketing_product_selection.html", {
         "request": request,
         "products": available_products

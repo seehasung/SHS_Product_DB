@@ -450,12 +450,14 @@
                         </div>
                         <div class="mb-3" id="url_field_{{ post.id }}" style="{{ 'display:block;' if post.is_registration_complete else 'display:none;' }}">
                             <label class="form-label">글 URL</label>
-                            <input type="url" class="form-control" name="post_url" value="{{ post.post_url or '' }}" {{ 'required' if post.is_registration_complete else '' }}>
-                        </div>
-                        <div class="form-check form-switch">
-                            <input type="hidden" name="is_live" value="False">
-                            <input class="form-check-input" type="checkbox" role="switch" id="is_live-{{ post.id }}" name="is_live" value="True" {{ 'checked' if post.is_live else '' }}>
-                            <label class="form-check-label" for="is_live-{{ post.id }}">글 생존 여부 (체크 시 '살아있는 글')</label>
+                            <input type="url" class="form-control mb-3" name="post_url" value="{{ post.post_url or '' }}" {{ 'required' if post.is_registration_complete else '' }}>
+                            
+                            <!-- 생존 여부 토글 (등록 완료 시에만 표시) -->
+                            <div class="form-check form-switch">
+                                <input type="hidden" name="is_live" value="False">
+                                <input class="form-check-input" type="checkbox" role="switch" id="is_live-{{ post.id }}" name="is_live" value="True" {{ 'checked' if post.is_live else '' }}>
+                                <label class="form-check-label" for="is_live-{{ post.id }}">✅ 글 생존 여부 (체크 시 '살아있는 글')</label>
+                            </div>
                         </div>
                     </div>
                     <div class="modal-footer">
@@ -585,7 +587,14 @@
                         </div>
                         <div class="mb-3" id="url_field" style="display:none;">
                             <label class="form-label">글 URL</label>
-                            <input type="url" class="form-control" name="post_url">
+                            <input type="url" class="form-control mb-3" name="post_url">
+                            
+                            <!-- 생존 여부 토글 (등록 완료 시에만 표시) -->
+                            <div class="form-check form-switch">
+                                <input type="hidden" name="is_live" value="False">
+                                <input class="form-check-input" type="checkbox" role="switch" id="is_live" name="is_live" value="True" checked>
+                                <label class="form-check-label" for="is_live">✅ 글 생존 여부 (체크 시 '살아있는 글')</label>
+                            </div>
                         </div>
                     </div>
                     <div class="modal-footer">
