@@ -1215,6 +1215,15 @@ async def view_schedules(
     pending_schedules = sum(1 for s in schedules if s.status == "pending")
     skipped_schedules = sum(1 for s in schedules if s.status == "skipped")
     
+    # 🔴 누락된 today_stats 추가!
+    today_stats = {
+        'total': total_schedules,
+        'completed': completed_schedules,
+        'in_progress': in_progress_schedules,
+        'pending': pending_schedules,
+        'skipped': skipped_schedules
+    }
+    
     # 작성되지 않은 글 목록 (연결용)
     unlinked_posts = db.query(MarketingPost).filter(
         MarketingPost.id.notin_(
@@ -1234,6 +1243,7 @@ async def view_schedules(
         "unlinked_posts": unlinked_posts,
         "selected_date": target_date,
         "today": date.today(),
+        "today_stats": today_stats,  # ⭐ 추가!
         "worker_filter": worker_filter,
         "status_filter": status_filter,
         "total_schedules": total_schedules,
