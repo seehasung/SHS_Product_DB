@@ -125,3 +125,18 @@ class LoginLog(Base):
     
     # 관계 설정
     user = relationship("User", back_populates="login_logs")
+
+class Comment(Base):
+    __tablename__ = "comments"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    reference_id = Column(Integer, ForeignKey("references.id"))
+    text = Column(Text, nullable=False)
+    account_sequence = Column(Integer, default=0)
+    parent_id = Column(Integer, ForeignKey("comments.id"), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    
+    # 관계 설정
+    reference = relationship("Reference", back_populates="comments")
+    parent = relationship("Comment", remote_side=[id], back_populates="replies")
+    replies = relationship("Comment", back_populates="parent")

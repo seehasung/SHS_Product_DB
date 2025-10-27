@@ -136,11 +136,50 @@ async def marketing_cafe(request: Request, db: Session = Depends(get_db)):
         joinedload(CafeMembership.cafe)
     ).all()
     
+    # 선택된 카페와 필터 처리
+    selected_cafe = None
+    status_filter = request.query_params.get("status_filter", "all")
+    reference_filter = request.query_params.get("ref_filter", "all")
+    account_filter = request.query_params.get("account_filter", "all")
+    
+    if tab == "memberships" and cafe_id:
+        selected_cafe = db.query(TargetCafe).filter(TargetCafe.id == cafe_id).first()
+        if selected_cafe:
+            # 선택된 카페의 멤버십만 필터링
+            memberships_query = db.query(CafeMembership).options(
+                joinedload(CafeMembership.account),
+                joinedload(CafeMembership.cafe)
+            ).filter(CafeMembership.cafe_id == cafe_id)
+            
+            if status_filter != "all":
+                memberships_query = memberships_query.filter(CafeMembership.status == status_filter)
+            
+            memberships = memberships_query.all()
+    
+    # 레퍼런스 필터 처리
+    if tab == "references" and reference_filter != "all":
+        references = db.query(Reference).filter(Reference.ref_type == reference_filter).all()
+        # references_by_type 재구성
+        references_by_type = {}
+        for ref in references:
+            ref_type_str = ref.ref_type or "미지정"
+            if ref_type_str not in references_by_type:
+                references_by_type[ref_type_str] = []
+            references_by_type[ref_type_str].append(ref)
+    
+    # 계정 필터 처리
+    if tab == "accounts" and account_filter != "all":
+        accounts = db.query(MarketingAccount).filter(MarketingAccount.category == account_filter).all()
+    
     return templates.TemplateResponse("marketing_cafe.html", {
         "request": request,
         "accounts": accounts,
         "cafes": cafes,
         "memberships": memberships,
+        "selected_cafe": selected_cafe,
+        "status_filter": status_filter,
+        "reference_filter": reference_filter,
+        "account_filter": account_filter,
         "references": references,
         "references_by_type": references_by_type,
         "tab": tab,
@@ -428,10 +467,29 @@ async def reference_detail(request: Request, ref_id: int, db: Session = Depends(
     if not reference:
         return RedirectResponse("/marketing/cafe?tab=references", status_code=302)
     
+    # 댓글을 계층 구조로 정렬
+    def organize_comments(comments):
+        comment_dict = {comment.id: comment for comment in comments}
+        root_comments = []
+        
+        for comment in comments:
+            if comment.parent_id is None:
+                root_comments.append(comment)
+            else:
+                parent = comment_dict.get(comment.parent_id)
+                if parent:
+                    if not hasattr(parent, 'replies'):
+                        parent.replies = []
+                    parent.replies.append(comment)
+        
+        return root_comments
+    
+    organized_comments = organize_comments(reference.comments)
+    
     return templates.TemplateResponse("reference_detail.html", {
         "request": request,
         "reference": reference,
-        "comments": reference.comments
+        "comments": organized_comments
     })
 
 @router.post("/comment/add/{ref_id}", response_class=RedirectResponse)
@@ -456,7 +514,7 @@ async def add_comment(
         reference_id=ref_id,
         text=text,
         account_sequence=account_sequence,
-        parent_id=parent_id
+        parent_id=parent_id if parent_id and parent_id > 0 else None
     )
     
     db.add(new_comment)
@@ -562,6 +620,35 @@ async def get_product_keywords(product_id: int, db: Session = Depends(get_db)):
             return JSONResponse({"keywords": []})
     
     return JSONResponse({"keywords": []})
+
+@router.get("/product/keywords/manage/{mp_id}", response_class=HTMLResponse)
+async def manage_keywords_page(mp_id: int, request: Request, db: Session = Depends(get_db)):
+    """키워드 관리 페이지"""
+    username = request.session.get("user")
+    if not username:
+        return RedirectResponse("/login", status_code=302)
+    
+    current_user = db.query(User).filter(User.username == username).first()
+    if not current_user or not (current_user.can_manage_marketing or current_user.is_admin):
+        return RedirectResponse("/", status_code=302)
+    
+    marketing_product = db.query(MarketingProduct).filter(MarketingProduct.id == mp_id).first()
+    if not marketing_product:
+        return RedirectResponse("/marketing/cafe?tab=products", status_code=302)
+    
+    # 키워드 데이터 파싱
+    keywords_data = []
+    if marketing_product.keywords:
+        try:
+            keywords_data = json.loads(marketing_product.keywords)
+        except json.JSONDecodeError:
+            keywords_data = []
+    
+    return templates.TemplateResponse("marketing_keywords_manage.html", {
+        "request": request,
+        "marketing_product": marketing_product,
+        "keywords_data": keywords_data
+    })
 
 # --- 키워드 관리 라우트 ---
 @router.post("/product/keywords/update/{mp_id}", response_class=RedirectResponse)
