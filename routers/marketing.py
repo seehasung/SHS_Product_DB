@@ -34,6 +34,9 @@ def get_db():
 async def marketing_cafe(request: Request, db: Session = Depends(get_db)):
     tab = request.query_params.get('tab', 'status')
     error = request.query_params.get('error')
+    cafe_id = request.query_params.get('cafe_id', None)
+    if cafe_id:
+        cafe_id = int(cafe_id)
     
     # --- 기존 전체 현황 탭 데이터 ---
     username = request.session.get("user")
@@ -235,6 +238,19 @@ async def add_account(
     except IntegrityError:
         return RedirectResponse(url="/marketing/cafe?tab=accounts&error=duplicate_account", status_code=303)
 
+@router.post("/account/add", response_class=RedirectResponse)
+async def add_account_alias(
+    request: Request,
+    platform: str = Form("Naver"),
+    account_id: str = Form(...),
+    account_pw: str = Form(...),
+    ip_address: str = Form(None),
+    category: str = Form('최적화'),
+    db: Session = Depends(get_db)
+):
+    """계정 추가 (별칭 라우트)"""
+    return await add_account(request, platform, account_id, account_pw, ip_address, category, db)
+
 @router.post("/accounts/edit/{account_id}", response_class=RedirectResponse)
 async def edit_account(
     account_id: int,
@@ -258,14 +274,28 @@ async def edit_account(
 async def update_account(
     account_id: int,
     request: Request,
-    new_account_id: str = Form(...),
-    new_account_pw: str = Form(...),
+    edit_account_id: str = Form(None),
+    edit_account_pw: str = Form(None),
+    edit_ip_address: str = Form(None),
+    edit_category: str = Form(None),
+    # 기존 파라미터 이름도 지원 (하위 호환성)
+    new_account_id: str = Form(None),
+    new_account_pw: str = Form(None),
     new_ip_address: str = Form(None),
-    new_category: str = Form('최적화'),
+    new_category: str = Form(None),
     db: Session = Depends(get_db)
 ):
     """계정 업데이트 (별칭 라우트)"""
-    return await edit_account(account_id, request, new_account_id, new_account_pw, new_ip_address, new_category, db)
+    # edit_ 파라미터가 있으면 우선 사용, 없으면 new_ 파라미터 사용
+    final_account_id = edit_account_id or new_account_id
+    final_account_pw = edit_account_pw or new_account_pw
+    final_ip_address = edit_ip_address or new_ip_address
+    final_category = edit_category or new_category or '최적화'
+    
+    if not final_account_id or not final_account_pw:
+        return RedirectResponse(url="/marketing/cafe?tab=accounts&error=missing_fields", status_code=303)
+    
+    return await edit_account(account_id, request, final_account_id, final_account_pw, final_ip_address, final_category, db)
 
 @router.post("/accounts/delete/{account_id}", response_class=RedirectResponse)
 async def delete_account(account_id: int, db: Session = Depends(get_db)):
@@ -298,6 +328,16 @@ async def add_cafe(
     db.add(new_cafe)
     db.commit()
     return RedirectResponse(url="/marketing/cafe?tab=cafes", status_code=303)
+
+@router.post("/cafe/add", response_class=RedirectResponse)
+async def add_cafe_alias(
+    request: Request,
+    cafe_name: str = Form(...),
+    cafe_url: str = Form(...),
+    db: Session = Depends(get_db)
+):
+    """카페 추가 (별칭 라우트)"""
+    return await add_cafe(request, cafe_name, cafe_url, db)
 
 @router.post("/cafes/edit/{cafe_id}", response_class=RedirectResponse)
 async def edit_cafe(
@@ -358,19 +398,25 @@ async def delete_membership(membership_id: int, db: Session = Depends(get_db)):
 @router.post("/references/add", response_class=RedirectResponse)
 async def add_reference(
     request: Request,
-    ref_title: str = Form(...),
+    ref_title: str = Form(None),
+    title: str = Form(None),  # 별칭 지원
     ref_content: str = Form(""),
     ref_type: str = Form("기타"),
     comments: str = Form(""),
     db: Session = Depends(get_db)
 ):
+    # ref_title 또는 title 중 하나 사용
+    final_title = ref_title or title
+    if not final_title:
+        return RedirectResponse(url="/marketing/cafe?tab=references&error=missing_title", status_code=303)
+    
     try:
         username = request.session.get("user")
         user = db.query(User).filter(User.username == username).first()
         user_id = user.id if user else None
         
         new_ref = Reference(
-            title=ref_title, 
+            title=final_title, 
             content=ref_content, 
             ref_type=ref_type,
             last_modified_by_id=user_id
@@ -440,6 +486,19 @@ async def edit_reference(
         
         db.commit()
     return RedirectResponse(url="/marketing/cafe?tab=references", status_code=303)
+
+@router.post("/reference/add", response_class=RedirectResponse)
+async def add_reference_alias(
+    request: Request,
+    ref_title: str = Form(None),
+    title: str = Form(None),  # 별칭 지원
+    ref_content: str = Form(""),
+    ref_type: str = Form("기타"),
+    comments: str = Form(""),
+    db: Session = Depends(get_db)
+):
+    """레퍼런스 추가 (별칭 라우트)"""
+    return await add_reference(request, ref_title, title, ref_content, ref_type, comments, db)
 
 @router.post("/references/delete/{ref_id}", response_class=RedirectResponse)
 async def delete_reference(ref_id: int, db: Session = Depends(get_db)):
