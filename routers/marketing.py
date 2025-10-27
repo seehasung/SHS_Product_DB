@@ -627,6 +627,19 @@ async def add_comment(
     if not current_user or not (current_user.can_manage_marketing or current_user.is_admin):
         return RedirectResponse("/", status_code=302)
     
+    # 중복 댓글 방지: 최근 1분 내에 같은 내용의 댓글이 있는지 확인
+    recent_comment = db.query(Comment).filter(
+        Comment.reference_id == ref_id,
+        Comment.text == text,
+        Comment.account_sequence == account_sequence,
+        Comment.parent_id == (parent_id if parent_id and parent_id > 0 else None),
+        Comment.created_at >= datetime.utcnow() - timedelta(minutes=1)
+    ).first()
+    
+    if recent_comment:
+        # 중복 댓글이면 기존 페이지로 리다이렉트
+        return RedirectResponse(url=f"/marketing/reference/{ref_id}", status_code=303)
+    
     new_comment = Comment(
         reference_id=ref_id,
         text=text,
