@@ -110,3 +110,18 @@ class Product(Base):
     thumbnail = Column(String(500))
     details = Column(Text)
     # ... 다른 필드들
+    
+# models.py에 추가
+
+class LoginLog(Base):
+    __tablename__ = "login_logs"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    username = Column(String(100))
+    ip_address = Column(String(45))  # IPv6 대응
+    login_time = Column(DateTime, default=datetime.utcnow)
+    success = Column(Boolean, default=True)
+    user_agent = Column(String(500))
+    
+    # 관계 설정
+    user = relationship("User", back_populates="login_logs")

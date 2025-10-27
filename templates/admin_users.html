@@ -14,7 +14,12 @@
     <div class="mb-3 d-flex justify-content-between">
         <div>
             <a href="/" class="btn btn-secondary">← 홈으로</a>
-            <a href="/logs" class="btn btn-info">📜 로그 보기</a>
+            <a href="/logs" class="btn btn-info">
+                <i class="bi bi-file-text"></i> 로그 보기
+            </a>
+            <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addUserModal">
+            <i class="bi bi-person-plus"></i> 사용자 추가
+            </button>
         </div>
         <form class="d-flex" method="get" action="/admin/users">
             <input class="form-control me-2" type="text" name="search" placeholder="사용자 검색" value="{{ search }}">

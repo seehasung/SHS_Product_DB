@@ -1,0 +1,174 @@
+{% extends "base.html" %}
+{% block title %}로그인 로그{% endblock %}
+
+{% block head %}
+{{ super() }}
+<style>
+    /* 기존 디자인과 동일한 스타일 */
+    .page-title {
+        background: white;
+        padding: 20px 30px;
+        margin-bottom: 25px;
+        border-radius: 15px;
+        box-shadow: 0 5px 20px rgba(0, 0, 0, 0.08);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    
+    .logs-table-container {
+        background: white;
+        border-radius: 15px;
+        padding: 25px;
+        box-shadow: 0 5px 20px rgba(0, 0, 0, 0.08);
+        overflow-x: auto;
+    }
+    
+    .logs-table {
+        width: 100%;
+        border-collapse: separate;
+        border-spacing: 0;
+    }
+    
+    .logs-table thead th {
+        background: #f8f9fa;
+        color: #636e72;
+        font-weight: 600;
+        padding: 15px;
+        text-align: left;
+        font-size: 0.9rem;
+        border-bottom: 2px solid #e9ecef;
+    }
+    
+    .logs-table tbody tr {
+        transition: background 0.2s ease;
+        border-bottom: 1px solid #f0f1f3;
+    }
+    
+    .logs-table tbody tr:hover {
+        background: #f8f9fa;
+    }
+    
+    .logs-table td {
+        padding: 15px;
+        vertical-align: middle;
+    }
+    
+    /* 성공/실패 뱃지 */
+    .status-badge {
+        padding: 5px 12px;
+        border-radius: 20px;
+        font-size: 0.85rem;
+        font-weight: 500;
+    }
+    
+    .status-success {
+        background: #51cf66;
+        color: white;
+    }
+    
+    .status-failed {
+        background: #ff6b6b;
+        color: white;
+    }
+    
+    /* IP 주소 스타일 */
+    .ip-address {
+        font-family: 'Courier New', monospace;
+        background: #f8f9fa;
+        padding: 3px 8px;
+        border-radius: 5px;
+        font-size: 0.9rem;
+    }
+    
+    /* 시간 표시 */
+    .time-display {
+        color: #868e96;
+        font-size: 0.9rem;
+    }
+    
+    /* 홈 버튼 */
+    .btn-home {
+        padding: 10px 20px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border: none;
+        border-radius: 10px;
+        text-decoration: none;
+        font-weight: 600;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        transition: all 0.3s ease;
+    }
+    
+    .btn-home:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        color: white;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid" style="padding: 20px;">
+    <!-- 페이지 타이틀 -->
+    <div class="page-title">
+        <h1><i class="bi bi-file-text"></i> 로그인 로그</h1>
+        <a href="/" class="btn-home">
+            <i class="bi bi-house-door"></i> 홈으로
+        </a>
+    </div>
+    
+    <!-- 로그 테이블 -->
+    <div class="logs-table-container">
+        <table class="logs-table">
+            <thead>
+                <tr>
+                    <th>로그인 시간</th>
+                    <th>사용자명</th>
+                    <th>IP 주소</th>
+                    <th>상태</th>
+                    <th>브라우저 정보</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for log in logs %}
+                <tr>
+                    <td class="time-display">
+                        {{ log.login_time.strftime('%Y-%m-%d %H:%M:%S') }}
+                    </td>
+                    <td>
+                        <strong>{{ log.username }}</strong>
+                    </td>
+                    <td>
+                        <span class="ip-address">{{ log.ip_address }}</span>
+                    </td>
+                    <td>
+                        {% if log.success %}
+                            <span class="status-badge status-success">
+                                <i class="bi bi-check-circle"></i> 성공
+                            </span>
+                        {% else %}
+                            <span class="status-badge status-failed">
+                                <i class="bi bi-x-circle"></i> 실패
+                            </span>
+                        {% endif %}
+                    </td>
+                    <td style="max-width: 300px; overflow: hidden; text-overflow: ellipsis;">
+                        <small>{{ log.user_agent[:80] }}{% if log.user_agent|length > 80 %}...{% endif %}</small>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="5" class="text-center" style="padding: 40px; color: #868e96;">
+                        <i class="bi bi-inbox" style="font-size: 2rem;"></i>
+                        <p>로그인 기록이 없습니다.</p>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

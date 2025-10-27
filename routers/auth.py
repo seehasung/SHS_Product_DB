@@ -191,3 +191,61 @@ def forgot_password(
         })
     finally:
         db.close()
+        
+# routers/auth.py - 로그인 함수 수정
+
+@router.post("/login")
+async def login(
+    request: Request,
+    username: str = Form(...),
+    password: str = Form(...),
+    db: Session = Depends(get_db)
+):
+    # IP 주소 가져오기
+    client_ip = request.client.host
+    # Proxy 뒤에 있을 경우
+    forwarded_ip = request.headers.get("X-Forwarded-For")
+    if forwarded_ip:
+        client_ip = forwarded_ip.split(',')[0]
+    
+    user = db.query(User).filter(User.username == username).first()
+    
+    # 로그인 로그 기록
+    log = LoginLog(
+        username=username,
+        ip_address=client_ip,
+        success=bool(user and verify_password(password, user.password)),
+        user_agent=request.headers.get("User-Agent", "")
+    )
+    db.add(log)
+    db.commit()
+    
+    if user and verify_password(password, user.password):
+        request.session["user"] = username
+        return RedirectResponse("/", status_code=302)
+    
+    return templates.TemplateResponse("login.html", {
+        "request": request,
+        "error": "Invalid credentials"
+    })      
+    
+# routers/auth.py 또는 admin.py
+
+@router.get("/logs", response_class=HTMLResponse)
+async def view_logs(request: Request, db: Session = Depends(get_db)):
+    # 관리자 확인
+    username = request.session.get("user")
+    if not username:
+        return RedirectResponse("/login", status_code=302)
+    
+    user = db.query(User).filter(User.username == username).first()
+    if not user or not user.is_admin:
+        return HTMLResponse("관리자 권한이 필요합니다", status_code=403)
+    
+    # 최근 로그 100개 조회
+    logs = db.query(LoginLog).order_by(LoginLog.login_time.desc()).limit(100).all()
+    
+    return templates.TemplateResponse("login_logs.html", {
+        "request": request,
+        "logs": logs
+    })
