@@ -199,6 +199,7 @@ async def get_schedules(
     else:
         target_date = datetime.now().date()
     
+    
     # 해당 날짜의 스케줄 가져오기
     schedules = db.query(PostSchedule).options(
         joinedload(PostSchedule.worker),
