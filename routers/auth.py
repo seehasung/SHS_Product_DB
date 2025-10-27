@@ -30,9 +30,15 @@ def login(request: Request, username: str = Form(...), password: str = Form(...)
     user_agent = request.headers.get("user-agent", "Unknown")
     
     if user and bcrypt.verify(password, user.password):
+        # 세션 닫기 전에 필요한 속성을 모두 변수에 저장
+        user_id = user.id
+        is_admin = user.is_admin
+        can_manage_products = user.can_manage_products
+        can_manage_marketing = user.can_manage_marketing
+        
         # 로그인 성공 - 기록 저장
         login_log = LoginLog(
-            user_id=user.id,
+            user_id=user_id,
             login_time=datetime.datetime.utcnow(),
             ip_address=client_host,
             user_agent=user_agent,
@@ -42,12 +48,12 @@ def login(request: Request, username: str = Form(...), password: str = Form(...)
         db.commit()
         db.close()
         
-        # 세션 설정
+        # 세션 설정 (DB 세션 닫은 후)
         from datetime import date
         request.session["user"] = username
-        request.session["is_admin"] = user.is_admin
-        request.session["can_manage_products"] = user.can_manage_products
-        request.session["can_manage_marketing"] = user.can_manage_marketing
+        request.session["is_admin"] = is_admin
+        request.session["can_manage_products"] = can_manage_products
+        request.session["can_manage_marketing"] = can_manage_marketing
         request.session["login_date"] = date.today().isoformat()
         return RedirectResponse("/", status_code=303)
     else:
