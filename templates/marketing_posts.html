@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}마케팅 게시글 관리{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>📝 마케팅 게시글 관리</h1>
+        <a href="/marketing/cafe" class="btn btn-secondary">← 목록으로</a>
+    </div>
+
+    <div class="alert alert-info">
+        <h5>📋 게시글 관리 안내</h5>
+        <p class="mb-0">이 페이지는 마케팅 게시글을 관리하는 페이지입니다. 상품별로 게시글을 확인하고 관리할 수 있습니다.</p>
+    </div>
+
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">🎯 게시글 관리 기능</h5>
+                    <ul class="list-unstyled">
+                        <li>✅ 상품별 게시글 조회</li>
+                        <li>✅ 키워드별 게시글 관리</li>
+                        <li>✅ 게시글 상태 추적</li>
+                        <li>✅ 댓글 관리</li>
+                    </ul>
+                    <p class="text-muted">상세한 게시글 관리는 각 상품의 "글 관리" 버튼을 통해 이용하실 수 있습니다.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

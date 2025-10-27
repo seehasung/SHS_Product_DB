@@ -159,6 +159,19 @@ async def marketing_cafe(request: Request, db: Session = Depends(get_db)):
     })
 
 # --- Account CRUD ---
+@router.get("/accounts/add", response_class=HTMLResponse)
+async def add_account_page(request: Request):
+    """계정 추가 페이지"""
+    username = request.session.get("user")
+    if not username:
+        return RedirectResponse("/login", status_code=302)
+    
+    return templates.TemplateResponse("marketing_account_add.html", {
+        "request": request,
+        "platforms": ["Naver", "Daum", "Google", "Facebook"],
+        "categories": ["최적화", "일반", "프리미엄"]
+    })
+
 @router.post("/accounts/add", response_class=RedirectResponse)
 async def add_account(
     request: Request,
@@ -211,6 +224,17 @@ async def delete_account(account_id: int, db: Session = Depends(get_db)):
     return RedirectResponse(url="/marketing/cafe?tab=accounts", status_code=303)
 
 # --- Cafe CRUD ---
+@router.get("/cafes/add", response_class=HTMLResponse)
+async def add_cafe_page(request: Request):
+    """카페 추가 페이지"""
+    username = request.session.get("user")
+    if not username:
+        return RedirectResponse("/login", status_code=302)
+    
+    return templates.TemplateResponse("marketing_cafe_add.html", {
+        "request": request
+    })
+
 @router.post("/cafes/add", response_class=RedirectResponse)
 async def add_cafe(
     request: Request,
@@ -362,6 +386,30 @@ async def delete_reference(ref_id: int, db: Session = Depends(get_db)):
         db.commit()
     return RedirectResponse(url="/marketing/cafe?tab=references", status_code=303)
 
+@router.get("/reference/{ref_id}", response_class=HTMLResponse)
+async def reference_detail(request: Request, ref_id: int, db: Session = Depends(get_db)):
+    """레퍼런스 상세 보기"""
+    username = request.session.get("user")
+    if not username:
+        return RedirectResponse("/login", status_code=302)
+    
+    current_user = db.query(User).filter(User.username == username).first()
+    if not current_user or not (current_user.can_manage_marketing or current_user.is_admin):
+        return RedirectResponse("/", status_code=302)
+    
+    reference = db.query(Reference).options(
+        joinedload(Reference.comments)
+    ).filter(Reference.id == ref_id).first()
+    
+    if not reference:
+        return RedirectResponse("/marketing/cafe?tab=references", status_code=302)
+    
+    return templates.TemplateResponse("reference_detail.html", {
+        "request": request,
+        "reference": reference,
+        "comments": reference.comments
+    })
+
 # --- 전체 현황 탭 처리 ---
 @router.post("/tasks/complete/{task_id}", response_class=RedirectResponse)
 async def complete_task(task_id: int, db: Session = Depends(get_db)):
@@ -383,13 +431,39 @@ async def uncomplete_task(task_id: int, db: Session = Depends(get_db)):
 @router.get("/product-selection", response_class=HTMLResponse)
 async def product_selection(request: Request, db: Session = Depends(get_db)):
     username = request.session.get("user")
-    all_products = db.query(Product).all()
+    
+    # 이미 마케팅 상품으로 등록된 상품 ID들 조회
+    existing_marketing_product_ids = db.query(MarketingProduct.product_id).all()
+    existing_ids = [row[0] for row in existing_marketing_product_ids]
+    
+    # 등록되지 않은 상품들만 조회
+    all_products = db.query(Product).filter(
+        Product.id.notin_(existing_ids)
+    ).all()
+    
     # ⭐ 템플릿 이름 수정: product_selection.html → marketing_product_selection.html
     return templates.TemplateResponse("marketing_product_selection.html", {
         "request": request,
         "username": username,
         "products": all_products
     })
+
+@router.post("/product/add/{product_id}", response_class=RedirectResponse)
+async def add_marketing_product_single(
+    product_id: int,
+    db: Session = Depends(get_db)
+):
+    """단일 상품을 마케팅 상품으로 추가"""
+    existing = db.query(MarketingProduct).filter(
+        MarketingProduct.product_id == product_id
+    ).first()
+    
+    if not existing:
+        new_marketing_product = MarketingProduct(product_id=product_id, keywords=None)
+        db.add(new_marketing_product)
+        db.commit()
+    
+    return RedirectResponse(url="/marketing/cafe?tab=products", status_code=303)
 
 # --- 마케팅 상품 API 라우트들 ---
 @router.post("/product/keywords/{product_id}", response_class=JSONResponse)
@@ -642,11 +716,49 @@ async def get_product_posts(
         "references_by_type": references_by_type,
         "all_memberships": all_memberships,
         "page": page,
+        "current_page": page,  # 추가
         "total_pages": total_pages,
         "keyword_search": keyword_search,
         "post_stats": post_stats,
         "error_message": error_message
     })
+
+@router.post("/post/add", response_class=RedirectResponse)
+async def add_marketing_post_form(
+    request: Request,
+    mp_id: int = Form(...),
+    keyword_text: str = Form(...),
+    worker_id: int = Form(...),
+    account_id: int = Form(...),
+    cafe_id: int = Form(...),
+    post_title: str = Form(""),
+    post_body: str = Form(""),
+    post_comments: str = Form(""),
+    is_registration_complete: bool = Form(False),
+    post_url: str = Form(""),
+    is_live: bool = Form(True),
+    reference_id: int = Form(None),
+    db: Session = Depends(get_db)
+):
+    """마케팅 포스트 추가 (폼에서)"""
+    new_post = MarketingPost(
+        marketing_product_id=mp_id,
+        keyword_text=keyword_text,
+        worker_id=worker_id,
+        account_id=account_id,
+        cafe_id=cafe_id,
+        post_title=post_title,
+        post_body=post_body,
+        post_comments=post_comments,
+        is_registration_complete=is_registration_complete,
+        post_url=post_url if is_registration_complete else None,
+        is_live=is_live
+    )
+    
+    db.add(new_post)
+    db.commit()
+    
+    return RedirectResponse(url=f"/marketing/product/posts/{mp_id}", status_code=303)
 
 @router.post("/post/add/{mp_id}/{keyword}", response_class=RedirectResponse)
 async def add_marketing_post(
@@ -858,6 +970,38 @@ async def view_schedules(
         "in_progress_schedules": in_progress_schedules,
         "pending_schedules": pending_schedules,
         "skipped_schedules": skipped_schedules
+    })
+
+@router.get("/schedules/create", response_class=HTMLResponse)
+async def create_schedule_page(request: Request, db: Session = Depends(get_db)):
+    """스케줄 생성 페이지"""
+    username = request.session.get("user")
+    if not username:
+        return RedirectResponse("/login", status_code=302)
+    
+    current_user = db.query(User).filter(User.username == username).first()
+    if not current_user or not (current_user.can_manage_marketing or current_user.is_admin):
+        return RedirectResponse("/", status_code=302)
+    
+    # 필요한 데이터 조회
+    marketing_products = db.query(MarketingProduct).options(
+        joinedload(MarketingProduct.product)
+    ).all()
+    
+    workers = db.query(User).filter(
+        or_(User.can_manage_marketing == True, User.is_admin == True)
+    ).all()
+    
+    accounts = db.query(MarketingAccount).all()
+    cafes = db.query(TargetCafe).all()
+    
+    return templates.TemplateResponse("marketing_schedule_create.html", {
+        "request": request,
+        "marketing_products": marketing_products,
+        "workers": workers,
+        "accounts": accounts,
+        "cafes": cafes,
+        "today": date.today()
     })
 
 # ========== 새로운 자동 생성 로직 ==========
