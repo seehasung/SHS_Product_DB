@@ -8,8 +8,6 @@ from datetime import date, datetime, timedelta
 from typing import Optional, List
 import json
 import math
-import datetime
-
 
 
 # Reference, Comment, User 및 신규 MarketingPost 모델을 import (PostSchedule 등 추가)
@@ -292,7 +290,10 @@ async def get_schedules(
         "marketing_products": marketing_products,
         "membership_map": membership_map,
         "product_keywords_map": product_keywords_map,
-        "unlinked_posts": unlinked_posts
+        "unlinked_posts": unlinked_posts,
+        "today": today,  # ⭐⭐⭐ 이 줄 추가!!!
+
+
     })
 
 @router.post("/schedule/add", response_class=RedirectResponse)
