@@ -337,11 +337,18 @@ async def add_cafe(
 @router.post("/cafe/add", response_class=RedirectResponse)
 async def add_cafe_alias(
     request: Request,
-    cafe_name: str = Form(...),
-    cafe_url: str = Form(...),
+    cafe_name: str = Form(None),
+    cafe_url: str = Form(None),
     db: Session = Depends(get_db)
 ):
     """카페 추가 (별칭 라우트)"""
+    print(f"DEBUG: Received cafe_name={cafe_name}, cafe_url={cafe_url}")
+    
+    # 필드 검증
+    if not cafe_name or not cafe_url:
+        print(f"DEBUG: Missing fields - cafe_name: {cafe_name}, cafe_url: {cafe_url}")
+        return RedirectResponse(url="/marketing/cafe?tab=cafes&error=missing_fields", status_code=303)
+    
     return await add_cafe(request, cafe_name, cafe_url, db)
 
 @router.post("/cafes/edit/{cafe_id}", response_class=RedirectResponse)
