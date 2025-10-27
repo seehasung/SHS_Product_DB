@@ -1208,21 +1208,39 @@ async def view_schedules(
         joinedload(MarketingProduct.product)
     ).all()
     
+    # 계정 목록
+    accounts = db.query(MarketingAccount).all()
+    
+    # 카페 목록
+    cafes = db.query(TargetCafe).all()
+    
+    # 멤버십 조회
+    memberships = db.query(CafeMembership).options(
+        joinedload(CafeMembership.account),
+        joinedload(CafeMembership.cafe)
+    ).all()
+    
+    # ⭐ membership_map 생성
+    membership_map = {}
+    for membership in memberships:
+        if membership.account_id not in membership_map:
+            membership_map[membership.account_id] = []
+        membership_map[membership.account_id].append({
+            'cafe_id': membership.cafe_id,
+            'cafe_name': membership.cafe.name if membership.cafe else ''
+        })
+    
     # ⭐ product_keywords_map 생성
     product_keywords_map = {}
     for mp in marketing_products:
+        keywords = []
         if mp.keywords:
             try:
                 keywords_data = json.loads(mp.keywords)
                 keywords = [item['keyword'] for item in keywords_data if item.get('active', True)]
-                product_keywords_map[mp.id] = keywords
             except:
-                product_keywords_map[mp.id] = []
-        else:
-            product_keywords_map[mp.id] = []
-    
-    # 계정 목록 추가
-    accounts = db.query(MarketingAccount).all()
+                keywords = []
+        product_keywords_map[mp.id] = keywords
     
     # 통계 계산
     total_schedules = len(schedules)
@@ -1231,7 +1249,7 @@ async def view_schedules(
     pending_schedules = sum(1 for s in schedules if s.status == "pending")
     skipped_schedules = sum(1 for s in schedules if s.status == "skipped")
     
-    # today_stats 생성
+    # ⭐ today_stats 생성
     today_stats = {
         'total': total_schedules,
         'completed': completed_schedules,
@@ -1245,7 +1263,7 @@ async def view_schedules(
         MarketingPost.id.notin_(
             db.query(PostSchedule.marketing_post_id).filter(
                 PostSchedule.marketing_post_id.isnot(None)
-            )
+            ).scalar_subquery()  # subquery() 대신 scalar_subquery() 사용
         )
     ).options(
         joinedload(MarketingPost.marketing_product).joinedload(MarketingProduct.product)
@@ -1256,12 +1274,15 @@ async def view_schedules(
         "schedules": schedules,
         "workers": workers,
         "marketing_products": marketing_products,
-        "product_keywords_map": product_keywords_map,  # ⭐ 추가!
-        "accounts": accounts,  # ⭐ 추가!
+        "product_keywords_map": product_keywords_map,  # ✅
+        "accounts": accounts,  # ✅
+        "cafes": cafes,  # ✅
+        "memberships": memberships,  # ✅
+        "membership_map": membership_map,  # ✅
         "unlinked_posts": unlinked_posts,
         "selected_date": target_date,
         "today": date.today(),
-        "today_stats": today_stats,  # ⭐ 추가!
+        "today_stats": today_stats,  # ✅
         "worker_filter": worker_filter,
         "status_filter": status_filter,
         "total_schedules": total_schedules,
