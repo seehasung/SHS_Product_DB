@@ -50,10 +50,36 @@
                 </td>
                 <!-- ▼▼▼ '일일 할당량' 입력 폼 추가 ▼▼▼ -->
                 <td>
-                    <form method="post" action="/admin/users/set-quota/{{ user.id }}" class="d-flex justify-content-center">
-                        <input type="number" name="daily_quota" value="{{ user.daily_quota }}" class="form-control form-control-sm me-2" style="width: 80px;">
-                        <button type="submit" class="btn btn-sm btn-outline-success">저장</button>
-                    </form>
+                    {% if user.can_manage_marketing %}
+                        <!-- 권한 있음: 입력 폼 -->
+                        <form method="post" action="/admin/users/set-quota/{{ user.id }}" class="d-flex justify-content-center">
+                            <div class="input-group input-group-sm" style="width: 150px;">
+                                <input type="number" 
+                                    name="daily_quota" 
+                                    value="{{ user.daily_quota or 0 }}" 
+                                    class="form-control" 
+                                    min="0"
+                                    max="100"
+                                    required>
+                                <button type="submit" class="btn btn-success" title="저장">
+                                    <i class="bi bi-check"></i>
+                                </button>
+                            </div>
+                        </form>
+                    {% else %}
+                        <!-- 권한 없음: 읽기 전용 -->
+                        <div class="d-flex justify-content-center align-items-center">
+                            <input type="text" 
+                                value="{{ user.daily_quota or 0 }}" 
+                                class="form-control form-control-sm text-center" 
+                                style="width: 80px; background-color: #f8f9fa;" 
+                                disabled
+                                title="마케팅 권한이 필요합니다">
+                            <span class="ms-2 text-muted">
+                                <i class="bi bi-lock" title="마케팅 권한 필요"></i>
+                            </span>
+                        </div>
+                    {% endif %}
                 </td>
                 <!-- ▲▲▲ '일일 할당량' 입력 폼 추가 ▲▲▲ -->
                 
