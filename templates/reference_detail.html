@@ -104,8 +104,9 @@
             <div class="card shadow-sm h-100">
                 <div class="card-header"><h4>댓글 관리</h4></div>
                 <div class="card-body" style="max-height: 600px; overflow-y: auto;">
-                    <!-- (새 최상위 댓글 폼은 그대로 유지) -->
+                    <!-- 새 최상위 댓글 폼 -->
                     <form action="/marketing/comment/add/{{ reference.id }}" method="post" class="mb-4">
+                        <input type="hidden" name="parent_id" value="0">
                         <div class="mb-2">
                             <label class="form-label">새 댓글 추가</label>
                             <div class="input-group">
