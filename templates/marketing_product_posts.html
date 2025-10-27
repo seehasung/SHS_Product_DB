@@ -379,7 +379,7 @@
                             </div>
                             <div class="col-md-4 mb-3">
                                 <label class="form-label">네이버 계정</label>
-                                <select class="form-select" name="account_id" required onchange="updateCafeDropdownEdit(this, 'edit_cafe_id_{{ post.id }}', {{ post.cafe_id or 'null' }})">
+                                <select class="form-select" name="account_id" required onchange="updateCafeDropdown(this, 'edit_cafe_id_{{ post.id }}')">
                                     {% for acc in all_accounts %}
                                     <option value="{{ acc.id }}" {{ 'selected' if post.account_id == acc.id }}>{{ acc.account_id }}</option>
                                     {% endfor %}
@@ -388,7 +388,9 @@
                             <div class="col-md-4 mb-3">
                                 <label class="form-label">작성 카페</label>
                                 <select class="form-select" id="edit_cafe_id_{{ post.id }}" name="cafe_id" required>
-                                    <!-- 카페 옵션은 JavaScript로 동적 생성 -->
+                                    {% for cafe in all_cafes %}
+                                    <option value="{{ cafe.id }}" {{ 'selected' if post.cafe_id == cafe.id }}>{{ cafe.name }}</option>
+                                    {% endfor %}
                                 </select>
                             </div>
                         </div>
@@ -426,8 +428,8 @@
                             <div class="comment-editor-toggle">
                                 <label class="form-label mb-0">💬 댓글</label>
                                 <div class="btn-group btn-group-sm" role="group">
-                                    <button type="button" class="btn btn-outline-primary" onclick="toggleCommentView('edit', '{{ post.id }}', 'visual')">👁️ 보기</button>
-                                    <button type="button" class="btn btn-secondary active" onclick="toggleCommentView('edit', '{{ post.id }}', 'text')">✏️ 편집</button>
+                                    <button type="button" class="btn btn-outline-primary" onclick="toggleCommentView('edit', {{ post.id }}, 'visual')">👁️ 보기</button>
+                                    <button type="button" class="btn btn-outline-secondary active" onclick="toggleCommentView('edit', {{ post.id }}, 'text')">✏️ 편집</button>
                                 </div>
                             </div>
                             
@@ -443,16 +445,16 @@
                         <hr>
                         <div class="form-check form-switch mb-2">
                             <input type="hidden" name="is_registration_complete" value="False">
-                            <input class="form-check-input" type="checkbox" role="switch" id="is_registration_complete_{{ post.id }}" name="is_registration_complete" value="True" {{ 'checked' if post.is_registration_complete else '' }} onchange="toggleUrlAndLiveField(this, 'url_field_{{ post.id }}', 'is_live-{{ post.id }}')">
+                            <input class="form-check-input" type="checkbox" role="switch" id="is_registration_complete_{{ post.id }}" name="is_registration_complete" value="True" {{ 'checked' if post.is_registration_complete else '' }} onchange="toggleUrlField(this, 'url_field_{{ post.id }}')">
                             <label class="form-check-label" for="is_registration_complete_{{ post.id }}">등록 완료 (체크 시 URL 입력)</label>
                         </div>
                         <div class="mb-3" id="url_field_{{ post.id }}" style="{{ 'display:block;' if post.is_registration_complete else 'display:none;' }}">
                             <label class="form-label">글 URL</label>
-                            <input type="url" class="form-control" name="post_url" value="{{ post.post_url or '' }}" {{ 'required' if post.is_registration_complete else '' }} onchange="checkLiveCheckbox('is_live-{{ post.id }}', this.value)">
+                            <input type="url" class="form-control" name="post_url" value="{{ post.post_url or '' }}" {{ 'required' if post.is_registration_complete else '' }}>
                         </div>
                         <div class="form-check form-switch">
                             <input type="hidden" name="is_live" value="False">
-                            <input class="form-check-input" type="checkbox" role="switch" id="is_live-{{ post.id }}" name="is_live" value="True" {{ 'checked' if post.is_live else '' }} {{ 'disabled' if not (post.is_registration_complete and post.post_url) else '' }}>
+                            <input class="form-check-input" type="checkbox" role="switch" id="is_live-{{ post.id }}" name="is_live" value="True" {{ 'checked' if post.is_live else '' }}>
                             <label class="form-check-label" for="is_live-{{ post.id }}">글 생존 여부 (체크 시 '살아있는 글')</label>
                         </div>
                     </div>
@@ -578,17 +580,12 @@
                         <hr>
                         <div class="form-check form-switch mb-2">
                             <input type="hidden" name="is_registration_complete" value="False">
-                            <input class="form-check-input" type="checkbox" role="switch" id="is_registration_complete" name="is_registration_complete" value="True" onchange="toggleUrlAndLiveField(this, 'url_field', 'is_live')">
+                            <input class="form-check-input" type="checkbox" role="switch" id="is_registration_complete" name="is_registration_complete" value="True" onchange="toggleUrlField(this, 'url_field')">
                             <label class="form-check-label" for="is_registration_complete">등록 완료 (체크 시 URL 입력)</label>
                         </div>
                         <div class="mb-3" id="url_field" style="display:none;">
                             <label class="form-label">글 URL</label>
-                            <input type="url" class="form-control" name="post_url" onchange="checkLiveCheckbox('is_live', this.value)">
-                        </div>
-                        <div class="form-check form-switch">
-                            <input type="hidden" name="is_live" value="False">
-                            <input class="form-check-input" type="checkbox" role="switch" id="is_live" name="is_live" value="True" disabled>
-                            <label class="form-check-label" for="is_live">글 생존 여부 (체크 시 '살아있는 글')</label>
+                            <input type="url" class="form-control" name="post_url">
                         </div>
                     </div>
                     <div class="modal-footer">
@@ -603,11 +600,10 @@
 
 <script>
 // Python에서 전달받은 '계정-카페' 연동 맵
-const membershipMap = {{ membership_map | tojson | safe if membership_map else '{}' }};
-console.log('MembershipMap loaded:', membershipMap);
+const membershipMap = {{ membership_map | tojson | safe }};
 
 // Python에서 전달받은 '레퍼런스' 전체 데이터
-const referencesData = allReferences = [
+const allReferences = [
     {% for type, refs in references_by_type.items() %}
         {% for ref in refs %}
         {
@@ -631,149 +627,41 @@ const referencesData = allReferences = [
 ];
 
 /**
- * 네이버 계정 드롭다운이 변경될 때 호출되는 함수 (새 글 추가용)
+ * 네이버 계정 드롭다운이 변경될 때 호출되는 함수
  */
 function updateCafeDropdown(accountSelectElement, cafeSelectId) {
     const cafeSelect = document.getElementById(cafeSelectId);
     const selectedAccountId = accountSelectElement.value;
     
-    console.log('updateCafeDropdown called:', selectedAccountId, membershipMap[selectedAccountId]);
-    
-    // 카페 드롭다운 초기화
-    cafeSelect.innerHTML = '';
-    
-    if (!selectedAccountId) {
-        // 계정이 선택되지 않은 경우
-        cafeSelect.innerHTML = '<option value="" disabled selected>네이버 계정을 먼저 선택하세요</option>';
-        cafeSelect.disabled = true;
-        return;
-    }
-    
-    // 연동된 카페 목록 가져오기
-    const cafes = membershipMap[selectedAccountId];
-    
-    if (!cafes || cafes.length === 0) {
-        // 연동된 카페가 없는 경우
-        cafeSelect.innerHTML = '<option value="" disabled selected>연동된 카페가 없습니다</option>';
-        cafeSelect.disabled = true;
-        return;
-    }
-    
-    // 카페 옵션 추가
-    cafeSelect.disabled = false;
-    cafeSelect.innerHTML = '<option value="" disabled selected>카페를 선택하세요</option>';
-    
-    cafes.forEach(cafe => {
-        const option = document.createElement('option');
-        option.value = cafe.id;
-        option.textContent = cafe.name;
-        cafeSelect.appendChild(option);
-    });
-}
+    cafeSelect.innerHTML = '<option value="" disabled selected>계정을 먼저 선택하세요</option>';
+    cafeSelect.disabled = true;
 
-/**
- * 네이버 계정 드롭다운이 변경될 때 호출되는 함수 (수정용)
- */
-function updateCafeDropdownEdit(accountSelectElement, cafeSelectId, currentCafeId) {
-    const cafeSelect = document.getElementById(cafeSelectId);
-    const selectedAccountId = accountSelectElement.value;
-    
-    console.log('updateCafeDropdownEdit called:', selectedAccountId, currentCafeId, membershipMap[selectedAccountId]);
-    
-    // 카페 드롭다운 초기화
-    cafeSelect.innerHTML = '';
-    
-    if (!selectedAccountId) {
-        // 계정이 선택되지 않은 경우
-        cafeSelect.innerHTML = '<option value="" disabled selected>네이버 계정을 먼저 선택하세요</option>';
-        cafeSelect.disabled = true;
-        return;
-    }
-    
-    // 연동된 카페 목록 가져오기
-    const cafes = membershipMap[selectedAccountId];
-    
-    if (!cafes || cafes.length === 0) {
-        // 연동된 카페가 없는 경우
-        cafeSelect.innerHTML = '<option value="" disabled selected>연동된 카페가 없습니다</option>';
-        cafeSelect.disabled = true;
-        return;
-    }
-    
-    // 카페 옵션 추가
-    cafeSelect.disabled = false;
-    
-    let hasCurrentCafe = false;
-    cafes.forEach(cafe => {
-        const option = document.createElement('option');
-        option.value = cafe.id;
-        option.textContent = cafe.name;
-        if (currentCafeId && cafe.id == currentCafeId) {
-            option.selected = true;
-            hasCurrentCafe = true;
-        }
-        cafeSelect.appendChild(option);
-    });
-    
-    // 현재 선택된 카페가 없으면 첫 번째 옵션 선택
-    if (!hasCurrentCafe && cafes.length > 0) {
-        cafeSelect.selectedIndex = 0;
+    if (selectedAccountId && membershipMap[selectedAccountId]) {
+        cafeSelect.disabled = false;
+        cafeSelect.innerHTML = '<option value="" disabled selected>작성한 카페를 선택하세요</option>';
+        
+        membershipMap[selectedAccountId].forEach(cafe => {
+            const option = document.createElement('option');
+            option.value = cafe.id;
+            option.textContent = cafe.name;
+            cafeSelect.appendChild(option);
+        });
     }
 }
 
 /**
- * '등록 완료' 체크박스 클릭 시 URL 필드 토글 및 글 생존 체크박스 제어
+ * '등록 완료' 체크박스 클릭 시 URL 필드 토글 및 'required' 속성 제어
  */
-function toggleUrlAndLiveField(checkbox, urlFieldId, liveCheckboxId) {
-    console.log('toggleUrlAndLiveField called:', checkbox.checked, urlFieldId, liveCheckboxId);
-    
-    const urlFieldDiv = document.getElementById(urlFieldId);
-    if (!urlFieldDiv) {
-        console.error('URL field div not found:', urlFieldId);
-        return;
-    }
-    
+function toggleUrlField(checkbox, fieldId) {
+    const urlFieldDiv = document.getElementById(fieldId);
     const urlInput = urlFieldDiv.querySelector('input[name="post_url"]');
-    if (!urlInput) {
-        console.error('URL input not found in div:', urlFieldId);
-        return;
-    }
-    
-    const liveCheckbox = document.getElementById(liveCheckboxId);
-    if (!liveCheckbox) {
-        console.error('Live checkbox not found:', liveCheckboxId);
-        return;
-    }
     
     if (checkbox.checked) {
-        // URL 입력 필드 표시
         urlFieldDiv.style.display = 'block';
         urlInput.required = true;
-        // URL이 있으면 생존 체크박스 활성화
-        if (urlInput.value && urlInput.value.trim() !== '') {
-            liveCheckbox.disabled = false;
-        }
     } else {
-        // URL 입력 필드 숨기기
         urlFieldDiv.style.display = 'none';
         urlInput.required = false;
-        urlInput.value = '';
-        // 생존 체크박스 비활성화 및 체크 해제
-        liveCheckbox.disabled = true;
-        liveCheckbox.checked = false;
-    }
-}
-
-/**
- * URL 입력 시 글 생존 체크박스 활성화/비활성화
- */
-function checkLiveCheckbox(liveCheckboxId, urlValue) {
-    const liveCheckbox = document.getElementById(liveCheckboxId);
-    if (urlValue && urlValue.trim() !== '') {
-        liveCheckbox.disabled = false;
-    } else {
-        liveCheckbox.disabled = true;
-        liveCheckbox.checked = false;
     }
 }
 
@@ -784,38 +672,20 @@ function filterReferences(typeSelect, titleSelectId) {
     const selectedType = typeSelect.value;
     const titleSelect = document.getElementById(titleSelectId);
     
-    console.log('filterReferences called:', selectedType, titleSelectId);
-    console.log('Available references:', referencesData);
+    const currentTitleId = titleSelect.value;
+
+    const options = titleSelect.querySelectorAll('option[data-ref-type]');
     
-    if (!titleSelect) {
-        console.error('Title select not found:', titleSelectId);
-        return;
-    }
-    
-    // 모든 옵션 가져오기
-    const allOptions = titleSelect.querySelectorAll('option');
-    
-    // 선택된 타입에 따라 필터링
-    allOptions.forEach(option => {
-        if (option.value === "") {
-            // 기본 옵션은 항상 표시
+    options.forEach(option => {
+        const optionType = option.getAttribute('data-ref-type');
+        if (selectedType === "" || optionType === selectedType) {
             option.style.display = 'block';
         } else {
-            // 레퍼런스 옵션
-            const refType = option.getAttribute('data-ref-type');
-            if (selectedType && selectedType !== "") {
-                // 특정 타입이 선택된 경우
-                option.style.display = (refType === selectedType) ? 'block' : 'none';
-            } else {
-                // 타입이 선택되지 않은 경우 모두 표시
-                option.style.display = 'block';
-            }
+            option.style.display = 'none';
         }
     });
     
-    // 현재 선택된 옵션이 숨겨졌으면 초기화
-    const currentOption = titleSelect.options[titleSelect.selectedIndex];
-    if (currentOption && currentOption.style.display === 'none') {
+    if (currentTitleId && titleSelect.querySelector(`option[value="${currentTitleId}"]`).style.display === 'none') {
         titleSelect.value = "";
     }
 }
@@ -829,31 +699,18 @@ function toggleCommentView(modalType, postId, viewMode) {
     
     const viewer = document.getElementById(viewerId);
     const textarea = document.getElementById(textareaId);
-    
-    if (!viewer || !textarea) {
-        console.error('Viewer or textarea not found:', viewerId, textareaId);
-        return;
-    }
-    
-    // 버튼 그룹 찾기 - viewer의 부모 요소에서 찾기
-    const commentSection = viewer.closest('.mb-3');
-    const buttons = commentSection ? commentSection.querySelectorAll('.btn-group button') : [];
+    const buttons = viewer.parentElement.querySelectorAll('.btn-group button');
     
     if (viewMode === 'visual') {
         // 시각적 뷰 모드
         viewer.style.display = 'block';
         textarea.style.display = 'none';
-        
-        if (buttons.length >= 2) {
-            // 보기 버튼 활성화
-            buttons[0].classList.add('active');
-            buttons[0].classList.remove('btn-outline-primary');
-            buttons[0].classList.add('btn-primary');
-            // 편집 버튼 비활성화
-            buttons[1].classList.remove('active');
-            buttons[1].classList.add('btn-outline-secondary');
-            buttons[1].classList.remove('btn-secondary');
-        }
+        buttons[0].classList.add('active');
+        buttons[0].classList.remove('btn-outline-primary');
+        buttons[0].classList.add('btn-primary');
+        buttons[1].classList.remove('active');
+        buttons[1].classList.add('btn-outline-secondary');
+        buttons[1].classList.remove('btn-secondary');
         
         // 텍스트를 시각적으로 렌더링
         renderComments(textarea.value, viewerId);
@@ -861,17 +718,12 @@ function toggleCommentView(modalType, postId, viewMode) {
         // 텍스트 편집 모드
         viewer.style.display = 'none';
         textarea.style.display = 'block';
-        
-        if (buttons.length >= 2) {
-            // 보기 버튼 비활성화
-            buttons[0].classList.remove('active');
-            buttons[0].classList.add('btn-outline-primary');
-            buttons[0].classList.remove('btn-primary');
-            // 편집 버튼 활성화
-            buttons[1].classList.add('active');
-            buttons[1].classList.remove('btn-outline-secondary');
-            buttons[1].classList.add('btn-secondary');
-        }
+        buttons[0].classList.remove('active');
+        buttons[0].classList.add('btn-outline-primary');
+        buttons[0].classList.remove('btn-primary');
+        buttons[1].classList.add('active');
+        buttons[1].classList.remove('btn-outline-secondary');
+        buttons[1].classList.add('btn-secondary');
     }
 }
 
@@ -1069,18 +921,6 @@ function loadReference(titleSelect, titleFieldId, bodyFieldId, commentsFieldId, 
 
 // 페이지 로드 시 기존 댓글 렌더링
 document.addEventListener('DOMContentLoaded', function() {
-    // 수정 모달의 카페 드롭다운 초기화
-    {% for keyword, posts in posts_by_keyword.items() %}
-    {% for post in posts %}
-    {% if post.account_id %}
-    updateCafeDropdownEdit(
-        document.querySelector('#editPostModal-{{ post.id }} select[name="account_id"]'),
-        'edit_cafe_id_{{ post.id }}',
-        {{ post.cafe_id or 'null' }}
-    );
-    {% endif %}
-    {% endfor %}
-    {% endfor %}
     // 모든 수정 모달의 댓글 초기 렌더링
     document.querySelectorAll('[id^="edit_post_comments_"]').forEach(textarea => {
         const postId = textarea.id.replace('edit_post_comments_', '');

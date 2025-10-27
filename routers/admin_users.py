@@ -1,31 +1,32 @@
-# admin.py - 최종 검증 완료 버전
-
 from fastapi import APIRouter, Request, Form, Depends
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 from passlib.hash import bcrypt
-from datetime import date
+from datetime import date # 날짜 기반 세션 만료를 위해 추가
 
-from database import SessionLocal, User, LoginLog
+from database import SessionLocal, User
 
 router = APIRouter(prefix="/admin")
 templates = Jinja2Templates(directory="templates")
 
+# --- ▼▼▼ 데이터베이스 세션을 가져오는 함수 (수정됨) ▼▼▼ ---
 def get_db():
     db = SessionLocal()
     try:
         yield db
     finally:
         db.close()
+# --- ▲▲▲ 데이터베이스 세션을 가져오는 함수 (수정됨) ▲▲▲ ---
 
-# ✅ 사용자 목록 보기
+# ✅ 사용자 목록 보기 (세션 만료 기능 및 get_db 적용)
 @router.get("/users", response_class=HTMLResponse)
 async def admin_users(request: Request, search: str = "", db: Session = Depends(get_db)):
-    # 일일 세션 만료 기능
+    # --- ▼ 일일 세션 만료 기능 추가 ▼ ---
     if request.session.get("login_date") != date.today().isoformat():
         request.session.clear()
-    
+    # --- ▲ 일일 세션 만료 기능 추가 ▲ ---
+
     username = request.session.get("user")
     if not username:
         return RedirectResponse("/login", status_code=302)
@@ -36,10 +37,12 @@ async def admin_users(request: Request, search: str = "", db: Session = Depends(
 
     users_query = db.query(User)
     if search:
+        # DB에서 직접 필터링 (더 효율적)
         users_query = users_query.filter(User.username.contains(search))
     
     users = users_query.order_by(User.id).all()
     
+    # db.close() # <--- get_db가 자동으로 처리하므로 삭제
     return templates.TemplateResponse("admin_users_bootstrap.html", {
         "request": request,
         "users": users,
@@ -47,112 +50,79 @@ async def admin_users(request: Request, search: str = "", db: Session = Depends(
         "search": search
     })
 
-# ✅ 비밀번호 초기화
+# --- ▼▼▼ 비밀번호 초기화 기능 (get_db 적용) ▼▼▼ ---
 @router.post("/users/reset-password", response_class=RedirectResponse)
 async def reset_password(user_id: int = Form(...), db: Session = Depends(get_db)):
     user = db.query(User).filter(User.id == user_id).first()
-    if user and user.username != 'shsboss274':
-        user.password = bcrypt.hash("1234")
+    if user and user.username != 'shsboss274': # 최고 관리자 제외
+        user.password = bcrypt.hash("1234") # '1234'로 비밀번호 초기화
         db.commit()
-    return RedirectResponse("/admin/users", status_code=303)
+    # db.close() # <--- 삭제
+    return RedirectResponse("/admin/users", status_code=303) # 302 -> 303으로 변경
 
-# ✅ 사용자 이름 수정
+# ✅ 사용자 이름 수정 (get_db 적용)
 @router.post("/users/update", response_class=RedirectResponse)
 async def update_user(user_id: int = Form(...), new_username: str = Form(...), db: Session = Depends(get_db)):
     user = db.query(User).filter(User.id == user_id).first()
     if user:
         user.username = new_username
         db.commit()
-    return RedirectResponse("/admin/users", status_code=303)
+    # db.close() # <--- 삭제
+    return RedirectResponse("/admin/users", status_code=303) # 302 -> 303으로 변경
 
-# ✅ 최고 관리자 권한 토글
+# ✅ 최고 관리자 권한 토글 (get_db 적용)
 @router.post("/users/toggle-admin/{user_id}", response_class=RedirectResponse)
 async def toggle_admin(user_id: int, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.id == user_id).first()
     if user and user.username != 'shsboss274':
         user.is_admin = not user.is_admin
         db.commit()
+    # db.close() # <--- 삭제
     return RedirectResponse("/admin/users", status_code=303)
 
-# ✅ 상품 관리 권한 토글
+# ✅ 상품 관리 권한 토글 (get_db 적용)
 @router.post("/users/toggle-products/{user_id}", response_class=RedirectResponse)
 async def toggle_products(user_id: int, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.id == user_id).first()
     if user:
         user.can_manage_products = not user.can_manage_products
         db.commit()
+    # db.close() # <--- 삭제
     return RedirectResponse("/admin/users", status_code=303)
 
-# ✅ 마케팅 관리 권한 토글
+# ✅ 마케팅 관리 권한 토글 (get_db 적용)
 @router.post("/users/toggle-marketing/{user_id}", response_class=RedirectResponse)
 async def toggle_marketing(user_id: int, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.id == user_id).first()
     if user:
         user.can_manage_marketing = not user.can_manage_marketing
         db.commit()
+    # db.close() # <--- 삭제
     return RedirectResponse("/admin/users", status_code=303)
 
-# ✅ 일일 할당량 설정
+# --- ▼▼▼ 신규 할당량 관리 라우트 (get_db 적용) ▼▼▼ ---
 @router.post("/users/set-quota/{user_id}", response_class=RedirectResponse)
 async def set_user_quota(
-    user_id: int,
-    request: Request,  # 기본값 없는 것을 앞으로
-    daily_quota: int = Form(...),  # 기본값 있는 것을 뒤로
+    user_id: int, 
+    daily_quota: int = Form(...),
     db: Session = Depends(get_db)
 ):
-    """일일 할당량 설정"""
-    
-    # 권한 체크
-    current_username = request.session.get("user")
-    if not current_username:
-        return RedirectResponse("/login", status_code=302)
-    
-    current_user = db.query(User).filter(User.username == current_username).first()
-    if not current_user or not current_user.is_admin:
-        return RedirectResponse("/", status_code=302)
-    
-    # 대상 사용자 조회
+    """사용자의 일일 작업 할당량을 설정하는 라우트"""
     user = db.query(User).filter(User.id == user_id).first()
     if user:
-        # 마케팅 권한 체크
-        if user.can_manage_marketing:
-            user.daily_quota = max(0, min(100, daily_quota))
-        else:
-            user.daily_quota = 0
-        
+        user.daily_quota = daily_quota
         db.commit()
-    
+    # db.close() # <--- 삭제
     return RedirectResponse("/admin/users", status_code=303)
+# --- ▲▲▲ 신규 할당량 관리 라우트 ▲▲▲ ---
 
-# ✅ 사용자 삭제
+# ✅ 사용자 삭제 (get_db 적용)
 @router.post("/users/delete", response_class=RedirectResponse)
 async def delete_user(user_id: int = Form(...), db: Session = Depends(get_db)):
     user = db.query(User).filter(User.id == user_id).first()
     if user and user.username != 'shsboss274':
         db.delete(user)
         db.commit()
-    return RedirectResponse("/admin/users", status_code=303)
+    # db.close() # <--- 삭제
+    return RedirectResponse("/admin/users", status_code=303) # 302 -> 303으로 변경
 
-# ✅ 로그 보기 페이지
-@router.get("/logs", response_class=HTMLResponse)
-async def view_logs(request: Request, db: Session = Depends(get_db)):
-    """로그인 로그 페이지"""
-    
-    username = request.session.get("user")
-    if not username:
-        return RedirectResponse("/login", status_code=302)
-    
-    user = db.query(User).filter(User.username == username).first()
-    if not user or not user.is_admin:
-        return HTMLResponse("관리자 권한이 필요합니다", status_code=403)
-    
-    # LoginLog 모델이 있다면 조회, 없으면 빈 리스트
-    try:
-        logs = db.query(LoginLog).order_by(LoginLog.login_time.desc()).limit(100).all()
-    except:
-        logs = []
-    
-    return templates.TemplateResponse("login_logs.html", {
-        "request": request,
-        "logs": logs
-    })
