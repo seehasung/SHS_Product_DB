@@ -10,11 +10,11 @@ import json
 import math
 
 
-# Reference, Comment, User 및 신규 MarketingPost 모델을 import (PostSchedule 등 추가)
+# Reference, Comment, User 및 신규 MarketingPost 모델을 import
 from database import (
     SessionLocal, TargetCafe, MarketingAccount, Product, MarketingProduct,
     CafeMembership, Reference, Comment, User, MarketingPost, WorkTask,
-    PostSchedule, AccountCafeUsage, PostingRound  # 새로 추가된 모델들
+    PostSchedule, AccountCafeUsage, PostingRound
 )
 
 
@@ -29,7 +29,7 @@ def get_db():
     finally:
         db.close()
 
-# --- Main Marketing Cafe Page (수정됨) ---
+# --- Main Marketing Cafe Page ---
 @router.get("/cafe", response_class=HTMLResponse)
 async def marketing_cafe(request: Request, db: Session = Depends(get_db)):
     tab = request.query_params.get('tab', 'status')
@@ -166,7 +166,7 @@ async def add_account(
     account_id: str = Form(...),
     account_pw: str = Form(...),
     ip_address: str = Form(None),
-    category: str = Form('최적화'),  # 추가
+    category: str = Form('최적화'),
     db: Session = Depends(get_db)
 ):
     try:
@@ -175,7 +175,7 @@ async def add_account(
             account_id=account_id,
             account_pw=account_pw,
             ip_address=ip_address,
-            category=category  # 추가
+            category=category
         )
         db.add(new_account)
         db.commit()
@@ -190,7 +190,7 @@ async def edit_account(
     new_account_id: str = Form(...),
     new_account_pw: str = Form(...),
     new_ip_address: str = Form(None),
-    new_category: str = Form('최적화'),  # 추가
+    new_category: str = Form('최적화'),
     db: Session = Depends(get_db)
 ):
     account = db.query(MarketingAccount).filter(MarketingAccount.id == account_id).first()
@@ -198,7 +198,7 @@ async def edit_account(
         account.account_id = new_account_id
         account.account_pw = new_account_pw
         account.ip_address = new_ip_address
-        account.category = new_category  # 추가
+        account.category = new_category
         db.commit()
     return RedirectResponse(url="/marketing/cafe?tab=accounts", status_code=303)
 
@@ -274,7 +274,7 @@ async def add_reference(
     ref_title: str = Form(...),
     ref_content: str = Form(""),
     ref_type: str = Form("기타"),
-    comments: str = Form(""),  # JSON 형식의 댓글 데이터
+    comments: str = Form(""),
     db: Session = Depends(get_db)
 ):
     try:
@@ -282,17 +282,15 @@ async def add_reference(
         user = db.query(User).filter(User.username == username).first()
         user_id = user.id if user else None
         
-        # 새 Reference 생성
         new_ref = Reference(
             title=ref_title, 
             content=ref_content, 
             ref_type=ref_type,
-            last_modified_by_id=user_id  # 작성자 기록
+            last_modified_by_id=user_id
         )
         db.add(new_ref)
-        db.flush()  # ID 생성을 위해 flush
+        db.flush()
         
-        # 댓글 추가
         if comments:
             try:
                 comments_data = json.loads(comments)
@@ -304,8 +302,7 @@ async def add_reference(
                             account_sequence=comment_data.get('account_sequence', 0)
                         )
                         db.add(new_comment)
-            except (json.JSONDecodeError, KeyError) as e:
-                # JSON 파싱 오류는 무시하고 진행
+            except (json.JSONDecodeError, KeyError):
                 pass
         
         db.commit()
@@ -336,12 +333,10 @@ async def edit_reference(
         reference.title = new_ref_title
         reference.content = new_ref_content
         reference.ref_type = new_ref_type
-        reference.last_modified_by_id = user_id  # 수정자 기록
+        reference.last_modified_by_id = user_id
         
-        # 기존 댓글 삭제
         db.query(Comment).filter(Comment.reference_id == ref_id).delete()
         
-        # 새 댓글 추가
         if comments:
             try:
                 comments_data = json.loads(comments)
@@ -384,12 +379,13 @@ async def uncomplete_task(task_id: int, db: Session = Depends(get_db)):
         db.commit()
     return RedirectResponse(url="/marketing/cafe?tab=status", status_code=303)
 
-# --- Product Selection Page (기존 유지) ---
+# --- Product Selection Page ---
 @router.get("/product-selection", response_class=HTMLResponse)
 async def product_selection(request: Request, db: Session = Depends(get_db)):
     username = request.session.get("user")
     all_products = db.query(Product).all()
-    return templates.TemplateResponse("product_selection.html", {
+    # ⭐ 템플릿 이름 수정: product_selection.html → marketing_product_selection.html
+    return templates.TemplateResponse("marketing_product_selection.html", {
         "request": request,
         "username": username,
         "products": all_products
@@ -403,7 +399,6 @@ async def add_marketing_product(
     db: Session = Depends(get_db)
 ):
     """상품에 키워드를 추가하여 마케팅 상품으로 등록"""
-    # 중복 체크
     existing = db.query(MarketingProduct).filter(
         MarketingProduct.product_id == product_id
     ).first()
@@ -411,7 +406,6 @@ async def add_marketing_product(
     if existing:
         return JSONResponse({"success": False, "message": "이미 마케팅 상품으로 등록되었습니다."})
     
-    # 키워드 정보 구성 (활성화 상태 포함)
     keyword_data = [{"keyword": kw, "active": True} for kw in keywords if kw.strip()]
     
     new_marketing_product = MarketingProduct(
@@ -424,7 +418,7 @@ async def add_marketing_product(
     
     return JSONResponse({"success": True, "marketing_product_id": new_marketing_product.id})
 
-# --- 마케팅 상품 표시를 위한 API (기존 유지) ---
+# --- 마케팅 상품 표시를 위한 API ---
 @router.get("/product/keywords/{product_id}", response_class=JSONResponse)
 async def get_product_keywords(product_id: int, db: Session = Depends(get_db)):
     marketing_product = db.query(MarketingProduct).filter(
@@ -441,7 +435,7 @@ async def get_product_keywords(product_id: int, db: Session = Depends(get_db)):
     
     return JSONResponse({"keywords": []})
 
-# --- 키워드 관리 라우트 (수정됨) ---
+# --- 키워드 관리 라우트 ---
 @router.post("/product/keywords/update/{mp_id}", response_class=RedirectResponse)
 async def update_keywords(
     mp_id: int,
@@ -450,7 +444,6 @@ async def update_keywords(
 ):
     marketing_product = db.query(MarketingProduct).filter(MarketingProduct.id == mp_id).first()
     if marketing_product:
-        # 기존 키워드 파싱
         existing_data = []
         if marketing_product.keywords:
             try:
@@ -458,20 +451,15 @@ async def update_keywords(
             except json.JSONDecodeError:
                 pass
         
-        # 기존 키워드를 dictionary로 변환 (키워드를 키로 사용)
         existing_dict = {item['keyword']: item for item in existing_data}
         
-        # 새로운 키워드 처리
         new_keywords = [kw.strip() for kw in keywords.split('\n') if kw.strip()]
         
-        # 새 키워드 데이터 구성
         updated_data = []
         for kw in new_keywords:
             if kw in existing_dict:
-                # 기존 키워드는 상태 유지
                 updated_data.append(existing_dict[kw])
             else:
-                # 신규 키워드는 활성 상태로 추가
                 updated_data.append({"keyword": kw, "active": True})
         
         marketing_product.keywords = json.dumps(updated_data, ensure_ascii=False) if updated_data else None
@@ -479,7 +467,7 @@ async def update_keywords(
     
     return RedirectResponse(url="/marketing/cafe?tab=products", status_code=303)
 
-# --- 키워드 토글 라우트 (추가) ---
+# --- 키워드 토글 라우트 ---
 @router.post("/product/keyword/toggle/{mp_id}", response_class=JSONResponse)
 async def toggle_keyword_status(
     mp_id: int,
@@ -493,13 +481,11 @@ async def toggle_keyword_status(
         try:
             keywords_data = json.loads(marketing_product.keywords)
             
-            # 키워드 찾아서 토글
             for item in keywords_data:
                 if item['keyword'] == keyword:
                     item['active'] = not item.get('active', True)
                     break
             
-            # 저장
             marketing_product.keywords = json.dumps(keywords_data, ensure_ascii=False)
             db.commit()
             
@@ -517,7 +503,7 @@ async def delete_marketing_product(mp_id: int, db: Session = Depends(get_db)):
         db.commit()
     return RedirectResponse(url="/marketing/cafe?tab=products", status_code=303)
 
-# --- '마케팅 상품 추가' 폼 처리 (기존 유지) ---
+# --- '마케팅 상품 추가' 폼 처리 ---
 @router.post("/product/add-from-selection", response_class=RedirectResponse)
 async def add_marketing_product_from_selection(
     product_ids: List[int] = Form(...),
@@ -547,7 +533,7 @@ async def add_marketing_product_simple(
         db.commit()
     return RedirectResponse(url="/marketing/cafe?tab=products", status_code=303)
 
-# --- '글 관리' 라우트 (기존 유지) ---
+# --- '글 관리' 라우트 ---
 @router.get("/product/posts/{mp_id}", response_class=HTMLResponse)
 async def get_product_posts(
     request: Request, 
@@ -609,7 +595,6 @@ async def get_product_posts(
             if p.keyword_text not in keywords_list and p.keyword_text not in all_post_keywords:
                 other_posts.append(p)
 
-    # 전체 통계 계산
     all_posts = db.query(MarketingPost).filter(
         MarketingPost.marketing_product_id == mp_id
     ).all()
@@ -645,7 +630,8 @@ async def get_product_posts(
     
     all_memberships = db.query(CafeMembership).options(joinedload(CafeMembership.cafe)).all()
 
-    return templates.TemplateResponse("marketing_posts.html", {
+    # ⭐ 템플릿 이름 수정: marketing_posts.html → marketing_product_posts.html
+    return templates.TemplateResponse("marketing_product_posts.html", {
         "request": request,
         "marketing_product": marketing_product,
         "posts_by_keyword": posts_by_keyword,
@@ -729,7 +715,7 @@ async def delete_marketing_post(post_id: int, db: Session = Depends(get_db)):
     redirect_url = f"/marketing/product/posts/{mp_id}" if mp_id else "/marketing/cafe?tab=products"
     return RedirectResponse(url=redirect_url, status_code=303)
 
-# --- Other Marketing Pages (기존 유지) ---
+# --- Other Marketing Pages ---
 @router.get("/blog", response_class=HTMLResponse)
 async def marketing_blog(request: Request):
     return templates.TemplateResponse("marketing_blog.html", {"request": request})
@@ -742,60 +728,136 @@ async def marketing_homepage(request: Request):
 async def marketing_kin(request: Request):
     return templates.TemplateResponse("marketing_kin.html", {"request": request})
 
-@router.get("/marketing/schedules", response_class=HTMLResponse)
-async def get_schedules(request: Request):
-    db = SessionLocal()
-    
-    try:
-        # 날짜 관련 변수들
-        today = date.today()
-        selected_date = request.query_params.get('date')
-        
-        if selected_date:
-            selected_date = datetime.strptime(selected_date, '%Y-%m-%d').date()
-        else:
-            selected_date = today
-        
-        # 스케줄 데이터 조회
-        schedules = db.query(MarketingSchedule).all()  # 실제 쿼리
-        
-        # 연결되지 않은 포스트 조회 (279번 라인 경고 수정)
-        linked_post_ids = db.query(MarketingSchedule.post_id).filter(
-            MarketingSchedule.post_id.isnot(None)
-        ).subquery()
-        
-        # IN 절 사용 시 select() 명시적 사용
-        unlinked_posts = db.query(MarketingPost).filter(
-            ~MarketingPost.id.in_(select(linked_post_ids))
-        ).all()
-        
-        # 통계 계산
-        total_schedules = len(schedules)
-        completed_schedules = len([s for s in schedules if s.status == 'completed'])
-        pending_schedules = len([s for s in schedules if s.status == 'pending'])
-        
-        return templates.TemplateResponse("marketing_schedules.html", {
-            "request": request,
-            "schedules": schedules,
-            "unlinked_posts": unlinked_posts,
-            "today": today,  # ⭐ 필수!
-            "selected_date": selected_date,  # ⭐ 필수!
-            "total_schedules": total_schedules,
-            "completed_schedules": completed_schedules,
-            "pending_schedules": pending_schedules
-        })
-        
-    except Exception as e:
-        print(f"Error in get_schedules: {e}")
-        raise
-    finally:
-        db.close()
+# ========== 스케줄 관리 ==========
 
-@router.get("/marketing/schedules/create", response_class=HTMLResponse)
-async def create_schedule(request: Request):
-    """스케줄 생성 페이지"""
-    return templates.TemplateResponse("create_schedule.html", {
-        "request": request
+# 스케줄 페이지
+@router.get("/schedules", response_class=HTMLResponse)
+async def view_schedules(
+    request: Request,
+    selected_date: str = Query(None),
+    worker_filter: int = Query(None),
+    status_filter: str = Query(None),
+    db: Session = Depends(get_db)
+):
+    """전체 스케줄 관리 페이지"""
+    
+    # 날짜 처리
+    if selected_date:
+        target_date = datetime.strptime(selected_date, "%Y-%m-%d").date()
+    else:
+        target_date = date.today()
+    
+    # 쿼리 빌드
+    query = db.query(PostSchedule).filter(
+        PostSchedule.scheduled_date == target_date
+    ).options(
+        joinedload(PostSchedule.worker),
+        joinedload(PostSchedule.account),
+        joinedload(PostSchedule.cafe),
+        joinedload(PostSchedule.marketing_product).joinedload(MarketingProduct.product),
+        joinedload(PostSchedule.marketing_post)
+    )
+    
+    # 필터 적용
+    if worker_filter:
+        query = query.filter(PostSchedule.worker_id == worker_filter)
+    if status_filter:
+        query = query.filter(PostSchedule.status == status_filter)
+    
+    schedules = query.order_by(PostSchedule.id).all()
+    
+    # 작업자 목록
+    workers = db.query(User).filter(
+        or_(User.can_manage_marketing == True, User.is_admin == True)
+    ).all()
+    
+    # 마케팅 상품 목록
+    marketing_products = db.query(MarketingProduct).options(
+        joinedload(MarketingProduct.product)
+    ).all()
+    
+    # 계정 목록
+    accounts = db.query(MarketingAccount).all()
+    
+    # 카페 목록
+    cafes = db.query(TargetCafe).all()
+    
+    # 멤버십 조회
+    memberships = db.query(CafeMembership).options(
+        joinedload(CafeMembership.account),
+        joinedload(CafeMembership.cafe)
+    ).all()
+    
+    # membership_map 생성
+    membership_map = {}
+    for membership in memberships:
+        if membership.account_id not in membership_map:
+            membership_map[membership.account_id] = []
+        membership_map[membership.account_id].append({
+            'cafe_id': membership.cafe_id,
+            'cafe_name': membership.cafe.name if membership.cafe else ''
+        })
+    
+    # product_keywords_map 생성
+    product_keywords_map = {}
+    for mp in marketing_products:
+        keywords = []
+        if mp.keywords:
+            try:
+                keywords_data = json.loads(mp.keywords)
+                keywords = [item['keyword'] for item in keywords_data if item.get('active', True)]
+            except:
+                keywords = []
+        product_keywords_map[mp.id] = keywords
+    
+    # 통계 계산
+    total_schedules = len(schedules)
+    completed_schedules = sum(1 for s in schedules if s.status == "completed")
+    in_progress_schedules = sum(1 for s in schedules if s.status == "in_progress")
+    pending_schedules = sum(1 for s in schedules if s.status == "pending")
+    skipped_schedules = sum(1 for s in schedules if s.status == "skipped")
+    
+    # today_stats 생성
+    today_stats = {
+        'total': total_schedules,
+        'completed': completed_schedules,
+        'in_progress': in_progress_schedules,
+        'pending': pending_schedules,
+        'skipped': skipped_schedules
+    }
+    
+    # 작성되지 않은 글 목록
+    unlinked_posts = db.query(MarketingPost).filter(
+        MarketingPost.id.notin_(
+            db.query(PostSchedule.marketing_post_id).filter(
+                PostSchedule.marketing_post_id.isnot(None)
+            ).scalar_subquery()
+        )
+    ).options(
+        joinedload(MarketingPost.marketing_product).joinedload(MarketingProduct.product)
+    ).all()
+    
+    return templates.TemplateResponse("marketing_schedules.html", {
+        "request": request,
+        "schedules": schedules,
+        "workers": workers,
+        "marketing_products": marketing_products,
+        "product_keywords_map": product_keywords_map,
+        "accounts": accounts,
+        "cafes": cafes,
+        "memberships": memberships,
+        "membership_map": membership_map,
+        "unlinked_posts": unlinked_posts,
+        "selected_date": target_date,
+        "today": date.today(),
+        "today_stats": today_stats,
+        "worker_filter": worker_filter,
+        "status_filter": status_filter,
+        "total_schedules": total_schedules,
+        "completed_schedules": completed_schedules,
+        "in_progress_schedules": in_progress_schedules,
+        "pending_schedules": pending_schedules,
+        "skipped_schedules": skipped_schedules
     })
 
 # ========== 새로운 자동 생성 로직 ==========
@@ -849,7 +911,7 @@ async def generate_schedule(
                 PostSchedule.marketing_product_id == product_id,
                 PostSchedule.keyword_text == keyword,
                 PostSchedule.status != "completed",
-                PostSchedule.scheduled_date >= start  # 시작일 이후만
+                PostSchedule.scheduled_date >= start
             ).count()
             
             keyword_post_counts[keyword] = {
@@ -864,7 +926,7 @@ async def generate_schedule(
         if not available_keywords:
             return {"success": False, "message": "모든 키워드가 이미 3회 작성 완료/예약되었습니다"}
         
-        # 할당 가능한 사용자 조회 (마케팅 권한 + 할당량 있음)
+        # 할당 가능한 사용자 조회
         users = db.query(User).filter(
             User.can_manage_marketing == True,
             User.daily_quota > 0
@@ -925,7 +987,7 @@ async def generate_schedule(
                     if exists:
                         continue
                     
-                    # 계정과 카페 자동 할당 (기존 로직 활용)
+                    # 계정과 카페 자동 할당
                     account = None
                     cafe = None
                     
@@ -1160,134 +1222,3 @@ async def link_post_to_schedule(
     except Exception as e:
         db.rollback()
         return {"success": False, "message": str(e)}
-
-# ========== 스케줄 페이지 수정 ==========
-
-@router.get("/schedules", response_class=HTMLResponse)
-async def view_schedules(
-    request: Request,
-    selected_date: str = Query(None),
-    worker_filter: int = Query(None),
-    status_filter: str = Query(None),
-    db: Session = Depends(get_db)
-):
-    """전체 스케줄 관리 페이지"""
-    
-    # 날짜 처리
-    if selected_date:
-        target_date = datetime.strptime(selected_date, "%Y-%m-%d").date()
-    else:
-        target_date = date.today()
-    
-    # 쿼리 빌드
-    query = db.query(PostSchedule).filter(
-        PostSchedule.scheduled_date == target_date
-    ).options(
-        joinedload(PostSchedule.worker),
-        joinedload(PostSchedule.account),
-        joinedload(PostSchedule.cafe),
-        joinedload(PostSchedule.marketing_product).joinedload(MarketingProduct.product),
-        joinedload(PostSchedule.marketing_post)
-    )
-    
-    # 필터 적용
-    if worker_filter:
-        query = query.filter(PostSchedule.worker_id == worker_filter)
-    if status_filter:
-        query = query.filter(PostSchedule.status == status_filter)
-    
-    schedules = query.order_by(PostSchedule.id).all()
-    
-    # 작업자 목록
-    workers = db.query(User).filter(
-        or_(User.can_manage_marketing == True, User.is_admin == True)
-    ).all()
-    
-    # 마케팅 상품 목록
-    marketing_products = db.query(MarketingProduct).options(
-        joinedload(MarketingProduct.product)
-    ).all()
-    
-    # 계정 목록
-    accounts = db.query(MarketingAccount).all()
-    
-    # 카페 목록
-    cafes = db.query(TargetCafe).all()
-    
-    # 멤버십 조회
-    memberships = db.query(CafeMembership).options(
-        joinedload(CafeMembership.account),
-        joinedload(CafeMembership.cafe)
-    ).all()
-    
-    # ⭐ membership_map 생성
-    membership_map = {}
-    for membership in memberships:
-        if membership.account_id not in membership_map:
-            membership_map[membership.account_id] = []
-        membership_map[membership.account_id].append({
-            'cafe_id': membership.cafe_id,
-            'cafe_name': membership.cafe.name if membership.cafe else ''
-        })
-    
-    # ⭐ product_keywords_map 생성
-    product_keywords_map = {}
-    for mp in marketing_products:
-        keywords = []
-        if mp.keywords:
-            try:
-                keywords_data = json.loads(mp.keywords)
-                keywords = [item['keyword'] for item in keywords_data if item.get('active', True)]
-            except:
-                keywords = []
-        product_keywords_map[mp.id] = keywords
-    
-    # 통계 계산
-    total_schedules = len(schedules)
-    completed_schedules = sum(1 for s in schedules if s.status == "completed")
-    in_progress_schedules = sum(1 for s in schedules if s.status == "in_progress")
-    pending_schedules = sum(1 for s in schedules if s.status == "pending")
-    skipped_schedules = sum(1 for s in schedules if s.status == "skipped")
-    
-    # ⭐ today_stats 생성
-    today_stats = {
-        'total': total_schedules,
-        'completed': completed_schedules,
-        'in_progress': in_progress_schedules,
-        'pending': pending_schedules,
-        'skipped': skipped_schedules
-    }
-    
-    # 작성되지 않은 글 목록
-    unlinked_posts = db.query(MarketingPost).filter(
-        MarketingPost.id.notin_(
-            db.query(PostSchedule.marketing_post_id).filter(
-                PostSchedule.marketing_post_id.isnot(None)
-            ).scalar_subquery()  # subquery() 대신 scalar_subquery() 사용
-        )
-    ).options(
-        joinedload(MarketingPost.marketing_product).joinedload(MarketingProduct.product)
-    ).all()
-    
-    return templates.TemplateResponse("marketing_schedules.html", {
-        "request": request,
-        "schedules": schedules,
-        "workers": workers,
-        "marketing_products": marketing_products,
-        "product_keywords_map": product_keywords_map,  # ✅
-        "accounts": accounts,  # ✅
-        "cafes": cafes,  # ✅
-        "memberships": memberships,  # ✅
-        "membership_map": membership_map,  # ✅
-        "unlinked_posts": unlinked_posts,
-        "selected_date": target_date,
-        "today": date.today(),
-        "today_stats": today_stats,  # ✅
-        "worker_filter": worker_filter,
-        "status_filter": status_filter,
-        "total_schedules": total_schedules,
-        "completed_schedules": completed_schedules,
-        "in_progress_schedules": in_progress_schedules,
-        "pending_schedules": pending_schedules,
-        "skipped_schedules": skipped_schedules
-    })
