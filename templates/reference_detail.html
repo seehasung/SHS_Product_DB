@@ -251,34 +251,50 @@
 </div>
 
 <script>
-    // 폼 중복 제출 방지 함수
-    const submittedForms = new Set();
+    // 폼 중복 제출 방지 함수 (강화된 버전)
+    const submittedForms = new Map();
+    let isSubmitting = false;
     
     function submitOnce(form) {
-        const formId = form.getAttribute('action') + '_' + new Date().getTime();
-        
-        if (submittedForms.has(form)) {
-            return false; // 이미 제출된 폼이면 중단
+        // 전역 제출 중 플래그 확인
+        if (isSubmitting) {
+            console.log('[DEBUG] Form submission blocked - already submitting');
+            return false;
         }
         
-        // 폼을 제출 중인 것으로 표시
-        submittedForms.add(form);
+        // 폼 데이터 기반 고유 키 생성
+        const formData = new FormData(form);
+        const parentId = formData.get('parent_id');
+        const text = formData.get('text');
+        const formKey = `${parentId}_${text}`;
+        
+        // 중복 제출 확인
+        const lastSubmit = submittedForms.get(formKey);
+        if (lastSubmit && (Date.now() - lastSubmit) < 2000) {
+            console.log('[DEBUG] Duplicate submission blocked:', formKey);
+            return false;
+        }
+        
+        // 제출 상태 설정
+        isSubmitting = true;
+        submittedForms.set(formKey, Date.now());
         
         // 제출 버튼 비활성화
         const submitBtn = form.querySelector('button[type="submit"]');
         if (submitBtn) {
             submitBtn.disabled = true;
-            submitBtn.textContent = '등록 중...';
+            const originalText = submitBtn.textContent;
+            submitBtn.textContent = '처리중...';
+            
+            // 폼 제출 후 상태 리셋
+            setTimeout(() => {
+                isSubmitting = false;
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = originalText;
+                }
+            }, 2000);
         }
-        
-        // 3초 후 다시 활성화 (혹시 오류로 페이지가 새로고침 안되는 경우 대비)
-        setTimeout(() => {
-            submittedForms.delete(form);
-            if (submitBtn) {
-                submitBtn.disabled = false;
-                submitBtn.textContent = submitBtn.classList.contains('btn-success') ? '댓글 등록' : '답글 등록';
-            }
-        }, 3000);
         
         return true; // 제출 진행
     }
