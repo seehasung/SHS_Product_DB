@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}{{ product.name }} - 상품 상세{% endblock %}
+{% block title %}{% if product %}{{ product.name }}{% elif reference.title %}{{ reference.title }}{% else %}레퍼런스{% endif %} - 상품 상세{% endblock %}
 
 {% block head %}
 {{ super() }}
@@ -483,6 +483,7 @@
 </div>
 
 <div class="container">
+    {% if product %}
     <!-- 메인 상품 카드 -->
     <div class="product-main-card">
         <div class="row g-0">
@@ -693,6 +694,14 @@
             {% endif %}
         </div>
     </div>
+    {% else %}
+    <!-- Product가 없는 경우 -->
+    <div class="alert alert-warning" style="margin: 40px 0;">
+        <i class="bi bi-exclamation-triangle-fill"></i>
+        <strong>상품 정보를 찾을 수 없습니다.</strong>
+        <p style="margin-top: 10px; margin-bottom: 0;">이 레퍼런스는 상품과 연결되어 있지 않거나 상품이 삭제되었습니다.</p>
+    </div>
+    {% endif %}
 </div>
 
 <script>

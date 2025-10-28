@@ -648,9 +648,34 @@ async def delete_reference(ref_id: int, db: Session = Depends(get_db)):
 
 @router.get("/reference/{ref_id}", response_class=HTMLResponse)
 async def get_reference_detail(request: Request, ref_id: int, db: Session = Depends(get_db)):
+    # Reference 조회 (product 관계 포함)
     reference = db.query(Reference).options(
         joinedload(Reference.last_modified_by)
     ).filter(Reference.id == ref_id).first()
+    
+    # product 가져오기 (Reference에 product/marketing_product 관계가 있으면)
+    product = None
+    try:
+        if reference:
+            # Reference에 product 관계가 있는 경우
+            if hasattr(reference, 'product'):
+                product = reference.product
+            # Reference에 marketing_product 관계가 있는 경우
+            elif hasattr(reference, 'marketing_product') and reference.marketing_product:
+                product = reference.marketing_product.product if hasattr(reference.marketing_product, 'product') else None
+            # Reference에 product_id 필드가 있는 경우
+            elif hasattr(reference, 'product_id') and reference.product_id:
+                product = db.query(Product).filter(Product.id == reference.product_id).first()
+            # Reference에 marketing_product_id 필드가 있는 경우
+            elif hasattr(reference, 'marketing_product_id') and reference.marketing_product_id:
+                mp = db.query(MarketingProduct).options(
+                    joinedload(MarketingProduct.product)
+                ).filter(MarketingProduct.id == reference.marketing_product_id).first()
+                if mp:
+                    product = mp.product
+    except Exception as e:
+        print(f"⚠️ product 가져오기 실패: {e}")
+        product = None
     
     all_comments = db.query(Comment).filter(Comment.reference_id == ref_id).order_by(Comment.created_at).all()
     comment_map = {c.id: c for c in all_comments}
@@ -669,9 +694,9 @@ async def get_reference_detail(request: Request, ref_id: int, db: Session = Depe
     return templates.TemplateResponse("reference_detail.html", {
         "request": request,
         "reference": reference,
-        "comments": top_level_comments
+        "comments": top_level_comments,
+        "product": product  # ✅ product 추가!
     })
-
 @router.post("/reference/update/{ref_id}", response_class=RedirectResponse)
 async def update_reference(request: Request, ref_id: int, title: str = Form(...), content: str = Form(""), ref_type: str = Form(...), db: Session = Depends(get_db)):
     username = request.session.get("user")
