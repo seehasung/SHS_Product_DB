@@ -601,29 +601,8 @@
 // Python에서 전달받은 '계정-카페' 연동 맵
 const membershipMap = {{ membership_map | tojson | safe }};
 
-// Python에서 전달받은 '레퍼런스' 전체 데이터
-const allReferences = [
-    {% for type, refs in references_by_type.items() %}
-        {% for ref in refs %}
-        {
-            "id": {{ ref.id }},
-            "title": {{ ref.title | tojson }},
-            "content": {{ ref.content | tojson }},
-            "ref_type": {{ ref.ref_type | tojson }},
-            "comments": [
-                {% for comment in ref.comments %}
-                {
-                    "id": {{ comment.id }},
-                    "account_sequence": {{ comment.account_sequence }},
-                    "text": {{ comment.text | tojson }},
-                    "parent_id": {{ comment.parent_id or 'null' }}
-                }{% if not loop.last %},{% endif %}
-                {% endfor %}
-            ]
-        }{% if not loop.last %},{% endif %}
-        {% endfor %}
-    {% endfor %}
-];
+// Python에서 전달받은 '레퍼런스' 전체 데이터 (안전하게 JSON 변환)
+const allReferences = {{ references_json | tojson | safe }};
 
 // 🔥 초기화 디버깅
 console.log('========================================');

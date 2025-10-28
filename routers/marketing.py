@@ -1084,12 +1084,34 @@ async def get_product_posts(
     
     all_references = db.query(Reference).options(joinedload(Reference.comments)).order_by(Reference.ref_type, Reference.title).all()
     references_by_type = {"대안": [], "정보": [], "기타": []}
+    
+    # JavaScript에서 사용할 수 있도록 references를 딕셔너리로 변환
+    references_json = []
     for ref in all_references:
         ref_type_str = ref.ref_type or "기타"
         if ref_type_str in references_by_type:
             references_by_type[ref_type_str].append(ref)
         else:
             references_by_type["기타"].append(ref)
+        
+        # 댓글 변환
+        comments_list = []
+        for comment in ref.comments:
+            comments_list.append({
+                "id": comment.id,
+                "account_sequence": comment.account_sequence,
+                "text": comment.text,
+                "parent_id": comment.parent_id
+            })
+        
+        # 레퍼런스 변환
+        references_json.append({
+            "id": ref.id,
+            "title": ref.title,
+            "content": ref.content,
+            "ref_type": ref.ref_type,
+            "comments": comments_list
+        })
     
     all_memberships = db.query(CafeMembership).options(joinedload(CafeMembership.cafe)).all()
     membership_map = {}
@@ -1111,6 +1133,7 @@ async def get_product_posts(
         "all_workers": all_workers,
         "all_references": all_references,
         "references_by_type": references_by_type,
+        "references_json": references_json,
         "membership_map": membership_map,
         "total_pages": total_pages,
         "current_page": page,
@@ -1252,40 +1275,3 @@ async def create_schedule(request: Request):
     return templates.TemplateResponse("create_schedule.html", {
         "request": request
     })
-
-def _format_comments_for_post(comments_query) -> str:
-    """
-    계층 구조의 댓글 쿼리를 받아 포스팅 본문에 삽입할 텍스트로 포매팅합니다.
-    """
-    comment_map = {c.id: c for c in comments_query}
-    top_level_comments = []
-    
-    # 댓글 객체에 structured_replies 리스트 초기화
-    for c in comments_query:
-        c.structured_replies = []
-    
-    # 계층 구조 생성
-    for c in comments_query:
-        if c.parent_id and c.parent_id in comment_map:
-            parent = comment_map.get(c.parent_id)
-            if parent:
-                if not hasattr(parent, 'structured_replies'):
-                    parent.structured_replies = []
-                parent.structured_replies.append(c)
-        elif not c.parent_id:
-            top_level_comments.append(c)
-    
-    def format_recursive(comments, indent=""):
-        text = ""
-        # 계정 순서(account_sequence)에 따라 정렬
-        sorted_comments = sorted(comments, key=lambda x: x.account_sequence)
-        for c in sorted_comments:
-            prefix = "작성자" if c.account_sequence == 0 else f"계정 {c.account_sequence}"
-            # .split('\n')으로 여러 줄 댓글 지원
-            commentLines = "\n".join([f"{indent}  {line}" for line in c.text.split('\n') if line.strip()])
-            text += f"{indent}{prefix}:\n{commentLines}\n\n"
-            if hasattr(c, 'structured_replies') and c.structured_replies:
-                text += format_recursive(c.structured_replies, indent + "    (답글) ")
-        return text
-    
-    return format_recursive(top_level_comments).strip()
