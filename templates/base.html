@@ -11,138 +11,357 @@
     <!-- Bootstrap Icons -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
     
-    <!-- Google Fonts -->
-    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <!-- Google Fonts - 더 세련된 폰트 -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Noto+Sans+KR:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     
     <style>
         * {
-            font-family: 'Noto Sans KR', sans-serif;
+            font-family: 'Inter', 'Noto Sans KR', -apple-system, BlinkMacSystemFont, sans-serif;
             font-weight: 400;
         }
         
         body {
             min-height: 100vh;
-            background: #f8f9fa;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background-attachment: fixed;
+            position: relative;
+            overflow-x: hidden;
         }
         
-        /* 네비게이션 바 스타일 - 더 어두운 보라색 */
+        /* 배경 애니메이션 효과 */
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: 
+                radial-gradient(circle at 20% 50%, rgba(120, 119, 198, 0.3) 0%, transparent 50%),
+                radial-gradient(circle at 80% 80%, rgba(138, 43, 226, 0.3) 0%, transparent 50%),
+                radial-gradient(circle at 40% 20%, rgba(255, 105, 180, 0.2) 0%, transparent 50%);
+            animation: gradient-shift 15s ease infinite;
+            pointer-events: none;
+            z-index: 0;
+        }
+        
+        @keyframes gradient-shift {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.8; }
+        }
+        
+        /* 메인 컨테이너 래퍼 */
+        .page-wrapper {
+            position: relative;
+            z-index: 1;
+        }
+        
+        /* 네비게이션 바 - Glassmorphism 스타일 */
         .navbar-custom {
-            background: linear-gradient(135deg, #4c1d95 0%, #6b21a8 100%);
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
-            padding: 12px 0;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            padding: 16px 0;
+            margin: 20px;
+            border-radius: 24px;
         }
         
         .navbar-brand {
             font-weight: 800;
-            font-size: 1.5rem;
+            font-size: 1.6rem;
             color: white !important;
             display: flex;
             align-items: center;
-            gap: 10px;
+            gap: 12px;
+            text-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
         
         .navbar-brand:hover {
-            opacity: 0.9;
+            transform: translateY(-2px);
+            text-shadow: 0 4px 20px rgba(255, 255, 255, 0.4);
         }
         
+        .navbar-brand i {
+            font-size: 1.8rem;
+            animation: rotate-logo 10s linear infinite;
+        }
+        
+        @keyframes rotate-logo {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+        
+        /* 네비게이션 링크 */
         .nav-link-custom {
-            color: rgba(255, 255, 255, 0.95) !important;
+            color: rgba(255, 255, 255, 0.9) !important;
             font-weight: 600;
-            font-size: 1.05rem;
-            padding: 8px 16px !important;
-            border-radius: 8px;
-            transition: all 0.3s ease;
-            margin: 0 5px;
+            font-size: 1rem;
+            padding: 12px 20px !important;
+            border-radius: 16px;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            margin: 0 6px;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .nav-link-custom::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+            transition: left 0.5s;
+        }
+        
+        .nav-link-custom:hover::before {
+            left: 100%;
         }
         
         .nav-link-custom:hover {
-            background: rgba(255, 255, 255, 0.15);
+            background: rgba(255, 255, 255, 0.2);
             color: white !important;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
         }
         
         .nav-link-custom.active {
-            background: rgba(255, 255, 255, 0.25);
+            background: rgba(255, 255, 255, 0.3);
             color: white !important;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        }
+        
+        .nav-link-custom i {
+            margin-right: 8px;
+            font-size: 1.1rem;
         }
         
         /* 사용자 드롭다운 */
         .user-dropdown {
-            background: rgba(255, 255, 255, 0.2);
-            border-radius: 10px;
-            padding: 8px 15px;
+            background: rgba(255, 255, 255, 0.25);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 12px 24px;
             color: white;
             font-weight: 600;
-            font-size: 1.05rem;
-            transition: all 0.3s ease;
+            font-size: 1rem;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             cursor: pointer;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
         }
         
         .user-dropdown:hover {
-            background: rgba(255, 255, 255, 0.3);
+            background: rgba(255, 255, 255, 0.35);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.15);
         }
         
+        .user-dropdown i {
+            font-size: 1.2rem;
+            margin-right: 8px;
+        }
+        
+        .badge {
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+        
+        /* 드롭다운 메뉴 - Glassmorphism */
         .dropdown-menu {
-            border-radius: 10px;
-            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.15);
-            border: none;
-            margin-top: 10px;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            border-radius: 20px;
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            margin-top: 12px;
+            padding: 12px;
+            min-width: 240px;
         }
         
         .dropdown-item {
-            padding: 10px 20px;
+            padding: 14px 20px;
             font-weight: 500;
-            transition: all 0.2s ease;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            border-radius: 14px;
+            margin: 4px 0;
         }
         
         .dropdown-item:hover {
-            background: #f8f9fa;
-            padding-left: 25px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            transform: translateX(8px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+        }
+        
+        .dropdown-item i {
+            margin-right: 10px;
+            font-size: 1.1rem;
+        }
+        
+        .dropdown-divider {
+            margin: 12px 0;
+            opacity: 0.2;
         }
         
         /* 메인 컨텐츠 영역 */
         .main-content {
-            padding-top: 30px;
-            padding-bottom: 50px;
+            padding: 40px 20px;
+            position: relative;
+            z-index: 1;
         }
         
-        /* 푸터 */
+        /* 푸터 - Glassmorphism */
         .footer {
-            background: white;
-            padding: 20px 0;
-            margin-top: 50px;
-            border-top: 1px solid #e9ecef;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            padding: 30px 0;
+            margin: 40px 20px 20px 20px;
+            border-radius: 24px;
             text-align: center;
-            color: #6c757d;
+            color: white;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
         }
         
-        /* 버튼 공통 스타일 */
-        .btn {
-            border-radius: 8px;
-            padding: 10px 20px;
+        .footer p {
+            margin: 0;
             font-weight: 500;
-            transition: all 0.3s ease;
+            text-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+        }
+        
+        /* 버튼 스타일 */
+        .btn {
+            border-radius: 16px;
+            padding: 12px 28px;
+            font-weight: 600;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            border: none;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .btn::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.3);
+            transform: translate(-50%, -50%);
+            transition: width 0.6s, height 0.6s;
+        }
+        
+        .btn:hover::before {
+            width: 300px;
+            height: 300px;
         }
         
         .btn-primary {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            border: none;
+            box-shadow: 0 4px 16px rgba(102, 126, 234, 0.4);
         }
         
         .btn-primary:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+            transform: translateY(-3px);
+            box-shadow: 0 8px 24px rgba(102, 126, 234, 0.5);
         }
         
-        /* 카드 공통 스타일 */
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.2);
+            backdrop-filter: blur(10px);
+            color: white;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+        }
+        
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: translateY(-3px);
+        }
+        
+        .btn-success {
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+            box-shadow: 0 4px 16px rgba(17, 153, 142, 0.4);
+        }
+        
+        .btn-success:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 24px rgba(17, 153, 142, 0.5);
+        }
+        
+        .btn-danger {
+            background: linear-gradient(135deg, #eb3349 0%, #f45c43 100%);
+            box-shadow: 0 4px 16px rgba(235, 51, 73, 0.4);
+        }
+        
+        .btn-danger:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 24px rgba(235, 51, 73, 0.5);
+        }
+        
+        .btn-warning {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            box-shadow: 0 4px 16px rgba(240, 147, 251, 0.4);
+            color: white;
+        }
+        
+        .btn-warning:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 24px rgba(240, 147, 251, 0.5);
+        }
+        
+        .btn-info {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            box-shadow: 0 4px 16px rgba(79, 172, 254, 0.4);
+        }
+        
+        .btn-info:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 24px rgba(79, 172, 254, 0.5);
+        }
+        
+        /* 카드 스타일 - Glassmorphism */
         .card {
-            border: none;
-            border-radius: 12px;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
-            transition: all 0.3s ease;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 24px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            overflow: hidden;
         }
         
         .card:hover {
-            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.12);
+            transform: translateY(-8px);
+            box-shadow: 0 16px 48px rgba(0, 0, 0, 0.2);
+        }
+        
+        .card-header {
+            background: linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%);
+            border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+            font-weight: 600;
+            padding: 20px 24px;
+        }
+        
+        .card-body {
+            padding: 24px;
+        }
+        
+        .card-footer {
+            background: rgba(248, 249, 250, 0.5);
+            border-top: 1px solid rgba(0, 0, 0, 0.05);
+            padding: 20px 24px;
         }
         
         /* 로딩 스피너 */
@@ -152,172 +371,315 @@
             left: 50%;
             transform: translate(-50%, -50%);
             display: none;
+            z-index: 9999;
         }
         
-        /* 알림 메시지 */
+        .loading-spinner .spinner-border {
+            width: 4rem;
+            height: 4rem;
+            border-width: 0.4rem;
+            border-color: white;
+            border-right-color: transparent;
+        }
+        
+        /* 알림 메시지 - 개선된 스타일 */
         .alert {
-            border-radius: 10px;
+            border-radius: 20px;
             border: none;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+            padding: 20px 24px;
+            font-weight: 500;
         }
         
-        /* 모달 스타일 */
+        .alert-success {
+            background: rgba(17, 153, 142, 0.9);
+            color: white;
+        }
+        
+        .alert-danger {
+            background: rgba(235, 51, 73, 0.9);
+            color: white;
+        }
+        
+        .alert-warning {
+            background: rgba(255, 193, 7, 0.9);
+            color: #333;
+        }
+        
+        .alert-info {
+            background: rgba(79, 172, 254, 0.9);
+            color: white;
+        }
+        
+        /* 모달 스타일 - Glassmorphism */
         .modal-content {
-            border-radius: 15px;
+            border-radius: 28px;
             border: none;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            box-shadow: 0 16px 64px rgba(0, 0, 0, 0.3);
         }
         
         .modal-header {
-            border-bottom: 1px solid #e9ecef;
-            border-radius: 15px 15px 0 0;
-            background: #f8f9fa;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+            border-radius: 28px 28px 0 0;
+            background: linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%);
+            padding: 24px 28px;
+        }
+        
+        .modal-title {
+            font-weight: 700;
+            font-size: 1.4rem;
+        }
+        
+        .modal-body {
+            padding: 28px;
         }
         
         .modal-footer {
-            border-top: 1px solid #e9ecef;
-            border-radius: 0 0 15px 15px;
+            border-top: 1px solid rgba(0, 0, 0, 0.05);
+            border-radius: 0 0 28px 28px;
+            padding: 24px 28px;
+            background: rgba(248, 249, 250, 0.5);
         }
         
         /* 테이블 스타일 */
         .table {
-            border-radius: 10px;
+            border-radius: 20px;
             overflow: hidden;
+            background: white;
         }
         
         .table thead {
-            background: #f8f9fa;
+            background: linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%);
         }
         
         .table thead th {
-            border-bottom: 2px solid #dee2e6;
+            border-bottom: 2px solid rgba(0, 0, 0, 0.05);
+            font-weight: 700;
+            color: #495057;
+            padding: 18px;
+        }
+        
+        .table tbody tr {
+            transition: all 0.3s ease;
+        }
+        
+        .table tbody tr:hover {
+            background: rgba(102, 126, 234, 0.05);
+            transform: scale(1.01);
+        }
+        
+        .table tbody td {
+            padding: 16px 18px;
+            vertical-align: middle;
+        }
+        
+        /* 폼 컨트롤 스타일 */
+        .form-control, .form-select {
+            border-radius: 16px;
+            border: 2px solid rgba(0, 0, 0, 0.1);
+            padding: 12px 20px;
+            transition: all 0.3s ease;
+            background: rgba(255, 255, 255, 0.9);
+        }
+        
+        .form-control:focus, .form-select:focus {
+            border-color: #667eea;
+            box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.1);
+            background: white;
+        }
+        
+        .form-label {
             font-weight: 600;
+            margin-bottom: 10px;
             color: #495057;
         }
         
-        /* 스크롤바 커스텀 */
+        /* 스크롤바 커스텀 - 더 세련되게 */
         ::-webkit-scrollbar {
-            width: 10px;
-            height: 10px;
+            width: 12px;
+            height: 12px;
         }
         
         ::-webkit-scrollbar-track {
-            background: #f1f1f1;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
         }
         
         ::-webkit-scrollbar-thumb {
-            background: #888;
-            border-radius: 5px;
+            background: linear-gradient(135deg, rgba(102, 126, 234, 0.6) 0%, rgba(118, 75, 162, 0.6) 100%);
+            border-radius: 10px;
+            border: 2px solid rgba(255, 255, 255, 0.1);
         }
         
         ::-webkit-scrollbar-thumb:hover {
-            background: #555;
+            background: linear-gradient(135deg, rgba(102, 126, 234, 0.8) 0%, rgba(118, 75, 162, 0.8) 100%);
+        }
+        
+        /* 배지 스타일 */
+        .badge {
+            padding: 8px 16px;
+            border-radius: 12px;
+            font-weight: 600;
+            font-size: 0.85rem;
+        }
+        
+        /* 반응형 디자인 개선 */
+        @media (max-width: 768px) {
+            .navbar-custom {
+                margin: 10px;
+                border-radius: 20px;
+            }
+            
+            .user-dropdown {
+                padding: 10px 16px;
+                font-size: 0.9rem;
+            }
+            
+            .footer {
+                margin: 20px 10px 10px 10px;
+            }
+        }
+        
+        /* 페이지 진입 애니메이션 */
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .main-content > * {
+            animation: fadeInUp 0.6s ease-out;
+        }
+        
+        /* 툴팁 스타일 개선 */
+        .tooltip-inner {
+            background: rgba(0, 0, 0, 0.9);
+            backdrop-filter: blur(10px);
+            border-radius: 12px;
+            padding: 10px 16px;
+            font-weight: 500;
         }
     </style>
     
     {% block head %}{% endblock %}
 </head>
 <body>
-    <!-- 네비게이션 바 (로그인 시에만 표시) -->
-    {% if username %}
-    <nav class="navbar navbar-expand-lg navbar-custom">
-        <div class="container-fluid">
-            <a class="navbar-brand" href="/">
-                <i class="bi bi-grid-3x3-gap-fill"></i>
-                💲S.CORP💲
-            </a>
-            
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-                <span class="navbar-toggler-icon"></span>
-            </button>
-            
-            <div class="collapse navbar-collapse justify-content-center" id="navbarNav">
-                <ul class="navbar-nav mx-auto">
-                    <li class="nav-item">
-                        <a class="nav-link-custom" href="/">
-                            <i class="bi bi-house-door"></i> 홈
-                        </a>
-                    </li>
+    <div class="page-wrapper">
+        <!-- 네비게이션 바 (로그인 시에만 표시) -->
+        {% if username %}
+        <nav class="navbar navbar-expand-lg navbar-custom">
+            <div class="container-fluid">
+                <a class="navbar-brand" href="/">
+                    <i class="bi bi-grid-3x3-gap-fill"></i>
+                    💲S.CORP💲
+                </a>
+                
+                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" style="border: none; box-shadow: none;">
+                    <span style="color: white;"><i class="bi bi-list" style="font-size: 1.8rem;"></i></span>
+                </button>
+                
+                <div class="collapse navbar-collapse justify-content-center" id="navbarNav">
+                    <ul class="navbar-nav mx-auto">
+                        <li class="nav-item">
+                            <a class="nav-link-custom" href="/">
+                                <i class="bi bi-house-door-fill"></i> 홈
+                            </a>
+                        </li>
+                        
+                        <!-- 상품 관리 권한 -->
+                        {% if can_manage_products %}
+                        <li class="nav-item">
+                            <a class="nav-link-custom" href="/products">
+                                <i class="bi bi-box-seam-fill"></i> 상품 관리
+                            </a>
+                        </li>
+                        {% endif %}
+                        
+                        <!-- 마케팅 관리 권한 -->
+                        {% if can_manage_marketing %}
+                        <li class="nav-item">
+                            <a class="nav-link-custom" href="/marketing/cafe">
+                                <i class="bi bi-megaphone-fill"></i> 마케팅 관리
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link-custom" href="/marketing/schedules">
+                                <i class="bi bi-calendar-check-fill"></i> 스케줄 현황
+                            </a>
+                        </li>
+                        {% endif %}
+                        
+                        <!-- 관리자 권한 -->
+                        {% if is_admin %}
+                        <li class="nav-item dropdown">
+                            <a class="nav-link-custom dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
+                                <i class="bi bi-gear-fill"></i> 관리자
+                            </a>
+                            <ul class="dropdown-menu">
+                                <li><a class="dropdown-item" href="/admin/users">
+                                    <i class="bi bi-people-fill"></i> 사용자 관리
+                                </a></li>
+                                <li><a class="dropdown-item" href="/admin/logs">
+                                    <i class="bi bi-clock-history"></i> 로그인 기록
+                                </a></li>
+                            </ul>
+                        </li>
+                        {% endif %}
+                    </ul>
                     
-                    <!-- 상품 관리 권한 -->
-                    {% if can_manage_products %}
-                    <li class="nav-item">
-                        <a class="nav-link-custom" href="/products">
-                            <i class="bi bi-box-seam"></i> 상품 관리
-                        </a>
-                    </li>
-                    {% endif %}
-                    
-                    <!-- 마케팅 관리 권한 -->
-                    {% if can_manage_marketing %}
-                    <li class="nav-item">
-                        <a class="nav-link-custom" href="/marketing/cafe">
-                            <i class="bi bi-megaphone"></i> 마케팅 관리
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link-custom" href="/marketing/schedules">
-                            <i class="bi bi-calendar-check"></i> 스케줄 현황
-                        </a>
-                    </li>
-                    {% endif %}
-                    
-                    <!-- 관리자 권한 -->
-                    {% if is_admin %}
-                    <li class="nav-item dropdown">
-                        <a class="nav-link-custom dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
-                            <i class="bi bi-gear"></i> 관리자
-                        </a>
-                        <ul class="dropdown-menu">
-                            <li><a class="dropdown-item" href="/admin/users">
-                                <i class="bi bi-people"></i> 사용자 관리
+                    <!-- 사용자 정보 -->
+                    <div class="dropdown">
+                        <div class="user-dropdown" data-bs-toggle="dropdown">
+                            <i class="bi bi-person-circle"></i> {{ username }}
+                            {% if is_admin %}
+                            <span class="badge bg-danger ms-2">ADMIN</span>
+                            {% endif %}
+                        </div>
+                        <ul class="dropdown-menu dropdown-menu-end">
+                            <li><a class="dropdown-item" href="/change-password">
+                                <i class="bi bi-key-fill"></i> 비밀번호 변경
                             </a></li>
-                            <li><a class="dropdown-item" href="/admin/logs">
-                                <i class="bi bi-clock-history"></i> 로그인 기록
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item text-danger" href="/logout">
+                                <i class="bi bi-box-arrow-right"></i> 로그아웃
                             </a></li>
                         </ul>
-                    </li>
-                    {% endif %}
-                </ul>
-                
-                <!-- 사용자 정보 -->
-                <div class="dropdown">
-                    <div class="user-dropdown" data-bs-toggle="dropdown">
-                        <i class="bi bi-person-circle"></i> {{ username }}
-                        {% if is_admin %}
-                        <span class="badge bg-danger ms-2">ADMIN</span>
-                        {% endif %}
                     </div>
-                    <ul class="dropdown-menu dropdown-menu-end">
-                        <li><a class="dropdown-item" href="/change-password">
-                            <i class="bi bi-key"></i> 비밀번호 변경
-                        </a></li>
-                        <li><hr class="dropdown-divider"></li>
-                        <li><a class="dropdown-item text-danger" href="/logout">
-                            <i class="bi bi-box-arrow-right"></i> 로그아웃
-                        </a></li>
-                    </ul>
                 </div>
             </div>
-        </div>
-    </nav>
-    {% endif %}
-    
-    <!-- 메인 컨텐츠 -->
-    <main class="main-content">
-        {% block content %}{% endblock %}
-    </main>
-    
-    <!-- 푸터 (로그인 시에만 표시) -->
-    {% if username %}
-    <footer class="footer">
-        <div class="container">
-            <p class="mb-0">© 2025 관리 시스템. All rights reserved.</p>
-        </div>
-    </footer>
-    {% endif %}
+        </nav>
+        {% endif %}
+        
+        <!-- 메인 컨텐츠 -->
+        <main class="main-content">
+            {% block content %}{% endblock %}
+        </main>
+        
+        <!-- 푸터 (로그인 시에만 표시) -->
+        {% if username %}
+        <footer class="footer">
+            <div class="container">
+                <p class="mb-0">
+                    <i class="bi bi-heart-fill" style="color: #ff6b9d;"></i>
+                    © 2025 관리 시스템. All rights reserved.
+                    <i class="bi bi-heart-fill" style="color: #ff6b9d;"></i>
+                </p>
+            </div>
+        </footer>
+        {% endif %}
+    </div>
     
     <!-- 로딩 스피너 -->
     <div class="loading-spinner">
-        <div class="spinner-border text-primary" role="status">
+        <div class="spinner-border" role="status">
             <span class="visually-hidden">Loading...</span>
         </div>
     </div>
@@ -349,6 +711,16 @@
                     const bsAlert = new bootstrap.Alert(alert);
                     bsAlert.close();
                 }, 5000);
+            });
+        });
+        
+        // 현재 페이지 네비게이션 활성화
+        document.addEventListener('DOMContentLoaded', function() {
+            const currentPath = window.location.pathname;
+            document.querySelectorAll('.nav-link-custom').forEach(link => {
+                if (link.getAttribute('href') === currentPath) {
+                    link.classList.add('active');
+                }
             });
         });
     </script>
