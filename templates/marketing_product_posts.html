@@ -68,19 +68,26 @@
     
     /* 모달 최대 높이 설정 및 스크롤 보장 */
     
-    /* 모달 스크롤 개선 - 락 방지 */
+    /* ========================================
+       🔥 모달 락 방지 - 최우선 적용
+       ======================================== */
     .modal {
         overflow-x: hidden !important;
         overflow-y: auto !important;
     }
     
     .modal-open {
-        overflow: auto !important; /* ✅ hidden → auto */
+        overflow: auto !important;
         padding-right: 0 !important;
     }
     
     body.modal-open {
-        overflow: auto !important; /* ✅ 스크롤 가능하게 */
+        overflow: auto !important;
+        padding-right: 0 !important;
+    }
+    
+    html.modal-open {
+        overflow: auto !important;
     }
     
     /* 모달 내부 스크롤 */
@@ -418,22 +425,63 @@
     }
     
     
-    /* 테이블 셀 가로 표시 강제 */
+    /* ========================================
+       🔥 테이블 셀 가로 표시 강제 (최우선 적용)
+       ======================================== */
+    .table,
+    .table *,
+    .table tbody,
+    .table tbody tr,
     .table tbody td,
+    .table thead,
+    .table thead tr,
     .table thead th {
         writing-mode: horizontal-tb !important;
+        -webkit-writing-mode: horizontal-tb !important;
+        -ms-writing-mode: lr-tb !important;
         text-orientation: mixed !important;
+        direction: ltr !important;
+    }
+    
+    /* 테이블 셀 기본 스타일 */
+    .table tbody td,
+    .table thead th {
         white-space: normal !important;
         word-break: break-word !important;
         vertical-align: middle !important;
+        text-align: left !important;
+        display: table-cell !important;
     }
     
-    /* 작성 카페 열 특별 처리 */
+    /* 상태 열 (이모지) */
+    .table tbody td:nth-child(1) {
+        text-align: center !important;
+        width: 5% !important;
+    }
+    
+    /* 작성 카페 열 */
     .table tbody td:nth-child(4) {
         max-width: 200px;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
+    }
+    
+    /* 관리 열 - 버튼 가로 배치 */
+    .table tbody td:last-child {
+        text-align: center !important;
+        white-space: nowrap !important;
+    }
+    
+    .table tbody td:last-child .btn {
+        display: inline-block !important;
+        margin: 0 3px !important;
+        vertical-align: middle !important;
+    }
+    
+    .table tbody td:last-child form {
+        display: inline-block !important;
+        margin: 0 !important;
     }
 
     .table tbody td {
@@ -721,10 +769,10 @@
                                 <td>{{ post.account.account_id if post.account else 'N/A' }}</td>
                                 <td>{{ post.cafe.name if post.cafe else 'N/A' }}</td>
                                 <td>{{ post.worker.username if post.worker else 'N/A' }}</td>
-                                <td class="text-center">
-                                    <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#editPostModal-{{ post.id }}">수정</button>
-                                    <form action="/marketing/post/delete/{{ post.id }}" method="post" class="d-inline" onsubmit="return confirm('이 글을 정말 삭제하시겠습니까?');">
-                                        <button type="submit" class="btn btn-sm btn-outline-danger">삭제</button>
+                                <td class="text-center" style="white-space: nowrap !important;">
+                                    <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#editPostModal-{{ post.id }}" style="display: inline-block !important; margin-right: 5px !important;">수정</button>
+                                    <form action="/marketing/post/delete/{{ post.id }}" method="post" style="display: inline-block !important; margin: 0 !important;" onsubmit="return confirm('이 글을 정말 삭제하시겠습니까?');">
+                                        <button type="submit" class="btn btn-sm btn-outline-danger" style="display: inline-block !important;">삭제</button>
                                     </form>
                                 </td>
                             </tr>
@@ -1001,6 +1049,20 @@
 </div>
 
 <script>
+// 🔥 전역 오류 무시 (네이버 스크립트 오류 방지)
+window.addEventListener('error', function(e) {
+    // 네이버 관련 스크립트 오류 무시
+    if (e.filename && (
+        e.filename.includes('naver') || 
+        e.filename.includes('web-client') ||
+        e.filename.includes('contents.js')
+    )) {
+        console.log('⚠️ 네이버 스크립트 오류 무시:', e.message);
+        e.preventDefault();
+        return true;
+    }
+});
+
 // Python에서 전달받은 '계정-카페' 연동 맵
 const membershipMap = {{ membership_map | tojson | safe }};
 
