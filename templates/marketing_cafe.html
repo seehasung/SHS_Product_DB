@@ -259,9 +259,9 @@
                                         <option value="graduated" {{ 'selected' if membership.status == 'graduated' }}>졸업</option>
                                     </select>
                                 </td>
-                                <td><button type="submit" class="btn btn-sm btn-outline-primary">저장</button></td>
+                                <td style="white-space: nowrap;"><button type="submit" class="btn btn-sm btn-outline-primary">저장</button></td>
                             </form>
-                            <td>
+                            <td style="white-space: nowrap;">
                                 <form action="/marketing/membership/delete/{{ membership.id }}" method="post" style="display:inline;" onsubmit="return confirm('정말로 이 연동을 삭제하시겠습니까?');">
                                     <button type="submit" class="btn btn-sm btn-outline-danger">삭제</button>
                                 </form>

@@ -1095,10 +1095,11 @@ async def get_product_posts(
     membership_map = {}
     for membership in all_memberships:
         if membership.status == 'active':
-            if membership.account_id not in membership_map:
-                membership_map[membership.account_id] = []
+            account_key = str(membership.account_id)  # 문자열로 변환
+            if account_key not in membership_map:
+                membership_map[account_key] = []
             if membership.cafe:
-                membership_map[membership.account_id].append({"id": membership.cafe.id, "name": membership.cafe.name})
+                membership_map[account_key].append({"id": membership.cafe.id, "name": membership.cafe.name})
     
     return templates.TemplateResponse("marketing_product_posts.html", {
         "request": request,

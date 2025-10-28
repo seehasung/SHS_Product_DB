@@ -637,12 +637,16 @@ function updateCafeDropdown(accountSelectElement, cafeSelectId) {
     const cafeSelect = document.getElementById(cafeSelectId);
     const selectedAccountId = accountSelectElement.value;
     
+    console.log('=== updateCafeDropdown 디버깅 ===');
+    console.log('선택된 계정 ID:', selectedAccountId, typeof selectedAccountId);
+    console.log('membershipMap:', membershipMap);
+    
     cafeSelect.innerHTML = '<option value="" disabled selected>계정을 먼저 선택하세요</option>';
     cafeSelect.disabled = true;
 
-    // account_id를 문자열과 숫자 모두 확인
-    const accountIdNum = parseInt(selectedAccountId);
-    const cafes = membershipMap[selectedAccountId] || membershipMap[accountIdNum];
+    // 문자열로 검색 (select의 value는 항상 문자열)
+    const cafes = membershipMap[selectedAccountId];
+    console.log('찾은 카페 목록:', cafes);
     
     if (cafes && cafes.length > 0) {
         cafeSelect.disabled = false;
@@ -654,6 +658,9 @@ function updateCafeDropdown(accountSelectElement, cafeSelectId) {
             option.textContent = cafe.name;
             cafeSelect.appendChild(option);
         });
+        console.log('카페 옵션 추가 완료:', cafes.length + '개');
+    } else {
+        console.log('카페 목록이 없거나 비어있습니다');
     }
 }
 
@@ -680,6 +687,10 @@ function filterReferences(typeSelect, titleSelectId) {
     const selectedType = typeSelect.value;
     const titleSelect = document.getElementById(titleSelectId);
     
+    console.log('=== filterReferences 디버깅 ===');
+    console.log('선택된 분류:', selectedType);
+    console.log('allReferences:', allReferences);
+    
     // 현재 선택된 값 저장
     const currentValue = titleSelect.value;
     
@@ -687,6 +698,7 @@ function filterReferences(typeSelect, titleSelectId) {
     titleSelect.innerHTML = '<option value="" selected>제목 선택...</option>';
     
     // allReferences에서 필터링하여 옵션 추가
+    let addedCount = 0;
     allReferences.forEach(ref => {
         if (selectedType === "" || ref.ref_type === selectedType) {
             const option = document.createElement('option');
@@ -694,14 +706,17 @@ function filterReferences(typeSelect, titleSelectId) {
             option.textContent = ref.title;
             option.setAttribute('data-ref-type', ref.ref_type);
             titleSelect.appendChild(option);
+            addedCount++;
         }
     });
+    console.log('추가된 옵션 수:', addedCount);
     
     // 이전 선택값이 필터링 후에도 존재하면 복원
     if (currentValue) {
         const optionExists = titleSelect.querySelector(`option[value="${currentValue}"]`);
         if (optionExists) {
             titleSelect.value = currentValue;
+            console.log('이전 선택값 복원:', currentValue);
         }
     }
 }
