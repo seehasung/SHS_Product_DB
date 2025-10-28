@@ -607,15 +607,15 @@ const allReferences = [
         {% for ref in refs %}
         {
             "id": {{ ref.id }},
-            "title": "{{ ref.title | e }}",
-            "content": `{{ ref.content | e }}`,
-            "ref_type": "{{ ref.ref_type }}",
+            "title": {{ ref.title | tojson }},
+            "content": {{ ref.content | tojson }},
+            "ref_type": {{ ref.ref_type | tojson }},
             "comments": [
                 {% for comment in ref.comments %}
                 {
                     "id": {{ comment.id }},
                     "account_sequence": {{ comment.account_sequence }},
-                    "text": `{{ comment.text | e }}`,
+                    "text": {{ comment.text | tojson }},
                     "parent_id": {{ comment.parent_id or 'null' }}
                 }{% if not loop.last %},{% endif %}
                 {% endfor %}
