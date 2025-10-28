@@ -4,47 +4,428 @@
 {% block head %}
 {{ super() }}
 <style>
-  /* ▼▼▼ 계정 순번 '뱃지' 스타일로 수정 ▼▼▼ */
-  .account-badge {
-    padding: 0.3em 0.65em; /* 뱃지 크기 */
-    font-size: 0.75em;     /* 뱃지 안 글씨 크기 */
-    font-weight: 700;
-    line-height: 1;
-    color: #fff;           /* 텍스트 흰색 */
-    text-align: center;
-    border-radius: 10rem;  /* 둥근 모서리 */
-    display: inline-block;
-    margin-right: 6px;
-    vertical-align: middle;
-  }
-  .dot-0 { background-color: #66d9e8; color: #212529;} /* 작성자 (민트) - 텍스트 검은색 */
-  .dot-1 { background-color: #fa5252; } /* 계정 1 (빨강) */
-  .dot-2 { background-color: #fd7e14; } /* 계정 2 (주황) */
-  .dot-3 { background-color: #fcc419; color: #212529;} /* 계정 3 (노랑) - 텍스트 검은색 */
-  .dot-4 { background-color: #40c057; } /* 계정 4 (초록) */
-  .dot-5 { background-color: #228be6; } /* 계정 5 (파랑) */
-  .dot-6 { background-color: #364fc7; } /* 계정 6 (남색) */
-  .dot-7 { background-color: #7048e8; } /* 계정 7 (보라) */
-  .dot-8 { background-color: #f06595; } /* 계정 8 (핑크) */
-  /* ▲▲▲ 계정 순번 '뱃지' 스타일로 수정 ▲▲▲ */
+    /* ========================================
+       🔥 모달 락 방지 - 전역 적용
+       ======================================== */
+    .modal {
+        overflow-x: hidden !important;
+        overflow-y: auto !important;
+    }
+    
+    .modal-open {
+        overflow: auto !important;
+        padding-right: 0 !important;
+    }
+    
+    body.modal-open {
+        overflow: auto !important;
+    }
+    
+    /* 모달 내부 스크롤 */
+    .modal-body {
+        max-height: calc(100vh - 250px);
+        overflow-y: auto;
+    }
+    
+    /* 모달 대화상자 최적화 */
+    .modal-dialog {
+        max-height: 90vh;
+        margin: 1.75rem auto;
+    }
+    
+    .modal-content {
+        max-height: 90vh;
+        display: flex;
+        flex-direction: column;
+    }
 
-  /* (기존 레퍼런스 뱃지 스타일은 그대로 유지) */
-  .ref-badge {
-    display: inline-block;
-    padding: 0.35em 0.65em;
-    font-size: .75em;
-    font-weight: 700;
-    line-height: 1;
-    color: #fff;
-    text-align: center;
-    white-space: nowrap;
-    vertical-align: baseline;
-    border-radius: 0.25rem;
-  }
-  .ref-대안 { background-color: #fa5252; } /* 빨강 */
-  .ref-정보 { background-color: #228be6; } /* 파랑 */
-  .ref-기타 { background-color: #40c057; } /* 초록 */
-  .ref-미지정 { background-color: #868e96; } /* 회색 */
+    /* ========================================
+       페이지 스타일
+       ======================================== */
+    .container {
+        max-width: 1400px;
+        padding: 20px;
+    }
+    
+    /* 페이지 헤더 */
+    .page-header {
+        background: linear-gradient(135deg, #4A90E2 0%, #5BA3F5 100%);
+        color: white;
+        border-radius: 15px;
+        padding: 20px 25px;
+        margin-bottom: 25px;
+        box-shadow: 0 8px 30px rgba(74, 144, 226, 0.3);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 15px;
+    }
+    
+    .page-header h1 {
+        font-size: 1.6rem;
+        font-weight: 700;
+        margin: 0;
+        color: white;
+    }
+    
+    .page-header .btn-group {
+        gap: 10px;
+        display: flex;
+    }
+    
+    /* 카드 스타일 */
+    .card {
+        border-radius: 12px;
+        border: none;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+        transition: all 0.3s ease;
+        margin-bottom: 20px;
+        height: 100%;
+    }
+    
+    .card:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.12);
+    }
+    
+    .card-header {
+        background: linear-gradient(135deg, #4A90E2 0%, #5BA3F5 100%);
+        color: white;
+        border-radius: 12px 12px 0 0 !important;
+        padding: 15px 20px;
+        font-weight: 600;
+        border: none;
+        font-size: 1.1rem;
+    }
+    
+    .card-header h3,
+    .card-header h4 {
+        margin: 0;
+        font-size: 1.1rem;
+        color: white;
+    }
+    
+    .card-body {
+        padding: 20px;
+    }
+    
+    /* 폼 스타일 */
+    .form-label {
+        font-weight: 600;
+        color: #495057;
+        margin-bottom: 8px;
+        font-size: 0.9rem;
+    }
+    
+    .form-control,
+    .form-select {
+        border-radius: 8px;
+        border: 1px solid #dee2e6;
+        padding: 10px 15px;
+        transition: all 0.3s ease;
+        font-size: 0.95rem;
+    }
+    
+    .form-control:focus,
+    .form-select:focus {
+        border-color: #4A90E2;
+        box-shadow: 0 0 0 0.2rem rgba(74, 144, 226, 0.25);
+    }
+    
+    textarea.form-control {
+        resize: vertical;
+        min-height: 150px;
+    }
+    
+    /* 버튼 스타일 */
+    .btn {
+        border-radius: 8px;
+        padding: 8px 16px;
+        font-weight: 600;
+        transition: all 0.3s ease;
+        border: none;
+        font-size: 0.9rem;
+    }
+    
+    .btn-sm {
+        padding: 5px 12px;
+        font-size: 0.85rem;
+    }
+    
+    .btn-primary {
+        background: linear-gradient(135deg, #4A90E2 0%, #5BA3F5 100%);
+        color: white;
+        box-shadow: 0 4px 12px rgba(74, 144, 226, 0.3);
+    }
+    
+    .btn-primary:hover {
+        background: linear-gradient(135deg, #3A7BC8 0%, #4A90E2 100%);
+        transform: translateY(-2px);
+        box-shadow: 0 6px 18px rgba(74, 144, 226, 0.4);
+    }
+    
+    .btn-success {
+        background: linear-gradient(135deg, #40c057 0%, #51cf66 100%);
+        color: white;
+        box-shadow: 0 4px 12px rgba(64, 192, 87, 0.3);
+    }
+    
+    .btn-success:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 18px rgba(64, 192, 87, 0.4);
+    }
+    
+    .btn-secondary {
+        background: #636e72;
+        color: white;
+    }
+    
+    .btn-secondary:hover {
+        background: #2d3436;
+        transform: translateY(-2px);
+    }
+    
+    .btn-danger {
+        background: linear-gradient(135deg, #fa5252 0%, #ff6b6b 100%);
+        color: white;
+        box-shadow: 0 4px 12px rgba(250, 82, 82, 0.3);
+    }
+    
+    .btn-danger:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 18px rgba(250, 82, 82, 0.4);
+    }
+    
+    .btn-outline-secondary,
+    .btn-outline-info,
+    .btn-outline-danger,
+    .btn-outline-primary {
+        border: 2px solid;
+        background: white;
+        transition: all 0.3s ease;
+    }
+    
+    .btn-outline-secondary {
+        border-color: #636e72;
+        color: #636e72;
+    }
+    
+    .btn-outline-secondary:hover {
+        background: #636e72;
+        color: white;
+        transform: translateY(-2px);
+    }
+    
+    .btn-outline-info {
+        border-color: #4A90E2;
+        color: #4A90E2;
+    }
+    
+    .btn-outline-info:hover {
+        background: #4A90E2;
+        color: white;
+        transform: translateY(-2px);
+    }
+    
+    .btn-outline-danger {
+        border-color: #fa5252;
+        color: #fa5252;
+    }
+    
+    .btn-outline-danger:hover {
+        background: #fa5252;
+        color: white;
+        transform: translateY(-2px);
+    }
+    
+    .btn-outline-primary {
+        border-color: #4A90E2;
+        color: #4A90E2;
+    }
+    
+    .btn-outline-primary:hover {
+        background: #4A90E2;
+        color: white;
+        transform: translateY(-2px);
+    }
+    
+    /* 계정 순번 뱃지 */
+    .account-badge {
+        padding: 0.4em 0.75em;
+        font-size: 0.8em;
+        font-weight: 700;
+        line-height: 1;
+        color: #fff;
+        text-align: center;
+        border-radius: 20px;
+        display: inline-block;
+        margin-right: 8px;
+        vertical-align: middle;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    }
+    
+    .dot-0 { background-color: #66d9e8; color: #212529; }
+    .dot-1 { background-color: #fa5252; }
+    .dot-2 { background-color: #fd7e14; }
+    .dot-3 { background-color: #fcc419; color: #212529; }
+    .dot-4 { background-color: #40c057; }
+    .dot-5 { background-color: #228be6; }
+    .dot-6 { background-color: #364fc7; }
+    .dot-7 { background-color: #7048e8; }
+    .dot-8 { background-color: #f06595; }
+    
+    /* 레퍼런스 분류 뱃지 */
+    .ref-badge {
+        display: inline-block;
+        padding: 0.4em 0.75em;
+        font-size: 0.8em;
+        font-weight: 700;
+        line-height: 1;
+        color: #fff;
+        text-align: center;
+        white-space: nowrap;
+        vertical-align: middle;
+        border-radius: 20px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    }
+    
+    .ref-대안 { background-color: #fa5252; }
+    .ref-정보 { background-color: #228be6; }
+    .ref-기타 { background-color: #40c057; }
+    .ref-미지정 { background-color: #868e96; }
+    
+    /* 댓글 카드 */
+    .comment-card {
+        background: #f8f9fa;
+        border-radius: 10px;
+        padding: 15px;
+        margin-bottom: 12px;
+        border: 1px solid #e9ecef;
+        transition: all 0.3s ease;
+    }
+    
+    .comment-card:hover {
+        background: #e9ecef;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+    }
+    
+    .comment-card .card-text {
+        color: #495057;
+        line-height: 1.6;
+        margin-bottom: 12px;
+        word-break: break-word;
+    }
+    
+    .comment-actions {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+    }
+    
+    .comment-actions .btn-group {
+        display: flex;
+        gap: 6px;
+    }
+    
+    /* 댓글 폼 */
+    .comment-form {
+        background: #f8f9fa;
+        border-radius: 10px;
+        padding: 15px;
+        margin-bottom: 20px;
+        border: 2px solid #e9ecef;
+    }
+    
+    .input-group {
+        display: flex;
+        gap: 10px;
+    }
+    
+    .input-group .form-select {
+        max-width: 140px;
+        flex-shrink: 0;
+    }
+    
+    .input-group textarea {
+        flex: 1;
+    }
+    
+    /* 답글 영역 */
+    .collapse {
+        margin-top: 15px;
+    }
+    
+    /* 댓글 목록 */
+    .comment-list {
+        list-style: none;
+        padding-left: 0;
+    }
+    
+    .comment-list > li {
+        margin-bottom: 15px;
+    }
+    
+    .comment-list .list-unstyled {
+        padding-left: 30px;
+        border-left: 3px solid #e9ecef;
+        margin-top: 10px;
+    }
+    
+    .comment-number {
+        background: linear-gradient(135deg, #4A90E2 0%, #5BA3F5 100%);
+        color: white;
+        width: 35px;
+        height: 35px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 700;
+        font-size: 1rem;
+        flex-shrink: 0;
+        box-shadow: 0 2px 8px rgba(74, 144, 226, 0.3);
+    }
+    
+    /* 스크롤바 스타일 */
+    .comment-scroll::-webkit-scrollbar {
+        width: 8px;
+    }
+    
+    .comment-scroll::-webkit-scrollbar-track {
+        background: #f1f1f1;
+        border-radius: 10px;
+    }
+    
+    .comment-scroll::-webkit-scrollbar-thumb {
+        background: #888;
+        border-radius: 10px;
+    }
+    
+    .comment-scroll::-webkit-scrollbar-thumb:hover {
+        background: #555;
+    }
+    
+    /* 반응형 */
+    @media (max-width: 768px) {
+        .page-header {
+            padding: 15px;
+        }
+        
+        .page-header h1 {
+            font-size: 1.3rem;
+        }
+        
+        .card-body {
+            padding: 15px;
+        }
+        
+        .comment-list .list-unstyled {
+            padding-left: 15px;
+        }
+    }
 </style>
 {% endblock %}
 
@@ -52,49 +433,59 @@
     <ul class="list-unstyled ps-4">
         {% for comment in comments %}
         <li class="mt-3">
-            <div class="card bg-light">
-                <div class="card-body">
-                    <p class="card-text">
-                        <!-- ▼▼▼ 텍스트를 뱃지 안으로 이동 ▼▼▼ -->
-                        <span class="account-badge dot-{{ comment.account_sequence }}">
-                            {% if comment.account_sequence == 0 %}
-                                작성자
-                            {% else %}
-                                계정 {{ comment.account_sequence }}
-                            {% endif %}
-                        </span>
-                        <!-- ▲▲▲ 텍스트를 뱃지 안으로 이동 ▲▲▲ -->
-                        {{ comment.text | replace('\n', '<br>') | safe }}
-                    </p>
-                    <div class="d-flex justify-content-between align-items-center">
-                        <small class="text-muted">{{ comment.created_at.strftime('%Y-%m-%d %H:%M') }}</small>
-                        <div>
-                            <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="collapse" href="#reply-form-{{ comment.id }}">답글</button>
-                            <button class="btn btn-sm btn-outline-info" data-bs-toggle="modal" data-bs-target="#editCommentModal"
-                                    data-bs-comment-id="{{ comment.id }}"
-                                    data-bs-comment-text="{{ comment.text }}"
-                                    data-bs-account-sequence="{{ comment.account_sequence }}">수정</button>
-                            <form action="/marketing/comment/delete/{{ ref_id }}/{{ comment.id }}" method="post" class="d-inline" onsubmit="return confirm('이 댓글을 정말 삭제하시겠습니까?');">
-                                <button type="submit" class="btn btn-sm btn-outline-danger">삭제</button>
-                            </form>
-                        </div>
+            <div class="comment-card">
+                <p class="card-text">
+                    <span class="account-badge dot-{{ comment.account_sequence }}">
+                        {% if comment.account_sequence == 0 %}
+                            작성자
+                        {% else %}
+                            계정 {{ comment.account_sequence }}
+                        {% endif %}
+                    </span>
+                    {{ comment.text | replace('\n', '<br>') | safe }}
+                </p>
+                <div class="comment-actions">
+                    <small class="text-muted">
+                        <i class="bi bi-clock"></i> {{ comment.created_at.strftime('%Y-%m-%d %H:%M') }}
+                    </small>
+                    <div class="btn-group">
+                        <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="collapse" href="#reply-form-{{ comment.id }}">
+                            <i class="bi bi-reply"></i> 답글
+                        </button>
+                        <button class="btn btn-sm btn-outline-info" data-bs-toggle="modal" data-bs-target="#editCommentModal"
+                                data-bs-comment-id="{{ comment.id }}"
+                                data-bs-comment-text="{{ comment.text }}"
+                                data-bs-account-sequence="{{ comment.account_sequence }}">
+                            <i class="bi bi-pencil"></i> 수정
+                        </button>
+                        <form action="/marketing/comment/delete/{{ ref_id }}/{{ comment.id }}" method="post" class="d-inline" onsubmit="return confirm('이 댓글을 정말 삭제하시겠습니까?');">
+                            <button type="submit" class="btn btn-sm btn-outline-danger">
+                                <i class="bi bi-trash"></i> 삭제
+                            </button>
+                        </form>
                     </div>
-                    <!-- (답글 폼은 그대로 유지) -->
-                    <div class="collapse mt-3" id="reply-form-{{ comment.id }}">
+                </div>
+                
+                <!-- 답글 폼 -->
+                <div class="collapse" id="reply-form-{{ comment.id }}">
+                    <div class="comment-form mt-3">
                         <form action="/marketing/comment/add/{{ ref_id }}" method="post">
                             <input type="hidden" name="parent_id" value="{{ comment.id }}">
-                            <div class="input-group">
-                                <select name="account_sequence" class="form-select" style="max-width: 120px;">
+                            <div class="input-group mb-2">
+                                <select name="account_sequence" class="form-select">
                                     <option value="0">작성자</option>
                                     {% for i in range(1, 9) %}<option value="{{ i }}">계정 {{ i }}</option>{% endfor %}
                                 </select>
-                                <textarea name="text" class="form-control" rows="2" required></textarea>
+                                <textarea name="text" class="form-control" rows="2" placeholder="답글을 입력하세요..." required></textarea>
                             </div>
-                            <button type="submit" class="btn btn-sm btn-primary mt-2">답글 등록</button>
+                            <button type="submit" class="btn btn-sm btn-primary">
+                                <i class="bi bi-send"></i> 답글 등록
+                            </button>
                         </form>
                     </div>
                 </div>
             </div>
+            
             {% if comment.structured_replies %}
                 {{ render_comments(comment.structured_replies, ref_id) }}
             {% endif %}
@@ -105,31 +496,45 @@
 
 {% block content %}
 <div class="container mt-4">
-    <!-- (페이지 상단은 그대로 유지) -->
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <h1>📝 레퍼런스 상세 정보</h1>
-        <div>
-             <a href="/marketing/cafe?tab=references" class="btn btn-secondary">← 목록으로</a>
-             <form action="/marketing/reference/delete/{{ reference.id }}" method="post" class="d-inline" onsubmit="return confirm('이 레퍼런스를 정말 삭제하시겠습니까?');">
-                 <button type="submit" class="btn btn-danger">삭제</button>
-             </form>
+    <!-- 페이지 헤더 -->
+    <div class="page-header">
+        <h1><i class="bi bi-file-text"></i> 레퍼런스 상세 정보</h1>
+        <div class="btn-group">
+            <a href="/marketing/cafe?tab=references" class="btn btn-secondary">
+                <i class="bi bi-arrow-left"></i> 목록으로
+            </a>
+            <form action="/marketing/reference/delete/{{ reference.id }}" method="post" class="d-inline" onsubmit="return confirm('이 레퍼런스를 정말 삭제하시겠습니까?');">
+                <button type="submit" class="btn btn-danger">
+                    <i class="bi bi-trash"></i> 삭제
+                </button>
+            </form>
         </div>
     </div>
 
-    <!-- (좌우 레이아웃 및 본문 수정 폼은 그대로 유지) -->
+    <!-- 본문 수정 & 댓글 관리 -->
     <div class="row g-4">
-        <div class="col-md-6">
-            <div class="card shadow-sm h-100">
-                <div class="card-header"><h3>본문 수정</h3></div>
+        <!-- 본문 수정 -->
+        <div class="col-lg-6">
+            <div class="card">
+                <div class="card-header">
+                    <h3><i class="bi bi-pencil-square"></i> 본문 수정</h3>
+                </div>
                 <div class="card-body">
                     <form action="/marketing/reference/update/{{ reference.id }}" method="post">
                         <div class="row">
                             <div class="col-md-9 mb-3">
-                                <label for="title" class="form-label">제목</label>
-                                <input type="text" class="form-control" id="title" name="title" value="{{ reference.title }}" required>
+                                <label for="title" class="form-label">
+                                    <i class="bi bi-card-heading"></i> 제목
+                                </label>
+                                <input type="text" class="form-control" id="title" name="title" value="{{ reference.title }}" placeholder="레퍼런스 제목을 입력하세요" required>
                             </div>
                             <div class="col-md-3 mb-3">
-                                <label for="ref_type" class="form-label">분류 <span class="ref-badge ref-{{ reference.ref_type or '기타' }}">{{ reference.ref_type or '미지정' }}</span></label>
+                                <label for="ref_type" class="form-label">
+                                    <i class="bi bi-tag"></i> 분류
+                                    <span class="ref-badge ref-{{ reference.ref_type or '기타' }}">
+                                        {{ reference.ref_type or '미지정' }}
+                                    </span>
+                                </label>
                                 <select id="ref_type" name="ref_type" class="form-select">
                                     <option value="대안" {{ 'selected' if reference.ref_type == '대안' }}>대안</option>
                                     <option value="정보" {{ 'selected' if reference.ref_type == '정보' }}>정보</option>
@@ -137,85 +542,120 @@
                                 </select>
                             </div>
                         </div>
+                        
                         <div class="mb-3">
-                            <label for="content" class="form-label">본문</label>
-                            <textarea class="form-control" id="content" name="content" rows="15">{{ reference.content }}</textarea>
+                            <label for="content" class="form-label">
+                                <i class="bi bi-text-paragraph"></i> 본문
+                            </label>
+                            <textarea class="form-control" id="content" name="content" rows="15" placeholder="레퍼런스 본문을 입력하세요">{{ reference.content }}</textarea>
                         </div>
-                        <button type="submit" class="btn btn-primary">본문 저장</button>
-                        {% if reference.last_modified_by %}
-                        <span class="ms-3 text-muted small">
-                            마지막 수정: {{ reference.last_modified_by.username }}
-                        </span>
-                        {% endif %}
+                        
+                        <div class="d-flex justify-content-between align-items-center">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-check-circle"></i> 본문 저장
+                            </button>
+                            {% if reference.last_modified_by %}
+                            <span class="text-muted small">
+                                <i class="bi bi-person"></i> 마지막 수정: <strong>{{ reference.last_modified_by.username }}</strong>
+                            </span>
+                            {% endif %}
+                        </div>
                     </form>
                 </div>
             </div>
         </div>
 
-        <!-- (댓글 관리 부분은 그대로 유지) -->
-        <div class="col-md-6">
-            <div class="card shadow-sm h-100">
-                <div class="card-header"><h4>댓글 관리</h4></div>
-                <div class="card-body" style="max-height: 600px; overflow-y: auto;">
-                    <!-- (새 최상위 댓글 폼은 그대로 유지) -->
-                    <form action="/marketing/comment/add/{{ reference.id }}" method="post" class="mb-4">
-                        <div class="mb-2">
-                            <label class="form-label">새 댓글 추가</label>
-                            <div class="input-group">
-                                <select name="account_sequence" class="form-select" style="max-width: 120px;">
-                                    <option value="0">작성자</option>
-                                    {% for i in range(1, 9) %}<option value="{{ i }}">계정 {{ i }}</option>{% endfor %}
-                                </select>
-                                <textarea class="form-control" name="text" rows="3" required></textarea>
+        <!-- 댓글 관리 -->
+        <div class="col-lg-6">
+            <div class="card">
+                <div class="card-header">
+                    <h4><i class="bi bi-chat-dots"></i> 댓글 관리</h4>
+                </div>
+                <div class="card-body comment-scroll" style="max-height: 650px; overflow-y: auto;">
+                    <!-- 새 댓글 추가 -->
+                    <div class="comment-form">
+                        <form action="/marketing/comment/add/{{ reference.id }}" method="post">
+                            <div class="mb-2">
+                                <label class="form-label fw-bold">
+                                    <i class="bi bi-plus-circle"></i> 새 댓글 추가
+                                </label>
+                                <div class="input-group mb-2">
+                                    <select name="account_sequence" class="form-select">
+                                        <option value="0">작성자</option>
+                                        {% for i in range(1, 9) %}<option value="{{ i }}">계정 {{ i }}</option>{% endfor %}
+                                    </select>
+                                    <textarea class="form-control" name="text" rows="3" placeholder="댓글을 입력하세요..." required></textarea>
+                                </div>
                             </div>
-                        </div>
-                        <button type="submit" class="btn btn-success">댓글 등록</button>
-                    </form>
+                            <button type="submit" class="btn btn-success">
+                                <i class="bi bi-send"></i> 댓글 등록
+                            </button>
+                        </form>
+                    </div>
+                    
                     <hr>
-                    <!-- (댓글 목록 부분은 그대로 유지) -->
-                    <ol class="list-unstyled">
+                    
+                    <!-- 댓글 목록 -->
+                    {% if comments %}
+                    <ol class="comment-list">
                         {% for comment in comments %}
-                        <li class="mb-3">
-                            <div class="d-flex">
-                                <span class="me-3 fs-5 fw-bold text-primary">{{ loop.index }}.</span>
-                                <div class="w-100">
+                        <li>
+                            <div class="d-flex gap-3">
+                                <div class="comment-number">{{ loop.index }}</div>
+                                <div class="flex-grow-1">
                                     {{ render_comments([comment], reference.id) }}
                                 </div>
                             </div>
                         </li>
                         {% endfor %}
                     </ol>
+                    {% else %}
+                    <div class="text-center text-muted py-5">
+                        <i class="bi bi-chat-text" style="font-size: 3rem; opacity: 0.3;"></i>
+                        <p class="mt-3">아직 댓글이 없습니다.</p>
+                    </div>
+                    {% endif %}
                 </div>
             </div>
         </div>
     </div>
 </div>
 
-<!-- (댓글 수정 팝업 모달은 그대로 유지) -->
+<!-- 댓글 수정 모달 -->
 <div class="modal fade" id="editCommentModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">댓글 수정</h5>
+                <h5 class="modal-title">
+                    <i class="bi bi-pencil-square"></i> 댓글 수정
+                </h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <form id="editCommentForm" method="post">
                 <div class="modal-body">
                     <div class="mb-3">
-                        <label for="edit-account-sequence" class="form-label">계정 순번</label>
+                        <label for="edit-account-sequence" class="form-label">
+                            <i class="bi bi-person"></i> 계정 순번
+                        </label>
                         <select name="account_sequence" id="edit-account-sequence" class="form-select">
                             <option value="0">작성자</option>
                             {% for i in range(1, 9) %}<option value="{{ i }}">계정 {{ i }}</option>{% endfor %}
                         </select>
                     </div>
                     <div class="mb-3">
-                        <label for="edit-comment-text" class="form-label">댓글 내용</label>
+                        <label for="edit-comment-text" class="form-label">
+                            <i class="bi bi-chat-text"></i> 댓글 내용
+                        </label>
                         <textarea class="form-control" id="edit-comment-text" name="text" rows="5" required></textarea>
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">닫기</button>
-                    <button type="submit" class="btn btn-primary">수정 저장</button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="bi bi-x-circle"></i> 닫기
+                    </button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-check-circle"></i> 수정 저장
+                    </button>
                 </div>
             </form>
         </div>
@@ -223,7 +663,7 @@
 </div>
 
 <script>
-    // (스크립트는 그대로 유지)
+    // 댓글 수정 모달 처리
     const editCommentModal = document.getElementById('editCommentModal');
     if(editCommentModal) {
         editCommentModal.addEventListener('show.bs.modal', event => {
@@ -244,5 +684,3 @@
     }
 </script>
 {% endblock %}
-
-<!-- v2 강제 업데이트 -->
