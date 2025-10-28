@@ -5,62 +5,39 @@
 <!-- 추가 CSS 스타일 -->
 <style>
     /* ========================================
-       🔥🔥🔥 초강력 가로 표시 CSS (최최우선)
-       ======================================== */
-    * {
-        writing-mode: horizontal-tb !important;
-        -webkit-writing-mode: horizontal-tb !important;
-        -ms-writing-mode: lr-tb !important;
-    }
-    
-    table,
-    table *,
-    .table,
-    .table *,
-    th,
-    td,
-    thead,
-    tbody,
-    tr {
-        writing-mode: horizontal-tb !important;
-        -webkit-writing-mode: horizontal-tb !important;
-        -ms-writing-mode: lr-tb !important;
-        text-orientation: mixed !important;
-        direction: ltr !important;
-        display: table-cell !important;
-    }
-    
-    /* 모든 텍스트 요소 가로 표시 */
-    span, div, p, a, button, input, select, textarea, label {
-        writing-mode: horizontal-tb !important;
-        -webkit-writing-mode: horizontal-tb !important;
-        text-orientation: mixed !important;
-        direction: ltr !important;
-    }
-    
-    /* ========================================
-       🔥🔥🔥 모달 락 완전 해제
+       🔥 모달 배경 투명도 조절
        ======================================== */
     .modal-backdrop {
-        pointer-events: none !important;
+        opacity: 0 !important;
+        display: none !important;
     }
     
     .modal {
-        pointer-events: auto !important;
+        background-color: rgba(0, 0, 0, 0.5);
         overflow-y: auto !important;
     }
     
-    .modal-open,
-    body.modal-open,
-    html.modal-open {
+    .modal-open {
         overflow: auto !important;
         padding-right: 0 !important;
     }
     
-    .modal-dialog {
-        pointer-events: auto !important;
+    body.modal-open {
+        overflow: auto !important;
     }
     
+    /* ========================================
+       🔥 테이블 텍스트만 가로 표시
+       ======================================== */
+    .table thead th,
+    .table tbody td {
+        white-space: nowrap;
+    }
+    
+    .table thead th *,
+    .table tbody td * {
+        display: inline;
+    }
 
     /* 통계 대시보드 스타일 */
     .stats-dashboard {
@@ -124,30 +101,6 @@
         margin-bottom: 8px;
     }
     
-    /* 모달 최대 높이 설정 및 스크롤 보장 */
-    
-    /* ========================================
-       🔥 모달 락 방지 - 최우선 적용
-       ======================================== */
-    .modal {
-        overflow-x: hidden !important;
-        overflow-y: auto !important;
-    }
-    
-    .modal-open {
-        overflow: auto !important;
-        padding-right: 0 !important;
-    }
-    
-    body.modal-open {
-        overflow: auto !important;
-        padding-right: 0 !important;
-    }
-    
-    html.modal-open {
-        overflow: auto !important;
-    }
-    
     /* 모달 내부 스크롤 */
     .modal-body {
         max-height: calc(100vh - 250px);
@@ -159,23 +112,19 @@
         overflow-y: auto !important;
     }
     
-    /* 모달이 너무 길 때 전체 화면 대비 적절한 높이 유지 */
     .modal-dialog {
         max-height: 90vh !important;
         margin: 1.75rem auto;
     }
     
-    /* 모달 컨텐츠가 화면을 넘어가지 않도록 */
     .modal-content {
         max-height: 90vh !important;
     }
     
-    /* Large 모달의 경우 추가 조정 */
     .modal-lg .modal-body {
         max-height: calc(100vh - 250px) !important;
     }
     
-    /* textarea 높이 조정으로 모달 크기 최적화 */
     .modal textarea {
         resize: vertical;
         min-height: 100px;
@@ -213,254 +162,48 @@
         align-items: center;
     }
     
-    .comment-author-icon {
-        width: 24px;
-        height: 24px;
-        border-radius: 50%;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
+    .comment-badge {
+        display: inline-block;
+        padding: 0.25em 0.6em;
+        font-size: 0.75em;
+        font-weight: 700;
+        line-height: 1;
+        color: #fff;
+        text-align: center;
+        white-space: nowrap;
+        vertical-align: baseline;
+        border-radius: 0.375rem;
         margin-right: 8px;
-        font-size: 11px;
-        color: white;
-        font-weight: bold;
     }
-    
-    .author-icon { background-color: #007bff; }
-    .account-icon { background-color: #6c757d; }
     
     .comment-text {
         color: #212529;
-        line-height: 1.6;
+        line-height: 1.5;
         white-space: pre-wrap;
-        word-wrap: break-word;
     }
     
-    .comment-reply {
-        margin-left: 30px;
-        margin-top: 10px;
-        border-left: 3px solid #e9ecef;
-        padding-left: 15px;
-    }
-    
-    .comment-reply .comment-item {
-        background-color: #f1f3f5;
-    }
-    
-    .no-comments {
-        text-align: center;
-        color: #6c757d;
-        padding: 20px;
-        font-style: italic;
-    }
-    
-    .comment-editor-toggle {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 10px;
-    }
-    
-    .view-mode-btn {
-        btn-sm: true;
-    }
-    
-    .comment-stats {
-        font-size: 0.85em;
-        color: #6c757d;
-        margin-top: 10px;
-        padding: 8px;
-        background: #f8f9fa;
-        border-radius: 4px;
-    }
-    
-    /* 탭 스타일 */
-    .comment-tabs {
-        border-bottom: 2px solid #dee2e6;
-        margin-bottom: 15px;
-    }
-    
-    .comment-tab {
-        padding: 8px 16px;
-        background: none;
-        border: none;
-        border-bottom: 3px solid transparent;
-        color: #6c757d;
-        cursor: pointer;
-        transition: all 0.2s;
-        font-weight: 500;
-    }
-    
-    .comment-tab.active {
-        color: #007bff;
-        border-bottom-color: #007bff;
-    }
-    
-    .comment-tab:hover:not(.active) {
-        color: #495057;
-        background-color: #f8f9fa;
-    }
-
-    /* 🎨 index.html과 똑같은 모던 스타일 */
-    
-    /* 애니메이션 */
-    @keyframes fadeInUp {
-        from {
-            opacity: 0;
-            transform: translateY(30px);
-        }
-        to {
-            opacity: 1;
-            transform: translateY(0);
-        }
-    }
-    
-    /* 컨테이너 */
-    .container, .container-fluid {
-        max-width: 1400px;
-        margin: 0 auto;
-        padding: 0 20px;
-    }
-    
-    /* 카드 - index.html 스타일 */
-    .card {
-        background: rgba(255, 255, 255, 0.95);
-        backdrop-filter: blur(20px);
-        border: 1px solid rgba(255, 255, 255, 0.3);
-        border-radius: 20px;
-        padding: 24px;
-        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
-        transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-        margin-bottom: 30px;
-        animation: fadeInUp 0.8s ease-out;
-    }
-    
-    .card:hover {
-        transform: translateY(-8px) scale(1.01);
-        box-shadow: 0 16px 48px rgba(0, 0, 0, 0.15);
-    }
-    
-    .card-header {
-        background: linear-gradient(135deg, #4A90E2 0%, #5BA3F5 100%);
-        color: white;
-        border-radius: 20px 20px 0 0 !important;
-        padding: 20px 24px;
-        font-weight: 700;
-        border: none;
-        box-shadow: 0 4px 16px rgba(74, 144, 226, 0.3);
-    }
-    
-    .card-body {
-        padding: 24px;
-    }
-    
-    /* 버튼 - index.html 스타일 */
-    .btn {
-        border-radius: 14px;
-        padding: 10px 20px;
-        font-weight: 600;
-        font-size: 0.95rem;
-        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        border: none;
-    }
-    
-    .btn-sm {
-        padding: 8px 16px;
+    .keyword-badge {
+        display: inline-block;
+        padding: 0.4em 0.8em;
         font-size: 0.85rem;
-        border-radius: 12px;
-    }
-    
-    .btn-lg {
-        padding: 14px 28px;
-        font-size: 1rem;
-        border-radius: 16px;
-    }
-    
-    .btn-primary, .btn-info {
-        background: linear-gradient(135deg, #4A90E2 0%, #5BA3F5 100%);
+        font-weight: 600;
         color: white;
-        box-shadow: 0 8px 24px rgba(74, 144, 226, 0.35);
-    }
-    
-    .btn-primary:hover, .btn-info:hover {
-        background: linear-gradient(135deg, #3A7BC8 0%, #4A90E2 100%);
-        transform: translateY(-4px);
-        box-shadow: 0 12px 32px rgba(74, 144, 226, 0.45);
-        color: white;
-    }
-    
-    .btn-secondary {
-        background: linear-gradient(135deg, #636e72 0%, #2d3436 100%);
-        color: white;
-        box-shadow: 0 8px 24px rgba(99, 110, 114, 0.35);
-    }
-    
-    .btn-secondary:hover {
-        background: linear-gradient(135deg, #2d3436 0%, #1a1d1f 100%);
-        transform: translateY(-4px);
-        box-shadow: 0 12px 32px rgba(99, 110, 114, 0.45);
-    }
-    
-    .btn-success {
-        background: linear-gradient(135deg, #40c057 0%, #51cf66 100%);
-        box-shadow: 0 8px 24px rgba(64, 192, 87, 0.35);
-    }
-    
-    .btn-success:hover {
-        transform: translateY(-4px);
-        box-shadow: 0 12px 32px rgba(64, 192, 87, 0.45);
-    }
-    
-    .btn-danger {
-        background: linear-gradient(135deg, #fa5252 0%, #ff6b6b 100%);
-        box-shadow: 0 8px 24px rgba(250, 82, 82, 0.35);
-    }
-    
-    .btn-danger:hover {
-        transform: translateY(-4px);
-        box-shadow: 0 12px 32px rgba(250, 82, 82, 0.45);
-    }
-    
-    .btn-outline-info, .btn-outline-primary {
-        background: linear-gradient(135deg, rgba(74, 144, 226, 0.1) 0%, rgba(91, 163, 245, 0.1) 100%);
-        border: 2px solid rgba(74, 144, 226, 0.3);
-        color: #4A90E2;
-    }
-    
-    .btn-outline-info:hover, .btn-outline-primary:hover {
-        background: linear-gradient(135deg, #4A90E2 0%, #5BA3F5 100%);
-        border-color: transparent;
-        color: white;
-        transform: translateY(-4px);
-    }
-    
-    .btn-outline-secondary {
-        border: 2px solid rgba(99, 110, 114, 0.3);
-        color: #636e72;
-    }
-    
-    .btn-outline-secondary:hover {
-        background: #636e72;
-        color: white;
-        transform: translateY(-4px);
-    }
-    
-    .btn-outline-danger {
-        border: 2px solid rgba(250, 82, 82, 0.3);
-        color: #fa5252;
-    }
-    
-    .btn-outline-danger:hover {
-        background: #fa5252;
-        color: white;
-        transform: translateY(-4px);
-    }
-    
-    /* 테이블 - index.html 스타일 */
-    .table {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         border-radius: 20px;
+        box-shadow: 0 2px 8px rgba(102, 126, 234, 0.4);
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    
+    .keyword-badge:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.6);
+    }
+    
+    .table {
+        border-radius: 12px;
         overflow: hidden;
-        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
+        box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+        background: white;
     }
     
     .table thead th {
@@ -481,66 +224,6 @@
         background: linear-gradient(135deg, rgba(74, 144, 226, 0.05) 0%, rgba(91, 163, 245, 0.05) 100%);
         transform: scale(1.01);
     }
-    
-    
-    /* ========================================
-       🔥 테이블 셀 가로 표시 강제 (최우선 적용)
-       ======================================== */
-    .table,
-    .table *,
-    .table tbody,
-    .table tbody tr,
-    .table tbody td,
-    .table thead,
-    .table thead tr,
-    .table thead th {
-        writing-mode: horizontal-tb !important;
-        -webkit-writing-mode: horizontal-tb !important;
-        -ms-writing-mode: lr-tb !important;
-        text-orientation: mixed !important;
-        direction: ltr !important;
-    }
-    
-    /* 테이블 셀 기본 스타일 */
-    .table tbody td,
-    .table thead th {
-        white-space: normal !important;
-        word-break: break-word !important;
-        vertical-align: middle !important;
-        text-align: left !important;
-        display: table-cell !important;
-    }
-    
-    /* 상태 열 (이모지) */
-    .table tbody td:nth-child(1) {
-        text-align: center !important;
-        width: 5% !important;
-    }
-    
-    /* 작성 카페 열 */
-    .table tbody td:nth-child(4) {
-        max-width: 200px;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-    }
-    
-    /* 관리 열 - 버튼 가로 배치 */
-    .table tbody td:last-child {
-        text-align: center !important;
-        white-space: nowrap !important;
-    }
-    
-    .table tbody td:last-child .btn {
-        display: inline-block !important;
-        margin: 0 3px !important;
-        vertical-align: middle !important;
-    }
-    
-    .table tbody td:last-child form {
-        display: inline-block !important;
-        margin: 0 !important;
-    }
 
     .table tbody td {
         padding: 16px 20px;
@@ -549,180 +232,42 @@
         font-size: 0.9rem;
     }
     
-    /* 탭 - index.html 스타일 */
+    /* 탭 스타일 */
     .nav-tabs {
         border: none;
         margin-bottom: 0;
         background: rgba(255, 255, 255, 0.95);
-        backdrop-filter: blur(20px);
-        padding: 16px 16px 0 16px;
-        border-radius: 20px 20px 0 0;
-        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+        border-radius: 12px 12px 0 0;
+        padding: 10px 10px 0;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
     }
     
     .nav-tabs .nav-link {
         border: none;
-        border-radius: 14px 14px 0 0;
-        padding: 14px 24px;
+        color: #6c757d;
         font-weight: 600;
-        color: #636e72;
+        padding: 12px 24px;
+        border-radius: 8px 8px 0 0;
         transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        margin-right: 8px;
-        font-size: 0.95rem;
+        margin-right: 4px;
     }
     
     .nav-tabs .nav-link:hover {
-        background: linear-gradient(135deg, rgba(74, 144, 226, 0.1) 0%, rgba(91, 163, 245, 0.1) 100%);
+        background: rgba(74, 144, 226, 0.1);
         color: #4A90E2;
-        transform: translateY(-2px);
     }
     
     .nav-tabs .nav-link.active {
         background: linear-gradient(135deg, #4A90E2 0%, #5BA3F5 100%);
         color: white;
-        box-shadow: 0 8px 24px rgba(74, 144, 226, 0.35);
+        box-shadow: 0 4px 12px rgba(74, 144, 226, 0.3);
     }
     
     .tab-content {
-        background: rgba(255, 255, 255, 0.95);
-        backdrop-filter: blur(20px);
-        border-radius: 0 0 20px 20px;
-        padding: 24px;
-        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
-    }
-    
-    /* 알림 - index.html 스타일 */
-    .alert {
-        border-radius: 16px;
-        padding: 16px 20px;
-        border: none;
-        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
-        font-size: 0.95rem;
-        animation: fadeInUp 0.5s ease-out;
-    }
-    
-    /* 폼 - index.html 스타일 */
-    .form-control, .form-select, textarea {
-        border-radius: 12px;
-        border: 2px solid #e9ecef;
-        padding: 12px 16px;
-        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        font-size: 0.95rem;
-    }
-    
-    .form-control:focus, .form-select:focus, textarea:focus {
-        border-color: #4A90E2;
-        box-shadow: 0 0 0 4px rgba(74, 144, 226, 0.15);
-        outline: none;
-        transform: translateY(-2px);
-    }
-    
-    .form-label {
-        font-weight: 600;
-        color: #495057;
-        margin-bottom: 8px;
-        font-size: 0.95rem;
-    }
-    
-    /* 진행 바 - index.html 스타일 */
-    .progress {
-        border-radius: 16px;
-        height: 32px;
-        background: #e9ecef;
-        box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.1);
-    }
-    
-    .progress-bar {
-        border-radius: 16px;
-        background: linear-gradient(135deg, #40c057 0%, #51cf66 100%);
-        box-shadow: 0 4px 12px rgba(64, 192, 87, 0.4);
-        font-weight: 700;
-    }
-    
-    /* 모달 - index.html 스타일 */
-    .modal-content {
-        border-radius: 20px;
-        border: none;
-        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-        animation: fadeInUp 0.5s ease-out;
-    }
-    
-    .modal-header {
-        background: linear-gradient(135deg, #4A90E2 0%, #5BA3F5 100%);
-        color: white;
-        border-radius: 20px 20px 0 0;
-        border: none;
-        padding: 24px 28px;
-    }
-    
-    .modal-title {
-        font-weight: 700;
-        font-size: 1.2rem;
-    }
-    
-    .modal-body {
-        padding: 28px;
-    }
-    
-    .modal-footer {
-        border-top: 1px solid #e9ecef;
-        padding: 20px 28px;
-    }
-    
-    /* 리스트 - index.html 스타일 */
-    .list-group-item {
-        border-radius: 16px;
-        border: 1px solid #e9ecef;
-        padding: 16px 20px;
-        margin-bottom: 12px;
-        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        background: rgba(255, 255, 255, 0.95);
-    }
-    
-    .list-group-item:hover {
-        background: linear-gradient(135deg, rgba(74, 144, 226, 0.05) 0%, rgba(91, 163, 245, 0.05) 100%);
-        transform: translateX(8px);
-        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
-    }
-    
-    /* 뱃지 - index.html 스타일 */
-    .badge {
-        padding: 6px 14px;
-        border-radius: 20px;
-        font-weight: 600;
-        font-size: 0.8rem;
-    }
-    
-    /* 통계 카드 - index.html 스타일 */
-    .stat-card {
         background: white;
-        border-radius: 8px;
-        padding: 10px 15px;
-        flex: 1;
-        min-width: 120px;
-        text-align: center;
-        transition: transform 0.3s ease;
-    }
-    
-    .stat-card:hover {
-        transform: translateY(-3px);
-    }
-    
-    /* 반응형 */
-    @media (max-width: 768px) {
-        .container, .container-fluid {
-            padding: 0 15px;
-        }
-        
-        .btn {
-            padding: 10px 18px;
-            font-size: 0.9rem;
-        }
-        
-        .card {
-            padding: 20px;
-            margin-bottom: 20px;
-        }
+        border-radius: 0 0 12px 12px;
+        padding: 20px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
     }
 </style>
 
@@ -733,7 +278,7 @@
             <span class="text-muted fs-5">{{ marketing_product.product.name }}</span>
         </div>
         <div>
-            <button style="writing-mode: horizontal-tb !important;" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#addPostModal">➕ 새 글 등록</button>
+            <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#addPostModal">➕ 새 글 등록</button>
             <a href="/marketing/cafe?tab=products" class="btn btn-secondary">← 목록으로</a>
         </div>
     </div>
@@ -778,7 +323,7 @@
     <form method="get" action="/marketing/product/posts/{{ marketing_product.id }}" class="mb-4">
         <div class="input-group">
             <input type="text" name="keyword_search" class="form-control" placeholder="키워드 검색 (띄어쓰기 무시)" value="{{ keyword_search }}">
-            <button style="writing-mode: horizontal-tb !important;" class="btn btn-primary" type="submit">🔍 검색</button>
+            <button class="btn btn-primary" type="submit">🔍 검색</button>
         </div>
     </form>
 
@@ -792,21 +337,21 @@
                 </div>
                 <div class="card-body" style="overflow-x: auto;">
                     {% if posts %}
-                    <table style="writing-mode: horizontal-tb !important; min-width: 600px;" class="table table-hover align-middle">
-                        <thead style="writing-mode: horizontal-tb !important;">
-                            <tr style="writing-mode: horizontal-tb !important;">
-                                <th style="writing-mode: horizontal-tb !important; text-orientation: mixed !important; width: 5%;">상태</th>
-                                <th style="writing-mode: horizontal-tb !important; text-orientation: mixed !important;">글 제목/URL</th>
-                                <th style="writing-mode: horizontal-tb !important; text-orientation: mixed !important; width: 15%;">네이버 계정</th>
-                                <th style="writing-mode: horizontal-tb !important; text-orientation: mixed !important; width: 15%;">작성 카페</th>
-                                <th style="writing-mode: horizontal-tb !important; text-orientation: mixed !important; width: 10%;">작성자</th>
-                                <th style="writing-mode: horizontal-tb !important; text-orientation: mixed !important; width: 15%;" class="text-center">관리</th>
+                    <table class="table table-hover align-middle">
+                        <thead>
+                            <tr>
+                                <th>상태</th>
+                                <th>글 제목/URL</th>
+                                <th>네이버 계정</th>
+                                <th>작성 카페</th>
+                                <th>작성자</th>
+                                <th class="text-center">관리</th>
                             </tr>
                         </thead>
-                        <tbody style="writing-mode: horizontal-tb !important;">
+                        <tbody>
                             {% for post in posts %}
-                            <tr style="writing-mode: horizontal-tb !important;">
-                                <td style="writing-mode: horizontal-tb !important; text-orientation: mixed !important;">
+                            <tr>
+                                <td>
                                     <span class="fs-4" title="{{ '등록 완료 (생존)' if post.is_live else ('등록 완료 (삭제됨)' if post.is_registration_complete else '작성중') }}">
                                         {% if not post.is_registration_complete %}
                                             ⚠️
@@ -817,18 +362,18 @@
                                         {% endif %}
                                     </span>
                                 </td>
-                                <td style="writing-mode: horizontal-tb !important; text-orientation: mixed !important;">
+                                <td>
                                     {% if post.is_registration_complete and post.post_url %}
                                     <a href="{{ post.post_url }}" target="_blank" title="{{ post.post_url }}" style="display: block; max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ post.post_title or post.post_url }}</a>
                                     {% else %}
                                     <span title="{{ post.post_title }}" style="display: block; max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ post.post_title or '(제목 없음)' }}</span>
                                     {% endif %}
                                 </td>
-                                <td style="writing-mode: horizontal-tb !important; text-orientation: mixed !important;">{{ post.account.account_id if post.account else 'N/A' }}</td>
-                                <td style="writing-mode: horizontal-tb !important; text-orientation: mixed !important;">{{ post.cafe.name if post.cafe else 'N/A' }}</td>
-                                <td style="writing-mode: horizontal-tb !important; text-orientation: mixed !important;">{{ post.worker.username if post.worker else 'N/A' }}</td>
-                                <td class="text-center" style="writing-mode: horizontal-tb !important; text-orientation: mixed !important; white-space: nowrap !important;">
-                                    <button style="writing-mode: horizontal-tb !important; display: inline-block !important; margin-right: 5px !important;" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#editPostModal-{{ post.id }}">수정</button>
+                                <td>{{ post.account.account_id if post.account else 'N/A' }}</td>
+                                <td>{{ post.cafe.name if post.cafe else 'N/A' }}</td>
+                                <td>{{ post.worker.username if post.worker else 'N/A' }}</td>
+                                <td class="text-center">
+                                    <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#editPostModal-{{ post.id }}">수정</button>
                                     <form action="/marketing/post/delete/{{ post.id }}" method="post" style="display: inline-block !important; margin: 0 !important;" onsubmit="return confirm('이 글을 정말 삭제하시겠습니까?');">
                                         <button type="submit" class="btn btn-sm btn-outline-danger" style="display: inline-block !important;">삭제</button>
                                     </form>

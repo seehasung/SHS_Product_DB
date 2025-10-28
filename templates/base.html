@@ -530,11 +530,20 @@
     {% block head %}{% endblock %}
     <style>
     /* ========================================
+       🔥 모달 배경 투명 - 전역 적용
+       ======================================== */
+    .modal-backdrop {
+        opacity: 0 !important;
+        display: none !important;
+    }
+    
+    /* ========================================
        🔥 모달 락 방지 - 전역 적용
        ======================================== */
     .modal {
         overflow-x: hidden !important;
         overflow-y: auto !important;
+        background-color: rgba(0, 0, 0, 0.5);
     }
     
     .modal-open {
