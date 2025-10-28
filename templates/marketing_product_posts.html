@@ -450,14 +450,12 @@
                         </div>
                         <div class="mb-3" id="url_field_{{ post.id }}" style="{{ 'display:block;' if post.is_registration_complete else 'display:none;' }}">
                             <label class="form-label">글 URL</label>
-                            <input type="url" class="form-control mb-3" name="post_url" value="{{ post.post_url or '' }}" {{ 'required' if post.is_registration_complete else '' }}>
-                            
-                            <!-- 생존 여부 토글 (등록 완료 시에만 표시) -->
-                            <div class="form-check form-switch">
-                                <input type="hidden" name="is_live" value="False">
-                                <input class="form-check-input" type="checkbox" role="switch" id="is_live-{{ post.id }}" name="is_live" value="True" {{ 'checked' if post.is_live else '' }}>
-                                <label class="form-check-label" for="is_live-{{ post.id }}">✅ 글 생존 여부 (체크 시 '살아있는 글')</label>
-                            </div>
+                            <input type="url" class="form-control" name="post_url" value="{{ post.post_url or '' }}" {{ 'required' if post.is_registration_complete else '' }}>
+                        </div>
+                        <div class="form-check form-switch">
+                            <input type="hidden" name="is_live" value="False">
+                            <input class="form-check-input" type="checkbox" role="switch" id="is_live-{{ post.id }}" name="is_live" value="True" {{ 'checked' if post.is_live else '' }}>
+                            <label class="form-check-label" for="is_live-{{ post.id }}">글 생존 여부 (체크 시 '살아있는 글')</label>
                         </div>
                     </div>
                     <div class="modal-footer">
@@ -529,7 +527,7 @@
                                     <option value="{{ type_name }}">{{ type_name }}</option>
                                     {% endfor %}
                                 </select>
-                                <select class="form-select" id="ref-title-select">
+                                <select class="form-select" id="ref-title-select" onchange="loadReference(this, 'add_post_title', 'add_post_body', 'add_post_comments', 'add_reference_id')">
                                     <option value="" selected>제목 선택...</option>
                                     {% for type, refs in references_by_type.items() %}
                                         {% for ref in refs %}
@@ -537,7 +535,6 @@
                                         {% endfor %}
                                     {% endfor %}
                                 </select>
-                                <button class="btn btn-outline-primary" type="button" onclick="loadReference(document.getElementById('ref-title-select'), 'add_post_title', 'add_post_body', 'add_post_comments', 'add_reference_id')">불러오기</button>
                             </div>
                             <input type="hidden" name="reference_id" id="add_reference_id">
                         </div>
@@ -587,14 +584,12 @@
                         </div>
                         <div class="mb-3" id="url_field" style="display:none;">
                             <label class="form-label">글 URL</label>
-                            <input type="url" class="form-control mb-3" name="post_url">
-                            
-                            <!-- 생존 여부 토글 (등록 완료 시에만 표시) -->
-                            <div class="form-check form-switch">
-                                <input type="hidden" name="is_live" value="False">
-                                <input class="form-check-input" type="checkbox" role="switch" id="is_live" name="is_live" value="True" checked>
-                                <label class="form-check-label" for="is_live">✅ 글 생존 여부 (체크 시 '살아있는 글')</label>
-                            </div>
+                            <input type="url" class="form-control" name="post_url">
+                        </div>
+                        <div class="form-check form-switch">
+                            <input type="hidden" name="is_live" value="False">
+                            <input class="form-check-input" type="checkbox" role="switch" id="is_live" name="is_live" value="True">
+                            <label class="form-check-label" for="is_live">글 생존 여부 (체크 시 '살아있는 글')</label>
                         </div>
                     </div>
                     <div class="modal-footer">
@@ -645,11 +640,15 @@ function updateCafeDropdown(accountSelectElement, cafeSelectId) {
     cafeSelect.innerHTML = '<option value="" disabled selected>계정을 먼저 선택하세요</option>';
     cafeSelect.disabled = true;
 
-    if (selectedAccountId && membershipMap[selectedAccountId]) {
+    // account_id를 문자열과 숫자 모두 확인
+    const accountIdNum = parseInt(selectedAccountId);
+    const cafes = membershipMap[selectedAccountId] || membershipMap[accountIdNum];
+    
+    if (cafes && cafes.length > 0) {
         cafeSelect.disabled = false;
-        cafeSelect.innerHTML = '<option value="" disabled selected>작성한 카페를 선택하세요</option>';
+        cafeSelect.innerHTML = '<option value="" disabled selected>작성할 카페를 선택하세요</option>';
         
-        membershipMap[selectedAccountId].forEach(cafe => {
+        cafes.forEach(cafe => {
             const option = document.createElement('option');
             option.value = cafe.id;
             option.textContent = cafe.name;
@@ -681,21 +680,29 @@ function filterReferences(typeSelect, titleSelectId) {
     const selectedType = typeSelect.value;
     const titleSelect = document.getElementById(titleSelectId);
     
-    const currentTitleId = titleSelect.value;
-
-    const options = titleSelect.querySelectorAll('option[data-ref-type]');
+    // 현재 선택된 값 저장
+    const currentValue = titleSelect.value;
     
-    options.forEach(option => {
-        const optionType = option.getAttribute('data-ref-type');
-        if (selectedType === "" || optionType === selectedType) {
-            option.style.display = 'block';
-        } else {
-            option.style.display = 'none';
+    // 기본 옵션만 남기고 모두 제거
+    titleSelect.innerHTML = '<option value="" selected>제목 선택...</option>';
+    
+    // allReferences에서 필터링하여 옵션 추가
+    allReferences.forEach(ref => {
+        if (selectedType === "" || ref.ref_type === selectedType) {
+            const option = document.createElement('option');
+            option.value = ref.id;
+            option.textContent = ref.title;
+            option.setAttribute('data-ref-type', ref.ref_type);
+            titleSelect.appendChild(option);
         }
     });
     
-    if (currentTitleId && titleSelect.querySelector(`option[value="${currentTitleId}"]`).style.display === 'none') {
-        titleSelect.value = "";
+    // 이전 선택값이 필터링 후에도 존재하면 복원
+    if (currentValue) {
+        const optionExists = titleSelect.querySelector(`option[value="${currentValue}"]`);
+        if (optionExists) {
+            titleSelect.value = currentValue;
+        }
     }
 }
 
