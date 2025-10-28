@@ -7,17 +7,17 @@
     /* 통계 대시보드 스타일 */
     .stats-dashboard {
         background: linear-gradient(135deg, #4A90E2 0%, #5BA3F5 100%);
-        border-radius: 15px;
-        padding: 25px;
-        margin-bottom: 30px;
-        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+        border-radius: 12px;
+        padding: 15px 20px;
+        margin-bottom: 20px;
+        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12);
     }
     
     .stats-title {
         color: white;
-        font-size: 1.3rem;
+        font-size: 1.1rem;
         font-weight: 600;
-        margin-bottom: 20px;
+        margin-bottom: 12px;
         display: flex;
         align-items: center;
     }
@@ -26,34 +26,34 @@
         display: flex;
         justify-content: space-around;
         flex-wrap: wrap;
-        gap: 15px;
+        gap: 10px;
     }
     
     .stat-card {
         background: white;
-        border-radius: 10px;
-        padding: 15px 20px;
+        border-radius: 8px;
+        padding: 10px 15px;
         flex: 1;
-        min-width: 140px;
+        min-width: 120px;
         text-align: center;
         transition: transform 0.3s ease;
     }
     
     .stat-card:hover {
-        transform: translateY(-5px);
+        transform: translateY(-3px);
     }
     
     .stat-value {
-        font-size: 2rem;
+        font-size: 1.5rem;
         font-weight: bold;
-        margin-bottom: 5px;
+        margin-bottom: 3px;
     }
     
     .stat-label {
-        font-size: 0.85rem;
+        font-size: 0.75rem;
         color: #6c757d;
         text-transform: uppercase;
-        letter-spacing: 1px;
+        letter-spacing: 0.5px;
     }
     
     .stat-total { color: #5a67d8; }
@@ -62,11 +62,33 @@
     .stat-draft { color: #ed8936; }
     
     .stat-icon {
-        font-size: 1.5rem;
-        margin-bottom: 10px;
+        font-size: 1.2rem;
+        margin-bottom: 8px;
     }
     
     /* 모달 최대 높이 설정 및 스크롤 보장 */
+    
+    /* 모달 스크롤 개선 - 락 방지 */
+    .modal {
+        overflow-x: hidden !important;
+        overflow-y: auto !important;
+    }
+    
+    .modal-open {
+        overflow: auto !important; /* ✅ hidden → auto */
+        padding-right: 0 !important;
+    }
+    
+    body.modal-open {
+        overflow: auto !important; /* ✅ 스크롤 가능하게 */
+    }
+    
+    /* 모달 내부 스크롤 */
+    .modal-body {
+        max-height: calc(100vh - 250px);
+        overflow-y: auto;
+    }
+
     .modal-dialog-scrollable .modal-body {
         max-height: calc(100vh - 200px) !important;
         overflow-y: auto !important;
@@ -395,6 +417,25 @@
         transform: scale(1.01);
     }
     
+    
+    /* 테이블 셀 가로 표시 강제 */
+    .table tbody td,
+    .table thead th {
+        writing-mode: horizontal-tb !important;
+        text-orientation: mixed !important;
+        white-space: normal !important;
+        word-break: break-word !important;
+        vertical-align: middle !important;
+    }
+    
+    /* 작성 카페 열 특별 처리 */
+    .table tbody td:nth-child(4) {
+        max-width: 200px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
     .table tbody td {
         padding: 16px 20px;
         vertical-align: middle;
@@ -548,19 +589,17 @@
     
     /* 통계 카드 - index.html 스타일 */
     .stat-card {
-        background: rgba(255, 255, 255, 0.95);
-        backdrop-filter: blur(20px);
-        border: 1px solid rgba(255, 255, 255, 0.3);
-        border-radius: 20px;
-        padding: 24px;
-        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
-        transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-        animation: fadeInUp 0.8s ease-out;
+        background: white;
+        border-radius: 8px;
+        padding: 10px 15px;
+        flex: 1;
+        min-width: 120px;
+        text-align: center;
+        transition: transform 0.3s ease;
     }
     
     .stat-card:hover {
-        transform: translateY(-8px) scale(1.01);
-        box-shadow: 0 16px 48px rgba(0, 0, 0, 0.15);
+        transform: translateY(-3px);
     }
     
     /* 반응형 */

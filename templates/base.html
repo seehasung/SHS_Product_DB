@@ -528,6 +528,71 @@
     </style>
     
     {% block head %}{% endblock %}
+    <style>
+    /* ========================================
+       🔥 모달 락 방지 - 전역 적용
+       ======================================== */
+    .modal {
+        overflow-x: hidden !important;
+        overflow-y: auto !important;
+    }
+    
+    .modal-open {
+        overflow: auto !important;
+        padding-right: 0 !important;
+    }
+    
+    body.modal-open {
+        overflow: auto !important;
+    }
+    
+    /* 모달 내부 스크롤 */
+    .modal-body {
+        max-height: calc(100vh - 250px);
+        overflow-y: auto;
+    }
+    
+    /* 모달 대화상자 최적화 */
+    .modal-dialog {
+        max-height: 90vh;
+        margin: 1.75rem auto;
+    }
+    
+    .modal-content {
+        max-height: 90vh;
+        display: flex;
+        flex-direction: column;
+    }
+    
+    /* Large 모달 추가 처리 */
+    .modal-lg .modal-body {
+        max-height: calc(100vh - 300px);
+    }
+    
+    /* XL 모달 추가 처리 */
+    .modal-xl .modal-body {
+        max-height: calc(100vh - 250px);
+    }
+    
+    /* 모달 스크롤 부드럽게 */
+    .modal-body::-webkit-scrollbar {
+        width: 8px;
+    }
+    
+    .modal-body::-webkit-scrollbar-track {
+        background: #f1f1f1;
+        border-radius: 10px;
+    }
+    
+    .modal-body::-webkit-scrollbar-thumb {
+        background: #888;
+        border-radius: 10px;
+    }
+    
+    .modal-body::-webkit-scrollbar-thumb:hover {
+        background: #555;
+    }
+</style>
 </head>
 <body>
     <div class="page-wrapper">
