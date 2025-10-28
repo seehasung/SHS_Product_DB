@@ -4,6 +4,64 @@
 {% block content %}
 <!-- 추가 CSS 스타일 -->
 <style>
+    /* ========================================
+       🔥🔥🔥 초강력 가로 표시 CSS (최최우선)
+       ======================================== */
+    * {
+        writing-mode: horizontal-tb !important;
+        -webkit-writing-mode: horizontal-tb !important;
+        -ms-writing-mode: lr-tb !important;
+    }
+    
+    table,
+    table *,
+    .table,
+    .table *,
+    th,
+    td,
+    thead,
+    tbody,
+    tr {
+        writing-mode: horizontal-tb !important;
+        -webkit-writing-mode: horizontal-tb !important;
+        -ms-writing-mode: lr-tb !important;
+        text-orientation: mixed !important;
+        direction: ltr !important;
+        display: table-cell !important;
+    }
+    
+    /* 모든 텍스트 요소 가로 표시 */
+    span, div, p, a, button, input, select, textarea, label {
+        writing-mode: horizontal-tb !important;
+        -webkit-writing-mode: horizontal-tb !important;
+        text-orientation: mixed !important;
+        direction: ltr !important;
+    }
+    
+    /* ========================================
+       🔥🔥🔥 모달 락 완전 해제
+       ======================================== */
+    .modal-backdrop {
+        pointer-events: none !important;
+    }
+    
+    .modal {
+        pointer-events: auto !important;
+        overflow-y: auto !important;
+    }
+    
+    .modal-open,
+    body.modal-open,
+    html.modal-open {
+        overflow: auto !important;
+        padding-right: 0 !important;
+    }
+    
+    .modal-dialog {
+        pointer-events: auto !important;
+    }
+    
+
     /* 통계 대시보드 스타일 */
     .stats-dashboard {
         background: linear-gradient(135deg, #4A90E2 0%, #5BA3F5 100%);
@@ -675,7 +733,7 @@
             <span class="text-muted fs-5">{{ marketing_product.product.name }}</span>
         </div>
         <div>
-            <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#addPostModal">➕ 새 글 등록</button>
+            <button style="writing-mode: horizontal-tb !important;" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#addPostModal">➕ 새 글 등록</button>
             <a href="/marketing/cafe?tab=products" class="btn btn-secondary">← 목록으로</a>
         </div>
     </div>
@@ -720,7 +778,7 @@
     <form method="get" action="/marketing/product/posts/{{ marketing_product.id }}" class="mb-4">
         <div class="input-group">
             <input type="text" name="keyword_search" class="form-control" placeholder="키워드 검색 (띄어쓰기 무시)" value="{{ keyword_search }}">
-            <button class="btn btn-primary" type="submit">🔍 검색</button>
+            <button style="writing-mode: horizontal-tb !important;" class="btn btn-primary" type="submit">🔍 검색</button>
         </div>
     </form>
 
@@ -734,21 +792,21 @@
                 </div>
                 <div class="card-body" style="overflow-x: auto;">
                     {% if posts %}
-                    <table class="table table-hover align-middle" style="min-width: 600px;">
-                        <thead>
-                            <tr>
-                                <th style="width: 5%;">상태</th>
-                                <th>글 제목/URL</th>
-                                <th style="width: 15%;">네이버 계정</th>
-                                <th style="width: 15%;">작성 카페</th>
-                                <th style="width: 10%;">작성자</th>
-                                <th style="width: 15%;" class="text-center">관리</th>
+                    <table style="writing-mode: horizontal-tb !important; min-width: 600px;" class="table table-hover align-middle">
+                        <thead style="writing-mode: horizontal-tb !important;">
+                            <tr style="writing-mode: horizontal-tb !important;">
+                                <th style="writing-mode: horizontal-tb !important; text-orientation: mixed !important; width: 5%;">상태</th>
+                                <th style="writing-mode: horizontal-tb !important; text-orientation: mixed !important;">글 제목/URL</th>
+                                <th style="writing-mode: horizontal-tb !important; text-orientation: mixed !important; width: 15%;">네이버 계정</th>
+                                <th style="writing-mode: horizontal-tb !important; text-orientation: mixed !important; width: 15%;">작성 카페</th>
+                                <th style="writing-mode: horizontal-tb !important; text-orientation: mixed !important; width: 10%;">작성자</th>
+                                <th style="writing-mode: horizontal-tb !important; text-orientation: mixed !important; width: 15%;" class="text-center">관리</th>
                             </tr>
                         </thead>
-                        <tbody>
+                        <tbody style="writing-mode: horizontal-tb !important;">
                             {% for post in posts %}
-                            <tr>
-                                <td>
+                            <tr style="writing-mode: horizontal-tb !important;">
+                                <td style="writing-mode: horizontal-tb !important; text-orientation: mixed !important;">
                                     <span class="fs-4" title="{{ '등록 완료 (생존)' if post.is_live else ('등록 완료 (삭제됨)' if post.is_registration_complete else '작성중') }}">
                                         {% if not post.is_registration_complete %}
                                             ⚠️
@@ -759,18 +817,18 @@
                                         {% endif %}
                                     </span>
                                 </td>
-                                <td>
+                                <td style="writing-mode: horizontal-tb !important; text-orientation: mixed !important;">
                                     {% if post.is_registration_complete and post.post_url %}
                                     <a href="{{ post.post_url }}" target="_blank" title="{{ post.post_url }}" style="display: block; max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ post.post_title or post.post_url }}</a>
                                     {% else %}
                                     <span title="{{ post.post_title }}" style="display: block; max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ post.post_title or '(제목 없음)' }}</span>
                                     {% endif %}
                                 </td>
-                                <td>{{ post.account.account_id if post.account else 'N/A' }}</td>
-                                <td>{{ post.cafe.name if post.cafe else 'N/A' }}</td>
-                                <td>{{ post.worker.username if post.worker else 'N/A' }}</td>
-                                <td class="text-center" style="white-space: nowrap !important;">
-                                    <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#editPostModal-{{ post.id }}" style="display: inline-block !important; margin-right: 5px !important;">수정</button>
+                                <td style="writing-mode: horizontal-tb !important; text-orientation: mixed !important;">{{ post.account.account_id if post.account else 'N/A' }}</td>
+                                <td style="writing-mode: horizontal-tb !important; text-orientation: mixed !important;">{{ post.cafe.name if post.cafe else 'N/A' }}</td>
+                                <td style="writing-mode: horizontal-tb !important; text-orientation: mixed !important;">{{ post.worker.username if post.worker else 'N/A' }}</td>
+                                <td class="text-center" style="writing-mode: horizontal-tb !important; text-orientation: mixed !important; white-space: nowrap !important;">
+                                    <button style="writing-mode: horizontal-tb !important; display: inline-block !important; margin-right: 5px !important;" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#editPostModal-{{ post.id }}">수정</button>
                                     <form action="/marketing/post/delete/{{ post.id }}" method="post" style="display: inline-block !important; margin: 0 !important;" onsubmit="return confirm('이 글을 정말 삭제하시겠습니까?');">
                                         <button type="submit" class="btn btn-sm btn-outline-danger" style="display: inline-block !important;">삭제</button>
                                     </form>
