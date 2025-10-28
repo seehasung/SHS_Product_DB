@@ -340,8 +340,32 @@
         display: flex;
         align-items: center;
         justify-content: center;
-        min-height: 80vh;
+        min-height: 100vh;
         padding: 40px 20px;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .login-container::before {
+        content: '';
+        position: absolute;
+        top: -50%;
+        left: -50%;
+        width: 200%;
+        height: 200%;
+        background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+        animation: float 15s ease-in-out infinite;
+    }
+    
+    .login-container::after {
+        content: '';
+        position: absolute;
+        bottom: -50%;
+        right: -50%;
+        width: 200%;
+        height: 200%;
+        background: radial-gradient(circle, rgba(255,255,255,0.08) 0%, transparent 70%);
+        animation: float 20s ease-in-out infinite reverse;
     }
     
     .login-card {
@@ -356,6 +380,8 @@
         max-width: 440px;
         width: 100%;
         animation: fadeInUp 0.8s ease-out;
+        position: relative;
+        z-index: 1;
     }
     
     .logo-large {
@@ -695,7 +721,7 @@
                 </a>
             </div>
             <div class="mt-4 text-muted">
-                <small><i class="bi bi-heart-fill" style="color: #ff6b9d;"></i> © 2025 S.CORP 통합 관리 솔루션. All rights reserved.</small><i class="bi bi-heart-fill" style="color: #ff6b9d;">
+                <small>© 2025 S.CORP 통합 관리 솔루션. All rights reserved.</small>
             </div>
         </div>
     </div>
