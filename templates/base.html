@@ -22,32 +22,9 @@
         
         body {
             min-height: 100vh;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            background-attachment: fixed;
+            background: #f8f9fa;
             position: relative;
             overflow-x: hidden;
-        }
-        
-        /* 배경 애니메이션 효과 */
-        body::before {
-            content: '';
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: 
-                radial-gradient(circle at 20% 50%, rgba(120, 119, 198, 0.3) 0%, transparent 50%),
-                radial-gradient(circle at 80% 80%, rgba(138, 43, 226, 0.3) 0%, transparent 50%),
-                radial-gradient(circle at 40% 20%, rgba(255, 105, 180, 0.2) 0%, transparent 50%);
-            animation: gradient-shift 15s ease infinite;
-            pointer-events: none;
-            z-index: 0;
-        }
-        
-        @keyframes gradient-shift {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.8; }
         }
         
         /* 메인 컨테이너 래퍼 */
@@ -56,13 +33,10 @@
             z-index: 1;
         }
         
-        /* 네비게이션 바 - Glassmorphism 스타일 */
+        /* 네비게이션 바 - 코발트 블루 */
         .navbar-custom {
-            background: rgba(255, 255, 255, 0.1);
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            background: linear-gradient(135deg, #0066FF 0%, #00AAFF 100%);
+            box-shadow: 0 4px 24px rgba(0, 102, 255, 0.3);
             padding: 16px 0;
             margin: 20px;
             border-radius: 24px;
@@ -196,10 +170,10 @@
         }
         
         .dropdown-item:hover {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #0066FF 0%, #00AAFF 100%);
             color: white;
             transform: translateX(8px);
-            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+            box-shadow: 0 4px 12px rgba(0, 102, 255, 0.3);
         }
         
         .dropdown-item i {
@@ -269,13 +243,13 @@
         }
         
         .btn-primary {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            box-shadow: 0 4px 16px rgba(102, 126, 234, 0.4);
+            background: linear-gradient(135deg, #0066FF 0%, #00AAFF 100%);
+            box-shadow: 0 4px 16px rgba(0, 102, 255, 0.4);
         }
         
         .btn-primary:hover {
             transform: translateY(-3px);
-            box-shadow: 0 8px 24px rgba(102, 126, 234, 0.5);
+            box-shadow: 0 8px 24px rgba(0, 102, 255, 0.5);
         }
         
         .btn-secondary {
@@ -348,7 +322,7 @@
         }
         
         .card-header {
-            background: linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%);
+            background: linear-gradient(135deg, rgba(0, 102, 255, 0.1) 0%, rgba(0, 170, 255, 0.1) 100%);
             border-bottom: 1px solid rgba(0, 0, 0, 0.05);
             font-weight: 600;
             padding: 20px 24px;
@@ -424,7 +398,7 @@
         .modal-header {
             border-bottom: 1px solid rgba(0, 0, 0, 0.05);
             border-radius: 28px 28px 0 0;
-            background: linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%);
+            background: linear-gradient(135deg, rgba(0, 102, 255, 0.1) 0%, rgba(0, 170, 255, 0.1) 100%);
             padding: 24px 28px;
         }
         
@@ -452,7 +426,7 @@
         }
         
         .table thead {
-            background: linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%);
+            background: linear-gradient(135deg, rgba(0, 102, 255, 0.1) 0%, rgba(0, 170, 255, 0.1) 100%);
         }
         
         .table thead th {
@@ -467,7 +441,7 @@
         }
         
         .table tbody tr:hover {
-            background: rgba(102, 126, 234, 0.05);
+            background: rgba(0, 102, 255, 0.05);
             transform: scale(1.01);
         }
         
@@ -486,8 +460,8 @@
         }
         
         .form-control:focus, .form-select:focus {
-            border-color: #667eea;
-            box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.1);
+            border-color: #0066FF;
+            box-shadow: 0 0 0 4px rgba(0, 102, 255, 0.1);
             background: white;
         }
         
@@ -509,13 +483,13 @@
         }
         
         ::-webkit-scrollbar-thumb {
-            background: linear-gradient(135deg, rgba(102, 126, 234, 0.6) 0%, rgba(118, 75, 162, 0.6) 100%);
+            background: linear-gradient(135deg, rgba(0, 102, 255, 0.6) 0%, rgba(0, 170, 255, 0.6) 100%);
             border-radius: 10px;
             border: 2px solid rgba(255, 255, 255, 0.1);
         }
         
         ::-webkit-scrollbar-thumb:hover {
-            background: linear-gradient(135deg, rgba(102, 126, 234, 0.8) 0%, rgba(118, 75, 162, 0.8) 100%);
+            background: linear-gradient(135deg, rgba(0, 102, 255, 0.8) 0%, rgba(0, 170, 255, 0.8) 100%);
         }
         
         /* 배지 스타일 */
