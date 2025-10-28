@@ -1,922 +1,248 @@
 {% extends "base.html" %}
-{% block title %}{% if product %}{{ product.name }}{% elif reference.title %}{{ reference.title }}{% else %}레퍼런스{% endif %} - 상품 상세{% endblock %}
+{% block title %}레퍼런스 상세{% endblock %}
 
 {% block head %}
 {{ super() }}
 <style>
-    /* 컨테이너 */
-    .container, .container-fluid {
-        max-width: 1400px;
-        margin: 0 auto;
-        padding: 20px;
-    }
-    
-    /* 페이지 헤더 */
-    .page-header {
-        background: linear-gradient(135deg, #4A90E2 0%, #5BA3F5 100%);
-        color: white;
-        border-radius: 15px;
-        padding: 20px 25px;
-        margin-bottom: 25px;
-        box-shadow: 0 8px 30px rgba(74, 144, 226, 0.3);
-    }
-    
-    .page-header h1, .page-header h3 {
-        font-size: 1.6rem;
-        font-weight: 700;
-        margin: 0;
-        color: white;
-    }
-    
-    /* 카드 */
-    .card {
-        border-radius: 12px;
-        border: none;
-        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
-        transition: all 0.3s ease;
-        margin-bottom: 20px;
-    }
-    
-    .card:hover {
-        transform: translateY(-3px);
-        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.12);
-    }
-    
-    .card-header {
-        background: linear-gradient(135deg, #4A90E2 0%, #5BA3F5 100%);
-        color: white;
-        border-radius: 12px 12px 0 0 !important;
-        padding: 12px 20px;
-        font-weight: 600;
-        border: none;
-        font-size: 0.95rem;
-    }
-    
-    .card-body {
-        padding: 20px;
-    }
-    
-    /* 통계 카드 */
-    .stat-card {
-        background: white;
-        border-radius: 12px;
-        padding: 20px;
-        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
-        transition: all 0.3s ease;
-    }
-    
-    .stat-card:hover {
-        transform: translateY(-3px);
-        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.12);
-    }
-    
-    .stat-icon {
-        width: 45px;
-        height: 45px;
-        border-radius: 10px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 1.3rem;
-        margin-bottom: 12px;
-    }
-    
-    .stat-value {
-        font-size: 1.8rem;
-        font-weight: 700;
-        color: #2d3436;
-        margin-bottom: 5px;
-    }
-    
-    .stat-label {
-        color: #636e72;
-        font-size: 0.85rem;
-        font-weight: 500;
-    }
-    
-    /* 테이블 */
-    .table {
-        border-radius: 12px;
-        overflow: hidden;
-    }
-    
-    .table thead th {
-        background: #f8f9fa;
-        font-weight: 600;
-        color: #495057;
-        border: none;
-        padding: 10px 12px;
-        font-size: 0.85rem;
-    }
-    
-    .table tbody tr {
-        transition: background 0.2s ease;
-    }
-    
-    .table tbody tr:hover {
-        background: #f8f9fa;
-    }
-    
-    .table tbody td {
-        padding: 10px 12px;
-        vertical-align: middle;
-        border-color: #f0f1f3;
-        font-size: 0.9rem;
-    }
-    
-    /* 버튼 */
-    .btn {
-        border-radius: 10px;
-        padding: 8px 16px;
-        font-weight: 600;
-        transition: all 0.3s ease;
-        border: none;
-        font-size: 0.9rem;
-    }
-    
-    .btn-sm {
-        padding: 5px 10px;
-        font-size: 0.8rem;
-    }
-    
-    .btn-lg {
-        padding: 10px 20px;
-        font-size: 0.95rem;
-    }
-    
-    .btn-primary, .btn-info {
-        background: linear-gradient(135deg, #4A90E2 0%, #5BA3F5 100%);
-        color: white;
-        box-shadow: 0 4px 12px rgba(74, 144, 226, 0.3);
-    }
-    
-    .btn-primary:hover, .btn-info:hover {
-        background: linear-gradient(135deg, #3A7BC8 0%, #4A90E2 100%);
-        transform: translateY(-2px);
-        box-shadow: 0 6px 18px rgba(74, 144, 226, 0.4);
-        color: white;
-    }
-    
-    .btn-outline-primary, .btn-outline-info, .btn-outline-secondary {
-        border: 2px solid #4A90E2;
-        color: #4A90E2;
-        background: white;
-    }
-    
-    .btn-outline-primary:hover, .btn-outline-info:hover {
-        background: linear-gradient(135deg, #4A90E2 0%, #5BA3F5 100%);
-        border-color: transparent;
-        color: white;
-        transform: translateY(-2px);
-    }
-    
-    .btn-outline-secondary {
-        border-color: #636e72;
-        color: #636e72;
-    }
-    
-    .btn-outline-secondary:hover {
-        background: #636e72;
-        color: white;
-        transform: translateY(-2px);
-    }
-    
-    .btn-secondary {
-        background: #636e72;
-        color: white;
-    }
-    
-    .btn-secondary:hover {
-        background: #2d3436;
-        transform: translateY(-2px);
-    }
-    
-    .btn-success {
-        background: linear-gradient(135deg, #40c057 0%, #51cf66 100%);
-    }
-    
-    .btn-success:hover {
-        transform: translateY(-2px);
-    }
-    
-    .btn-danger {
-        background: linear-gradient(135deg, #fa5252 0%, #ff6b6b 100%);
-    }
-    
-    .btn-danger:hover {
-        transform: translateY(-2px);
-    }
-    
-    .btn-outline-danger {
-        border: 2px solid #fa5252;
-        color: #fa5252;
-    }
-    
-    .btn-outline-danger:hover {
-        background: #fa5252;
-        color: white;
-        transform: translateY(-2px);
-    }
-    
-    /* 뱃지 */
-    .badge {
-        padding: 5px 12px;
-        border-radius: 20px;
-        font-weight: 600;
-        font-size: 0.75rem;
-    }
-    
-    /* 레퍼런스 뱃지 */
-    .ref-badge {
-        display: inline-block;
-        padding: 4px 10px;
-        font-size: 0.75rem;
-        font-weight: 700;
-        color: white;
-        border-radius: 20px;
-    }
-    
-    .ref-대안 { background-color: #fa5252; }
-    .ref-정보 { background-color: #228be6; }
-    .ref-기타 { background-color: #40c057; }
-    .ref-미지정 { background-color: #868e96; }
-    
-    /* 계정 뱃지 */
-    .account-badge {
-        padding: 4px 10px;
-        font-size: 0.75rem;
-        font-weight: 700;
-        color: #fff;
-        border-radius: 20px;
-        display: inline-block;
-        margin-right: 6px;
-    }
-    
-    .dot-0 { background-color: #66d9e8; color: #212529; }
-    .dot-1 { background-color: #fa5252; }
-    .dot-2 { background-color: #fd7e14; }
-    .dot-3 { background-color: #fcc419; color: #212529; }
-    .dot-4 { background-color: #40c057; }
-    .dot-5 { background-color: #228be6; }
-    .dot-6 { background-color: #364fc7; }
-    .dot-7 { background-color: #7048e8; }
-    .dot-8 { background-color: #f06595; }
-    
-    /* 알림 */
-    .alert {
-        border-radius: 12px;
-        padding: 12px 18px;
-        border: none;
-        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
-        font-size: 0.9rem;
-    }
-    
-    /* 모달 */
-    .modal-content {
-        border-radius: 15px;
-        border: none;
-        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
-    }
-    
-    .modal-header {
-        background: linear-gradient(135deg, #4A90E2 0%, #5BA3F5 100%);
-        color: white;
-        border-radius: 15px 15px 0 0;
-        border: none;
-        padding: 15px 20px;
-    }
-    
-    .modal-title {
-        font-weight: 700;
-        font-size: 1.1rem;
-    }
-    
-    .modal-body {
-        padding: 20px;
-    }
-    
-    .modal-footer {
-        border-top: 1px solid #e9ecef;
-        padding: 12px 20px;
-    }
-    
-    /* 폼 */
-    .form-control, .form-select, textarea {
-        border-radius: 10px;
-        border: 2px solid #e9ecef;
-        padding: 8px 12px;
-        transition: all 0.3s ease;
-        font-size: 0.9rem;
-    }
-    
-    .form-control:focus, .form-select:focus, textarea:focus {
-        border-color: #4A90E2;
-        box-shadow: 0 0 0 3px rgba(74, 144, 226, 0.1);
-        outline: none;
-    }
-    
-    .form-label {
-        font-weight: 600;
-        color: #495057;
-        margin-bottom: 6px;
-        font-size: 0.9rem;
-    }
-    
-    /* 탭 */
-    .nav-tabs {
-        border: none;
-        margin-bottom: 0;
-        background: white;
-        padding: 12px 12px 0 12px;
-        border-radius: 15px 15px 0 0;
-        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
-    }
-    
-    .nav-tabs .nav-link {
-        border: none;
-        border-radius: 10px 10px 0 0;
-        padding: 10px 16px;
-        font-weight: 600;
-        color: #636e72;
-        transition: all 0.3s ease;
-        margin-right: 4px;
-        font-size: 0.9rem;
-    }
-    
-    .nav-tabs .nav-link:hover {
-        background: #f8f9fa;
-        color: #4A90E2;
-    }
-    
-    .nav-tabs .nav-link.active {
-        background: linear-gradient(135deg, #4A90E2 0%, #5BA3F5 100%);
-        color: white;
-        box-shadow: 0 4px 12px rgba(74, 144, 226, 0.3);
-    }
-    
-    .tab-content {
-        background: white;
-        border-radius: 0 0 15px 15px;
-        padding: 20px;
-        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
-    }
-    
-    /* 진행 바 */
-    .progress {
-        border-radius: 10px;
-        height: 22px;
-        background: #e9ecef;
-        box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1);
-    }
-    
-    .progress-bar {
-        border-radius: 10px;
-        font-weight: 600;
-        font-size: 0.85rem;
-    }
-    
-    /* 검색 바 */
-    .search-bar, .search-section {
-        background: white;
-        border-radius: 12px;
-        padding: 18px;
-        margin-bottom: 20px;
-        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
-    }
-    
-    .search-input {
-        border: 2px solid #e9ecef;
-        border-radius: 10px;
-        padding: 10px 15px;
-        font-size: 0.9rem;
-        transition: all 0.3s ease;
-    }
-    
-    .search-input:focus {
-        border-color: #4A90E2;
-        box-shadow: 0 0 0 3px rgba(74, 144, 226, 0.1);
-        outline: none;
-    }
-    
-    /* 상태 뱃지 */
-    .status-badge {
-        padding: 5px 12px;
-        border-radius: 20px;
-        font-size: 0.8rem;
-        font-weight: 600;
-        display: inline-block;
-    }
-    
-    .status-success {
-        background: #d4edda;
-        color: #155724;
-    }
-    
-    .status-failed {
-        background: #f8d7da;
-        color: #721c24;
-    }
-    
-    /* 리스트 */
-    .list-group-item {
-        border-radius: 10px;
-        border: 1px solid #e9ecef;
-        padding: 12px 15px;
-        margin-bottom: 8px;
-        transition: all 0.3s ease;
-    }
-    
-    .list-group-item:hover {
-        background: #f8f9fa;
-        transform: translateX(3px);
-    }
-    
-    /* 반응형 */
-    @media (max-width: 768px) {
-        .container, .container-fluid {
-            padding: 15px;
-        }
-        
-        .page-header h1, .page-header h3 {
-            font-size: 1.3rem;
-        }
-        
-        .btn {
-            padding: 7px 14px;
-            font-size: 0.85rem;
-        }
-        
-        .stat-value {
-            font-size: 1.5rem;
-        }
-        
-        .table {
-            font-size: 0.85rem;
-        }
-    }
+  /* ▼▼▼ 계정 순번 '뱃지' 스타일로 수정 ▼▼▼ */
+  .account-badge {
+    padding: 0.3em 0.65em; /* 뱃지 크기 */
+    font-size: 0.75em;     /* 뱃지 안 글씨 크기 */
+    font-weight: 700;
+    line-height: 1;
+    color: #fff;           /* 텍스트 흰색 */
+    text-align: center;
+    border-radius: 10rem;  /* 둥근 모서리 */
+    display: inline-block;
+    margin-right: 6px;
+    vertical-align: middle;
+  }
+  .dot-0 { background-color: #66d9e8; color: #212529;} /* 작성자 (민트) - 텍스트 검은색 */
+  .dot-1 { background-color: #fa5252; } /* 계정 1 (빨강) */
+  .dot-2 { background-color: #fd7e14; } /* 계정 2 (주황) */
+  .dot-3 { background-color: #fcc419; color: #212529;} /* 계정 3 (노랑) - 텍스트 검은색 */
+  .dot-4 { background-color: #40c057; } /* 계정 4 (초록) */
+  .dot-5 { background-color: #228be6; } /* 계정 5 (파랑) */
+  .dot-6 { background-color: #364fc7; } /* 계정 6 (남색) */
+  .dot-7 { background-color: #7048e8; } /* 계정 7 (보라) */
+  .dot-8 { background-color: #f06595; } /* 계정 8 (핑크) */
+  /* ▲▲▲ 계정 순번 '뱃지' 스타일로 수정 ▲▲▲ */
+
+  /* (기존 레퍼런스 뱃지 스타일은 그대로 유지) */
+  .ref-badge {
+    display: inline-block;
+    padding: 0.35em 0.65em;
+    font-size: .75em;
+    font-weight: 700;
+    line-height: 1;
+    color: #fff;
+    text-align: center;
+    white-space: nowrap;
+    vertical-align: baseline;
+    border-radius: 0.25rem;
+  }
+  .ref-대안 { background-color: #fa5252; } /* 빨강 */
+  .ref-정보 { background-color: #228be6; } /* 파랑 */
+  .ref-기타 { background-color: #40c057; } /* 초록 */
+  .ref-미지정 { background-color: #868e96; } /* 회색 */
 </style>
 {% endblock %}
 
-{% block content %}
-<!-- 검색 바 -->
-<div class="search-bar-section">
-    <div class="container">
-        <div style="display: flex; align-items: center; gap: 20px;">
-            <!-- 홈 버튼 추가 -->
-            <a href="/" class="search-home-btn" title="홈으로">
-                <i class="bi bi-house-door-fill"></i>
-            </a>
-            <!-- 기존 검색 컨테이너 -->
-            <div class="search-container" style="flex: 1;">
-                <div class="search-input-group">
-                    <i class="bi bi-search search-icon"></i>
-                    <input type="text" 
-                           id="productSearch" 
-                           class="search-input" 
-                           placeholder="다른 상품 검색..." 
-                           autocomplete="off">
+{% macro render_comments(comments, ref_id) %}
+    <ul class="list-unstyled ps-4">
+        {% for comment in comments %}
+        <li class="mt-3">
+            <div class="card bg-light">
+                <div class="card-body">
+                    <p class="card-text">
+                        <!-- ▼▼▼ 텍스트를 뱃지 안으로 이동 ▼▼▼ -->
+                        <span class="account-badge dot-{{ comment.account_sequence }}">
+                            {% if comment.account_sequence == 0 %}
+                                작성자
+                            {% else %}
+                                계정 {{ comment.account_sequence }}
+                            {% endif %}
+                        </span>
+                        <!-- ▲▲▲ 텍스트를 뱃지 안으로 이동 ▲▲▲ -->
+                        {{ comment.text | replace('\n', '<br>') | safe }}
+                    </p>
+                    <div class="d-flex justify-content-between align-items-center">
+                        <small class="text-muted">{{ comment.created_at.strftime('%Y-%m-%d %H:%M') }}</small>
+                        <div>
+                            <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="collapse" href="#reply-form-{{ comment.id }}">답글</button>
+                            <button class="btn btn-sm btn-outline-info" data-bs-toggle="modal" data-bs-target="#editCommentModal"
+                                    data-bs-comment-id="{{ comment.id }}"
+                                    data-bs-comment-text="{{ comment.text }}"
+                                    data-bs-account-sequence="{{ comment.account_sequence }}">수정</button>
+                            <form action="/marketing/comment/delete/{{ ref_id }}/{{ comment.id }}" method="post" class="d-inline" onsubmit="return confirm('이 댓글을 정말 삭제하시겠습니까?');">
+                                <button type="submit" class="btn btn-sm btn-outline-danger">삭제</button>
+                            </form>
+                        </div>
+                    </div>
+                    <!-- (답글 폼은 그대로 유지) -->
+                    <div class="collapse mt-3" id="reply-form-{{ comment.id }}">
+                        <form action="/marketing/comment/add/{{ ref_id }}" method="post">
+                            <input type="hidden" name="parent_id" value="{{ comment.id }}">
+                            <div class="input-group">
+                                <select name="account_sequence" class="form-select" style="max-width: 120px;">
+                                    <option value="0">작성자</option>
+                                    {% for i in range(1, 9) %}<option value="{{ i }}">계정 {{ i }}</option>{% endfor %}
+                                </select>
+                                <textarea name="text" class="form-control" rows="2" required></textarea>
+                            </div>
+                            <button type="submit" class="btn btn-sm btn-primary mt-2">답글 등록</button>
+                        </form>
+                    </div>
                 </div>
-                <div id="autocompleteDropdown" class="autocomplete-dropdown"></div>
+            </div>
+            {% if comment.structured_replies %}
+                {{ render_comments(comment.structured_replies, ref_id) }}
+            {% endif %}
+        </li>
+        {% endfor %}
+    </ul>
+{% endmacro %}
+
+{% block content %}
+<div class="container mt-4">
+    <!-- (페이지 상단은 그대로 유지) -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>📝 레퍼런스 상세 정보</h1>
+        <div>
+             <a href="/marketing/cafe?tab=references" class="btn btn-secondary">← 목록으로</a>
+             <form action="/marketing/reference/delete/{{ reference.id }}" method="post" class="d-inline" onsubmit="return confirm('이 레퍼런스를 정말 삭제하시겠습니까?');">
+                 <button type="submit" class="btn btn-danger">삭제</button>
+             </form>
+        </div>
+    </div>
+
+    <!-- (좌우 레이아웃 및 본문 수정 폼은 그대로 유지) -->
+    <div class="row g-4">
+        <div class="col-md-6">
+            <div class="card shadow-sm h-100">
+                <div class="card-header"><h3>본문 수정</h3></div>
+                <div class="card-body">
+                    <form action="/marketing/reference/update/{{ reference.id }}" method="post">
+                        <div class="row">
+                            <div class="col-md-9 mb-3">
+                                <label for="title" class="form-label">제목</label>
+                                <input type="text" class="form-control" id="title" name="title" value="{{ reference.title }}" required>
+                            </div>
+                            <div class="col-md-3 mb-3">
+                                <label for="ref_type" class="form-label">분류 <span class="ref-badge ref-{{ reference.ref_type or '기타' }}">{{ reference.ref_type or '미지정' }}</span></label>
+                                <select id="ref_type" name="ref_type" class="form-select">
+                                    <option value="대안" {{ 'selected' if reference.ref_type == '대안' }}>대안</option>
+                                    <option value="정보" {{ 'selected' if reference.ref_type == '정보' }}>정보</option>
+                                    <option value="기타" {{ 'selected' if reference.ref_type == '기타' or not reference.ref_type }}>기타</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label for="content" class="form-label">본문</label>
+                            <textarea class="form-control" id="content" name="content" rows="15">{{ reference.content }}</textarea>
+                        </div>
+                        <button type="submit" class="btn btn-primary">본문 저장</button>
+                        {% if reference.last_modified_by %}
+                        <span class="ms-3 text-muted small">
+                            마지막 수정: {{ reference.last_modified_by.username }}
+                        </span>
+                        {% endif %}
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- (댓글 관리 부분은 그대로 유지) -->
+        <div class="col-md-6">
+            <div class="card shadow-sm h-100">
+                <div class="card-header"><h4>댓글 관리</h4></div>
+                <div class="card-body" style="max-height: 600px; overflow-y: auto;">
+                    <!-- (새 최상위 댓글 폼은 그대로 유지) -->
+                    <form action="/marketing/comment/add/{{ reference.id }}" method="post" class="mb-4">
+                        <div class="mb-2">
+                            <label class="form-label">새 댓글 추가</label>
+                            <div class="input-group">
+                                <select name="account_sequence" class="form-select" style="max-width: 120px;">
+                                    <option value="0">작성자</option>
+                                    {% for i in range(1, 9) %}<option value="{{ i }}">계정 {{ i }}</option>{% endfor %}
+                                </select>
+                                <textarea class="form-control" name="text" rows="3" required></textarea>
+                            </div>
+                        </div>
+                        <button type="submit" class="btn btn-success">댓글 등록</button>
+                    </form>
+                    <hr>
+                    <!-- (댓글 목록 부분은 그대로 유지) -->
+                    <ol class="list-unstyled">
+                        {% for comment in comments %}
+                        <li class="mb-3">
+                            <div class="d-flex">
+                                <span class="me-3 fs-5 fw-bold text-primary">{{ loop.index }}.</span>
+                                <div class="w-100">
+                                    {{ render_comments([comment], reference.id) }}
+                                </div>
+                            </div>
+                        </li>
+                        {% endfor %}
+                    </ol>
+                </div>
             </div>
         </div>
     </div>
 </div>
 
-<div class="container">
-    {% if product %}
-    <!-- 메인 상품 카드 -->
-    <div class="product-main-card">
-        <div class="row g-0">
-            <!-- 이미지 섹션 -->
-            <div class="col-lg-5">
-                <div class="product-image-section">
-                    {% if product.thumbnail %}
-                        <img src="{{ product.thumbnail }}" alt="{{ product.name }}" class="product-image">
-                    {% else %}
-                        <div class="no-image">
-                            <i class="bi bi-image"></i>
-                        </div>
-                    {% endif %}
-                </div>
+<!-- (댓글 수정 팝업 모달은 그대로 유지) -->
+<div class="modal fade" id="editCommentModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">댓글 수정</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
-            
-            <!-- 정보 섹션 -->
-            <div class="col-lg-7">
-                <div class="product-info-section">
-                    <h1 class="product-title">{{ product.name }}</h1>
-                    <div class="product-code">
-                        <i class="bi bi-upc-scan"></i> 상품코드: {{ product.product_code if product.product_code else 'N/A' }}
+            <form id="editCommentForm" method="post">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="edit-account-sequence" class="form-label">계정 순번</label>
+                        <select name="account_sequence" id="edit-account-sequence" class="form-select">
+                            <option value="0">작성자</option>
+                            {% for i in range(1, 9) %}<option value="{{ i }}">계정 {{ i }}</option>{% endfor %}
+                        </select>
                     </div>
-                    
-                    <!-- 가격 표시 -->
-                    <div class="price-display">
-                        <i class="bi bi-tag-fill"></i>
-                        ₩ {{ "{:,}".format(product.price) if product.price else 0 }}
-                    </div>
-                    
-                    <!-- 배송 옵션 뱃지들 -->
-                    <div class="shipping-badges">
-                        <!-- 경동 대납 -->
-                        <div class="shipping-badge {{ 'active' if product.kd_paid else 'inactive' }}">
-                            <i class="bi {{ 'bi-check-circle-fill' if product.kd_paid else 'bi-x-circle' }}"></i>
-                            경동 대납
-                        </div>
-                        
-                        <!-- 관세 대납 -->
-                        <div class="shipping-badge {{ 'active' if product.customs_paid else 'inactive' }}">
-                            <i class="bi {{ 'bi-check-circle-fill' if product.customs_paid else 'bi-x-circle' }}"></i>
-                            관세 대납
-                        </div>
-                        
-                        <!-- 신고가 뱃지 - 별도로 항상 표시 -->
-                        {% if product.customs_cost and product.customs_cost > 0 %}
-                        <div class="customs-price-badge">
-                            <i class="bi bi-currency-exchange"></i>
-                            <span>신고가:</span>
-                            <span class="price-value">¥{{ "{:,}".format(product.customs_cost) }}</span>
-                        </div>
-                        {% else %}
-                        <div class="customs-price-badge">
-                            <i class="bi bi-currency-exchange"></i>
-                            <span>신고가: ¥0</span>
-                        </div>
-                        {% endif %}
-                    </div>
-                    
-                    <!-- 쇼핑몰 링크 -->
-                    <div class="shop-links">
-                        {% if product.coupang_link %}
-                        <a href="{{ product.coupang_link }}" target="_blank" class="shop-link coupang">
-                            <i class="bi bi-cart-fill"></i> 쿠팡 바로가기
-                        </a>
-                        {% endif %}
-                        
-                        {% if product.naver_link %}
-                        <a href="{{ product.naver_link }}" target="_blank" class="shop-link naver">
-                            <i class="bi bi-bag-fill"></i> 네이버 바로가기
-                        </a>
-                        {% endif %}
-                        
-                        {% if product.taobao_link %}
-                        <a href="{{ product.taobao_link }}" target="_blank" class="shop-link taobao">
-                            <i class="bi bi-shop"></i> 타오바오 바로가기
-                        </a>
-                        {% endif %}
-                    </div>
-                    
-                    <!-- 액션 버튼 -->
-                    <div class="action-buttons">
-                        <button onclick="location.href='/products/edit/{{ product.id }}'" class="btn-action btn-edit">
-                            <i class="bi bi-pencil-fill"></i> 수정
-                        </button>
-                        <button onclick="deleteProduct({{ product.id }})" class="btn-action btn-delete">
-                            <i class="bi bi-trash-fill"></i> 삭제
-                        </button>
-                        <button onclick="location.href='/products'" class="btn-action btn-back">
-                            <i class="bi bi-arrow-left"></i> 목록으로
-                        </button>
+                    <div class="mb-3">
+                        <label for="edit-comment-text" class="form-label">댓글 내용</label>
+                        <textarea class="form-control" id="edit-comment-text" name="text" rows="5" required></textarea>
                     </div>
                 </div>
-            </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">닫기</button>
+                    <button type="submit" class="btn btn-primary">수정 저장</button>
+                </div>
+            </form>
         </div>
     </div>
-    
-    <!-- 상세 정보 섹션 - 전체 너비로 확장 -->
-    {% if product.details %}
-    <div class="details-section">
-        <h3 class="details-title">
-            <i class="bi bi-info-circle-fill"></i>
-            상세 정보
-        </h3>
-        <div class="details-content">
-            {% if product.details %}
-                <!-- 앞뒤 공백 제거하고 줄바꿈은 <br>로 변환 -->
-                {{ product.details.strip() | replace('\n', '<br>') | safe }}
-            {% else %}
-                상세 정보가 없습니다.
-            {% endif %}
-        </div>
-    </div>
-    {% endif %}
-    
-    <!-- 옵션 카드들 -->
-    <div class="options-container">
-        <!-- 쿠팡 옵션 -->
-        <div class="option-card">
-            <h4 class="option-card-title coupang">
-                <i class="bi bi-cart-fill"></i>
-                쿠팡 옵션
-            </h4>
-            {% if coupang_options %}
-            <table class="option-table">
-                <thead>
-                    <tr>
-                        <th>옵션명</th>
-                        <th>가격</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for option in coupang_options %}
-                    <tr>
-                        <td>{{ option.name }}</td>
-                        <td class="option-price">₩ {{ "{:,}".format(option.price) }}</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-            {% else %}
-            <div class="no-options">
-                <i class="bi bi-inbox" style="font-size: 2rem;"></i>
-                <p>등록된 옵션이 없습니다</p>
-            </div>
-            {% endif %}
-        </div>
-        
-        <!-- 네이버 옵션 -->
-        <div class="option-card">
-            <h4 class="option-card-title naver">
-                <i class="bi bi-bag-fill"></i>
-                네이버 옵션
-            </h4>
-            {% if naver_options %}
-            <table class="option-table">
-                <thead>
-                    <tr>
-                        <th>옵션명</th>
-                        <th>가격</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for option in naver_options %}
-                    <tr>
-                        <td>{{ option.name }}</td>
-                        <td class="option-price">₩ {{ "{:,}".format(option.price) }}</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-            {% else %}
-            <div class="no-options">
-                <i class="bi bi-inbox" style="font-size: 2rem;"></i>
-                <p>등록된 옵션이 없습니다</p>
-            </div>
-            {% endif %}
-        </div>
-        
-        <!-- 타오바오 옵션 -->
-        <div class="option-card">
-            <h4 class="option-card-title taobao">
-                <i class="bi bi-shop"></i>
-                타오바오 옵션
-            </h4>
-            {% if taobao_options %}
-            <table class="option-table">
-                <thead>
-                    <tr>
-                        <th>옵션명</th>
-                        <th>가격</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for option in taobao_options %}
-                    <tr>
-                        <td>{{ option.name }}</td>
-                        <td class="option-price">¥ {{ "{:,}".format(option.price) }}</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-            {% else %}
-            <div class="no-options">
-                <i class="bi bi-inbox" style="font-size: 2rem;"></i>
-                <p>등록된 옵션이 없습니다</p>
-            </div>
-            {% endif %}
-        </div>
-    </div>
-    {% else %}
-    <!-- Product가 없는 경우 -->
-    <div class="alert alert-warning" style="margin: 40px 0;">
-        <i class="bi bi-exclamation-triangle-fill"></i>
-        <strong>상품 정보를 찾을 수 없습니다.</strong>
-        <p style="margin-top: 10px; margin-bottom: 0;">이 레퍼런스는 상품과 연결되어 있지 않거나 상품이 삭제되었습니다.</p>
-    </div>
-    {% endif %}
 </div>
 
 <script>
-// 전역 변수
-let allProducts = [];
-let searchInput = document.getElementById('productSearch');
-let autocompleteDropdown = document.getElementById('autocompleteDropdown');
-let searchTimeout = null;
-let selectedIndex = -1;
-
-// 페이지 로드 시 전체 상품 가져오기
-document.addEventListener('DOMContentLoaded', function() {
-    fetchAllProducts();
-});
-
-// 전체 상품 목록 가져오기
-function fetchAllProducts() {
-    fetch('/products/api/all')
-        .then(response => response.json())
-        .then(data => {
-            allProducts = data.products || [];
-            console.log('전체 상품 로드:', allProducts.length);
-        })
-        .catch(error => {
-            console.error('상품 목록 로드 실패:', error);
-            // 대체: 기본 검색 사용
+    // (스크립트는 그대로 유지)
+    const editCommentModal = document.getElementById('editCommentModal');
+    if(editCommentModal) {
+        editCommentModal.addEventListener('show.bs.modal', event => {
+            const button = event.relatedTarget;
+            const commentId = button.getAttribute('data-bs-comment-id');
+            const commentText = button.getAttribute('data-bs-comment-text');
+            const accountSeq = button.getAttribute('data-bs-account-sequence');
+            
+            const form = editCommentModal.querySelector('#editCommentForm');
+            form.action = `/marketing/comment/edit/{{ reference.id }}/${commentId}`;
+            
+            const textArea = editCommentModal.querySelector('#edit-comment-text');
+            const selectEl = editCommentModal.querySelector('#edit-account-sequence');
+            
+            textArea.value = commentText;
+            selectEl.value = accountSeq;
         });
-}
-
-// 자동완성 검색
-searchInput.addEventListener('input', function(e) {
-    clearTimeout(searchTimeout);
-    const searchTerm = e.target.value.trim().toLowerCase();
-    
-    if (searchTerm.length < 1) {
-        autocompleteDropdown.classList.remove('show');
-        selectedIndex = -1;
-        return;
     }
-    
-    searchTimeout = setTimeout(() => {
-        if (allProducts.length > 0) {
-            // 로컬 검색
-            const filtered = allProducts.filter(product => {
-                const name = (product.name || '').toLowerCase();
-                const code = (product.product_code || '').toLowerCase();
-                return name.includes(searchTerm) || code.includes(searchTerm);
-            });
-            showAutocomplete(filtered, searchTerm);
-        } else {
-            // API 검색 폴백
-            searchProducts(searchTerm);
-        }
-    }, 300);
-});
-
-// 상품 검색 API 호출 (폴백)
-function searchProducts(searchTerm) {
-    // 간단한 검색 쿼리
-    fetch('/products?keyword=' + encodeURIComponent(searchTerm), {
-        headers: {
-            'Accept': 'application/json'
-        }
-    })
-        .then(response => response.json())
-        .then(data => {
-            const products = data.products || [];
-            showAutocomplete(products, searchTerm);
-        })
-        .catch(error => {
-            console.error('검색 오류:', error);
-            showAutocomplete([], searchTerm);
-        });
-}
-
-// 자동완성 표시
-function showAutocomplete(products, searchTerm) {
-    if (products.length === 0) {
-        autocompleteDropdown.innerHTML = `
-            <div style="padding: 30px; text-align: center; color: #adb5bd;">
-                <i class="bi bi-search" style="font-size: 2.5rem; color: #dee2e6;"></i>
-                <p style="margin-top: 15px; font-weight: 500;">검색 결과가 없습니다</p>
-                <p style="font-size: 0.9rem; color: #adb5bd;">다른 키워드로 검색해보세요</p>
-            </div>
-        `;
-        autocompleteDropdown.classList.add('show');
-        return;
-    }
-    
-    let html = '';
-    products.slice(0, 10).forEach((product, index) => {
-        const highlightedName = highlightText(product.name || '', searchTerm);
-        const highlightedCode = highlightText(product.product_code || '', searchTerm);
-        const price = product.price ? `₩${product.price.toLocaleString()}` : '가격 미정';
-        
-        html += `
-            <div class="autocomplete-item" 
-                 onclick="goToProduct(${product.id})"
-                 data-index="${index}">
-                ${product.thumbnail ? 
-                    `<img src="${product.thumbnail}" class="autocomplete-thumbnail" onerror="this.style.display='none'">` :
-                    `<div class="autocomplete-thumbnail" style="display: flex; align-items: center; justify-content: center; background: #f8f9fa;">
-                        <i class="bi bi-image" style="color: #adb5bd; font-size: 1.5rem;"></i>
-                    </div>`
-                }
-                <div class="autocomplete-info">
-                    <div class="autocomplete-name">${highlightedName}</div>
-                    <div class="autocomplete-price">
-                        ${price} 
-                        ${product.product_code ? `• 코드: ${highlightedCode}` : ''}
-                    </div>
-                </div>
-                <div style="margin-left: auto; color: #4A90E2;">
-                    <i class="bi bi-arrow-right-circle" style="font-size: 1.3rem;"></i>
-                </div>
-            </div>
-        `;
-    });
-    
-    // 더 많은 결과가 있으면 표시
-    if (products.length > 10) {
-        html += `
-            <div style="padding: 15px; background: #f8f9fa; text-align: center; color: #636e72; font-size: 0.9rem; border-top: 1px solid #e9ecef;">
-                <i class="bi bi-info-circle"></i> ${products.length - 10}개의 추가 결과가 더 있습니다
-            </div>
-        `;
-    }
-    
-    autocompleteDropdown.innerHTML = html;
-    autocompleteDropdown.classList.add('show');
-    selectedIndex = -1;
-}
-
-// 텍스트 하이라이트
-function highlightText(text, searchTerm) {
-    if (!searchTerm || !text) return text;
-    
-    const regex = new RegExp(`(${searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
-    return text.replace(regex, '<span class="highlight">$1</span>');
-}
-
-// 상품 페이지로 이동
-function goToProduct(productId) {
-    if (window.location.pathname === `/products/${productId}`) {
-        window.location.reload();
-    } else {
-        window.location.href = `/products/${productId}`;
-    }
-}
-
-// 상품 삭제
-function deleteProduct(productId) {
-    if (confirm('정말로 이 상품을 삭제하시겠습니까?')) {
-        // Form 방식으로 전송
-        const form = document.createElement('form');
-        form.method = 'POST';
-        form.action = '/products/delete';
-        
-        const input = document.createElement('input');
-        input.type = 'hidden';
-        input.name = 'product_id';
-        input.value = productId;
-        
-        form.appendChild(input);
-        document.body.appendChild(form);
-        form.submit();
-    }
-}
-
-// 클릭 외부 영역 시 드롭다운 닫기
-document.addEventListener('click', function(e) {
-    if (!searchInput.contains(e.target) && !autocompleteDropdown.contains(e.target)) {
-        autocompleteDropdown.classList.remove('show');
-        selectedIndex = -1;
-    }
-});
-
-// 키보드 네비게이션
-searchInput.addEventListener('keydown', function(e) {
-    const items = autocompleteDropdown.querySelectorAll('.autocomplete-item');
-    
-    if (e.key === 'ArrowDown') {
-        e.preventDefault();
-        selectedIndex = Math.min(selectedIndex + 1, items.length - 1);
-        updateSelection(items);
-    } else if (e.key === 'ArrowUp') {
-        e.preventDefault();
-        selectedIndex = Math.max(selectedIndex - 1, -1);
-        updateSelection(items);
-    } else if (e.key === 'Enter') {
-        e.preventDefault();
-        if (selectedIndex >= 0 && items[selectedIndex]) {
-            items[selectedIndex].click();
-        } else if (searchInput.value.trim()) {
-            if (items.length > 0) {
-                items[0].click();
-            }
-        }
-    } else if (e.key === 'Escape') {
-        autocompleteDropdown.classList.remove('show');
-        searchInput.blur();
-        selectedIndex = -1;
-    }
-});
-
-// 선택 표시 업데이트
-function updateSelection(items) {
-    items.forEach((item, index) => {
-        if (index === selectedIndex) {
-            item.classList.add('selected');
-            item.scrollIntoView({ block: 'nearest' });
-        } else {
-            item.classList.remove('selected');
-        }
-    });
-}
 </script>
 {% endblock %}
+
+<!-- v2 강제 업데이트 -->
