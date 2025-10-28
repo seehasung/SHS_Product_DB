@@ -528,12 +528,7 @@
                                     {% endfor %}
                                 </select>
                                 <select class="form-select" id="ref-title-select" onchange="loadReference(this, 'add_post_title', 'add_post_body', 'add_post_comments', 'add_reference_id')">
-                                    <option value="" selected>제목 선택...</option>
-                                    {% for type, refs in references_by_type.items() %}
-                                        {% for ref in refs %}
-                                        <option value="{{ ref.id }}" data-ref-type="{{ ref.ref_type }}">{{ ref.title }}</option>
-                                        {% endfor %}
-                                    {% endfor %}
+                                    <option value="" selected>먼저 분류를 선택하세요</option>
                                 </select>
                             </div>
                             <input type="hidden" name="reference_id" id="add_reference_id">
@@ -697,38 +692,50 @@ function filterReferences(typeSelect, titleSelectId) {
     const selectedType = typeSelect.value;
     const titleSelect = document.getElementById(titleSelectId);
     
-    console.log('=== filterReferences 디버깅 ===');
+    console.log('========================================');
+    console.log('🔍 filterReferences 호출');
     console.log('선택된 분류:', selectedType);
-    console.log('allReferences:', allReferences);
+    console.log('titleSelectId:', titleSelectId);
+    console.log('allReferences 전체:', allReferences.length + '개');
     
-    // 현재 선택된 값 저장
-    const currentValue = titleSelect.value;
+    // 🔥 제목 선택 드롭다운 초기화
+    titleSelect.innerHTML = '';
     
-    // 기본 옵션만 남기고 모두 제거
-    titleSelect.innerHTML = '<option value="" selected>제목 선택...</option>';
+    if (selectedType === "") {
+        // 분류를 선택하지 않았으면 기본 메시지
+        const defaultOption = document.createElement('option');
+        defaultOption.value = "";
+        defaultOption.selected = true;
+        defaultOption.textContent = "먼저 분류를 선택하세요";
+        titleSelect.appendChild(defaultOption);
+        console.log('→ 분류 미선택, 기본 메시지 표시');
+        console.log('========================================');
+        return;
+    }
     
-    // allReferences에서 필터링하여 옵션 추가
+    // 기본 옵션 추가
+    const defaultOption = document.createElement('option');
+    defaultOption.value = "";
+    defaultOption.selected = true;
+    defaultOption.textContent = "제목 선택...";
+    titleSelect.appendChild(defaultOption);
+    
+    // 🔥 선택된 분류에 맞는 레퍼런스만 필터링하여 추가
     let addedCount = 0;
     allReferences.forEach(ref => {
-        if (selectedType === "" || ref.ref_type === selectedType) {
+        if (ref.ref_type === selectedType) {
             const option = document.createElement('option');
             option.value = ref.id;
             option.textContent = ref.title;
             option.setAttribute('data-ref-type', ref.ref_type);
             titleSelect.appendChild(option);
             addedCount++;
+            console.log(`  → 추가: ID ${ref.id}, 제목: "${ref.title}"`);
         }
     });
-    console.log('추가된 옵션 수:', addedCount);
     
-    // 이전 선택값이 필터링 후에도 존재하면 복원
-    if (currentValue) {
-        const optionExists = titleSelect.querySelector(`option[value="${currentValue}"]`);
-        if (optionExists) {
-            titleSelect.value = currentValue;
-            console.log('이전 선택값 복원:', currentValue);
-        }
-    }
+    console.log('✅ 필터링 완료! 추가된 제목:', addedCount + '개');
+    console.log('========================================');
 }
 
 /**

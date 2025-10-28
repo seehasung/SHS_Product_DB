@@ -48,6 +48,46 @@ def get_db():
     finally:
         db.close()
 
+# [✅ 수정 1: 헬퍼 함수 추가]
+# 댓글 데이터를 미리 포매팅하는 헬퍼 함수입니다.
+def _format_comments_for_post(comments_query) -> str:
+    """
+    계층 구조의 댓글 쿼리를 받아 포스팅 본문에 삽입할 텍스트로 포매팅합니다.
+    """
+    comment_map = {c.id: c for c in comments_query}
+    top_level_comments = []
+    
+    # 댓글 객체에 structured_replies 리스트 초기화
+    for c in comments_query:
+        c.structured_replies = []
+    
+    # 계층 구조 생성
+    for c in comments_query:
+        if c.parent_id and c.parent_id in comment_map:
+            parent = comment_map.get(c.parent_id)
+            if parent:
+                if not hasattr(parent, 'structured_replies'):
+                    parent.structured_replies = []
+                parent.structured_replies.append(c)
+        elif not c.parent_id:
+            top_level_comments.append(c)
+    
+    def format_recursive(comments, indent=""):
+        text = ""
+        # 계정 순서(account_sequence)에 따라 정렬
+        sorted_comments = sorted(comments, key=lambda x: x.account_sequence)
+        for c in sorted_comments:
+            prefix = "작성자" if c.account_sequence == 0 else f"계정 {c.account_sequence}"
+            # .split('\n')으로 여러 줄 댓글 지원
+            commentLines = "\n".join([f"{indent}  {line}" for line in c.text.split('\n') if line.strip()])
+            text += f"{indent}{prefix}:\n{commentLines}\n\n"
+            if hasattr(c, 'structured_replies') and c.structured_replies:
+                text += format_recursive(c.structured_replies, indent + "    (답글) ")
+        return text
+    
+    return format_recursive(top_level_comments).strip()
+
+
 # --- Main Marketing Cafe Page (수정됨) ---
 @router.get("/cafe", response_class=HTMLResponse)
 async def marketing_cafe(request: Request, db: Session = Depends(get_db)):
@@ -284,10 +324,12 @@ async def get_schedules(
     
     membership_map = {}
     for membership in all_memberships:
-        if membership.account_id not in membership_map:
-            membership_map[membership.account_id] = []
+        # [✅ 수정 2: JavaScript 호환을 위해 키를 문자열로 변경]
+        account_key = str(membership.account_id)
+        if account_key not in membership_map:
+            membership_map[account_key] = []
         if membership.cafe:
-            membership_map[membership.account_id].append({
+            membership_map[account_key].append({
                 "id": membership.cafe.id,
                 "name": membership.cafe.name
             })
@@ -326,7 +368,7 @@ async def get_schedules(
         "accounts": accounts,
         "cafes": cafes,
         "marketing_products": marketing_products,
-        "membership_map": membership_map,
+        "membership_map": membership_map, # [✅ 수정 3: 문자열 키를 가진 맵 전달]
         "product_keywords_map": product_keywords_map,
         "unlinked_posts": unlinked_posts
     })
@@ -995,7 +1037,7 @@ async def add_marketing_product(product_id: int, db: Session = Depends(get_db)):
         db.commit()
     return RedirectResponse(url="/marketing/cafe?tab=products", status_code=303)
 
-# --- '글 관리' 라우트 (기존 유지) ---
+# --- '글 관리' 라우트 (수정됨) ---
 @router.get("/product/posts/{mp_id}", response_class=HTMLResponse)
 async def get_product_posts(
     request: Request, 
@@ -1082,20 +1124,42 @@ async def get_product_posts(
     all_cafes = db.query(TargetCafe).all()
     all_workers = db.query(User).filter(or_(User.can_manage_marketing == True, User.is_admin == True)).all()
     
-    all_references = db.query(Reference).options(joinedload(Reference.comments)).order_by(Reference.ref_type, Reference.title).all()
-    references_by_type = {"대안": [], "정보": [], "기타": []}
-    for ref in all_references:
-        ref_type_str = ref.ref_type or "기타"
-        if ref_type_str in references_by_type:
-            references_by_type[ref_type_str].append(ref)
-        else:
-            references_by_type["기타"].append(ref)
+    # [✅ 수정 4: 레퍼런스 데이터를 JSON으로 가공]
+    # 1. 댓글(comments)까지 함께 조회 (eager loading)
+    all_references_raw = db.query(Reference).options(
+        joinedload(Reference.comments)  # 댓글을 함께 로드
+    ).order_by(Reference.ref_type, Reference.title).all()
+    
+    # 2. JavaScript에서 사용할 JSON 데이터 생성
+    all_references_json = []
+    references_by_type_json = {"대안": [], "정보": [], "기타": []}
+
+    for ref in all_references_raw:
+        # 3. 위에서 만든 헬퍼 함수를 사용해 댓글 포매팅
+        formatted_comments = _format_comments_for_post(ref.comments)
+        
+        ref_dict = {
+            'id': ref.id,
+            'title': ref.title,
+            'ref_type': ref.ref_type or "기타",
+            'content': ref.content or "",
+            'comments_text': formatted_comments  # 4. 포매팅된 댓글 텍스트 추가
+        }
+        all_references_json.append(ref_dict)
+        
+        # 5. 분류별 JSON 맵에도 추가
+        ref_type_str = ref_dict['ref_type']
+        if ref_type_str not in references_by_type_json:
+            references_by_type_json[ref_type_str] = [] # 새로운 분류가 있어도 처리
+        references_by_type_json[ref_type_str].append(ref_dict)
+
     
     all_memberships = db.query(CafeMembership).options(joinedload(CafeMembership.cafe)).all()
     membership_map = {}
     for membership in all_memberships:
         if membership.status == 'active':
-            account_key = str(membership.account_id)  # 문자열로 변환
+            # [✅ 수정 5: JavaScript 호환을 위해 키를 문자열로 변경]
+            account_key = str(membership.account_id)
             if account_key not in membership_map:
                 membership_map[account_key] = []
             if membership.cafe:
@@ -1109,9 +1173,12 @@ async def get_product_posts(
         "all_accounts": all_accounts,
         "all_cafes": all_cafes,
         "all_workers": all_workers,
-        "all_references": all_references,
-        "references_by_type": references_by_type,
-        "membership_map": membership_map,
+        
+        # [✅ 수정 6: 템플릿에 Python 객체 대신 JSON 데이터 전달]
+        "all_references_json": all_references_json,
+        "references_by_type_json": references_by_type_json,
+        
+        "membership_map": membership_map, # [✅ 수정 7: 문자열 키를 가진 맵 전달]
         "total_pages": total_pages,
         "current_page": page,
         "keyword_search": keyword_search,
@@ -1138,35 +1205,18 @@ async def add_marketing_post(
     if is_registration_complete and not post_url:
         return RedirectResponse(url=f"/marketing/product/posts/{mp_id}?error=url_required", status_code=303)
 
-    if reference_id:
+    # [✅ 수정 8: 헬퍼 함수를 사용하여 댓글 텍스트 생성]
+    # (reference_id가 있고, post_comments가 비어있을 때만)
+    if reference_id and not post_comments:
         ref = db.query(Reference).options(joinedload(Reference.comments)).filter(Reference.id == reference_id).first()
         if ref:
             if not post_title:
                 post_title = ref.title
             if not post_body:
                 post_body = ref.content
-            if not post_comments:
-                comment_map = {c.id: c for c in ref.comments}
-                top_level_comments = []
-                for c in ref.comments:
-                    c.structured_replies = []
-                for c in ref.comments:
-                    if c.parent_id and c.parent_id in comment_map:
-                        comment_map[c.parent_id].structured_replies.append(c)
-                    elif not c.parent_id:
-                        top_level_comments.append(c)
-                
-                def format_comments(comments, indent = ""):
-                    text = ""
-                    for c in comments:
-                        prefix = "작성자" if c.account_sequence == 0 else f"계정 {c.account_sequence}"
-                        commentLines = "\n".join([f"{indent}  {line}" for line in c.text.split('\n')])
-                        text += f"{indent}{prefix}:\n{commentLines}\n\n"
-                        if hasattr(c, 'structured_replies') and c.structured_replies:
-                            text += format_comments(c.structured_replies, indent + "    (답글) ")
-                    return text
-                
-                post_comments = format_comments(top_level_comments).strip()
+            
+            # _format_comments_for_post 함수를 여기서도 사용
+            post_comments = _format_comments_for_post(ref.comments)
 
     new_post = MarketingPost(
         marketing_product_id=mp_id,
@@ -1252,3 +1302,7 @@ async def create_schedule(request: Request):
     return templates.TemplateResponse("create_schedule.html", {
         "request": request
     })
+
+# [✅ 수정 9: 파일 끝에 중복으로 있던 헬퍼 함수 제거]
+# _format_comments_for_post 함수가 파일 상단(46라인)으로 이동했으므로,
+# 파일 끝(기존 924라인)에 있던 중복 함수는 이 코드에서 제거되었습니다.
