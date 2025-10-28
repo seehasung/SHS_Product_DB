@@ -484,7 +484,15 @@
 <div class="container mt-4">
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h1>☕ 카페 작업 관리</h1>
-        <a href="/" class="btn btn-secondary">← 홈으로</a>
+        <div class="d-flex gap-2">
+            <!-- ✅ 새로 추가: 레퍼런스 생성 버튼 -->
+            <form action="/marketing/reference/add" method="post" class="d-inline">
+                <button type="submit" class="btn btn-success">
+                    <i class="bi bi-plus-circle"></i> 레퍼런스 생성
+                </button>
+            </form>
+            <a href="/" class="btn btn-secondary">← 홈으로</a>
+        </div>
     </div>
 
     <!-- 오류 메시지 표시 -->
@@ -737,23 +745,6 @@
 
         <!-- 레퍼런스 관리 탭 -->
         <div class="tab-pane fade border-start border-end border-bottom p-3" id="references-tab-pane" role="tabpanel">
-            <h3 class="mb-3">신규 레퍼런스 생성</h3>
-            {% if error == 'duplicate_reference' %}
-            <div class="alert alert-danger" role="alert">
-                {{ error }}
-            </div>
-            {% endif %}
-            <form action="/marketing/reference/add" method="post" class="mb-4 p-3 border rounded bg-light">
-                <div class="row g-3 align-items-end">
-                    <div class="col-md-10">
-                        <label class="form-label">신규 레퍼런스 생성 (바로 생성하려면 버튼 클릭)</label>
-                        <button type="submit" class="btn btn-success w-100">➕ 새 레퍼런스 생성</button>
-                    </div>
-                </div>
-            </form>
-            
-            <hr>
-            
             <!-- 레퍼런스 검색 -->
             <div class="mb-4">
                 <label class="form-label">레퍼런스 검색 (자동완성)</label>
