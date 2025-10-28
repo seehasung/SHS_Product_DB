@@ -116,15 +116,48 @@ async def set_user_quota(
     return RedirectResponse("/admin/users", status_code=303)
 # --- ▲▲▲ 신규 할당량 관리 라우트 ▲▲▲ ---
 
-# ✅ 사용자 삭제 (get_db 적용)
+# ✅ 사용자 삭제 (외래 키 관계 처리 추가)
 @router.post("/users/delete", response_class=RedirectResponse)
 async def delete_user(user_id: int = Form(...), db: Session = Depends(get_db)):
-    user = db.query(User).filter(User.id == user_id).first()
-    if user and user.username != 'shsboss274':
+    try:
+        user = db.query(User).filter(User.id == user_id).first()
+        
+        # 최고 관리자(shsboss274)는 삭제 불가
+        if not user or user.username == 'shsboss274':
+            return RedirectResponse("/admin/users?error=cannot_delete_admin", status_code=303)
+        
+        # ✅ 1. LoginLog 먼저 삭제
+        db.query(LoginLog).filter(LoginLog.user_id == user_id).delete()
+        
+        # ✅ 2. WorkTask 삭제 (있다면)
+        try:
+            from database import WorkTask
+            db.query(WorkTask).filter(WorkTask.worker_id == user_id).delete()
+        except ImportError:
+            pass  # WorkTask가 없으면 건너뛰기
+        
+        # ✅ 3. PostSchedule 삭제 (있다면)
+        try:
+            from database import PostSchedule
+            db.query(PostSchedule).filter(PostSchedule.worker_id == user_id).delete()
+        except ImportError:
+            pass  # PostSchedule이 없으면 건너뛰기
+        
+        # ✅ 4. 다른 외래 키 관계가 있다면 여기에 추가
+        # 예: Comment, Reference 등에서 user_id 참조하는 경우
+        
+        # ✅ 5. 마지막으로 User 삭제
         db.delete(user)
         db.commit()
-    # db.close() # <--- 삭제
-    return RedirectResponse("/admin/users", status_code=303) # 302 -> 303으로 변경
+        
+        return RedirectResponse("/admin/users?success=deleted", status_code=303)
+        
+    except Exception as e:
+        db.rollback()
+        print(f"❌ 사용자 삭제 오류: {e}")
+        import traceback
+        traceback.print_exc()
+        return RedirectResponse("/admin/users?error=delete_failed", status_code=303)
 
 
 # ✅ 로그인 기록 보기 (관리자 전용)
