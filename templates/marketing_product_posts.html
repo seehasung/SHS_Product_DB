@@ -6,7 +6,7 @@
 <style>
     /* 통계 대시보드 스타일 */
     .stats-dashboard {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        background: linear-gradient(135deg, #4A90E2 0%, #5BA3F5 100%);
         border-radius: 15px;
         padding: 25px;
         margin-bottom: 30px;
@@ -212,6 +212,372 @@
     .comment-tab:hover:not(.active) {
         color: #495057;
         background-color: #f8f9fa;
+    }
+
+    /* 🎨 index.html과 똑같은 모던 스타일 */
+    
+    /* 애니메이션 */
+    @keyframes fadeInUp {
+        from {
+            opacity: 0;
+            transform: translateY(30px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    
+    /* 컨테이너 */
+    .container, .container-fluid {
+        max-width: 1400px;
+        margin: 0 auto;
+        padding: 0 20px;
+    }
+    
+    /* 카드 - index.html 스타일 */
+    .card {
+        background: rgba(255, 255, 255, 0.95);
+        backdrop-filter: blur(20px);
+        border: 1px solid rgba(255, 255, 255, 0.3);
+        border-radius: 20px;
+        padding: 24px;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
+        transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        margin-bottom: 30px;
+        animation: fadeInUp 0.8s ease-out;
+    }
+    
+    .card:hover {
+        transform: translateY(-8px) scale(1.01);
+        box-shadow: 0 16px 48px rgba(0, 0, 0, 0.15);
+    }
+    
+    .card-header {
+        background: linear-gradient(135deg, #4A90E2 0%, #5BA3F5 100%);
+        color: white;
+        border-radius: 20px 20px 0 0 !important;
+        padding: 20px 24px;
+        font-weight: 700;
+        border: none;
+        box-shadow: 0 4px 16px rgba(74, 144, 226, 0.3);
+    }
+    
+    .card-body {
+        padding: 24px;
+    }
+    
+    /* 버튼 - index.html 스타일 */
+    .btn {
+        border-radius: 14px;
+        padding: 10px 20px;
+        font-weight: 600;
+        font-size: 0.95rem;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        border: none;
+    }
+    
+    .btn-sm {
+        padding: 8px 16px;
+        font-size: 0.85rem;
+        border-radius: 12px;
+    }
+    
+    .btn-lg {
+        padding: 14px 28px;
+        font-size: 1rem;
+        border-radius: 16px;
+    }
+    
+    .btn-primary, .btn-info {
+        background: linear-gradient(135deg, #4A90E2 0%, #5BA3F5 100%);
+        color: white;
+        box-shadow: 0 8px 24px rgba(74, 144, 226, 0.35);
+    }
+    
+    .btn-primary:hover, .btn-info:hover {
+        background: linear-gradient(135deg, #3A7BC8 0%, #4A90E2 100%);
+        transform: translateY(-4px);
+        box-shadow: 0 12px 32px rgba(74, 144, 226, 0.45);
+        color: white;
+    }
+    
+    .btn-secondary {
+        background: linear-gradient(135deg, #636e72 0%, #2d3436 100%);
+        color: white;
+        box-shadow: 0 8px 24px rgba(99, 110, 114, 0.35);
+    }
+    
+    .btn-secondary:hover {
+        background: linear-gradient(135deg, #2d3436 0%, #1a1d1f 100%);
+        transform: translateY(-4px);
+        box-shadow: 0 12px 32px rgba(99, 110, 114, 0.45);
+    }
+    
+    .btn-success {
+        background: linear-gradient(135deg, #40c057 0%, #51cf66 100%);
+        box-shadow: 0 8px 24px rgba(64, 192, 87, 0.35);
+    }
+    
+    .btn-success:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 12px 32px rgba(64, 192, 87, 0.45);
+    }
+    
+    .btn-danger {
+        background: linear-gradient(135deg, #fa5252 0%, #ff6b6b 100%);
+        box-shadow: 0 8px 24px rgba(250, 82, 82, 0.35);
+    }
+    
+    .btn-danger:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 12px 32px rgba(250, 82, 82, 0.45);
+    }
+    
+    .btn-outline-info, .btn-outline-primary {
+        background: linear-gradient(135deg, rgba(74, 144, 226, 0.1) 0%, rgba(91, 163, 245, 0.1) 100%);
+        border: 2px solid rgba(74, 144, 226, 0.3);
+        color: #4A90E2;
+    }
+    
+    .btn-outline-info:hover, .btn-outline-primary:hover {
+        background: linear-gradient(135deg, #4A90E2 0%, #5BA3F5 100%);
+        border-color: transparent;
+        color: white;
+        transform: translateY(-4px);
+    }
+    
+    .btn-outline-secondary {
+        border: 2px solid rgba(99, 110, 114, 0.3);
+        color: #636e72;
+    }
+    
+    .btn-outline-secondary:hover {
+        background: #636e72;
+        color: white;
+        transform: translateY(-4px);
+    }
+    
+    .btn-outline-danger {
+        border: 2px solid rgba(250, 82, 82, 0.3);
+        color: #fa5252;
+    }
+    
+    .btn-outline-danger:hover {
+        background: #fa5252;
+        color: white;
+        transform: translateY(-4px);
+    }
+    
+    /* 테이블 - index.html 스타일 */
+    .table {
+        border-radius: 20px;
+        overflow: hidden;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
+    }
+    
+    .table thead th {
+        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+        font-weight: 700;
+        color: #495057;
+        border: none;
+        padding: 16px 20px;
+        font-size: 0.9rem;
+    }
+    
+    .table tbody tr {
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        border-bottom: 1px solid #f0f1f3;
+    }
+    
+    .table tbody tr:hover {
+        background: linear-gradient(135deg, rgba(74, 144, 226, 0.05) 0%, rgba(91, 163, 245, 0.05) 100%);
+        transform: scale(1.01);
+    }
+    
+    .table tbody td {
+        padding: 16px 20px;
+        vertical-align: middle;
+        border-color: #f0f1f3;
+        font-size: 0.9rem;
+    }
+    
+    /* 탭 - index.html 스타일 */
+    .nav-tabs {
+        border: none;
+        margin-bottom: 0;
+        background: rgba(255, 255, 255, 0.95);
+        backdrop-filter: blur(20px);
+        padding: 16px 16px 0 16px;
+        border-radius: 20px 20px 0 0;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+    }
+    
+    .nav-tabs .nav-link {
+        border: none;
+        border-radius: 14px 14px 0 0;
+        padding: 14px 24px;
+        font-weight: 600;
+        color: #636e72;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        margin-right: 8px;
+        font-size: 0.95rem;
+    }
+    
+    .nav-tabs .nav-link:hover {
+        background: linear-gradient(135deg, rgba(74, 144, 226, 0.1) 0%, rgba(91, 163, 245, 0.1) 100%);
+        color: #4A90E2;
+        transform: translateY(-2px);
+    }
+    
+    .nav-tabs .nav-link.active {
+        background: linear-gradient(135deg, #4A90E2 0%, #5BA3F5 100%);
+        color: white;
+        box-shadow: 0 8px 24px rgba(74, 144, 226, 0.35);
+    }
+    
+    .tab-content {
+        background: rgba(255, 255, 255, 0.95);
+        backdrop-filter: blur(20px);
+        border-radius: 0 0 20px 20px;
+        padding: 24px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+    }
+    
+    /* 알림 - index.html 스타일 */
+    .alert {
+        border-radius: 16px;
+        padding: 16px 20px;
+        border: none;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+        font-size: 0.95rem;
+        animation: fadeInUp 0.5s ease-out;
+    }
+    
+    /* 폼 - index.html 스타일 */
+    .form-control, .form-select, textarea {
+        border-radius: 12px;
+        border: 2px solid #e9ecef;
+        padding: 12px 16px;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        font-size: 0.95rem;
+    }
+    
+    .form-control:focus, .form-select:focus, textarea:focus {
+        border-color: #4A90E2;
+        box-shadow: 0 0 0 4px rgba(74, 144, 226, 0.15);
+        outline: none;
+        transform: translateY(-2px);
+    }
+    
+    .form-label {
+        font-weight: 600;
+        color: #495057;
+        margin-bottom: 8px;
+        font-size: 0.95rem;
+    }
+    
+    /* 진행 바 - index.html 스타일 */
+    .progress {
+        border-radius: 16px;
+        height: 32px;
+        background: #e9ecef;
+        box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+    
+    .progress-bar {
+        border-radius: 16px;
+        background: linear-gradient(135deg, #40c057 0%, #51cf66 100%);
+        box-shadow: 0 4px 12px rgba(64, 192, 87, 0.4);
+        font-weight: 700;
+    }
+    
+    /* 모달 - index.html 스타일 */
+    .modal-content {
+        border-radius: 20px;
+        border: none;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        animation: fadeInUp 0.5s ease-out;
+    }
+    
+    .modal-header {
+        background: linear-gradient(135deg, #4A90E2 0%, #5BA3F5 100%);
+        color: white;
+        border-radius: 20px 20px 0 0;
+        border: none;
+        padding: 24px 28px;
+    }
+    
+    .modal-title {
+        font-weight: 700;
+        font-size: 1.2rem;
+    }
+    
+    .modal-body {
+        padding: 28px;
+    }
+    
+    .modal-footer {
+        border-top: 1px solid #e9ecef;
+        padding: 20px 28px;
+    }
+    
+    /* 리스트 - index.html 스타일 */
+    .list-group-item {
+        border-radius: 16px;
+        border: 1px solid #e9ecef;
+        padding: 16px 20px;
+        margin-bottom: 12px;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        background: rgba(255, 255, 255, 0.95);
+    }
+    
+    .list-group-item:hover {
+        background: linear-gradient(135deg, rgba(74, 144, 226, 0.05) 0%, rgba(91, 163, 245, 0.05) 100%);
+        transform: translateX(8px);
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+    }
+    
+    /* 뱃지 - index.html 스타일 */
+    .badge {
+        padding: 6px 14px;
+        border-radius: 20px;
+        font-weight: 600;
+        font-size: 0.8rem;
+    }
+    
+    /* 통계 카드 - index.html 스타일 */
+    .stat-card {
+        background: rgba(255, 255, 255, 0.95);
+        backdrop-filter: blur(20px);
+        border: 1px solid rgba(255, 255, 255, 0.3);
+        border-radius: 20px;
+        padding: 24px;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
+        transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        animation: fadeInUp 0.8s ease-out;
+    }
+    
+    .stat-card:hover {
+        transform: translateY(-8px) scale(1.01);
+        box-shadow: 0 16px 48px rgba(0, 0, 0, 0.15);
+    }
+    
+    /* 반응형 */
+    @media (max-width: 768px) {
+        .container, .container-fluid {
+            padding: 0 15px;
+        }
+        
+        .btn {
+            padding: 10px 18px;
+            font-size: 0.9rem;
+        }
+        
+        .card {
+            padding: 20px;
+            margin-bottom: 20px;
+        }
     }
 </style>
 

@@ -21,6 +21,239 @@
   .ref-정보 { background-color: #228be6; } /* 파랑 */
   .ref-기타 { background-color: #40c057; } /* 초록 */
   .ref-미지정 { background-color: #868e96; } /* 회색 */
+
+  
+  /* 🎨 index.html과 똑같은 모던 스타일 */
+  
+  /* 애니메이션 */
+  @keyframes fadeInUp {
+      from {
+          opacity: 0;
+          transform: translateY(30px);
+      }
+      to {
+          opacity: 1;
+          transform: translateY(0);
+      }
+  }
+  
+  /* 컨테이너 */
+  .container {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 0 20px;
+  }
+  
+  /* 페이지 헤더 */
+  h1 {
+      font-size: 1.8rem;
+      font-weight: 700;
+      background: linear-gradient(135deg, #4A90E2 0%, #5BA3F5 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+  }
+  
+  /* 카드 - index.html 스타일 */
+  .card {
+      background: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(20px);
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      border-radius: 20px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
+      transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+      animation: fadeInUp 0.8s ease-out;
+  }
+  
+  .card:hover {
+      transform: translateY(-8px) scale(1.01);
+      box-shadow: 0 16px 48px rgba(0, 0, 0, 0.15);
+  }
+  
+  .card-header {
+      background: linear-gradient(135deg, #4A90E2 0%, #5BA3F5 100%);
+      color: white;
+      border-radius: 20px 20px 0 0 !important;
+      padding: 16px 24px;
+      font-weight: 700;
+      border: none;
+      box-shadow: 0 4px 16px rgba(74, 144, 226, 0.3);
+  }
+  
+  .card-body {
+      padding: 24px;
+  }
+  
+  /* 버튼 - index.html 스타일 */
+  .btn {
+      border-radius: 14px;
+      padding: 10px 20px;
+      font-weight: 600;
+      font-size: 0.95rem;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      border: none;
+  }
+  
+  .btn-sm {
+      padding: 6px 14px;
+      font-size: 0.8rem;
+      border-radius: 12px;
+  }
+  
+  .btn-primary {
+      background: linear-gradient(135deg, #4A90E2 0%, #5BA3F5 100%);
+      color: white;
+      box-shadow: 0 8px 24px rgba(74, 144, 226, 0.35);
+  }
+  
+  .btn-primary:hover {
+      background: linear-gradient(135deg, #3A7BC8 0%, #4A90E2 100%);
+      transform: translateY(-4px);
+      box-shadow: 0 12px 32px rgba(74, 144, 226, 0.45);
+      color: white;
+  }
+  
+  .btn-secondary {
+      background: linear-gradient(135deg, #636e72 0%, #2d3436 100%);
+      color: white;
+      box-shadow: 0 8px 24px rgba(99, 110, 114, 0.35);
+  }
+  
+  .btn-secondary:hover {
+      background: linear-gradient(135deg, #2d3436 0%, #1a1d1f 100%);
+      transform: translateY(-4px);
+      box-shadow: 0 12px 32px rgba(99, 110, 114, 0.45);
+  }
+  
+  .btn-outline-secondary {
+      background: rgba(255, 255, 255, 0.95);
+      border: 2px solid #636e72;
+      color: #636e72;
+  }
+  
+  .btn-outline-secondary:hover {
+      background: #636e72;
+      color: white;
+      transform: translateY(-2px);
+  }
+  
+  .btn-outline-danger {
+      background: rgba(255, 255, 255, 0.95);
+      border: 2px solid #fa5252;
+      color: #fa5252;
+  }
+  
+  .btn-outline-danger:hover {
+      background: #fa5252;
+      color: white;
+      transform: translateY(-2px);
+  }
+  
+  /* 폼 - index.html 스타일 */
+  .form-control, textarea {
+      border-radius: 12px;
+      border: 2px solid #e9ecef;
+      padding: 12px 16px;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      font-size: 0.95rem;
+  }
+  
+  .form-control:focus, textarea:focus {
+      border-color: #4A90E2;
+      box-shadow: 0 0 0 4px rgba(74, 144, 226, 0.15);
+      outline: none;
+      transform: translateY(-2px);
+  }
+  
+  .form-label {
+      font-weight: 600;
+      color: #495057;
+      margin-bottom: 8px;
+      font-size: 0.95rem;
+  }
+  
+  /* 리스트 그룹 - index.html 스타일 */
+  .list-group-item {
+      border-radius: 12px;
+      border: 1px solid #e9ecef;
+      padding: 14px 18px;
+      margin-bottom: 10px;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      background: rgba(255, 255, 255, 0.95);
+  }
+  
+  .list-group-item:hover {
+      background: linear-gradient(135deg, rgba(74, 144, 226, 0.05) 0%, rgba(91, 163, 245, 0.05) 100%);
+      transform: translateX(5px);
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+  }
+  
+  /* 뱃지 */
+  .badge {
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-weight: 600;
+      font-size: 0.8rem;
+  }
+  
+  /* 모달 - index.html 스타일 */
+  .modal-content {
+      border-radius: 20px;
+      border: none;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      animation: fadeInUp 0.5s ease-out;
+  }
+  
+  .modal-header {
+      background: linear-gradient(135deg, #4A90E2 0%, #5BA3F5 100%);
+      color: white;
+      border-radius: 20px 20px 0 0;
+      border: none;
+      padding: 20px 24px;
+  }
+  
+  .modal-title {
+      font-weight: 700;
+      font-size: 1.1rem;
+  }
+  
+  .modal-body {
+      padding: 24px;
+  }
+  
+  .modal-footer {
+      border-top: 1px solid #e9ecef;
+      padding: 16px 24px;
+  }
+  
+  /* 스위치 */
+  .form-check-input {
+      width: 50px;
+      height: 26px;
+      border-radius: 20px;
+      cursor: pointer;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  
+  .form-check-input:checked {
+      background-color: #4A90E2;
+      border-color: #4A90E2;
+  }
+  
+  /* 반응형 */
+  @media (max-width: 768px) {
+      .container {
+          padding: 0 15px;
+      }
+      
+      .card {
+          margin-bottom: 20px;
+      }
+      
+      h1 {
+          font-size: 1.5rem;
+      }
+  }
 </style>
 {% endblock %}
 
@@ -86,7 +319,7 @@
                                         수정
                                     </button>
                                     <!-- 삭제 버튼 -->
-                                    <form action="/marketing/product/keywords/delete/{{ marketing_product.id }}" method="post" onsubmit="return confirm('\'{{ item.keyword }}\' 키워드를 정말 삭제하시겠습니까?');">
+                                    <form action="/marketing/product/keywords/delete/{{ marketing_product.id }}" method="post" onsubmit="return confirm(''{{ item.keyword }}' 키워드를 정말 삭제하시겠습니까?');">
                                         <input type="hidden" name="keyword" value="{{ item.keyword }}">
                                         <button type="submit" class="btn btn-sm btn-outline-danger">삭제</button>
                                     </form>
@@ -204,4 +437,3 @@
     });
 </script>
 {% endblock %}
-
