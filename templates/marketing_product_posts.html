@@ -512,7 +512,7 @@
                             </div>
                             <div class="col-md-6 mb-3">
                                 <label class="form-label">작성 카페</label>
-                                <select class="form-select" id="add_cafe_id" name="cafe_id" required disabled>
+                                <select class="form-select" id="add_cafe_id" name="cafe_id" required>
                                     <option value="" disabled selected>네이버 계정을 먼저 선택하세요</option>
                                 </select>
                             </div>
@@ -573,8 +573,7 @@
                         </div>
                         <hr>
                         <div class="form-check form-switch mb-2">
-                            <input type="hidden" name="is_registration_complete" value="False">
-                            <input class="form-check-input" type="checkbox" role="switch" id="is_registration_complete" name="is_registration_complete" value="True" onchange="toggleUrlField(this, 'url_field')">
+                            <input class="form-check-input" type="checkbox" role="switch" id="is_registration_complete" name="is_registration_complete" onchange="toggleUrlField(this, 'url_field')">
                             <label class="form-check-label" for="is_registration_complete">등록 완료 (체크 시 URL 입력)</label>
                         </div>
                         <div class="mb-3" id="url_field" style="display:none;">
@@ -582,9 +581,8 @@
                             <input type="url" class="form-control" name="post_url">
                         </div>
                         <div class="form-check form-switch">
-                            <input type="hidden" name="is_live" value="False">
-                            <input class="form-check-input" type="checkbox" role="switch" id="is_live" name="is_live" value="True">
-                            <label class="form-check-label" for="is_live">글 생존 여부 (체크 시 '살아있는 글')</label>
+                            <input class="form-check-input" type="checkbox" role="switch" id="is_live" name="is_live">
+                            <label class="form-check-label" for="is_live">라이브 상태</label>
                         </div>
                     </div>
                     <div class="modal-footer">
@@ -626,14 +624,12 @@ function updateCafeDropdown(accountSelectElement, cafeSelectId) {
     console.log('membershipMap:', membershipMap);
     
     cafeSelect.innerHTML = '<option value="" disabled selected>계정을 먼저 선택하세요</option>';
-    cafeSelect.disabled = true;
 
     // 문자열로 검색 (select의 value는 항상 문자열)
     const cafes = membershipMap[selectedAccountId];
     console.log('찾은 카페 목록:', cafes);
     
     if (cafes && cafes.length > 0) {
-        cafeSelect.disabled = false;
         cafeSelect.innerHTML = '<option value="" disabled selected>작성할 카페를 선택하세요</option>';
         
         cafes.forEach(cafe => {
@@ -768,51 +764,60 @@ function renderComments(textContent, viewerId) {
     // 텍스트 파싱하여 HTML로 변환
     const lines = textContent.split('\n');
     let html = '';
-    let inReply = false;
     let currentComment = null;
     let commentCount = 0;
     let replyCount = 0;
     
-    for (let line of lines) {
-        // 답글 체크
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        
+        // 답글 체크: "(답글) 계정 N: 내용" 또는 "(답글) 작성자: 내용"
         if (line.includes('(답글)')) {
-            inReply = true;
-            const match = line.match(/\(답글\)\s*(.+?):/);
+            const match = line.match(/\(답글\)\s*(.+?):\s*(.*)/);
             if (match) {
+                // 이전 댓글 렌더링
+                if (currentComment) {
+                    html += formatComment(currentComment);
+                }
+                
                 replyCount++;
                 const author = match[1].trim();
+                const text = match[2].trim();
                 const isAuthor = author === '작성자';
+                
                 currentComment = {
                     author: author,
-                    text: '',
+                    text: text,
                     isReply: true,
                     isAuthor: isAuthor
                 };
             }
         }
-        // 일반 댓글 체크
-        else if (line.match(/^(작성자|계정\s*\d+):/)) {
+        // 일반 댓글 체크: "작성자:" 또는 "계정 N:"
+        else if (line.match(/^(작성자|계정\s*\d+):\s*$/)) {
+            // 이전 댓글 렌더링
             if (currentComment) {
                 html += formatComment(currentComment);
             }
             
-            inReply = false;
             commentCount++;
-            const parts = line.split(':');
-            const author = parts[0].trim();
+            const author = line.replace(':', '').trim();
             const isAuthor = author === '작성자';
-            const text = parts.slice(1).join(':').trim();
             
             currentComment = {
                 author: author,
-                text: text ? text + '\n' : '',
+                text: '',
                 isReply: false,
                 isAuthor: isAuthor
             };
         }
-        // 댓글 내용 추가
+        // 댓글 내용 추가 (들여쓰기된 텍스트)
         else if (currentComment && line.trim()) {
-            currentComment.text += line.trim() + '\n';
+            // 공백 제거하고 내용만 추가
+            const content = line.trim();
+            if (content && !content.includes('(답글)')) {
+                currentComment.text += (currentComment.text ? '\n' : '') + content;
+            }
         }
     }
     
@@ -822,11 +827,12 @@ function renderComments(textContent, viewerId) {
     }
     
     // 통계 추가
-    if (commentCount > 0) {
+    if (commentCount > 0 || replyCount > 0) {
         html += `<div class="comment-stats">
             📊 총 ${commentCount}개 댓글 ${replyCount > 0 ? `(답글 ${replyCount}개 포함)` : ''}
         </div>`;
     }
+    
     
     viewer.innerHTML = html || '<div class="no-comments">댓글이 없습니다</div>';
 }
@@ -835,8 +841,34 @@ function renderComments(textContent, viewerId) {
  * 개별 댓글을 HTML로 포맷팅
  */
 function formatComment(comment) {
-    const iconClass = comment.isAuthor ? 'author-icon' : 'account-icon';
-    const iconText = comment.isAuthor ? '작성' : comment.author.replace('계정', 'A');
+    const isAuthor = comment.isAuthor;
+    
+    // 계정 번호 추출 (예: "계정 1" -> 1)
+    let accountNum = 0;
+    if (!isAuthor) {
+        const match = comment.author.match(/계정\s*(\d+)/);
+        if (match) {
+            accountNum = parseInt(match[1]);
+        }
+    }
+    
+    // 계정별 색상 (레퍼런스 등록과 동일)
+    const colors = {
+        0: { bg: '#868e96', text: '#fff' },  // 작성자 (회색)
+        1: { bg: '#fa5252', text: '#fff' },  // 계정 1 (빨강)
+        2: { bg: '#fd7e14', text: '#fff' },  // 계정 2 (주황)
+        3: { bg: '#fcc419', text: '#212529' }, // 계정 3 (노랑, 텍스트 검은색)
+        4: { bg: '#40c057', text: '#fff' },  // 계정 4 (초록)
+        5: { bg: '#228be6', text: '#fff' },  // 계정 5 (파랑)
+        6: { bg: '#364fc7', text: '#fff' },  // 계정 6 (남색)
+        7: { bg: '#7048e8', text: '#fff' },  // 계정 7 (보라)
+        8: { bg: '#f06595', text: '#fff' }   // 계정 8 (핑크)
+    };
+    
+    const colorKey = isAuthor ? 0 : accountNum;
+    const color = colors[colorKey] || colors[0];
+    
+    const iconText = isAuthor ? '작성' : `A${accountNum}`;
     
     let html = '';
     if (comment.isReply) {
@@ -846,8 +878,8 @@ function formatComment(comment) {
     html += `
         <div class="comment-item">
             <div class="comment-author">
-                <span class="comment-author-icon ${iconClass}">${iconText}</span>
-                ${comment.author}
+                <span class="comment-author-icon" style="background-color: ${color.bg}; color: ${color.text};">${iconText}</span>
+                <strong>${comment.author}</strong>
             </div>
             <div class="comment-text">${escapeHtml(comment.text.trim())}</div>
         </div>
@@ -949,8 +981,27 @@ function loadReference(titleSelect, titleFieldId, bodyFieldId, commentsFieldId, 
             let text = "";
             comments.forEach(c => {
                 const prefix = c.account_sequence === 0 ? "작성자" : `계정 ${c.account_sequence}`;
-                const commentLines = c.text.split('\n').map(line => `${indent}  ${line}`).join('\n');
-                text += `${indent}${prefix}:\n${commentLines}\n\n`;
+                
+                // 답글인 경우 한 줄로 표시
+                if (indent.includes('(답글)')) {
+                    // 답글: 계정명과 내용을 한 줄로
+                    const firstLine = c.text.split('\n')[0];
+                    text += `${indent}${prefix}: ${firstLine}\n`;
+                    
+                    // 여러 줄이면 나머지도 추가 (들여쓰기)
+                    const remainingLines = c.text.split('\n').slice(1).filter(line => line.trim());
+                    if (remainingLines.length > 0) {
+                        remainingLines.forEach(line => {
+                            text += `${indent}    ${line}\n`;
+                        });
+                    }
+                    text += '\n';
+                } else {
+                    // 일반 댓글: 기존 방식
+                    const commentLines = c.text.split('\n').map(line => `${indent}  ${line}`).join('\n');
+                    text += `${indent}${prefix}:\n${commentLines}\n\n`;
+                }
+                
                 if (c.structured_replies && c.structured_replies.length > 0) {
                     text += formatComments(c.structured_replies, indent + "    (답글) ");
                 }

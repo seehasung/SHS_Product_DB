@@ -1155,6 +1155,7 @@ async def add_marketing_post(
     post_body: str = Form(""),
     post_comments: str = Form(""),
     is_registration_complete: bool = Form(False),
+    is_live: bool = Form(False),
     post_url: str = Form(None),
     db: Session = Depends(get_db)
 ):
@@ -1202,7 +1203,7 @@ async def add_marketing_post(
         post_comments=post_comments,
         is_registration_complete=is_registration_complete,
         post_url=post_url if is_registration_complete else None,
-        is_live=True if is_registration_complete else False
+        is_live=is_live
     )
     db.add(new_post)
     db.commit()
@@ -1238,7 +1239,7 @@ async def update_marketing_post(
         post.post_comments = post_comments
         post.is_registration_complete = is_registration_complete
         post.post_url = post_url if is_registration_complete else None
-        post.is_live = is_live if is_registration_complete else False
+        post.is_live = is_live
         db.commit()
     
     redirect_url = f"/marketing/product/posts/{mp_id}" if mp_id else "/marketing/cafe?tab=products"
