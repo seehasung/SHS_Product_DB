@@ -618,26 +618,50 @@ async def assign_next_task(request: Request, db: Session = Depends(get_db)):
 
 # --- Reference & Comment Management (기존 유지) ---
 @router.post("/reference/add", response_class=RedirectResponse)
-async def add_reference(request: Request, title: Optional[str] = Form(None), db: Session = Depends(get_db)):
+async def add_reference(
+    request: Request,
+    title: Optional[str] = Form(None),
+    db: Session = Depends(get_db)
+):
+    """새 레퍼런스 생성"""
     username = request.session.get("user")
     user = None
     if username:
         user = db.query(User).filter(User.username == username).first()
     
-    # 제목이 없으면 기본 제목 생성
+    # 유니크한 제목 생성
     if not title or title.strip() == '':
-        title = "새 레퍼런스"
+        now = datetime.now()
+        title = f"새 레퍼런스 {now.strftime('%Y%m%d_%H%M%S')}"
     
     try:
-        new_ref = Reference(title=title, ref_type='기타', last_modified_by_id=user.id if user else None)
+        # 새 레퍼런스 생성
+        new_ref = Reference(
+            title=title,
+            ref_type='기타',
+            content='',
+            last_modified_by_id=user.id if user else None
+        )
         db.add(new_ref)
         db.commit()
         db.refresh(new_ref)
-        return RedirectResponse(url=f"/marketing/reference/{new_ref.id}", status_code=303)
-    except IntegrityError:
+        
+        print(f"✅ 레퍼런스 생성 완료: ID={new_ref.id}, 제목={new_ref.title}")
+        
+        # 상세 페이지로 리다이렉트
+        return RedirectResponse(
+            url=f"/marketing/reference/{new_ref.id}",
+            status_code=303
+        )
+        
+    except Exception as e:
         db.rollback()
-        return RedirectResponse(url="/marketing/cafe?tab=references&error=duplicate_reference", status_code=303)
-
+        print(f"❌ 레퍼런스 생성 실패: {e}")
+        return RedirectResponse(
+            url="/marketing/cafe?tab=references&error=create_failed",
+            status_code=303
+        )
+        
 @router.post("/reference/delete/{ref_id}", response_class=RedirectResponse)
 async def delete_reference(ref_id: int, db: Session = Depends(get_db)):
     ref_to_delete = db.query(Reference).filter(Reference.id == ref_id).first()
