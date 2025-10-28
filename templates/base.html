@@ -33,13 +33,14 @@
             z-index: 1;
         }
         
-        /* 네비게이션 바 - 코발트 블루 */
+        /* 네비게이션 바 - 밝은 하늘색 */
         .navbar-custom {
-            background: linear-gradient(135deg, #0066FF 0%, #00AAFF 100%);
-            box-shadow: 0 4px 24px rgba(0, 102, 255, 0.3);
-            padding: 16px 0;
-            margin: 20px;
-            border-radius: 24px;
+            background: linear-gradient(135deg, #4A90E2 0%, #5BA3F5 100%);
+            box-shadow: 0 4px 20px rgba(74, 144, 226, 0.25);
+            padding: 12px 0;
+            margin: 20px auto;
+            border-radius: 20px;
+            max-width: 1400px;
         }
         
         .navbar-brand {
@@ -68,50 +69,33 @@
             to { transform: rotate(360deg); }
         }
         
-        /* 네비게이션 링크 */
+        /* 네비게이션 링크 - 동그란 배경 */
         .nav-link-custom {
-            color: rgba(255, 255, 255, 0.9) !important;
+            color: rgba(255, 255, 255, 0.95) !important;
             font-weight: 600;
-            font-size: 1rem;
-            padding: 12px 20px !important;
-            border-radius: 16px;
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            margin: 0 6px;
-            position: relative;
-            overflow: hidden;
-        }
-        
-        .nav-link-custom::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: -100%;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
-            transition: left 0.5s;
-        }
-        
-        .nav-link-custom:hover::before {
-            left: 100%;
+            font-size: 0.95rem;
+            padding: 10px 18px !important;
+            border-radius: 12px;
+            transition: all 0.3s ease;
+            margin: 0 4px;
+            background: transparent;
         }
         
         .nav-link-custom:hover {
             background: rgba(255, 255, 255, 0.2);
             color: white !important;
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            transform: translateY(-1px);
         }
         
         .nav-link-custom.active {
             background: rgba(255, 255, 255, 0.3);
             color: white !important;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
         }
         
         .nav-link-custom i {
-            margin-right: 8px;
-            font-size: 1.1rem;
+            margin-right: 6px;
+            font-size: 1rem;
         }
         
         /* 사용자 드롭다운 */
@@ -170,10 +154,10 @@
         }
         
         .dropdown-item:hover {
-            background: linear-gradient(135deg, #0066FF 0%, #00AAFF 100%);
+            background: linear-gradient(135deg, #4A90E2 0%, #5BA3F5 100%);
             color: white;
-            transform: translateX(8px);
-            box-shadow: 0 4px 12px rgba(0, 102, 255, 0.3);
+            transform: translateX(6px);
+            box-shadow: 0 4px 12px rgba(74, 144, 226, 0.3);
         }
         
         .dropdown-item i {
@@ -188,23 +172,23 @@
         
         /* 메인 컨텐츠 영역 */
         .main-content {
-            padding: 40px 20px;
+            padding: 30px 20px;
             position: relative;
             z-index: 1;
+            max-width: 1400px;
+            margin: 0 auto;
         }
         
-        /* 푸터 - Glassmorphism */
+        /* 푸터 - 네비게이션과 동일한 하늘색 */
         .footer {
-            background: rgba(255, 255, 255, 0.1);
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            padding: 30px 0;
-            margin: 40px 20px 20px 20px;
-            border-radius: 24px;
+            background: linear-gradient(135deg, #4A90E2 0%, #5BA3F5 100%);
+            box-shadow: 0 -4px 20px rgba(74, 144, 226, 0.25);
+            padding: 24px 0;
+            margin: 40px auto 20px auto;
+            border-radius: 20px;
             text-align: center;
             color: white;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            max-width: 1400px;
         }
         
         .footer p {
@@ -215,8 +199,8 @@
         
         /* 버튼 스타일 */
         .btn {
-            border-radius: 16px;
-            padding: 12px 28px;
+            border-radius: 12px;
+            padding: 10px 24px;
             font-weight: 600;
             transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             border: none;
@@ -243,13 +227,13 @@
         }
         
         .btn-primary {
-            background: linear-gradient(135deg, #0066FF 0%, #00AAFF 100%);
-            box-shadow: 0 4px 16px rgba(0, 102, 255, 0.4);
+            background: linear-gradient(135deg, #4A90E2 0%, #5BA3F5 100%);
+            box-shadow: 0 4px 16px rgba(74, 144, 226, 0.35);
         }
         
         .btn-primary:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 8px 24px rgba(0, 102, 255, 0.5);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(74, 144, 226, 0.45);
         }
         
         .btn-secondary {
@@ -310,32 +294,32 @@
             background: rgba(255, 255, 255, 0.95);
             backdrop-filter: blur(20px);
             border: 1px solid rgba(255, 255, 255, 0.3);
-            border-radius: 24px;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            border-radius: 16px;
+            box-shadow: 0 6px 24px rgba(0, 0, 0, 0.08);
             transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
             overflow: hidden;
         }
         
         .card:hover {
-            transform: translateY(-8px);
-            box-shadow: 0 16px 48px rgba(0, 0, 0, 0.2);
+            transform: translateY(-6px);
+            box-shadow: 0 12px 36px rgba(0, 0, 0, 0.15);
         }
         
         .card-header {
-            background: linear-gradient(135deg, rgba(0, 102, 255, 0.1) 0%, rgba(0, 170, 255, 0.1) 100%);
+            background: linear-gradient(135deg, rgba(74, 144, 226, 0.1) 0%, rgba(91, 163, 245, 0.1) 100%);
             border-bottom: 1px solid rgba(0, 0, 0, 0.05);
             font-weight: 600;
-            padding: 20px 24px;
+            padding: 16px 20px;
         }
         
         .card-body {
-            padding: 24px;
+            padding: 20px;
         }
         
         .card-footer {
             background: rgba(248, 249, 250, 0.5);
             border-top: 1px solid rgba(0, 0, 0, 0.05);
-            padding: 20px 24px;
+            padding: 16px 20px;
         }
         
         /* 로딩 스피너 */
@@ -397,9 +381,9 @@
         
         .modal-header {
             border-bottom: 1px solid rgba(0, 0, 0, 0.05);
-            border-radius: 28px 28px 0 0;
-            background: linear-gradient(135deg, rgba(0, 102, 255, 0.1) 0%, rgba(0, 170, 255, 0.1) 100%);
-            padding: 24px 28px;
+            border-radius: 16px 16px 0 0;
+            background: linear-gradient(135deg, rgba(74, 144, 226, 0.1) 0%, rgba(91, 163, 245, 0.1) 100%);
+            padding: 20px 24px;
         }
         
         .modal-title {
@@ -426,7 +410,7 @@
         }
         
         .table thead {
-            background: linear-gradient(135deg, rgba(0, 102, 255, 0.1) 0%, rgba(0, 170, 255, 0.1) 100%);
+            background: linear-gradient(135deg, rgba(74, 144, 226, 0.1) 0%, rgba(91, 163, 245, 0.1) 100%);
         }
         
         .table thead th {
@@ -441,7 +425,7 @@
         }
         
         .table tbody tr:hover {
-            background: rgba(0, 102, 255, 0.05);
+            background: rgba(74, 144, 226, 0.05);
             transform: scale(1.01);
         }
         
@@ -460,8 +444,8 @@
         }
         
         .form-control:focus, .form-select:focus {
-            border-color: #0066FF;
-            box-shadow: 0 0 0 4px rgba(0, 102, 255, 0.1);
+            border-color: #4A90E2;
+            box-shadow: 0 0 0 4px rgba(74, 144, 226, 0.1);
             background: white;
         }
         
@@ -483,13 +467,13 @@
         }
         
         ::-webkit-scrollbar-thumb {
-            background: linear-gradient(135deg, rgba(0, 102, 255, 0.6) 0%, rgba(0, 170, 255, 0.6) 100%);
+            background: linear-gradient(135deg, rgba(74, 144, 226, 0.6) 0%, rgba(91, 163, 245, 0.6) 100%);
             border-radius: 10px;
             border: 2px solid rgba(255, 255, 255, 0.1);
         }
         
         ::-webkit-scrollbar-thumb:hover {
-            background: linear-gradient(135deg, rgba(0, 102, 255, 0.8) 0%, rgba(0, 170, 255, 0.8) 100%);
+            background: linear-gradient(135deg, rgba(74, 144, 226, 0.8) 0%, rgba(91, 163, 245, 0.8) 100%);
         }
         
         /* 배지 스타일 */
