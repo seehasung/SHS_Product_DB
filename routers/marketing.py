@@ -186,9 +186,6 @@ async def marketing_cafe(request: Request, db: Session = Depends(get_db)):
             'title': ref.title,
             'ref_type': ref.ref_type,
             'content': ref.content,
-            'comment': ref.comment,
-            'created_at': ref.created_at.isoformat() if ref.created_at else None,
-            'last_modified': ref.last_modified.isoformat() if ref.last_modified else None,
             'last_modified_by_name': ref.last_modified_by.username if ref.last_modified_by else None
         }
         references.append(ref_dict)
