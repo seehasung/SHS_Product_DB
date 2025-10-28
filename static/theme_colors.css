@@ -1,0 +1,281 @@
+/* 
+=============================================
+🌤️ 밝은 하늘색 테마 - 공통 색상 CSS
+=============================================
+모든 페이지에 이 파일을 <head>에 포함하면 색상이 자동으로 변경됩니다!
+
+사용법:
+<link rel="stylesheet" href="/static/theme-colors.css">
+=============================================
+*/
+
+:root {
+    /* 🌤️ Primary 색상 - 밝은 하늘색 */
+    --primary-color: #4A90E2;
+    --primary-light: #5BA3F5;
+    --primary-dark: #3A7BC8;
+    
+    /* ☁️ Secondary 색상 */
+    --secondary-color: #5BA3F5;
+    --secondary-light: #7DB8FF;
+    --secondary-dark: #4A90E2;
+    
+    /* 🎨 그라디언트 */
+    --gradient-primary: linear-gradient(135deg, #4A90E2 0%, #5BA3F5 100%);
+    --gradient-primary-reverse: linear-gradient(135deg, #5BA3F5 0%, #4A90E2 100%);
+    
+    /* 투명도 버전 */
+    --primary-10: rgba(74, 144, 226, 0.1);
+    --primary-20: rgba(74, 144, 226, 0.2);
+    --primary-30: rgba(74, 144, 226, 0.3);
+    --primary-40: rgba(74, 144, 226, 0.4);
+    --primary-50: rgba(74, 144, 226, 0.5);
+    
+    /* 그림자 */
+    --shadow-primary: 0 4px 16px rgba(74, 144, 226, 0.35);
+    --shadow-primary-hover: 0 8px 24px rgba(74, 144, 226, 0.45);
+    --shadow-primary-lg: 0 12px 40px rgba(74, 144, 226, 0.3);
+}
+
+/* ========================================
+   🎨 Bootstrap 기본 색상 오버라이드
+======================================== */
+
+/* Primary 버튼 */
+.btn-primary,
+.btn-primary:not(:disabled):not(.disabled) {
+    background: var(--gradient-primary) !important;
+    border-color: var(--primary-color) !important;
+    box-shadow: var(--shadow-primary) !important;
+}
+
+.btn-primary:hover,
+.btn-primary:not(:disabled):not(.disabled):hover {
+    background: var(--gradient-primary) !important;
+    filter: brightness(1.1);
+    box-shadow: var(--shadow-primary-hover) !important;
+}
+
+.btn-outline-primary {
+    color: var(--primary-color) !important;
+    border-color: var(--primary-color) !important;
+}
+
+.btn-outline-primary:hover {
+    background: var(--primary-color) !important;
+    border-color: var(--primary-color) !important;
+}
+
+/* 폼 컨트롤 포커스 */
+.form-control:focus,
+.form-select:focus {
+    border-color: var(--primary-color) !important;
+    box-shadow: 0 0 0 0.2rem var(--primary-10) !important;
+}
+
+/* 체크박스 */
+.form-check-input:checked {
+    background-color: var(--primary-color) !important;
+    border-color: var(--primary-color) !important;
+}
+
+/* 링크 */
+a {
+    color: var(--primary-color) !important;
+}
+
+a:hover {
+    color: var(--primary-dark) !important;
+}
+
+/* Badge */
+.badge.bg-primary {
+    background-color: var(--primary-color) !important;
+}
+
+/* Alert */
+.alert-primary {
+    background-color: var(--primary-10) !important;
+    border-color: var(--primary-30) !important;
+    color: var(--primary-dark) !important;
+}
+
+/* Progress Bar */
+.progress-bar {
+    background-color: var(--primary-color) !important;
+}
+
+/* Pagination */
+.page-link:not(.active) {
+    color: var(--primary-color) !important;
+}
+
+.page-item.active .page-link {
+    background-color: var(--primary-color) !important;
+    border-color: var(--primary-color) !important;
+}
+
+/* Nav Pills */
+.nav-pills .nav-link.active {
+    background-color: var(--primary-color) !important;
+}
+
+/* ========================================
+   🎨 커스텀 클래스들
+======================================== */
+
+/* 배경 그라디언트 */
+.bg-gradient-primary {
+    background: var(--gradient-primary) !important;
+}
+
+/* 텍스트 그라디언트 */
+.text-gradient-primary {
+    background: var(--gradient-primary);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+/* 테두리 */
+.border-primary {
+    border-color: var(--primary-color) !important;
+}
+
+/* 그림자 */
+.shadow-primary {
+    box-shadow: var(--shadow-primary) !important;
+}
+
+.shadow-primary-lg {
+    box-shadow: var(--shadow-primary-lg) !important;
+}
+
+/* ========================================
+   🎨 base.html 스타일 오버라이드
+======================================== */
+
+/* 네비게이션 바 */
+.navbar-custom {
+    background: var(--gradient-primary) !important;
+    box-shadow: var(--shadow-primary) !important;
+}
+
+/* 푸터 */
+.footer {
+    background: var(--gradient-primary) !important;
+    box-shadow: 0 -4px 20px rgba(74, 144, 226, 0.25) !important;
+}
+
+/* 카드 헤더 */
+.card-header {
+    background: var(--primary-10) !important;
+}
+
+/* 테이블 헤더 */
+.table thead {
+    background: var(--primary-10) !important;
+}
+
+.table tbody tr:hover {
+    background: rgba(74, 144, 226, 0.05) !important;
+}
+
+/* 모달 헤더 */
+.modal-header {
+    background: var(--primary-10) !important;
+}
+
+/* 드롭다운 hover */
+.dropdown-item:hover {
+    background: var(--gradient-primary) !important;
+    color: white !important;
+}
+
+/* 스크롤바 */
+::-webkit-scrollbar-thumb {
+    background: linear-gradient(135deg, var(--primary-50) 0%, rgba(91, 163, 245, 0.5) 100%) !important;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(135deg, rgba(74, 144, 226, 0.7) 0%, rgba(91, 163, 245, 0.7) 100%) !important;
+}
+
+/* ========================================
+   🎨 특수 요소들
+======================================== */
+
+/* 로딩 스피너 */
+.spinner-border.text-primary {
+    color: var(--primary-color) !important;
+}
+
+/* Tooltip */
+.tooltip .tooltip-inner {
+    background-color: var(--primary-color) !important;
+}
+
+.tooltip.bs-tooltip-top .tooltip-arrow::before {
+    border-top-color: var(--primary-color) !important;
+}
+
+.tooltip.bs-tooltip-bottom .tooltip-arrow::before {
+    border-bottom-color: var(--primary-color) !important;
+}
+
+/* Popover */
+.popover-header {
+    background-color: var(--primary-color) !important;
+    color: white !important;
+}
+
+/* ========================================
+   🎨 아이콘 색상
+======================================== */
+
+.text-primary,
+.bi-primary {
+    color: var(--primary-color) !important;
+}
+
+/* ========================================
+   🎨 애니메이션 효과
+======================================== */
+
+.hover-lift {
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.hover-lift:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-primary-hover) !important;
+}
+
+/* ========================================
+   🎨 반응형
+======================================== */
+
+@media (max-width: 768px) {
+    :root {
+        --shadow-primary: 0 3px 12px rgba(74, 144, 226, 0.3);
+        --shadow-primary-hover: 0 6px 18px rgba(74, 144, 226, 0.4);
+    }
+}
+
+/* ========================================
+   ⚠️ Important 노트
+======================================== */
+
+/*
+이 CSS 파일은 기존 스타일을 오버라이드합니다.
+파일을 <head>에서 다른 CSS보다 나중에 로드하세요:
+
+1. Bootstrap CSS
+2. 기존 custom CSS
+3. theme-colors.css (이 파일)
+
+예시:
+<link href="bootstrap.min.css" rel="stylesheet">
+<link href="custom.css" rel="stylesheet">
+<link href="theme-colors.css" rel="stylesheet">
+*/
