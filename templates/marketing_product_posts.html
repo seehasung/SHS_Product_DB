@@ -630,6 +630,16 @@ const allReferences = [
     {% endfor %}
 ];
 
+// 🔥 초기화 디버깅
+console.log('========================================');
+console.log('🚀 페이지 로드 완료!');
+console.log('========================================');
+console.log('📊 membershipMap:', membershipMap);
+console.log('📊 membershipMap 키 목록:', Object.keys(membershipMap));
+console.log('📊 allReferences 개수:', allReferences.length);
+console.log('📊 allReferences 목록:', allReferences.map(r => ({id: r.id, title: r.title, type: r.ref_type})));
+console.log('========================================');
+
 /**
  * 네이버 계정 드롭다운이 변경될 때 호출되는 함수
  */
@@ -877,14 +887,24 @@ function escapeHtml(text) {
  * 레퍼런스 제목 선택 시, 폼 필드 채우기 (댓글 포맷팅 수정됨)
  */
 function loadReference(titleSelect, titleFieldId, bodyFieldId, commentsFieldId, refIdInputId) {
+    console.log('=== loadReference 호출 ===');
+    console.log('titleSelect:', titleSelect);
+    console.log('titleSelect.value:', titleSelect.value);
+    console.log('titleFieldId:', titleFieldId);
+    
     const selectedId = parseInt(titleSelect.value);
+    console.log('선택된 ID (parseInt):', selectedId);
+    
     const titleField = document.getElementById(titleFieldId);
     const bodyField = document.getElementById(bodyFieldId);
     const commentsField = document.getElementById(commentsFieldId);
     const contentWrapper = document.getElementById(titleFieldId.replace('_post_title', '_content_wrapper'));
     const refIdInput = refIdInputId ? document.getElementById(refIdInputId) : null;
     
+    console.log('필드 요소들:', {titleField, bodyField, commentsField, contentWrapper, refIdInput});
+    
     if (!selectedId) {
+        console.log('ID가 없어서 초기화');
         if (contentWrapper) contentWrapper.style.display = 'none';
         if (refIdInput) refIdInput.value = "";
         titleField.value = "";
@@ -900,11 +920,27 @@ function loadReference(titleSelect, titleFieldId, bodyFieldId, commentsFieldId, 
         return;
     }
 
+    console.log('allReferences에서 ID로 검색:', selectedId);
     const ref = allReferences.find(r => r.id === selectedId);
+    console.log('찾은 레퍼런스:', ref);
+    
     if (ref) {
+        console.log('✅ 레퍼런스 데이터 로드 시작');
+        console.log('제목:', ref.title);
+        console.log('본문 (처음 100자):', ref.content.substring(0, 100) + '...');
+        console.log('본문 전체 길이:', ref.content.length + '자');
+        console.log('댓글 개수:', ref.comments.length + '개');
+        console.log('댓글 원본 데이터:', ref.comments);
+        
         if (refIdInput) refIdInput.value = ref.id;
+        
+        // 🔥 제목 전체를 입력창에 넣기
         titleField.value = ref.title;
+        console.log('→ 제목 필드에 입력 완료:', titleField.value);
+        
+        // 🔥 본문 전체를 입력창에 넣기
         bodyField.value = ref.content;
+        console.log('→ 본문 필드에 입력 완료, 길이:', bodyField.value.length + '자');
 
         // 댓글 데이터를 계층 구조로 포맷팅
         const commentMap = {};
@@ -937,7 +973,13 @@ function loadReference(titleSelect, titleFieldId, bodyFieldId, commentsFieldId, 
         }
         
         const formattedComments = formatComments(topLevelComments).trim();
+        
+        // 🔥 댓글 전체를 입력창에 넣기
         commentsField.value = formattedComments;
+        
+        console.log('✅ 댓글 포맷 완료!');
+        console.log('→ 댓글 필드에 입력 완료, 길이:', formattedComments.length + '자');
+        console.log('→ 댓글 내용 (처음 200자):', formattedComments.substring(0, 200) + '...');
         
         // 시각적 뷰어가 있으면 업데이트
         const viewerId = titleFieldId.replace('_post_title', '_comment_viewer');
@@ -947,6 +989,15 @@ function loadReference(titleSelect, titleFieldId, bodyFieldId, commentsFieldId, 
         }
 
         if (contentWrapper) contentWrapper.style.display = 'block';
+        
+        console.log('========================================');
+        console.log('✅✅✅ 레퍼런스 로드 완료! ✅✅✅');
+        console.log('제목 입력됨:', titleField.value);
+        console.log('본문 입력됨:', bodyField.value.length + '자');
+        console.log('댓글 입력됨:', commentsField.value.length + '자');
+        console.log('========================================');
+    } else {
+        console.log('❌ 레퍼런스를 찾을 수 없습니다!');
     }
 }
 
