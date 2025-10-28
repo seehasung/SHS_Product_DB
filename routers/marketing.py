@@ -8,6 +8,7 @@ from datetime import date, datetime, timedelta
 from typing import Optional, List
 import json
 import math
+import datetime
 
 
 
@@ -57,7 +58,7 @@ async def marketing_cafe(request: Request, db: Session = Depends(get_db)):
     username = request.session.get("user")
     current_user = db.query(User).filter(User.username == username).first()
     
-    today = datetime.date.today()
+    today = date.today()
     work_tasks = []
     completed_count = 0
     daily_quota = 0
@@ -575,7 +576,7 @@ async def assign_next_task(request: Request, db: Session = Depends(get_db)):
     if not current_user:
         return RedirectResponse(url="/login", status_code=303)
     
-    today = datetime.date.today()
+    today = date.today()
     
     # 1. 오늘 이미 완료한 작업 수 확인
     completed_count = db.query(WorkTask).filter(
