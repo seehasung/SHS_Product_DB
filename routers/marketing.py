@@ -1410,6 +1410,10 @@ async def get_product_posts(
         'completed': 0
     }
     
+    # selected_date 추가 (HTML 템플릿에서 사용될 수 있음)
+    from datetime import date
+    selected_date = date.today()
+    
     return templates.TemplateResponse("marketing_product_posts.html", {
         "request": request,
         "marketing_product": marketing_product,
@@ -1427,7 +1431,8 @@ async def get_product_posts(
         "keyword_search": keyword_search,
         "error": error_message,
         "post_stats": post_stats,
-        "today_stats": today_stats
+        "today_stats": today_stats,
+        "selected_date": selected_date
     })
 
 @router.post("/post/add", response_class=RedirectResponse)

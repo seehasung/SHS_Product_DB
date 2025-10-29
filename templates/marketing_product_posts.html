@@ -1,86 +1,52 @@
 {% extends "base.html" %}
-{% block title %}전체 스케줄 관리{% endblock %}
+{% block title %}글 관리 - {{ marketing_product.product.name }}{% endblock %}
 
-{% block head %}
-{{ super() }}
+{% block content %}
+<!-- 추가 CSS 스타일 -->
 <style>
-    /* 대시보드 스타일 */
-    .dashboard-header {
-        background: linear-gradient(135deg, #4A90E2 0%, #5BA3F5 100%);
-        border-radius: 15px;
-        padding: 25px;
-        margin-bottom: 30px;
-        color: white;
+    /* ========================================
+       🔥 모달 배경 투명도 조절
+       ======================================== */
+    .modal-backdrop {
+        opacity: 0 !important;
+        display: none !important;
     }
     
-    .stats-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-        gap: 20px;
-        margin-bottom: 30px;
+    .modal {
+        background-color: rgba(0, 0, 0, 0.5);
+        overflow-y: auto !important;
     }
     
-    .stat-card {
-        background: white;
-        border-radius: 10px;
-        padding: 20px;
-        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-        text-align: center;
-        transition: transform 0.3s, box-shadow 0.3s;
+    .modal-open {
+        overflow: auto !important;
+        padding-right: 0 !important;
     }
     
-    .stat-card:hover {
-        transform: translateY(-5px);
-        box-shadow: 0 5px 20px rgba(0,0,0,0.15);
+    body.modal-open {
+        overflow: auto !important;
     }
     
-    .stat-value {
-        font-size: 2.5rem;
-        font-weight: bold;
-        margin: 10px 0;
+    /* ========================================
+       🔥 테이블 텍스트만 가로 표시
+       ======================================== */
+    .table thead th,
+    .table tbody td {
+        white-space: nowrap;
     }
     
-    .stat-label {
-        color: #6c757d;
-        font-size: 0.9rem;
-        text-transform: uppercase;
-        letter-spacing: 1px;
+    .table thead th *,
+    .table tbody td * {
+        display: inline;
     }
-    
-    /* 스케줄 테이블 스타일 */
-    .schedule-table {
-        background: white;
-        border-radius: 10px;
-        overflow: hidden;
-        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-    }
-    
-    .schedule-table thead {
-        background: #f8f9fa;
-    }
-    
-    .schedule-table th {
-        font-weight: 600;
-        color: #495057;
-        border-bottom: 2px solid #dee2e6;
-        white-space: nowrap;  /* ✅ 추가 */
-    }
-    
-    .schedule-row {
-        transition: all 0.3s;
-    }
-    
-    .schedule-row:hover {
-        background: #f8f9fa;
-    }
-    
+
+    /* 상태 배지 스타일 */
     .status-badge {
         padding: 5px 12px;
         border-radius: 20px;
         font-size: 0.85rem;
         font-weight: 500;
-        white-space: nowrap;  /* ✅ 추가 */
-        display: inline-block;  /* ✅ 추가 */
+        white-space: nowrap;
+        display: inline-block;
     }
 
     .status-pending {
@@ -88,13 +54,13 @@
         color: #000;
     }
     
-    .status-completed {
-        background: #51cf66;
+    .status-in-progress {
+        background: #339af0;
         color: white;
     }
     
-    .status-in-progress {
-        background: #339af0;
+    .status-completed {
+        background: #51cf66;
         color: white;
     }
     
@@ -103,239 +69,176 @@
         color: white;
     }
     
-    /* 체크박스 커스텀 */
-    .check-complete {
-        width: 22px;
-        height: 22px;
-        cursor: pointer;
-    }
-    
-    .check-complete:checked {
-        background-color: #51cf66;
-        border-color: #51cf66;
-    }
-    
-    /* 필터 버튼 */
-    .filter-btn {
-        border-radius: 20px;
-        padding: 8px 20px;
-        margin: 0 5px;
-        transition: all 0.3s;
-    }
-    
-    .filter-btn.active {
-        background: #4c6ef5;
+    .status-deleted {
+        background: #fa5252;
         color: white;
-        transform: scale(1.05);
+    }
+
+    /* 통계 대시보드 스타일 */
+    .stats-dashboard {
+        background: linear-gradient(135deg, #4A90E2 0%, #5BA3F5 100%);
+        border-radius: 12px;
+        padding: 15px 20px;
+        margin-bottom: 20px;
+        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12);
     }
     
-    /* 날짜 네비게이션 */
-    .date-nav {
+    .stats-title {
+        color: white;
+        font-size: 1.1rem;
+        font-weight: 600;
+        margin-bottom: 12px;
         display: flex;
-        justify-content: center;
         align-items: center;
-        margin: 25px 0;
-        gap: 20px;
     }
     
-    .date-display {
-        font-size: 1.4rem;
-        font-weight: bold;
-        min-width: 250px;
+    .stats-container {
+        display: flex;
+        justify-content: space-around;
+        flex-wrap: wrap;
+        gap: 10px;
+    }
+    
+    .stat-card {
+        background: white;
+        border-radius: 8px;
+        padding: 10px 15px;
+        flex: 1;
+        min-width: 120px;
         text-align: center;
+        transition: transform 0.3s ease;
+    }
+    
+    .stat-card:hover {
+        transform: translateY(-3px);
+    }
+    
+    .stat-value {
+        font-size: 1.5rem;
+        font-weight: bold;
+        margin-bottom: 3px;
+    }
+    
+    .stat-label {
+        font-size: 0.75rem;
+        color: #6c757d;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    
+    .stat-total { color: #5a67d8; }
+    .stat-live { color: #48bb78; }
+    .stat-deleted { color: #f56565; }
+    .stat-draft { color: #ed8936; }
+    
+    .stat-icon {
+        font-size: 1.2rem;
+        margin-bottom: 8px;
+    }
+    
+    /* 모달 내부 스크롤 */
+    .modal-body {
+        max-height: calc(100vh - 250px);
+        overflow-y: auto;
+    }
+
+    .modal-dialog-scrollable .modal-body {
+        max-height: calc(100vh - 200px) !important;
+        overflow-y: auto !important;
+    }
+    
+    .modal-dialog {
+        max-height: 90vh !important;
+        margin: 1.75rem auto;
+    }
+    
+    .modal-content {
+        max-height: 90vh !important;
+    }
+    
+    .modal-lg .modal-body {
+        max-height: calc(100vh - 250px) !important;
+    }
+    
+    .modal textarea {
+        resize: vertical;
+        min-height: 100px;
+    }
+    
+    /* 댓글 뷰어 스타일 */
+    .comment-viewer {
+        background-color: #f8f9fa;
+        border: 1px solid #dee2e6;
+        border-radius: 8px;
+        padding: 15px;
+        max-height: 400px;
+        overflow-y: auto;
+        margin-bottom: 10px;
+    }
+    
+    .comment-item {
+        background: white;
+        border-radius: 6px;
+        padding: 12px;
+        margin-bottom: 10px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        transition: all 0.2s;
+    }
+    
+    .comment-item:hover {
+        box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+    }
+    
+    .comment-author {
+        font-weight: bold;
         color: #495057;
+        margin-bottom: 5px;
+        display: flex;
+        align-items: center;
+    }
+    
+    .comment-badge {
+        display: inline-block;
+        padding: 0.25em 0.6em;
+        font-size: 0.75em;
+        font-weight: 700;
+        line-height: 1;
+        color: #fff;
+        text-align: center;
+        white-space: nowrap;
+        vertical-align: baseline;
+        border-radius: 0.375rem;
+        margin-right: 8px;
+    }
+    
+    .comment-text {
+        color: #212529;
+        line-height: 1.5;
+        white-space: pre-wrap;
     }
     
     .keyword-badge {
-        background: #e9ecef;
-        color: #495057;
-        padding: 4px 8px;
-        border-radius: 5px;
+        display: inline-block;
+        padding: 0.4em 0.8em;
         font-size: 0.85rem;
-        white-space: nowrap;  /* ✅ 추가 */
-        display: inline-block;  /* ✅ 추가 */
-    }
-    
-    .action-buttons {
-        display: flex;
-        gap: 5px;
-    }
-    
-    .no-data {
-        padding: 60px;
-        text-align: center;
-        color: #adb5bd;
-        background: #f8f9fa;
-        border-radius: 10px;
-    }
-    
-    .no-data i {
-        font-size: 3rem;
-        margin-bottom: 15px;
-        color: #dee2e6;
-    }
-
-    /* 🎨 index.html과 똑같은 모던 스타일 */
-    
-    /* 애니메이션 */
-    @keyframes fadeInUp {
-        from {
-            opacity: 0;
-            transform: translateY(30px);
-        }
-        to {
-            opacity: 1;
-            transform: translateY(0);
-        }
-    }
-    
-    /* 컨테이너 */
-    .container, .container-fluid {
-        max-width: 1400px;
-        margin: 0 auto;
-        padding: 0 20px;
-    }
-    
-    /* 카드 - index.html 스타일 */
-    .card {
-        background: rgba(255, 255, 255, 0.95);
-        backdrop-filter: blur(20px);
-        border: 1px solid rgba(255, 255, 255, 0.3);
-        border-radius: 20px;
-        padding: 24px;
-        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
-        transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-        margin-bottom: 30px;
-        animation: fadeInUp 0.8s ease-out;
-    }
-    
-    .card:hover {
-        transform: translateY(-8px) scale(1.01);
-        box-shadow: 0 16px 48px rgba(0, 0, 0, 0.15);
-    }
-    
-    .card-header {
-        background: linear-gradient(135deg, #4A90E2 0%, #5BA3F5 100%);
-        color: white;
-        border-radius: 20px 20px 0 0 !important;
-        padding: 20px 24px;
-        font-weight: 700;
-        border: none;
-        box-shadow: 0 4px 16px rgba(74, 144, 226, 0.3);
-    }
-    
-    .card-body {
-        padding: 24px;
-    }
-    
-    /* 버튼 - index.html 스타일 */
-    .btn {
-        border-radius: 14px;
-        padding: 10px 20px;
         font-weight: 600;
-        font-size: 0.95rem;
-        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        border: none;
-    }
-    
-    .btn-sm {
-        padding: 8px 16px;
-        font-size: 0.85rem;
-        border-radius: 12px;
-    }
-    
-    .btn-lg {
-        padding: 14px 28px;
-        font-size: 1rem;
-        border-radius: 16px;
-    }
-    
-    .btn-primary, .btn-info {
-        background: linear-gradient(135deg, #4A90E2 0%, #5BA3F5 100%);
         color: white;
-        box-shadow: 0 8px 24px rgba(74, 144, 226, 0.35);
-    }
-    
-    .btn-primary:hover, .btn-info:hover {
-        background: linear-gradient(135deg, #3A7BC8 0%, #4A90E2 100%);
-        transform: translateY(-4px);
-        box-shadow: 0 12px 32px rgba(74, 144, 226, 0.45);
-        color: white;
-    }
-    
-    .btn-secondary {
-        background: linear-gradient(135deg, #636e72 0%, #2d3436 100%);
-        color: white;
-        box-shadow: 0 8px 24px rgba(99, 110, 114, 0.35);
-    }
-    
-    .btn-secondary:hover {
-        background: linear-gradient(135deg, #2d3436 0%, #1a1d1f 100%);
-        transform: translateY(-4px);
-        box-shadow: 0 12px 32px rgba(99, 110, 114, 0.45);
-        color: white;
-    }
-    
-    .btn-success {
-        background: linear-gradient(135deg, #40c057 0%, #51cf66 100%);
-        box-shadow: 0 8px 24px rgba(64, 192, 87, 0.35);
-    }
-    
-    .btn-success:hover {
-        transform: translateY(-4px);
-        box-shadow: 0 12px 32px rgba(64, 192, 87, 0.45);
-    }
-    
-    .btn-danger {
-        background: linear-gradient(135deg, #fa5252 0%, #ff6b6b 100%);
-        box-shadow: 0 8px 24px rgba(250, 82, 82, 0.35);
-    }
-    
-    .btn-danger:hover {
-        transform: translateY(-4px);
-        box-shadow: 0 12px 32px rgba(250, 82, 82, 0.45);
-    }
-    
-    .btn-outline-info, .btn-outline-primary {
-        background: linear-gradient(135deg, rgba(74, 144, 226, 0.1) 0%, rgba(91, 163, 245, 0.1) 100%);
-        border: 2px solid rgba(74, 144, 226, 0.3);
-        color: #4A90E2;
-    }
-    
-    .btn-outline-info:hover, .btn-outline-primary:hover {
-        background: linear-gradient(135deg, #4A90E2 0%, #5BA3F5 100%);
-        border-color: transparent;
-        color: white;
-        transform: translateY(-4px);
-    }
-    
-    .btn-outline-secondary {
-        border: 2px solid rgba(99, 110, 114, 0.3);
-        color: #636e72;
-    }
-    
-    .btn-outline-secondary:hover {
-        background: #636e72;
-        color: white;
-        transform: translateY(-4px);
-    }
-    
-    .btn-outline-danger {
-        border: 2px solid rgba(250, 82, 82, 0.3);
-        color: #fa5252;
-    }
-    
-    .btn-outline-danger:hover {
-        background: #fa5252;
-        color: white;
-        transform: translateY(-4px);
-    }
-    
-    /* 테이블 - index.html 스타일 */
-    .table {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         border-radius: 20px;
+        box-shadow: 0 2px 8px rgba(102, 126, 234, 0.4);
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    
+    .keyword-badge:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.6);
+    }
+    
+    .table {
+        border-radius: 12px;
         overflow: hidden;
-        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
+        box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+        background: white;
     }
     
     .table thead th {
@@ -356,7 +259,7 @@
         background: linear-gradient(135deg, rgba(74, 144, 226, 0.05) 0%, rgba(91, 163, 245, 0.05) 100%);
         transform: scale(1.01);
     }
-    
+
     .table tbody td {
         padding: 16px 20px;
         vertical-align: middle;
@@ -364,1035 +267,903 @@
         font-size: 0.9rem;
     }
     
-    /* 탭 - index.html 스타일 */
+    /* 탭 스타일 */
     .nav-tabs {
         border: none;
         margin-bottom: 0;
         background: rgba(255, 255, 255, 0.95);
-        backdrop-filter: blur(20px);
-        padding: 16px 16px 0 16px;
-        border-radius: 20px 20px 0 0;
-        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+        border-radius: 12px 12px 0 0;
+        padding: 10px 10px 0;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
     }
     
     .nav-tabs .nav-link {
         border: none;
-        border-radius: 14px 14px 0 0;
-        padding: 14px 24px;
+        color: #6c757d;
         font-weight: 600;
-        color: #636e72;
+        padding: 12px 24px;
+        border-radius: 8px 8px 0 0;
         transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        margin-right: 8px;
-        font-size: 0.95rem;
+        margin-right: 4px;
     }
     
     .nav-tabs .nav-link:hover {
-        background: linear-gradient(135deg, rgba(74, 144, 226, 0.1) 0%, rgba(91, 163, 245, 0.1) 100%);
+        background: rgba(74, 144, 226, 0.1);
         color: #4A90E2;
-        transform: translateY(-2px);
     }
     
     .nav-tabs .nav-link.active {
         background: linear-gradient(135deg, #4A90E2 0%, #5BA3F5 100%);
         color: white;
-        box-shadow: 0 8px 24px rgba(74, 144, 226, 0.35);
+        box-shadow: 0 4px 12px rgba(74, 144, 226, 0.3);
     }
     
     .tab-content {
-        background: rgba(255, 255, 255, 0.95);
-        backdrop-filter: blur(20px);
-        border-radius: 0 0 20px 20px;
-        padding: 24px;
-        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
-    }
-    
-    /* 알림 - index.html 스타일 */
-    .alert {
-        border-radius: 16px;
-        padding: 16px 20px;
-        border: none;
-        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
-        font-size: 0.95rem;
-        animation: fadeInUp 0.5s ease-out;
-    }
-    
-    /* 폼 - index.html 스타일 */
-    .form-control, .form-select, textarea {
-        border-radius: 12px;
-        border: 2px solid #e9ecef;
-        padding: 12px 16px;
-        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        font-size: 0.95rem;
-    }
-    
-    .form-control:focus, .form-select:focus, textarea:focus {
-        border-color: #4A90E2;
-        box-shadow: 0 0 0 4px rgba(74, 144, 226, 0.15);
-        outline: none;
-        transform: translateY(-2px);
-    }
-    
-    .form-label {
-        font-weight: 600;
-        color: #495057;
-        margin-bottom: 8px;
-        font-size: 0.95rem;
-    }
-    
-    /* 진행 바 - index.html 스타일 */
-    .progress {
-        border-radius: 16px;
-        height: 32px;
-        background: #e9ecef;
-        box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.1);
-    }
-    
-    .progress-bar {
-        border-radius: 16px;
-        background: linear-gradient(135deg, #40c057 0%, #51cf66 100%);
-        box-shadow: 0 4px 12px rgba(64, 192, 87, 0.4);
-        font-weight: 700;
-    }
-    
-    /* 모달 - index.html 스타일 */
-    .modal-content {
-        border-radius: 20px;
-        border: none;
-        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-        animation: fadeInUp 0.5s ease-out;
-    }
-    
-    .modal-header {
-        background: linear-gradient(135deg, #4A90E2 0%, #5BA3F5 100%);
-        color: white;
-        border-radius: 20px 20px 0 0;
-        border: none;
-        padding: 24px 28px;
-    }
-    
-    .modal-title {
-        font-weight: 700;
-        font-size: 1.2rem;
-    }
-    
-    .modal-body {
-        padding: 28px;
-    }
-    
-    .modal-footer {
-        border-top: 1px solid #e9ecef;
-        padding: 20px 28px;
-    }
-    
-    /* 리스트 - index.html 스타일 */
-    .list-group-item {
-        border-radius: 16px;
-        border: 1px solid #e9ecef;
-        padding: 16px 20px;
-        margin-bottom: 12px;
-        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        background: rgba(255, 255, 255, 0.95);
-    }
-    
-    .list-group-item:hover {
-        background: linear-gradient(135deg, rgba(74, 144, 226, 0.05) 0%, rgba(91, 163, 245, 0.05) 100%);
-        transform: translateX(8px);
-        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
-    }
-    
-    /* 뱃지 - index.html 스타일 */
-    .badge {
-        padding: 6px 14px;
-        border-radius: 20px;
-        font-weight: 600;
-        font-size: 0.8rem;
-    }
-    
-    /* 통계 카드 - index.html 스타일 */
-    .stat-card {
-        background: rgba(255, 255, 255, 0.95);
-        backdrop-filter: blur(20px);
-        border: 1px solid rgba(255, 255, 255, 0.3);
-        border-radius: 20px;
-        padding: 24px;
-        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
-        transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-        animation: fadeInUp 0.8s ease-out;
-    }
-    
-    .stat-card:hover {
-        transform: translateY(-8px) scale(1.01);
-        box-shadow: 0 16px 48px rgba(0, 0, 0, 0.15);
-    }
-    
-    /* 반응형 */
-    @media (max-width: 768px) {
-        .container, .container-fluid {
-            padding: 0 15px;
-        }
-        
-        .btn {
-            padding: 10px 18px;
-            font-size: 0.9rem;
-        }
-        
-        .card {
-            padding: 20px;
-            margin-bottom: 20px;
-        }
+        background: white;
+        border-radius: 0 0 12px 12px;
+        padding: 20px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
     }
 </style>
-{% endblock %}
 
-{% block content %}
 <div class="container mt-4">
-    <!-- 헤더 -->
-    <div class="dashboard-header">
-        <div class="d-flex justify-content-between align-items-center">
-            <div>
-                <h1 class="mb-0">📊 전체 스케줄 관리</h1>
-                <p class="mb-0 mt-2 opacity-90">날짜별 글 작성 스케줄 및 진행 상황</p>
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="mb-0">✍️ 글 관리</h1>
+            <span class="text-muted fs-5">{{ marketing_product.product.name }}</span>
+        </div>
+        <div>
+            <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#addPostModal">➕ 새 글 등록</button>
+            <a href="/marketing/cafe?tab=products" class="btn btn-secondary">← 목록으로</a>
+        </div>
+    </div>
+
+    <!-- 통계 대시보드 추가 -->
+    <div class="stats-dashboard">
+        <div class="stats-title">
+            📊 전체 키워드 글 작성 현황
+        </div>
+        <div class="stats-container">
+            <div class="stat-card">
+                <div class="stat-icon">📝</div>
+                <div class="stat-value stat-total">{{ post_stats.total }}</div>
+                <div class="stat-label">전체 글</div>
             </div>
-            <div>
-                <button class="btn btn-light" data-bs-toggle="modal" data-bs-target="#addScheduleModal">
-                    <i class="bi bi-plus-circle"></i> 작업 할당
-                </button>
-                <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#bulkGenerateModal">
-                    <i class="bi bi-magic"></i> 자동 생성
-                </button>
-                <a href="/marketing/cafe?tab=status" class="btn btn-outline-light">
-                    <i class="bi bi-arrow-left"></i> 돌아가기
-                </a>
+            <div class="stat-card">
+                <div class="stat-icon">⏳</div>
+                <div class="stat-value" style="color: #ffd43b;">{{ post_stats.pending }}</div>
+                <div class="stat-label">대기중</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">🏃</div>
+                <div class="stat-value" style="color: #339af0;">{{ post_stats.in_progress }}</div>
+                <div class="stat-label">진행중</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">✅</div>
+                <div class="stat-value" style="color: #51cf66;">{{ post_stats.completed }}</div>
+                <div class="stat-label">완료</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">⏭️</div>
+                <div class="stat-value" style="color: #868e96;">{{ post_stats.skipped }}</div>
+                <div class="stat-label">건너뜀</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">❌</div>
+                <div class="stat-value" style="color: #fa5252;">{{ post_stats.deleted }}</div>
+                <div class="stat-label">삭제됨</div>
             </div>
         </div>
     </div>
-    
-    <!-- 오늘의 통계 -->
-    <div class="stats-grid">
-        <div class="stat-card">
-            <div class="stat-label">오늘 할 일</div>
-            <div class="stat-value text-primary">{{ today_stats.total }}</div>
-            <small class="text-muted">총 작업</small>
-        </div>
-        <div class="stat-card">
-            <div class="stat-label">완료</div>
-            <div class="stat-value text-success">{{ today_stats.completed }}</div>
-            <small class="text-muted">{{ (today_stats.completed / today_stats.total * 100) if today_stats.total else 0 }}%</small>
-        </div>
-        <div class="stat-card">
-            <div class="stat-label">진행중</div>
-            <div class="stat-value text-info">{{ today_stats.in_progress }}</div>
-            <small class="text-muted">작업 중</small>
-        </div>
-        <div class="stat-card">
-            <div class="stat-label">대기중</div>
-            <div class="stat-value text-warning">{{ today_stats.pending }}</div>
-            <small class="text-muted">시작 전</small>
-        </div>
-    </div>
-    
-    <!-- 날짜 네비게이션 -->
-    <div class="date-nav">
-        <button class="btn btn-outline-primary" onclick="changeDate(-1)">
-            <i class="bi bi-chevron-left"></i> 이전날
-        </button>
-        <div class="date-display">
-            <i class="bi bi-calendar3"></i> {{ selected_date.strftime('%Y년 %m월 %d일') }}
-            {% if selected_date.strftime('%Y-%m-%d') == today.strftime('%Y-%m-%d') %}
-            <span class="badge bg-success">오늘</span>
-            {% endif %}
-        </div>
-        <button class="btn btn-outline-primary" onclick="changeDate(1)">
-            다음날 <i class="bi bi-chevron-right"></i>
-        </button>
-        <input type="date" id="dateSelector" class="form-control" style="width: auto;" 
-               value="{{ selected_date }}" onchange="selectDate(this.value)">
-    </div>
-    
-    <!-- 필터 버튼 -->
-    <div class="text-center mb-4">
-        <button class="btn filter-btn active" onclick="filterStatus('all')">
-            전체 <span class="badge bg-secondary">{{ schedules|length }}</span>
-        </button>
-        <button class="btn filter-btn" onclick="filterStatus('pending')">
-            대기중 <span class="badge bg-warning text-dark">{{ schedules|selectattr('status', 'eq', 'pending')|list|length }}</span>
-        </button>
-        <button class="btn filter-btn" onclick="filterStatus('in_progress')">
-            진행중 <span class="badge bg-info">{{ schedules|selectattr('status', 'eq', 'in_progress')|list|length }}</span>
-        </button>
-        <button class="btn filter-btn" onclick="filterStatus('completed')">
-            완료 <span class="badge bg-success">{{ schedules|selectattr('status', 'eq', 'completed')|list|length }}</span>
-        </button>
-        <button class="btn filter-btn" onclick="filterStatus('skipped')">
-            건너뜀 <span class="badge bg-secondary">{{ schedules|selectattr('status', 'eq', 'skipped')|list|length }}</span>
-        </button>
-    </div>
-    
-    <!-- 스케줄 테이블 -->
-    <div class="schedule-table">
-        <table class="table table-hover mb-0">
-            <thead>
-                <tr>
-                    <th width="50" class="text-center">완료</th>
-                    <th>작업자</th>
-                    <th>계정</th>
-                    <th>카페</th>
-                    <th>상품</th>
-                    <th>키워드</th>
-                    <th width="100">상태</th>
-                    <th width="120">작성된 글</th>
-                    <th width="180" class="text-center">관리</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for schedule in schedules %}
-                <tr class="schedule-row" data-status="{{ schedule.status }}">
-                    <td class="text-center">
-                        <input type="checkbox" 
-                               class="form-check-input check-complete" 
-                               {{ 'checked' if schedule.is_completed }}
-                               onchange="toggleComplete({{ schedule.id }}, this)"
-                               {{ 'disabled' if schedule.status == 'completed' or schedule.status == 'skipped' }}
-                               data-bs-toggle="tooltip" 
-                               title="{{ '완료 잠김 (대기중 버튼으로 해제)' if schedule.status == 'completed' else '완료 체크' }}">
-                    </td>
-                    <td>
-                        <strong>{{ schedule.worker.username if schedule.worker else '미할당' }}</strong>
-                    </td>
-                    <td>
-                        <span class="text-primary">{{ schedule.account.account_id if schedule.account else '미할당' }}</span>
-                    </td>
-                    <td>
-                        {{ schedule.cafe.name if schedule.cafe else '미할당' }}
-                    </td>
-                    <td>
-                        <small>{{ schedule.marketing_product.product.name[:30] if schedule.marketing_product else '-' }}...</small>
-                    </td>
-                    <td>
-                        <span class="keyword-badge">{{ schedule.keyword_text }}</span>
-                    </td>
-                    <td>
-                        <span class="status-badge status-{{ schedule.status }}">
-                            {% if schedule.status == 'pending' %}대기중
-                            {% elif schedule.status == 'in_progress' %}진행중
-                            {% elif schedule.status == 'completed' %}완료
-                            {% elif schedule.status == 'skipped' %}건너뜀
-                            {% endif %}
-                        </span>
-                    </td>
-                    <td>
-                        {% if schedule.marketing_post %}
-                        <a href="{{ schedule.marketing_post.post_url }}" target="_blank" class="btn btn-sm btn-success">
-                            <i class="bi bi-box-arrow-up-right"></i> 보기
-                        </a>
-                        {% else %}
-                        <button class="btn btn-sm btn-outline-primary" 
-                                onclick="linkPost({{ schedule.id }})"
-                                {{ 'disabled' if not schedule.is_completed }}>
-                            <i class="bi bi-link-45deg"></i> 연결
-                        </button>
-                        {% endif %}
-                    </td>
-                    <td class="text-center">
-                        <div class="action-buttons">
-                            <button class="btn btn-sm {{ 'btn-success' if schedule.status == 'completed' else 'btn-outline-info' }}" 
-                                    onclick="editScheduleAndStart({{ schedule.id }}, '{{ schedule.status }}')"
-                                    data-bs-toggle="tooltip" 
-                                    title="{{ '완료됨 (수정만 가능)' if schedule.status == 'completed' else '수정' }}">
-                                <i class="bi bi-pencil"></i>
-                            </button>
-                            <button class="btn btn-sm btn-outline-warning"
-                                    onclick="changeStatus({{ schedule.id }}, 'pending')"
-                                    data-bs-toggle="tooltip" title="대기중">
-                                <i class="bi bi-pause-circle"></i>
-                            </button>
-                            <button class="btn btn-sm btn-outline-secondary"
-                                    onclick="changeStatus({{ schedule.id }}, 'skipped')"
-                                    data-bs-toggle="tooltip" title="건너뛰기">
-                                <i class="bi bi-skip-forward"></i>
-                            </button>
-                            <button class="btn btn-sm btn-outline-danger"
-                                    onclick="deleteSchedule({{ schedule.id }})"
-                                    data-bs-toggle="tooltip" title="삭제">
-                                <i class="bi bi-trash"></i>
-                            </button>
-                        </div>
-                    </td>
-                </tr>
-                {% else %}
-                <tr>
-                    <td colspan="9">
-                        <div class="no-data">
-                            <i class="bi bi-calendar-x"></i>
-                            <p class="mb-2">이 날짜에 할당된 작업이 없습니다</p>
-                            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addScheduleModal">
-                                첫 작업 할당하기
-                            </button>
-                        </div>
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
-    
-    <!-- 메모/노트 섹션 (선택사항) -->
-    {% if schedules %}
-    <div class="mt-4">
-        <h5>📝 작업 메모</h5>
-        <div class="list-group">
-            {% for schedule in schedules if schedule.notes %}
-            <div class="list-group-item">
-                <strong>{{ schedule.worker.username }}</strong> - {{ schedule.keyword_text }}:
-                <p class="mb-0 ms-3">{{ schedule.notes }}</p>
-            </div>
-            {% endfor %}
-        </div>
+
+    <!-- 에러 메시지 표시부 -->
+    {% if error %}
+    <div class="alert alert-danger" role="alert">
+        {{ error }}
     </div>
     {% endif %}
-    
-    <!-- 작업 할당 모달 -->
-    <div class="modal fade" id="addScheduleModal" tabindex="-1">
-        <div class="modal-dialog modal-lg">
-            <div class="modal-content">
-                <form action="/marketing/schedule/add" method="post" id="addScheduleForm">
-                    <div class="modal-header">
-                        <h5 class="modal-title">➕ 새 작업 할당</h5>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                    </div>
-                    <div class="modal-body">
-                        <div class="row">
-                            <div class="col-md-6 mb-3">
-                                <label class="form-label">날짜 <span class="text-danger">*</span></label>
-                                <input type="date" name="scheduled_date" class="form-control" 
-                                       value="{{ selected_date }}" required>
-                            </div>
-                            <div class="col-md-6 mb-3">
-                                <label class="form-label">작업자 <span class="text-danger">*</span></label>
-                                <select name="worker_id" class="form-select" required>
-                                    <option value="">선택하세요</option>
-                                    {% for worker in workers %}
-                                    <option value="{{ worker.id }}">
-                                        {{ worker.username }} (일일 {{ worker.daily_quota or 6 }}개)
-                                    </option>
-                                    {% endfor %}
-                                </select>
-                            </div>
-                        </div>
-                        
-                        <div class="row">
-                            <div class="col-md-6 mb-3">
-                                <label class="form-label">네이버 계정 <span class="text-danger">*</span></label>
-                                <select name="account_id" class="form-select" required 
-                                        onchange="updateCafeOptions(this.value)">
-                                    <option value="">선택하세요</option>
-                                    {% for account in accounts %}
-                                    <option value="{{ account.id }}">{{ account.account_id }}</option>
-                                    {% endfor %}
-                                </select>
-                            </div>
-                            <div class="col-md-6 mb-3">
-                                <label class="form-label">카페 <span class="text-danger">*</span></label>
-                                <select name="cafe_id" class="form-select" required disabled>
-                                    <option value="">계정을 먼저 선택하세요</option>
-                                </select>
-                            </div>
-                        </div>
-                        
-                        <div class="row">
-                            <div class="col-md-6 mb-3">
-                                <label class="form-label">상품 <span class="text-danger">*</span></label>
-                                <select name="marketing_product_id" class="form-select" required
-                                        onchange="updateKeywordOptions(this.value)">
-                                    <option value="">선택하세요</option>
-                                    {% for mp in marketing_products %}
-                                    <option value="{{ mp.id }}">{{ mp.product.name }}</option>
-                                    {% endfor %}
-                                </select>
-                            </div>
-                            <div class="col-md-6 mb-3">
-                                <label class="form-label">키워드 <span class="text-danger">*</span></label>
-                                <select name="keyword_text" class="form-select" required disabled>
-                                    <option value="">상품을 먼저 선택하세요</option>
-                                </select>
-                            </div>
-                        </div>
-                        
-                        <div class="mb-3">
-                            <label class="form-label">메모 (선택)</label>
-                            <textarea name="notes" class="form-control" rows="3" 
-                                      placeholder="작업에 대한 특별한 지시사항이나 메모를 입력하세요"></textarea>
-                        </div>
-                        
-                        <div class="alert alert-info">
-                            <i class="bi bi-info-circle"></i>
-                            <strong>팁:</strong> 계정을 선택하면 해당 계정이 가입된 카페만 표시됩니다.
-                        </div>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">취소</button>
-                        <button type="submit" class="btn btn-primary">할당하기</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-    
-    <!-- 대량 생성 모달 -->
-    <div class="modal fade" id="bulkGenerateModal" tabindex="-1">
-        <div class="modal-dialog modal-lg">
-            <div class="modal-content">
-                <form action="/marketing/schedule/generate" method="post">
-                    <div class="modal-header">
-                        <h5 class="modal-title">🤖 스케줄 자동 생성</h5>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                    </div>
-                    <div class="modal-body">
-                        <div class="alert alert-warning">
-                            <i class="bi bi-exclamation-triangle"></i>
-                            <strong>주의:</strong> 자동 생성은 설정된 규칙에 따라 대량의 스케줄을 생성합니다.
-                        </div>
-                        
-                        <div class="row">
-                            <div class="col-md-6 mb-3">
-                                <label class="form-label">시작 날짜</label>
-                                <input type="date" name="start_date" class="form-control" required>
-                            </div>
-                            <div class="col-md-6 mb-3">
-                                <label class="form-label">종료 날짜</label>
-                                <input type="date" name="end_date" class="form-control" required>
-                            </div>
-                        </div>
-                        
-                        <div class="mb-3">
-                            <label class="form-label">상품 선택</label>
-                            <select name="marketing_product_id" class="form-select" required>
-                                <option value="">상품을 선택하세요</option>
-                                {% for mp in marketing_products %}
-                                <option value="{{ mp.id }}">
-                                    {{ mp.product.name }} 
-                                    (키워드 {{ product_keywords_map.get(mp.id, [])|length }}개)
-                                </option>
-                                {% endfor %}
-                            </select>
-                        </div>
-                        
-                        <div class="mb-3">
-                            <label class="form-label">작업자 선택</label>
-                            <input type="hidden" name="worker_ids" id="worker_ids_hidden" value="">
-                            <div class="form-check">
-                                {% for worker in workers %}
-                                <div class="form-check">
-                                    <input class="form-check-input worker-checkbox" type="checkbox" 
-                                           value="{{ worker.id }}" id="worker_gen_{{ worker.id }}" checked>
-                                    <label class="form-check-label" for="worker_gen_{{ worker.id }}">
-                                        {{ worker.username }} (일일 {{ worker.daily_quota or 6 }}개)
-                                    </label>
-                                </div>
-                                {% endfor %}
-                            </div>
-                        </div>
-                        
-                        <div class="card bg-light">
-                            <div class="card-body">
-                                <h6>📋 생성 규칙:</h6>
-                                <ul class="mb-0">
-                                    <li>키워드당 3개 카페에 자동 분배</li>
-                                    <li>계정-카페 순환 사용</li>
-                                    <li>동일 조합 최대 2회 제한</li>
-                                    <li>주말(토,일) 자동 제외</li>
-                                </ul>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">취소</button>
-                        <button type="submit" class="btn btn-success">생성하기</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-    
-    <!-- 글 연결 모달 -->
-    <div class="modal fade" id="linkPostModal" tabindex="-1">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <form id="linkPostForm" method="post">
-                    <div class="modal-header">
-                        <h5 class="modal-title">🔗 작성된 글 연결</h5>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                    </div>
-                    <div class="modal-body">
-                        <div class="mb-3">
-                            <label class="form-label">작성된 글 선택</label>
-                            <select name="marketing_post_id" class="form-select" required>
-                                <option value="">선택하세요</option>
-                                {% for post in unlinked_posts %}
-                                <option value="{{ post.id }}">
-                                    [{{ post.keyword_text }}] {{ post.post_title[:50] or '제목 없음' }}
-                                    ({{ post.worker.username if post.worker else '작업자 없음' }})
-                                </option>
-                                {% endfor %}
-                            </select>
-                        </div>
-                        <div class="alert alert-info">
-                            <small>등록 완료된 글 중 아직 연결되지 않은 글만 표시됩니다.</small>
-                        </div>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">취소</button>
-                        <button type="submit" class="btn btn-primary">연결하기</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-</div>
 
-<!-- 글 수정 모달 (스케줄 관리용) -->
-<div class="modal fade" id="editPostModalFromSchedule" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-lg modal-dialog-scrollable modal-dialog-centered">
-        <div class="modal-content">
-            <form id="editPostFormFromSchedule" method="post">
-                <div class="modal-header">
-                    <h5 class="modal-title">글 정보 수정</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+    <!-- 키워드 검색창 -->
+    <form method="get" action="/marketing/product/posts/{{ marketing_product.id }}" class="mb-4">
+        <div class="input-group">
+            <input type="text" name="keyword_search" class="form-control" placeholder="키워드 검색 (띄어쓰기 무시)" value="{{ keyword_search }}">
+            <button class="btn btn-primary" type="submit">🔍 검색</button>
+        </div>
+    </form>
+
+    <!-- 2열 그리드 레이아웃 -->
+    <div class="row">
+        {% for keyword, posts in posts_by_keyword.items() %}
+        <div class="col-md-6 mb-4">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-dark text-white">
+                    <h4 class="mb-0" style="font-size: 1.1rem;">키워드: {{ keyword }} ({{ posts|length }}개)</h4>
                 </div>
-                <div class="modal-body">
-                    <div class="row">
-                        <div class="col-md-4 mb-3">
-                            <label class="form-label">작성자</label>
-                            <select class="form-select" id="edit_worker_id" name="worker_id" required>
-                                {% for worker in workers %}
-                                <option value="{{ worker.id }}">{{ worker.username }}</option>
-                                {% endfor %}
-                            </select>
-                        </div>
-                        <div class="col-md-4 mb-3">
-                            <label class="form-label">네이버 계정</label>
-                            <select class="form-select" id="edit_account_id" name="account_id" required onchange="updateCafeDropdownModal(this.value)">
-                                {% for acc in accounts %}
-                                <option value="{{ acc.id }}">{{ acc.account_id }}</option>
-                                {% endfor %}
-                            </select>
-                        </div>
-                        <div class="col-md-4 mb-3">
-                            <label class="form-label">작성 카페</label>
-                            <select class="form-select" id="edit_cafe_id" name="cafe_id" required>
-                                {% for cafe in cafes %}
-                                <option value="{{ cafe.id }}">{{ cafe.name }}</option>
-                                {% endfor %}
-                            </select>
-                        </div>
+                <div class="card-body" style="overflow-x: auto;">
+                    {% if posts %}
+                    <table class="table table-hover align-middle">
+                        <thead>
+                            <tr>
+                                <th>상태</th>
+                                <th>글 제목/URL</th>
+                                <th>네이버 계정</th>
+                                <th>작성 카페</th>
+                                <th>작성자</th>
+                                <th class="text-center">관리</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for post in posts %}
+                            <tr>
+                                <td>
+                                    {% set schedule_status = post.schedules[0].status if post.schedules else 'pending' %}
+                                    <span class="status-badge status-{{ schedule_status }}">
+                                        {% if schedule_status == 'pending' %}대기중
+                                        {% elif schedule_status == 'in_progress' %}진행중
+                                        {% elif schedule_status == 'completed' %}완료
+                                        {% elif schedule_status == 'skipped' %}건너뜀
+                                        {% elif schedule_status == 'deleted' %}삭제됨
+                                        {% else %}대기중
+                                        {% endif %}
+                                    </span>
+                                </td>
+                                <td>
+                                    {% if post.post_url %}
+                                    <a href="{{ post.post_url }}" target="_blank" title="{{ post.post_url }}" style="display: block; max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ post.post_title or post.post_url }}</a>
+                                    {% else %}
+                                    <span title="{{ post.post_title }}" style="display: block; max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ post.post_title or '(제목 없음)' }}</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ post.account.account_id if post.account else 'N/A' }}</td>
+                                <td>{{ post.cafe.name if post.cafe else 'N/A' }}</td>
+                                <td>{{ post.worker.username if post.worker else 'N/A' }}</td>
+                                <td class="text-center">
+                                    <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#editPostModal-{{ post.id }}">수정</button>
+                                    <form action="/marketing/post/delete/{{ post.id }}" method="post" style="display: inline-block !important; margin: 0 !important;" onsubmit="return confirm('이 글을 정말 삭제하시겠습니까?');">
+                                        <button type="submit" class="btn btn-sm btn-outline-danger" style="display: inline-block !important;">삭제</button>
+                                    </form>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                    {% else %}
+                    <p class="text-center text-muted p-3">아직 이 키워드로 등록된 글이 없습니다.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    <!-- 2열 그리드 레이아웃 끝 -->
+
+    <!-- 페이지네이션 UI -->
+    {% if total_pages > 1 %}
+    <nav class="d-flex justify-content-center mt-4">
+        <ul class="pagination">
+            <li class="page-item {{ 'disabled' if current_page == 1 else '' }}">
+                <a class="page-link" href="?page={{ current_page - 1 }}&keyword_search={{ keyword_search }}">이전</a>
+            </li>
+            {% for page_num in range(1, total_pages + 1) %}
+            <li class="page-item {{ 'active' if page_num == current_page else '' }}">
+                <a class="page-link" href="?page={{ page_num }}&keyword_search={{ keyword_search }}">{{ page_num }}</a>
+            </li>
+            {% endfor %}
+            <li class="page-item {{ 'disabled' if current_page == total_pages else '' }}">
+                <a class="page-link" href="?page={{ current_page + 1 }}&keyword_search={{ keyword_search }}">다음</a>
+            </li>
+        </ul>
+    </nav>
+    {% endif %}
+    <!-- 페이지네이션 UI 끝 -->
+
+    <!-- 수정 모달 -->
+    {% for keyword, posts in posts_by_keyword.items() %}
+    {% for post in posts %}
+    <div class="modal fade" id="editPostModal-{{ post.id }}" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-scrollable modal-dialog-centered">
+            <div class="modal-content">
+                <form action="/marketing/post/update/{{ post.id }}" method="post">
+                    <div class="modal-header">
+                        <h5 class="modal-title">글 정보 수정 (키워드: {{ post.keyword_text }})</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                     </div>
-                    <hr>
-                    <div class="mb-3">
-                        <label class="form-label">레퍼런스 불러오기 (선택)</label>
-                        <div class="input-group">
-                            <select class="form-select" id="edit_ref_type" onchange="filterReferencesModal(this.value)">
-                                <option value="" selected>분류 선택...</option>
-                                {% for type_name in references_by_type.keys() %}
-                                <option value="{{ type_name }}">{{ type_name }}</option>
-                                {% endfor %}
-                            </select>
-                            <select class="form-select" id="edit_ref_title" onchange="loadReferenceModal(this.value)">
-                                <option value="" selected>제목 선택...</option>
-                                {% for type, refs in references_by_type.items() %}
-                                    {% for ref in refs %}
-                                    <option value="{{ ref.id }}" data-ref-type="{{ ref.ref_type }}" style="display:none;">{{ ref.title }}</option>
+                    <div class="modal-body">
+                        <div class="row">
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label">작성자</label>
+                                <select class="form-select" name="worker_id" required>
+                                    {% for worker in all_workers %}
+                                    <option value="{{ worker.id }}" {{ 'selected' if post.worker_id == worker.id }}>{{ worker.username }}</option>
                                     {% endfor %}
-                                {% endfor %}
-                            </select>
+                                </select>
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label">네이버 계정</label>
+                                <select class="form-select" name="account_id" required onchange="updateCafeDropdown(this, 'edit_cafe_id_{{ post.id }}')">
+                                    {% for acc in all_accounts %}
+                                    <option value="{{ acc.id }}" {{ 'selected' if post.account_id == acc.id }}>{{ acc.account_id }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label">작성 카페</label>
+                                <select class="form-select" id="edit_cafe_id_{{ post.id }}" name="cafe_id" required>
+                                    {% for cafe in all_cafes %}
+                                    <option value="{{ cafe.id }}" {{ 'selected' if post.cafe_id == cafe.id }}>{{ cafe.name }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+                        <hr>
+                        <div class="mb-3">
+                            <label class="form-label">레퍼런스 불러오기 (선택)</label>
+                            <div class="input-group">
+                                <select class="form-select" id="edit_ref_type_{{ post.id }}" onchange="filterReferences(this, 'edit_ref_title_{{ post.id }}')">
+                                    <option value="" selected>분류 선택...</option>
+                                    {% for type_name in references_by_type.keys() %}
+                                    <option value="{{ type_name }}">{{ type_name }}</option>
+                                    {% endfor %}
+                                </select>
+                                <select class="form-select" id="edit_ref_title_{{ post.id }}" onchange="loadReference(this, 'edit_post_title_{{ post.id }}', 'edit_post_body_{{ post.id }}', 'edit_post_comments_{{ post.id }}')">
+                                    <option value="" selected>제목 선택...</option>
+                                    {% for type, refs in references_by_type.items() %}
+                                        {% for ref in refs %}
+                                        <option value="{{ ref.id }}" data-ref-type="{{ ref.ref_type }}">{{ ref.title }}</option>
+                                        {% endfor %}
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">글 제목</label>
+                            <input type="text" class="form-control" id="edit_post_title_{{ post.id }}" name="post_title" value="{{ post.post_title }}">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">글 본문</label>
+                            <textarea class="form-control" id="edit_post_body_{{ post.id }}" name="post_body" rows="6">{{ post.post_body }}</textarea>
+                        </div>
+                        
+                        <!-- 댓글 섹션 개선 -->
+                        <div class="mb-3">
+                            <div class="comment-editor-toggle">
+                                <label class="form-label mb-0">💬 댓글</label>
+                                <div class="btn-group btn-group-sm" role="group">
+                                    <button type="button" class="btn btn-outline-primary" onclick="toggleCommentView('edit', {{ post.id }}, 'visual')">👁️ 보기</button>
+                                    <button type="button" class="btn btn-outline-secondary active" onclick="toggleCommentView('edit', {{ post.id }}, 'text')">✏️ 편집</button>
+                                </div>
+                            </div>
+                            
+                            <!-- 시각적 댓글 뷰어 -->
+                            <div id="edit_comment_viewer_{{ post.id }}" class="comment-viewer" style="display: none;">
+                                <div class="no-comments">댓글이 없습니다</div>
+                            </div>
+                            
+                            <!-- 텍스트 편집기 -->
+                            <textarea class="form-control" id="edit_post_comments_{{ post.id }}" name="post_comments" rows="6" placeholder="댓글을 텍스트 형식으로 입력하세요...">{{ post.post_comments }}</textarea>
+                        </div>
+                        
+                        <hr>
+                        <div class="form-check form-switch mb-2">
+                            <input type="hidden" name="is_registration_complete" value="False">
+                            <input class="form-check-input" type="checkbox" role="switch" id="is_registration_complete_{{ post.id }}" name="is_registration_complete" value="True" {{ 'checked' if post.is_registration_complete else '' }} onchange="toggleUrlField(this, 'url_field_{{ post.id }}')">
+                            <label class="form-check-label" for="is_registration_complete_{{ post.id }}">등록 완료 (체크 시 URL 입력)</label>
+                        </div>
+                        <div class="mb-3" id="url_field_{{ post.id }}" style="{{ 'display:block;' if post.is_registration_complete else 'display:none;' }}">
+                            <label class="form-label">글 URL</label>
+                            <input type="url" class="form-control" name="post_url" value="{{ post.post_url or '' }}" {{ 'required' if post.is_registration_complete else '' }}>
+                        </div>
+                        <div class="form-check form-switch">
+                            <input type="hidden" name="is_live" value="False">
+                            <input class="form-check-input" type="checkbox" role="switch" id="is_live-{{ post.id }}" name="is_live" value="True" {{ 'checked' if post.is_live else '' }}>
+                            <label class="form-check-label" for="is_live-{{ post.id }}">글 생존 여부 (체크 시 '살아있는 글')</label>
                         </div>
                     </div>
-                    <div class="mb-3">
-                        <label class="form-label">글 제목</label>
-                        <input type="text" class="form-control" id="edit_post_title" name="post_title">
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">닫기</button>
+                        <button type="submit" class="btn btn-primary">수정 저장</button>
                     </div>
-                    <div class="mb-3">
-                        <label class="form-label">글 본문</label>
-                        <textarea class="form-control" id="edit_post_body" name="post_body" rows="6"></textarea>
+                </form>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+    {% endfor %}
+
+    <!-- 새 글 등록 모달 -->
+    <div class="modal fade" id="addPostModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-scrollable modal-dialog-centered">
+            <div class="modal-content">
+                <form action="/marketing/post/add" method="post">
+                    <input type="hidden" name="mp_id" value="{{ marketing_product.id }}">
+                    <div class="modal-header">
+                        <h5 class="modal-title">새 글 등록</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                     </div>
-                    <div class="mb-3">
-                        <label class="form-label">💬 댓글</label>
-                        <textarea class="form-control" id="edit_post_comments" name="post_comments" rows="6" placeholder="댓글을 텍스트 형식으로 입력하세요..."></textarea>
+                    <div class="modal-body">
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">키워드 선택</label>
+                                <select class="form-select" name="keyword_text" required>
+                                    <option value="" disabled selected>키워드를 선택하세요</option>
+                                    {% for kw in keywords_list %}
+                                    <option value="{{ kw }}">{{ kw }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                             <div class="col-md-6 mb-3">
+                                <label class="form-label">작성자 (시스템 유저)</label>
+                                <select class="form-select" name="worker_id" required>
+                                    <option value="" disabled selected>작업자를 선택하세요</option>
+                                    {% for worker in all_workers %}
+                                    <option value="{{ worker.id }}">{{ worker.username }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">네이버 계정</label>
+                                <select class="form-select" id="add_account_id" name="account_id" required onchange="updateCafeDropdown(this, 'add_cafe_id')">
+                                    <option value="" disabled selected>계정을 선택하세요</option>
+                                    {% for acc in all_accounts %}
+                                    <option value="{{ acc.id }}">{{ acc.account_id }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">작성 카페</label>
+                                <select class="form-select" id="add_cafe_id" name="cafe_id" required>
+                                    <option value="" disabled selected>네이버 계정을 먼저 선택하세요</option>
+                                </select>
+                            </div>
+                        </div>
+                        <hr>
+                        <div class="mb-3">
+                            <label class="form-label">레퍼런스 불러오기 (선택)</label>
+                            <div class="input-group">
+                                <select class="form-select" id="ref-type-select" onchange="filterReferences(this, 'ref-title-select')">
+                                    <option value="" selected>분류 선택...</option>
+                                    {% for type_name in references_by_type.keys() %}
+                                    <option value="{{ type_name }}">{{ type_name }}</option>
+                                    {% endfor %}
+                                </select>
+                                <select class="form-select" id="ref-title-select" onchange="loadReference(this, 'add_post_title', 'add_post_body', 'add_post_comments', 'add_reference_id')">
+                                    <option value="" selected>먼저 분류를 선택하세요</option>
+                                </select>
+                            </div>
+                            <input type="hidden" name="reference_id" id="add_reference_id">
+                        </div>
+                        <div id="add_post_content_wrapper">
+                            <div class="mb-3">
+                                <label class="form-label">글 제목</label>
+                                <input type="text" class="form-control" id="add_post_title" name="post_title">
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">글 본문</label>
+                                <textarea class="form-control" id="add_post_body" name="post_body" rows="6"></textarea>
+                            </div>
+                            
+                            <!-- 댓글 섹션 개선 -->
+                            <div class="mb-3">
+                                <div class="comment-editor-toggle">
+                                    <label class="form-label mb-0">💬 댓글</label>
+                                    <div class="btn-group btn-group-sm" role="group">
+                                        <button type="button" class="btn btn-outline-primary" onclick="toggleCommentView('add', '', 'visual')">👁️ 보기</button>
+                                        <button type="button" class="btn btn-outline-secondary active" onclick="toggleCommentView('add', '', 'text')">✏️ 편집</button>
+                                    </div>
+                                </div>
+                                
+                                <!-- 시각적 댓글 뷰어 -->
+                                <div id="add_comment_viewer" class="comment-viewer" style="display: none;">
+                                    <div class="no-comments">댓글이 없습니다</div>
+                                </div>
+                                
+                                <!-- 텍스트 편집기 -->
+                                <textarea class="form-control" id="add_post_comments" name="post_comments" rows="6" placeholder="댓글을 텍스트 형식으로 입력하세요...
+예시:
+작성자:
+  첫 번째 댓글 내용
+
+계정 1:
+  두 번째 댓글 내용
+  
+    (답글) 작성자:
+      답글 내용"></textarea>
+                            </div>
+                        </div>
+                        <hr>
+                        <div class="form-check form-switch mb-2">
+                            <input class="form-check-input" type="checkbox" role="switch" id="is_registration_complete" name="is_registration_complete" onchange="toggleUrlField(this, 'url_field')">
+                            <label class="form-check-label" for="is_registration_complete">등록 완료 (체크 시 URL 입력)</label>
+                        </div>
+                        <div class="mb-3" id="url_field" style="display:none;">
+                            <label class="form-label">글 URL</label>
+                            <input type="url" class="form-control" name="post_url">
+                        </div>
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" role="switch" id="is_live" name="is_live">
+                            <label class="form-check-label" for="is_live">라이브 상태</label>
+                        </div>
                     </div>
-                    <hr>
-                    <div class="form-check form-switch mb-2">
-                        <input type="hidden" name="is_registration_complete" value="False">
-                        <input class="form-check-input" type="checkbox" role="switch" id="edit_is_registration_complete" name="is_registration_complete" value="True" onchange="toggleUrlFieldModal(this.checked)">
-                        <label class="form-check-label" for="edit_is_registration_complete">등록 완료 (체크 시 URL 입력)</label>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">닫기</button>
+                        <button type="submit" class="btn btn-primary">등록하기</button>
                     </div>
-                    <div class="mb-3" id="edit_url_field" style="display:none;">
-                        <label class="form-label">글 URL</label>
-                        <input type="url" class="form-control" id="edit_post_url" name="post_url">
-                    </div>
-                    <div class="form-check form-switch">
-                        <input type="hidden" name="is_live" value="False">
-                        <input class="form-check-input" type="checkbox" role="switch" id="edit_is_live" name="is_live" value="True">
-                        <label class="form-check-label" for="edit_is_live">글 생존 여부 (체크 시 '살아있는 글')</label>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">닫기</button>
-                    <button type="submit" class="btn btn-primary">수정 저장</button>
-                </div>
-            </form>
+                </form>
+            </div>
         </div>
     </div>
 </div>
 
 <script>
-// 계정-카페 매핑 데이터
+// 🔥 전역 오류 무시 (네이버 스크립트 오류 방지)
+window.addEventListener('error', function(e) {
+    // 네이버 관련 스크립트 오류 무시
+    if (e.filename && (
+        e.filename.includes('naver') || 
+        e.filename.includes('web-client') ||
+        e.filename.includes('contents.js')
+    )) {
+        console.log('⚠️ 네이버 스크립트 오류 무시:', e.message);
+        e.preventDefault();
+        return true;
+    }
+});
+
+// Python에서 전달받은 '계정-카페' 연동 맵
 const membershipMap = {{ membership_map | tojson | safe }};
 
-// 상품-키워드 매핑 데이터  
-const productKeywordsMap = {{ product_keywords_map | tojson | safe }};
+// Python에서 전달받은 '레퍼런스' 전체 데이터 (안전하게 JSON 변환)
+const allReferences = {{ references_json | tojson | safe }};
 
-// 날짜 변경
-function changeDate(days) {
-    const currentDate = new Date('{{ selected_date }}');
-    currentDate.setDate(currentDate.getDate() + days);
-    const dateStr = currentDate.toISOString().split('T')[0];
-    window.location.href = `/marketing/schedules?selected_date=${dateStr}`;
-}
+// 🔥 초기화 디버깅
+console.log('========================================');
+console.log('🚀 페이지 로드 완료!');
+console.log('========================================');
+console.log('📊 membershipMap:', membershipMap);
+console.log('📊 membershipMap 키 목록:', Object.keys(membershipMap));
+console.log('📊 allReferences 개수:', allReferences.length);
+console.log('📊 allReferences 목록:', allReferences.map(r => ({id: r.id, title: r.title, type: r.ref_type})));
+console.log('========================================');
 
-function selectDate(date) {
-    window.location.href = `/marketing/schedules?selected_date=${date}`;
-}
-
-// 상태 필터링
-function filterStatus(status) {
-    const rows = document.querySelectorAll('.schedule-row');
-    const buttons = document.querySelectorAll('.filter-btn');
+/**
+ * 네이버 계정 드롭다운이 변경될 때 호출되는 함수
+ */
+function updateCafeDropdown(accountSelectElement, cafeSelectId) {
+    const cafeSelect = document.getElementById(cafeSelectId);
+    const selectedAccountId = accountSelectElement.value;
     
-    // 버튼 활성화 상태 변경
-    buttons.forEach(btn => btn.classList.remove('active'));
-    event.target.classList.add('active');
+    console.log('=== updateCafeDropdown 디버깅 ===');
+    console.log('선택된 계정 ID:', selectedAccountId, typeof selectedAccountId);
+    console.log('membershipMap:', membershipMap);
     
-    // 행 표시/숨기기
-    rows.forEach(row => {
-        if (status === 'all' || row.dataset.status === status) {
-            row.style.display = '';
-        } else {
-            row.style.display = 'none';
-        }
-    });
-}
+    cafeSelect.innerHTML = '<option value="" disabled selected>계정을 먼저 선택하세요</option>';
 
-// 완료 토글
-function toggleComplete(scheduleId, checkbox) {
-    fetch(`/marketing/schedule/${scheduleId}/toggle-complete`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-            is_completed: checkbox.checked
-        })
-    }).then(response => {
-        if (response.ok) {
-            location.reload();
-        } else {
-            checkbox.checked = !checkbox.checked;
-            alert('상태 변경에 실패했습니다.');
-        }
-    });
-}
-
-// 상태 변경 - ✅ 수정됨
-function changeStatus(scheduleId, newStatus) {
-    const statusNames = {
-        'pending': '대기중',
-        'in_progress': '진행중',
-        'completed': '완료',
-        'skipped': '건너뜀'
-    };
+    // 문자열로 검색 (select의 value는 항상 문자열)
+    const cafes = membershipMap[selectedAccountId];
+    console.log('찾은 카페 목록:', cafes);
     
-    if (confirm(`상태를 "${statusNames[newStatus]}"(으)로 변경하시겠습니까?`)) {
-        fetch(`/marketing/schedule/${scheduleId}/change-status`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                status: newStatus
-            })
-        }).then(response => {
-            if (response.ok) {
-                location.reload();
-            } else {
-                alert('상태 변경에 실패했습니다.');
-            }
-        }).catch(error => {
-            console.error('Error:', error);
-            alert('상태 변경 중 오류가 발생했습니다.');
-        });
-    }
-}
-
-// 카페 옵션 업데이트
-function updateCafeOptions(accountId) {
-    const cafeSelect = document.querySelector('select[name="cafe_id"]');
-    cafeSelect.innerHTML = '<option value="">선택하세요</option>';
-    
-    if (accountId && membershipMap[accountId]) {
-        cafeSelect.disabled = false;
-        membershipMap[accountId].forEach(cafe => {
+    if (cafes && cafes.length > 0) {
+        cafeSelect.innerHTML = '<option value="" disabled selected>작성할 카페를 선택하세요</option>';
+        
+        cafes.forEach(cafe => {
             const option = document.createElement('option');
             option.value = cafe.id;
             option.textContent = cafe.name;
             cafeSelect.appendChild(option);
         });
+        console.log('카페 옵션 추가 완료:', cafes.length + '개');
     } else {
-        cafeSelect.disabled = true;
-        cafeSelect.innerHTML = '<option value="">계정을 먼저 선택하세요</option>';
+        console.log('카페 목록이 없거나 비어있습니다');
     }
 }
 
-// 키워드 옵션 업데이트
-function updateKeywordOptions(productId) {
-    const keywordSelect = document.querySelector('select[name="keyword_text"]');
-    keywordSelect.innerHTML = '<option value="">선택하세요</option>';
+/**
+ * '등록 완료' 체크박스 클릭 시 URL 필드 토글 및 'required' 속성 제어
+ */
+function toggleUrlField(checkbox, fieldId) {
+    const urlFieldDiv = document.getElementById(fieldId);
+    const urlInput = urlFieldDiv.querySelector('input[name="post_url"]');
     
-    if (productId && productKeywordsMap[productId]) {
-        keywordSelect.disabled = false;
-        productKeywordsMap[productId].forEach(keyword => {
-            const option = document.createElement('option');
-            option.value = keyword;
-            option.textContent = keyword;
-            keywordSelect.appendChild(option);
-        });
-    } else {
-        keywordSelect.disabled = true;
-        keywordSelect.innerHTML = '<option value="">상품을 먼저 선택하세요</option>';
-    }
-}
-
-// 글 연결
-function linkPost(scheduleId) {
-    const form = document.getElementById('linkPostForm');
-    form.action = `/marketing/schedule/${scheduleId}/link-post`;
-    const modal = new bootstrap.Modal(document.getElementById('linkPostModal'));
-    modal.show();
-}
-
-// 스케줄 수정 - 완료 상태가 아니면 진행중으로 변경 후 모달 열기
-function editScheduleAndStart(scheduleId, currentStatus) {
-    // 완료 상태면 상태 변경 없이 모달만 열기
-    if (currentStatus === 'completed') {
-        openPostEditModal(scheduleId);
-        return;
-    }
-    
-    // 완료가 아니면 진행중으로 변경 후 모달 열기
-    fetch(`/marketing/schedule/${scheduleId}/change-status`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-            status: 'in_progress'
-        })
-    }).then(response => {
-        if (response.ok) {
-            // 상태 변경 성공 후 모달 열기
-            openPostEditModal(scheduleId);
-        } else {
-            alert('상태 변경에 실패했습니다.');
-        }
-    }).catch(error => {
-        console.error('Error:', error);
-        alert('오류가 발생했습니다.');
-    });
-}
-
-// 글 수정 모달 열기
-function openPostEditModal(scheduleId) {
-    // 스케줄 정보 가져오기
-    fetch(`/marketing/schedule/${scheduleId}/info`)
-        .then(response => response.json())
-        .then(data => {
-            if (data.success && data.post) {
-                const post = data.post;
-                
-                // 폼 action 설정
-                const form = document.getElementById('editPostFormFromSchedule');
-                form.action = `/marketing/post/update/${post.id}`;
-                
-                // 필드 채우기
-                document.getElementById('edit_worker_id').value = data.schedule.worker_id || '';
-                document.getElementById('edit_account_id').value = data.schedule.account_id || '';
-                document.getElementById('edit_post_title').value = post.post_title || '';
-                document.getElementById('edit_post_body').value = post.post_body || '';
-                document.getElementById('edit_post_comments').value = post.post_comments || '';
-                document.getElementById('edit_post_url').value = post.post_url || '';
-                
-                // 체크박스 설정
-                const isComplete = post.post_url && post.post_url.trim() !== '';
-                document.getElementById('edit_is_registration_complete').checked = isComplete;
-                document.getElementById('edit_is_live').checked = post.is_live || false;
-                
-                // URL 필드 표시/숨김
-                toggleUrlFieldModal(isComplete);
-                
-                // 카페 드롭다운 업데이트
-                if (data.schedule.account_id) {
-                    updateCafeDropdownModal(data.schedule.account_id);
-                    // 카페 선택 (드롭다운 업데이트 후)
-                    setTimeout(() => {
-                        document.getElementById('edit_cafe_id').value = data.schedule.cafe_id || '';
-                    }, 100);
-                }
-                
-                // 모달 열기
-                const modal = new bootstrap.Modal(document.getElementById('editPostModalFromSchedule'));
-                modal.show();
-            } else if (data.success && !data.post) {
-                alert('연결된 글이 없습니다. 글을 먼저 작성해주세요.');
-            } else {
-                alert('스케줄 정보를 불러오는데 실패했습니다.');
-            }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            alert('오류가 발생했습니다.');
-        });
-}
-
-// 모달용 카페 드롭다운 업데이트
-function updateCafeDropdownModal(accountId) {
-    const cafeSelect = document.getElementById('edit_cafe_id');
-    cafeSelect.innerHTML = '<option value="">선택하세요</option>';
-    
-    if (accountId && membershipMap[accountId]) {
-        cafeSelect.disabled = false;
-        membershipMap[accountId].forEach(cafe => {
-            const option = document.createElement('option');
-            option.value = cafe.id;
-            option.textContent = cafe.name;
-            cafeSelect.appendChild(option);
-        });
-    } else {
-        cafeSelect.disabled = true;
-        cafeSelect.innerHTML = '<option value="">계정을 먼저 선택하세요</option>';
-    }
-}
-
-// 모달용 레퍼런스 필터링
-function filterReferencesModal(refType) {
-    const refTitleSelect = document.getElementById('edit_ref_title');
-    const options = refTitleSelect.querySelectorAll('option');
-    
-    // 모든 옵션 숨기기
-    options.forEach(option => {
-        if (option.value === '') {
-            option.style.display = 'block';
-        } else {
-            option.style.display = 'none';
-        }
-    });
-    
-    // 선택된 타입의 옵션만 표시
-    if (refType) {
-        options.forEach(option => {
-            if (option.dataset.refType === refType) {
-                option.style.display = 'block';
-            }
-        });
-    }
-    
-    // 선택 초기화
-    refTitleSelect.value = '';
-}
-
-// 모달용 레퍼런스 로드
-function loadReferenceModal(refId) {
-    if (!refId) return;
-    
-    fetch(`/marketing/reference/${refId}/content`)
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                document.getElementById('edit_post_title').value = data.title || '';
-                document.getElementById('edit_post_body').value = data.body || '';
-                
-                // 댓글 로드
-                if (data.comments && data.comments.length > 0) {
-                    const commentsText = data.comments.map(c => 
-                        `${c.commenter_name}: ${c.comment_text}`
-                    ).join('\n\n');
-                    document.getElementById('edit_post_comments').value = commentsText;
-                }
-            }
-        })
-        .catch(error => {
-            console.error('Error loading reference:', error);
-        });
-}
-
-// 모달용 URL 필드 토글
-function toggleUrlFieldModal(isChecked) {
-    const urlField = document.getElementById('edit_url_field');
-    const urlInput = document.getElementById('edit_post_url');
-    
-    if (isChecked) {
-        urlField.style.display = 'block';
+    if (checkbox.checked) {
+        urlFieldDiv.style.display = 'block';
         urlInput.required = true;
     } else {
-        urlField.style.display = 'none';
+        urlFieldDiv.style.display = 'none';
         urlInput.required = false;
     }
 }
 
-// 스케줄 삭제
-function deleteSchedule(scheduleId) {
-    if (confirm('이 스케줄을 삭제하시겠습니까?')) {
-        fetch(`/marketing/schedule/${scheduleId}/delete`, {
-            method: 'POST'
-        }).then(response => {
-            if (response.ok) {
-                location.reload();
-            } else {
-                alert('삭제에 실패했습니다.');
-            }
-        });
+/**
+ * 레퍼런스 분류 선택 시, 제목 드롭다운 필터링
+ */
+function filterReferences(typeSelect, titleSelectId) {
+    const selectedType = typeSelect.value;
+    const titleSelect = document.getElementById(titleSelectId);
+    
+    console.log('========================================');
+    console.log('🔍 filterReferences 호출');
+    console.log('선택된 분류:', selectedType);
+    console.log('titleSelectId:', titleSelectId);
+    console.log('allReferences 전체:', allReferences.length + '개');
+    
+    // 🔥 제목 선택 드롭다운 초기화
+    titleSelect.innerHTML = '';
+    
+    if (selectedType === "") {
+        // 분류를 선택하지 않았으면 기본 메시지
+        const defaultOption = document.createElement('option');
+        defaultOption.value = "";
+        defaultOption.selected = true;
+        defaultOption.textContent = "먼저 분류를 선택하세요";
+        titleSelect.appendChild(defaultOption);
+        console.log('→ 분류 미선택, 기본 메시지 표시');
+        console.log('========================================');
+        return;
+    }
+    
+    // 기본 옵션 추가
+    const defaultOption = document.createElement('option');
+    defaultOption.value = "";
+    defaultOption.selected = true;
+    defaultOption.textContent = "제목 선택...";
+    titleSelect.appendChild(defaultOption);
+    
+    // 🔥 선택된 분류에 맞는 레퍼런스만 필터링하여 추가
+    let addedCount = 0;
+    allReferences.forEach(ref => {
+        if (ref.ref_type === selectedType) {
+            const option = document.createElement('option');
+            option.value = ref.id;
+            option.textContent = ref.title;
+            option.setAttribute('data-ref-type', ref.ref_type);
+            titleSelect.appendChild(option);
+            addedCount++;
+            console.log(`  → 추가: ID ${ref.id}, 제목: "${ref.title}"`);
+        }
+    });
+    
+    console.log('✅ 필터링 완료! 추가된 제목:', addedCount + '개');
+    console.log('========================================');
+}
+
+/**
+ * 댓글 뷰 토글 함수
+ */
+function toggleCommentView(modalType, postId, viewMode) {
+    const viewerId = modalType === 'add' ? 'add_comment_viewer' : `edit_comment_viewer_${postId}`;
+    const textareaId = modalType === 'add' ? 'add_post_comments' : `edit_post_comments_${postId}`;
+    
+    const viewer = document.getElementById(viewerId);
+    const textarea = document.getElementById(textareaId);
+    const buttons = viewer.parentElement.querySelectorAll('.btn-group button');
+    
+    if (viewMode === 'visual') {
+        // 시각적 뷰 모드
+        viewer.style.display = 'block';
+        textarea.style.display = 'none';
+        buttons[0].classList.add('active');
+        buttons[0].classList.remove('btn-outline-primary');
+        buttons[0].classList.add('btn-primary');
+        buttons[1].classList.remove('active');
+        buttons[1].classList.add('btn-outline-secondary');
+        buttons[1].classList.remove('btn-secondary');
+        
+        // 텍스트를 시각적으로 렌더링
+        renderComments(textarea.value, viewerId);
+    } else {
+        // 텍스트 편집 모드
+        viewer.style.display = 'none';
+        textarea.style.display = 'block';
+        buttons[0].classList.remove('active');
+        buttons[0].classList.add('btn-outline-primary');
+        buttons[0].classList.remove('btn-primary');
+        buttons[1].classList.add('active');
+        buttons[1].classList.remove('btn-outline-secondary');
+        buttons[1].classList.add('btn-secondary');
     }
 }
 
-// 작업자 체크박스 처리 (대량 생성)
-document.addEventListener('DOMContentLoaded', function() {
-    const workerCheckboxes = document.querySelectorAll('.worker-checkbox');
-    const hiddenInput = document.getElementById('worker_ids_hidden');
+/**
+ * 댓글을 시각적으로 렌더링하는 함수
+ */
+function renderComments(textContent, viewerId) {
+    const viewer = document.getElementById(viewerId);
     
-    function updateWorkerIds() {
-        const checkedIds = Array.from(workerCheckboxes)
-            .filter(cb => cb.checked)
-            .map(cb => cb.value);
-        hiddenInput.value = checkedIds.join(',');
+    if (!textContent || textContent.trim() === '') {
+        viewer.innerHTML = '<div class="no-comments">댓글이 없습니다</div>';
+        return;
     }
     
-    workerCheckboxes.forEach(cb => {
-        cb.addEventListener('change', updateWorkerIds);
-    });
+    // 텍스트 파싱하여 HTML로 변환
+    const lines = textContent.split('\n');
+    let html = '';
+    let currentComment = null;
+    let commentCount = 0;
+    let replyCount = 0;
     
-    // 초기 값 설정
-    updateWorkerIds();
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        
+        // 답글 체크: "(답글) 계정 N: 내용" 또는 "(답글) 작성자: 내용"
+        if (line.includes('(답글)')) {
+            const match = line.match(/\(답글\)\s*(.+?):\s*(.*)/);
+            if (match) {
+                // 이전 댓글 렌더링
+                if (currentComment) {
+                    html += formatComment(currentComment);
+                }
+                
+                replyCount++;
+                const author = match[1].trim();
+                const text = match[2].trim();
+                const isAuthor = author === '작성자';
+                
+                currentComment = {
+                    author: author,
+                    text: text,
+                    isReply: true,
+                    isAuthor: isAuthor
+                };
+            }
+        }
+        // 일반 댓글 체크: "작성자:" 또는 "계정 N:"
+        else if (line.match(/^(작성자|계정\s*\d+):\s*$/)) {
+            // 이전 댓글 렌더링
+            if (currentComment) {
+                html += formatComment(currentComment);
+            }
+            
+            commentCount++;
+            const author = line.replace(':', '').trim();
+            const isAuthor = author === '작성자';
+            
+            currentComment = {
+                author: author,
+                text: '',
+                isReply: false,
+                isAuthor: isAuthor
+            };
+        }
+        // 댓글 내용 추가 (들여쓰기된 텍스트)
+        else if (currentComment && line.trim()) {
+            // 공백 제거하고 내용만 추가
+            const content = line.trim();
+            if (content && !content.includes('(답글)')) {
+                currentComment.text += (currentComment.text ? '\n' : '') + content;
+            }
+        }
+    }
     
-    // 툴팁 초기화
-    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
-    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
-        return new bootstrap.Tooltip(tooltipTriggerEl)
-    });
-});
+    // 마지막 댓글 처리
+    if (currentComment) {
+        html += formatComment(currentComment);
+    }
+    
+    // 통계 추가
+    if (commentCount > 0 || replyCount > 0) {
+        html += `<div class="comment-stats">
+            📊 총 ${commentCount}개 댓글 ${replyCount > 0 ? `(답글 ${replyCount}개 포함)` : ''}
+        </div>`;
+    }
+    
+    
+    viewer.innerHTML = html || '<div class="no-comments">댓글이 없습니다</div>';
+}
 
-// 오늘 날짜로 이동 단축키 (T 키)
-document.addEventListener('keydown', function(e) {
-    if (e.key === 't' || e.key === 'T') {
-        const today = new Date().toISOString().split('T')[0];
-        window.location.href = `/marketing/schedules?selected_date=${today}`;
+/**
+ * 개별 댓글을 HTML로 포맷팅
+ */
+function formatComment(comment) {
+    const isAuthor = comment.isAuthor;
+    
+    // 계정 번호 추출 (예: "계정 1" -> 1)
+    let accountNum = 0;
+    if (!isAuthor) {
+        const match = comment.author.match(/계정\s*(\d+)/);
+        if (match) {
+            accountNum = parseInt(match[1]);
+        }
     }
+    
+    // 계정별 색상 (레퍼런스 등록과 동일)
+    const colors = {
+        0: { bg: '#868e96', text: '#fff' },  // 작성자 (회색)
+        1: { bg: '#fa5252', text: '#fff' },  // 계정 1 (빨강)
+        2: { bg: '#fd7e14', text: '#fff' },  // 계정 2 (주황)
+        3: { bg: '#fcc419', text: '#212529' }, // 계정 3 (노랑, 텍스트 검은색)
+        4: { bg: '#40c057', text: '#fff' },  // 계정 4 (초록)
+        5: { bg: '#228be6', text: '#fff' },  // 계정 5 (파랑)
+        6: { bg: '#364fc7', text: '#fff' },  // 계정 6 (남색)
+        7: { bg: '#7048e8', text: '#fff' },  // 계정 7 (보라)
+        8: { bg: '#f06595', text: '#fff' }   // 계정 8 (핑크)
+    };
+    
+    const colorKey = isAuthor ? 0 : accountNum;
+    const color = colors[colorKey] || colors[0];
+    
+    const iconText = isAuthor ? '작성' : `A${accountNum}`;
+    
+    let html = '';
+    if (comment.isReply) {
+        html = `<div class="comment-reply">`;
+    }
+    
+    html += `
+        <div class="comment-item">
+            <div class="comment-author">
+                <span class="comment-author-icon" style="background-color: ${color.bg}; color: ${color.text};">${iconText}</span>
+                <strong>${comment.author}</strong>
+            </div>
+            <div class="comment-text">${escapeHtml(comment.text.trim())}</div>
+        </div>
+    `;
+    
+    if (comment.isReply) {
+        html += `</div>`;
+    }
+    
+    return html;
+}
+
+/**
+ * HTML 이스케이프 함수
+ */
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+/**
+ * 레퍼런스 제목 선택 시, 폼 필드 채우기 (댓글 포맷팅 수정됨)
+ */
+function loadReference(titleSelect, titleFieldId, bodyFieldId, commentsFieldId, refIdInputId) {
+    console.log('=== loadReference 호출 ===');
+    console.log('titleSelect:', titleSelect);
+    console.log('titleSelect.value:', titleSelect.value);
+    console.log('titleFieldId:', titleFieldId);
+    
+    const selectedId = parseInt(titleSelect.value);
+    console.log('선택된 ID (parseInt):', selectedId);
+    
+    const titleField = document.getElementById(titleFieldId);
+    const bodyField = document.getElementById(bodyFieldId);
+    const commentsField = document.getElementById(commentsFieldId);
+    const contentWrapper = document.getElementById(titleFieldId.replace('_post_title', '_content_wrapper'));
+    const refIdInput = refIdInputId ? document.getElementById(refIdInputId) : null;
+    
+    console.log('필드 요소들:', {titleField, bodyField, commentsField, contentWrapper, refIdInput});
+    
+    if (!selectedId) {
+        console.log('ID가 없어서 초기화');
+        if (contentWrapper) contentWrapper.style.display = 'none';
+        if (refIdInput) refIdInput.value = "";
+        titleField.value = "";
+        bodyField.value = "";
+        commentsField.value = "";
+        
+        // 시각적 뷰어가 있으면 초기화
+        const viewerId = titleFieldId.replace('_post_title', '_comment_viewer');
+        const viewer = document.getElementById(viewerId);
+        if (viewer) {
+            viewer.innerHTML = '<div class="no-comments">댓글이 없습니다</div>';
+        }
+        return;
+    }
+
+    console.log('allReferences에서 ID로 검색:', selectedId);
+    const ref = allReferences.find(r => r.id === selectedId);
+    console.log('찾은 레퍼런스:', ref);
+    
+    if (ref) {
+        console.log('✅ 레퍼런스 데이터 로드 시작');
+        console.log('제목:', ref.title);
+        console.log('본문 (처음 100자):', ref.content.substring(0, 100) + '...');
+        console.log('본문 전체 길이:', ref.content.length + '자');
+        console.log('댓글 개수:', ref.comments.length + '개');
+        console.log('댓글 원본 데이터:', ref.comments);
+        
+        if (refIdInput) refIdInput.value = ref.id;
+        
+        // 🔥 제목 전체를 입력창에 넣기
+        titleField.value = ref.title;
+        console.log('→ 제목 필드에 입력 완료:', titleField.value);
+        
+        // 🔥 본문 전체를 입력창에 넣기
+        bodyField.value = ref.content;
+        console.log('→ 본문 필드에 입력 완료, 길이:', bodyField.value.length + '자');
+
+        // 댓글 데이터를 계층 구조로 포맷팅
+        const commentMap = {};
+        const topLevelComments = [];
+        
+        ref.comments.forEach(c => {
+            c.structured_replies = [];
+            commentMap[c.id] = c;
+        });
+        
+        ref.comments.forEach(c => {
+            if (c.parent_id && commentMap[c.parent_id]) {
+                commentMap[c.parent_id].structured_replies.push(c);
+            } else if (!c.parent_id) {
+                topLevelComments.push(c);
+            }
+        });
+
+        function formatComments(comments, indent = "") {
+            let text = "";
+            comments.forEach(c => {
+                const prefix = c.account_sequence === 0 ? "작성자" : `계정 ${c.account_sequence}`;
+                
+                // 답글인 경우 한 줄로 표시
+                if (indent.includes('(답글)')) {
+                    // 답글: 계정명과 내용을 한 줄로
+                    const firstLine = c.text.split('\n')[0];
+                    text += `${indent}${prefix}: ${firstLine}\n`;
+                    
+                    // 여러 줄이면 나머지도 추가 (들여쓰기)
+                    const remainingLines = c.text.split('\n').slice(1).filter(line => line.trim());
+                    if (remainingLines.length > 0) {
+                        remainingLines.forEach(line => {
+                            text += `${indent}    ${line}\n`;
+                        });
+                    }
+                    text += '\n';
+                } else {
+                    // 일반 댓글: 기존 방식
+                    const commentLines = c.text.split('\n').map(line => `${indent}  ${line}`).join('\n');
+                    text += `${indent}${prefix}:\n${commentLines}\n\n`;
+                }
+                
+                if (c.structured_replies && c.structured_replies.length > 0) {
+                    text += formatComments(c.structured_replies, indent + "    (답글) ");
+                }
+            });
+            return text;
+        }
+        
+        const formattedComments = formatComments(topLevelComments).trim();
+        
+        // 🔥 댓글 전체를 입력창에 넣기
+        commentsField.value = formattedComments;
+        
+        console.log('✅ 댓글 포맷 완료!');
+        console.log('→ 댓글 필드에 입력 완료, 길이:', formattedComments.length + '자');
+        console.log('→ 댓글 내용 (처음 200자):', formattedComments.substring(0, 200) + '...');
+        
+        // 시각적 뷰어가 있으면 업데이트
+        const viewerId = titleFieldId.replace('_post_title', '_comment_viewer');
+        const viewer = document.getElementById(viewerId);
+        if (viewer && formattedComments) {
+            renderComments(formattedComments, viewerId);
+        }
+
+        if (contentWrapper) contentWrapper.style.display = 'block';
+        
+        console.log('========================================');
+        console.log('✅✅✅ 레퍼런스 로드 완료! ✅✅✅');
+        console.log('제목 입력됨:', titleField.value);
+        console.log('본문 입력됨:', bodyField.value.length + '자');
+        console.log('댓글 입력됨:', commentsField.value.length + '자');
+        console.log('========================================');
+    } else {
+        console.log('❌ 레퍼런스를 찾을 수 없습니다!');
+    }
+}
+
+// 페이지 로드 시 기존 댓글 렌더링
+document.addEventListener('DOMContentLoaded', function() {
+    // 모든 수정 모달의 댓글 초기 렌더링
+    document.querySelectorAll('[id^="edit_post_comments_"]').forEach(textarea => {
+        const postId = textarea.id.replace('edit_post_comments_', '');
+        const viewerId = `edit_comment_viewer_${postId}`;
+        if (document.getElementById(viewerId)) {
+            renderComments(textarea.value, viewerId);
+        }
+    });
 });
 </script>
 {% endblock %}
