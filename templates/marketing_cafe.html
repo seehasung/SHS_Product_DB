@@ -551,111 +551,213 @@
 
     <!-- 탭 콘텐츠 -->
     <div class="tab-content" id="myTabContent">
-        <!-- ▼▼▼ 전체 현황 탭 (수정됨) ▼▼▼ -->
+        <!-- ▼▼▼ 전체 현황 탭 (marketing_schedules.html과 100% 동일) ▼▼▼ -->
         <div class="tab-pane fade border-start border-end border-bottom p-3" id="status-tab-pane" role="tabpanel">
             <div class="p-3">
-
+                
+                <!-- ✅ 1. 스케줄 관리 버튼 (원본 그대로) -->
                 <div class="d-flex justify-content-between align-items-center mb-4">
                     <h3>📅 스케줄 관리</h3>
                     <div>
                         <a href="/marketing/schedules" class="btn btn-info btn-lg">
                             <i class="bi bi-calendar-week"></i> 전체 스케줄 보기
                         </a>
-                        <a href="/marketing/schedules/create" class="btn btn-outline-info btn-lg ms-2">
-                            <i class="bi bi-calendar-plus"></i> 스케줄 생성
-                        </a>
                     </div>
                 </div>
                 
                 <hr>
-                <!-- 작업자 현황 -->
-                <div class="row d-flex align-items-center mb-4">
-                    <div class="col-md-8">
-                        <h3>오늘 {{ request.session.user }}님의 작업 현황</h3>
-                        <div class="progress" style="height: 30px;">
-                            <div class="progress-bar bg-success" role="progressbar" 
-                                 style="width: {{ (completed_count / (daily_quota or 1)) * 100 }}%;" 
-                                 aria-valuenow="{{ completed_count }}" aria-valuemin="0" aria-valuemax="{{ daily_quota }}">
-                                {{ completed_count }} / {{ daily_quota }}
-                            </div>
+                
+                <!-- ✅ 2. 대시보드 헤더 -->
+                <div class="dashboard-header">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h1 class="mb-0">📊 오늘의 작업 현황</h1>
+                            <p class="mb-0 mt-2 opacity-90">{{ selected_date.strftime('%Y년 %m월 %d일') }}</p>
                         </div>
-                        <small class="text-muted">
-                            (오늘 완료: {{ completed_count }}개 / 일일 할당량: {{ daily_quota }}개 / 남은 작업: {{ remaining_tasks }}개)
-                        </small>
-                    </div>
-                    <!-- 작업 할당 버튼 -->
-                    <div class="col-md-4 text-end">
-                        {% if remaining_tasks > 0 %}
-                        <form action="/marketing/task/assign-next" method="post">
-                            <button type="submit" class="btn btn-primary btn-lg">
-                                🚀 다음 작업 할당받기
+                        <div>
+                            {% if remaining_tasks > 0 %}
+                            <form action="/marketing/task/assign-next" method="post" class="d-inline">
+                                <button type="submit" class="btn btn-light btn-lg">
+                                    <i class="bi bi-plus-circle"></i> 다음 작업 할당받기
+                                </button>
+                            </form>
+                            {% else %}
+                            <button type="button" class="btn btn-success btn-lg" disabled>
+                                <i class="bi bi-check-circle"></i> 오늘 작업 완료!
                             </button>
-                        </form>
-                        {% else %}
-                        <button type="button" class="btn btn-success btn-lg" disabled>
-                            🎉 오늘 작업 완료!
-                        </button>
-                        {% endif %}
+                            {% endif %}
+                        </div>
                     </div>
                 </div>
-
-                <hr>
-
-                <!-- 오늘 할 일 목록 -->
-                <h4 class="mb-3">오늘 진행할 작업 목록</h4>
-                <table class="table table-bordered table-hover text-center align-middle">
-                    <thead class="table-dark">
-                        <tr>
-                            <th style="width: 5%;">상태</th>
-                            <th style="width: 20%;">상품</th>
-                            <th>키워드</th>
-                            <th style="width: 15%;">네이버 계정</th>
-                            <th style="width: 15%;">타겟 카페</th>
-                            <th style="width: 10%;">관리</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for task in work_tasks %}
-                        <tr class="{{ 'table-success' if task.status == 'done' else '' }}">
-                            <td>
-                                {% if task.status == 'done' %}
-                                    <span class="fs-4" title="작업 완료">✅</span>
-                                {% else %}
-                                    <span class="fs-4" title="작업 대기">📋</span>
-                                {% endif %}
-                            </td>
-                            <td class="text-start">{{ task.marketing_product.product.name if task.marketing_product and task.marketing_product.product else 'N/A' }}</td>
-                            <td>{{ task.keyword_text }}</td>
-                            <td>{{ task.account.account_id if task.account else 'N/A' }}</td>
-                            <td>{{ task.cafe.name if task.cafe else 'N/A' }}</td>
-                            <td>
-                                {% if task.status == 'todo' %}
-                                <!-- 
-                                    TODO: 이 버튼을 누르면 '글 관리'의 '새 글 등록' 팝업이 뜨고,
-                                    이 task의 정보(키워드, 계정, 카페)가 자동으로 채워져야 합니다.
-                                    글 등록이 완료되면, 해당 MarketingPost의 ID를 이 task의
-                                    completed_post_id에 저장하고, status를 'done'으로 변경해야 합니다.
-                                -->
-                                <button class="btn btn-sm btn-primary" disabled>작업하기 (미구현)</button>
-                                {% else %}
-                                <a href="/marketing/product/posts/{{ task.marketing_product_id }}" class="btn btn-sm btn-outline-secondary">글 보기</a>
-                                {% endif %}
-                            </td>
-                        </tr>
-                        {% endfor %}
-                        {% if not work_tasks %}
-                        <tr>
-                            <td colspan="6" class="p-5 text-center text-muted">
-                                {% if daily_quota > 0 %}
-                                    [다음 작업 할당받기] 버튼을 눌러 작업을 시작하세요.
-                                {% else %}
-                                    할당된 작업이 없습니다. 관리자에게 문의하세요.
-                                {% endif %}
-                            </td>
-                        </tr>
+        
+                
+                <!-- ✅ 2. 통계 대시보드 -->
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-label">오늘 할 일</div>
+                        <div class="stat-value text-primary">{{ today_stats.total }}</div>
+                        <small class="text-muted">총 작업</small>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">완료</div>
+                        <div class="stat-value text-success">{{ today_stats.completed }}</div>
+                        <small class="text-muted">{{ (today_stats.completed / today_stats.total * 100)|int if today_stats.total else 0 }}%</small>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">진행중</div>
+                        <div class="stat-value text-info">{{ today_stats.in_progress }}</div>
+                        <small class="text-muted">작업 중</small>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">대기중</div>
+                        <div class="stat-value text-warning">{{ today_stats.pending }}</div>
+                        <small class="text-muted">시작 전</small>
+                    </div>
+                </div>
+                
+                <!-- ✅ 3. 날짜 네비게이션 -->
+                <div class="date-nav">
+                    <button class="btn btn-outline-primary" onclick="changeDate(-1)">
+                        <i class="bi bi-chevron-left"></i> 이전날
+                    </button>
+                    <div class="date-display">
+                        <i class="bi bi-calendar3"></i> {{ selected_date.strftime('%Y년 %m월 %d일') }}
+                        {% if selected_date.strftime('%Y-%m-%d') == today.strftime('%Y-%m-%d') %}
+                        <span class="badge bg-success">오늘</span>
                         {% endif %}
-                    </tbody>
-                </table>
+                    </div>
+                    <button class="btn btn-outline-primary" onclick="changeDate(1)">
+                        다음날 <i class="bi bi-chevron-right"></i>
+                    </button>
+                    <input type="date" id="dateSelector" class="form-control" style="width: auto;" 
+                        value="{{ selected_date }}" onchange="selectDate(this.value)">
+                </div>
+                
+                <!-- ✅ 4. 필터 버튼 -->
+                <div class="text-center mb-4">
+                    <button class="btn filter-btn active" onclick="filterStatus('all')">
+                        전체 <span class="badge bg-secondary">{{ today_schedules|length }}</span>
+                    </button>
+                    <button class="btn filter-btn" onclick="filterStatus('pending')">
+                        대기중 <span class="badge bg-warning text-dark">{{ today_schedules|selectattr('status', 'eq', 'pending')|list|length }}</span>
+                    </button>
+                    <button class="btn filter-btn" onclick="filterStatus('in_progress')">
+                        진행중 <span class="badge bg-info">{{ today_schedules|selectattr('status', 'eq', 'in_progress')|list|length }}</span>
+                    </button>
+                    <button class="btn filter-btn" onclick="filterStatus('completed')">
+                        완료 <span class="badge bg-success">{{ today_schedules|selectattr('status', 'eq', 'completed')|list|length }}</span>
+                    </button>
+                    <button class="btn filter-btn" onclick="filterStatus('skipped')">
+                        건너뜀 <span class="badge bg-secondary">{{ today_schedules|selectattr('status', 'eq', 'skipped')|list|length }}</span>
+                    </button>
+                </div>
+                
+                <!-- ✅ 5. 작업 목록 테이블 (기존 코드 유지) -->
+                <div class="schedule-table">
+                    <table class="table table-hover mb-0">
+                        <thead>
+                            <tr>
+                                <th width="50" class="text-center">완료</th>
+                                <th>작업자</th>
+                                <th>계정</th>
+                                <th>카페</th>
+                                <th>상품</th>
+                                <th>키워드</th>
+                                <th width="100">상태</th>
+                                <th width="120">작성된 글</th>
+                                <th width="180" class="text-center">관리</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for schedule in today_schedules %}
+                            <tr class="schedule-row" data-status="{{ schedule.status }}" data-schedule-id="{{ schedule.id }}">
+                                <td class="text-center">
+                                    <input type="checkbox" 
+                                        class="form-check-input check-complete" 
+                                        {{ 'checked' if schedule.is_completed }}
+                                        onchange="toggleComplete({{ schedule.id }}, this)"
+                                        {{ 'disabled' if schedule.status == 'completed' or schedule.status == 'skipped' }}
+                                        data-bs-toggle="tooltip" 
+                                        title="{{ '완료 잠김 (대기중 버튼으로 해제)' if schedule.status == 'completed' else '완료 체크' }}">
+                                </td>
+                                <td>
+                                    <strong>{{ schedule.worker.username if schedule.worker else '미할당' }}</strong>
+                                </td>
+                                <td>
+                                    <span class="text-primary">{{ schedule.account.account_id if schedule.account else '미할당' }}</span>
+                                </td>
+                                <td>
+                                    {{ schedule.cafe.name if schedule.cafe else '미할당' }}
+                                </td>
+                                <td>
+                                    <small>{{ schedule.marketing_product.product.name[:30] if schedule.marketing_product and schedule.marketing_product.product else '-' }}...</small>
+                                </td>
+                                <td>
+                                    <span class="keyword-badge">{{ schedule.keyword_text }}</span>
+                                </td>
+                                <td>
+                                    <span class="status-badge status-{{ schedule.status|replace('_', '-') }}">
+                                        {% if schedule.status == 'pending' %}대기중
+                                        {% elif schedule.status == 'in_progress' %}진행중
+                                        {% elif schedule.status == 'completed' %}완료
+                                        {% elif schedule.status == 'skipped' %}건너뜀
+                                        {% endif %}
+                                    </span>
+                                </td>
+                                <td>
+                                    {% if schedule.marketing_post and schedule.marketing_post.post_url %}
+                                    <a href="{{ schedule.marketing_post.post_url }}" target="_blank" class="btn btn-sm btn-success">
+                                        <i class="bi bi-box-arrow-up-right"></i> 보기
+                                    </a>
+                                    {% else %}
+                                    <span class="text-muted">-</span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-center">
+                                    <div class="action-buttons" style="display: flex; gap: 5px;">
+                                        <button class="btn btn-sm {{ 'btn-success' if schedule.status == 'completed' else 'btn-outline-info' }}" 
+                                                onclick="editScheduleAndStart({{ schedule.id }}, '{{ schedule.status }}')"
+                                                data-bs-toggle="tooltip" 
+                                                title="{{ '완료됨 (수정만 가능)' if schedule.status == 'completed' else '수정' }}">
+                                            <i class="bi bi-pencil"></i>
+                                        </button>
+                                        <button class="btn btn-sm btn-outline-warning"
+                                                onclick="changeStatus({{ schedule.id }}, 'pending')"
+                                                data-bs-toggle="tooltip" title="대기중">
+                                            <i class="bi bi-pause-circle"></i>
+                                        </button>
+                                        <button class="btn btn-sm btn-outline-secondary"
+                                                onclick="changeStatus({{ schedule.id }}, 'skipped')"
+                                                data-bs-toggle="tooltip" title="건너뛰기">
+                                            <i class="bi bi-skip-forward"></i>
+                                        </button>
+                                        <button class="btn btn-sm btn-outline-danger"
+                                                onclick="deleteSchedule({{ schedule.id }})"
+                                                data-bs-toggle="tooltip" title="삭제">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="9">
+                                    <div class="no-data">
+                                        <i class="bi bi-calendar-x"></i>
+                                        <p class="mb-2">
+                                            {% if daily_quota > 0 %}
+                                                [다음 작업 할당받기] 버튼을 눌러 작업을 시작하세요.
+                                            {% else %}
+                                                할당된 작업이 없습니다. 관리자에게 문의하세요.
+                                            {% endif %}
+                                        </p>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
         
