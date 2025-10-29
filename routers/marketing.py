@@ -8,7 +8,6 @@ from datetime import date, datetime, timedelta
 from typing import Optional, List
 import json
 import math
-import datetime
 
 
 
@@ -231,11 +230,11 @@ async def get_schedules(
     # 날짜 파싱 (없으면 오늘)
     if selected_date:
         try:
-            target_date = datetime.datetime.strptime(selected_date, "%Y-%m-%d").date()
+            target_date = datetime.strptime(selected_date, "%Y-%m-%d").date()
         except ValueError:
-            target_date = datetime.datetime.now().date()
+            target_date = datetime.now().date()
     else:
-        target_date = datetime.datetime.now().date()
+        target_date = datetime.now().date()
     
     # 해당 날짜의 스케줄 가져오기
     schedules = db.query(PostSchedule).options(
@@ -249,7 +248,7 @@ async def get_schedules(
     ).order_by(PostSchedule.worker_id, PostSchedule.cafe_id).all()
     
     # 오늘의 통계
-    today = datetime.datetime.now().date()
+    today = datetime.now().date()
     today_schedules = db.query(PostSchedule).filter(
         PostSchedule.scheduled_date == today
     ).all()
@@ -383,7 +382,7 @@ async def toggle_schedule_complete(
         schedule.is_completed = is_completed
         if is_completed:
             schedule.status = "completed"
-            schedule.completed_at = datetime.datetime.utcnow()
+            schedule.completed_at = datetime.utcnow()
         else:
             schedule.status = "pending"
             schedule.completed_at = None
@@ -408,7 +407,7 @@ async def link_post_to_schedule(
         schedule.marketing_post_id = marketing_post_id
         schedule.status = "completed"
         schedule.is_completed = True
-        schedule.completed_at = datetime.datetime.utcnow()
+        schedule.completed_at = datetime.utcnow()
         db.commit()
     
     return RedirectResponse(
@@ -618,50 +617,26 @@ async def assign_next_task(request: Request, db: Session = Depends(get_db)):
 
 # --- Reference & Comment Management (기존 유지) ---
 @router.post("/reference/add", response_class=RedirectResponse)
-async def add_reference(
-    request: Request,
-    title: Optional[str] = Form(None),
-    db: Session = Depends(get_db)
-):
-    """새 레퍼런스 생성"""
+async def add_reference(request: Request, title: Optional[str] = Form(None), db: Session = Depends(get_db)):
     username = request.session.get("user")
     user = None
     if username:
         user = db.query(User).filter(User.username == username).first()
     
-    # 유니크한 제목 생성
+    # 제목이 없으면 기본 제목 생성
     if not title or title.strip() == '':
-        now = datetime.now()
-        title = f"새 레퍼런스 {now.strftime('%Y%m%d_%H%M%S')}"
+        title = "새 레퍼런스"
     
     try:
-        # 새 레퍼런스 생성
-        new_ref = Reference(
-            title=title,
-            ref_type='기타',
-            content='',
-            last_modified_by_id=user.id if user else None
-        )
+        new_ref = Reference(title=title, ref_type='기타', last_modified_by_id=user.id if user else None)
         db.add(new_ref)
         db.commit()
         db.refresh(new_ref)
-        
-        print(f"✅ 레퍼런스 생성 완료: ID={new_ref.id}, 제목={new_ref.title}")
-        
-        # 상세 페이지로 리다이렉트
-        return RedirectResponse(
-            url=f"/marketing/reference/{new_ref.id}",
-            status_code=303
-        )
-        
-    except Exception as e:
+        return RedirectResponse(url=f"/marketing/reference/{new_ref.id}", status_code=303)
+    except IntegrityError:
         db.rollback()
-        print(f"❌ 레퍼런스 생성 실패: {e}")
-        return RedirectResponse(
-            url="/marketing/cafe?tab=references&error=create_failed",
-            status_code=303
-        )
-        
+        return RedirectResponse(url="/marketing/cafe?tab=references&error=duplicate_reference", status_code=303)
+
 @router.post("/reference/delete/{ref_id}", response_class=RedirectResponse)
 async def delete_reference(ref_id: int, db: Session = Depends(get_db)):
     ref_to_delete = db.query(Reference).filter(Reference.id == ref_id).first()
