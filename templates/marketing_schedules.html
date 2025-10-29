@@ -646,7 +646,7 @@
             </thead>
             <tbody>
                 {% for schedule in schedules %}
-                <tr class="schedule-row" data-status="{{ schedule.status }}">
+                <tr class="schedule-row" data-status="{{ schedule.status }}" data-schedule-id="{{ schedule.id }}">
                     <td class="text-center">
                         <input type="checkbox" 
                                class="form-check-input check-complete" 
@@ -1197,6 +1197,17 @@ function editScheduleAndStart(scheduleId, currentStatus) {
         })
     }).then(response => {
         if (response.ok) {
+            // 화면의 상태 배지 업데이트
+            const row = document.querySelector(`tr[data-schedule-id="${scheduleId}"]`);
+            if (row) {
+                const statusBadge = row.querySelector('.status-badge');
+                if (statusBadge) {
+                    statusBadge.className = 'status-badge status-in-progress';
+                    statusBadge.textContent = '진행중';
+                }
+                row.setAttribute('data-status', 'in_progress');
+            }
+            
             // 상태 변경 성공 후 모달 열기
             openPostEditModal(scheduleId);
         } else {
@@ -1225,14 +1236,14 @@ function openPostEditModal(scheduleId) {
                 document.getElementById('edit_worker_id').value = data.schedule.worker_id || '';
                 document.getElementById('edit_account_id').value = data.schedule.account_id || '';
                 document.getElementById('edit_post_title').value = post.post_title || '';
-                document.getElementById('edit_post_body').value = post.post_content || '';
+                document.getElementById('edit_post_body').value = post.post_body || '';
                 document.getElementById('edit_post_comments').value = post.post_comments || '';
                 document.getElementById('edit_post_url').value = post.post_url || '';
                 
                 // 체크박스 설정
                 const isComplete = post.post_url && post.post_url.trim() !== '';
                 document.getElementById('edit_is_registration_complete').checked = isComplete;
-                document.getElementById('edit_is_live').checked = post.is_live || false;
+                document.getElementById('edit_is_live').checked = false;  // 항상 체크 해제 상태로 시작
                 
                 // URL 필드 표시/숨김
                 toggleUrlFieldModal(isComplete);

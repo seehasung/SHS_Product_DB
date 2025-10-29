@@ -926,6 +926,32 @@ async def update_reference(request: Request, ref_id: int, title: str = Form(...)
         db.commit()
     return RedirectResponse(url=f"/marketing/reference/{ref_id}", status_code=303)
 
+@router.get("/reference/{ref_id}/content")
+async def get_reference_content(ref_id: int, db: Session = Depends(get_db)):
+    """레퍼런스 내용 가져오기 (JSON)"""
+    reference = db.query(Reference).options(
+        joinedload(Reference.comments)
+    ).filter(Reference.id == ref_id).first()
+    
+    if not reference:
+        return {"success": False, "error": "Reference not found"}
+    
+    # 댓글 정보 구성
+    comments_data = []
+    for comment in reference.comments:
+        if not comment.parent_id:  # 최상위 댓글만
+            comments_data.append({
+                "commenter_name": f"계정{comment.account_sequence}",
+                "comment_text": comment.text
+            })
+    
+    return {
+        "success": True,
+        "title": reference.title,
+        "body": reference.content or "",
+        "comments": comments_data
+    }
+
 @router.post("/comment/add/{ref_id}", response_class=RedirectResponse)
 async def add_comment(ref_id: int, account_sequence: int = Form(...), text: str = Form(...), parent_id: int = Form(None), db: Session = Depends(get_db)):
     new_comment = Comment(
@@ -1376,6 +1402,14 @@ async def get_product_posts(
             if membership.cafe:
                 membership_map[account_key].append({"id": membership.cafe.id, "name": membership.cafe.name})
     
+    # today_stats 추가 (HTML 템플릿에서 사용 중)
+    today_stats = {
+        'total': 0,
+        'pending': 0,
+        'in_progress': 0,
+        'completed': 0
+    }
+    
     return templates.TemplateResponse("marketing_product_posts.html", {
         "request": request,
         "marketing_product": marketing_product,
@@ -1392,7 +1426,8 @@ async def get_product_posts(
         "current_page": page,
         "keyword_search": keyword_search,
         "error": error_message,
-        "post_stats": post_stats
+        "post_stats": post_stats,
+        "today_stats": today_stats
     })
 
 @router.post("/post/add", response_class=RedirectResponse)
