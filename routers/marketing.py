@@ -772,11 +772,11 @@ async def generate_schedules(
     # ========================================
     
     def get_active_post_count(keyword):
-        """키워드의 활성 글 수 (completed + pending)"""
+        """키워드의 활성 글 수 (completed + pending + in_progress)"""
         return db.query(PostSchedule).filter(
             PostSchedule.keyword_text == keyword,
             PostSchedule.marketing_product_id == marketing_product_id,
-            PostSchedule.status.in_(['completed', 'pending'])
+            PostSchedule.status.in_(['completed', 'pending', 'in_progress'])  # ✅ in_progress 추가!
         ).count()
     
     def get_total_account_cafe_posts(account_id, cafe_id):
@@ -1549,6 +1549,7 @@ async def get_product_posts(
     db: Session = Depends(get_db),
     page: int = Query(1, ge=1),
     keyword_search: str = Query(""),
+    status_filter: str = Query("all"),  # ✅ 상태 필터 추가
     error: str = Query(None)
 ):
     PAGE_SIZE = 10
@@ -1582,25 +1583,49 @@ async def get_product_posts(
     offset = (page - 1) * PAGE_SIZE
     keywords_for_page = filtered_keywords[offset : offset + PAGE_SIZE]
 
-    posts = db.query(MarketingPost).options(
+    # ✅ 상태 필터에 따라 쿼리 수정
+    posts_query = db.query(MarketingPost).options(
         joinedload(MarketingPost.worker),
         joinedload(MarketingPost.account),
         joinedload(MarketingPost.cafe),
-        joinedload(MarketingPost.schedules)  # PostSchedule 정보 로드!
+        joinedload(MarketingPost.schedules)
     ).filter(
         MarketingPost.marketing_product_id == mp_id,
         MarketingPost.keyword_text.in_(keywords_for_page)
-    ).order_by(MarketingPost.keyword_text, MarketingPost.id).all()
+    )
+    
+    # ✅ 상태 필터 적용
+    if status_filter != 'all':
+        # schedules를 통해 status 필터링
+        posts_query = posts_query.join(
+            PostSchedule, 
+            MarketingPost.id == PostSchedule.marketing_post_id
+        ).filter(
+            PostSchedule.status == status_filter
+        )
+    
+    posts = posts_query.order_by(MarketingPost.keyword_text, MarketingPost.id).all()
 
     other_posts = []
     if page == 1 and not keyword_search:
         all_post_keywords = [p.keyword_text for p in posts]
-        db_posts_for_product = db.query(MarketingPost).options(
+        db_posts_for_product_query = db.query(MarketingPost).options(
             joinedload(MarketingPost.worker),
             joinedload(MarketingPost.account),
             joinedload(MarketingPost.cafe),
-            joinedload(MarketingPost.schedules)  # PostSchedule 정보 로드!
-        ).filter(MarketingPost.marketing_product_id == mp_id).all()
+            joinedload(MarketingPost.schedules)
+        ).filter(MarketingPost.marketing_product_id == mp_id)
+        
+        # ✅ other_posts도 필터 적용
+        if status_filter != 'all':
+            db_posts_for_product_query = db_posts_for_product_query.join(
+                PostSchedule,
+                MarketingPost.id == PostSchedule.marketing_post_id
+            ).filter(
+                PostSchedule.status == status_filter
+            )
+        
+        db_posts_for_product = db_posts_for_product_query.all()
         for p in db_posts_for_product:
             if p.keyword_text not in keywords_list and p.keyword_text not in all_post_keywords:
                 other_posts.append(p)
@@ -1713,7 +1738,9 @@ async def get_product_posts(
         "error": error_message,
         "post_stats": post_stats,
         "today_stats": today_stats,
-        "selected_date": selected_date
+        "selected_date": selected_date,
+        "status_filter": status_filter  # ✅ 템플릿에 전달
+
     })
 
 @router.post("/post/add", response_class=RedirectResponse)
