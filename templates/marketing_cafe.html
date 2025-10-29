@@ -576,7 +576,9 @@
                         </div>
                         <div>
                             {% if remaining_tasks > 0 %}
+                            <!-- ✅ 날짜를 hidden input으로 전달 -->
                             <form action="/marketing/task/assign-next" method="post" class="d-inline">
+                                <input type="hidden" name="target_date" value="{{ selected_date }}">
                                 <button type="submit" class="btn btn-light btn-lg">
                                     <i class="bi bi-plus-circle"></i> 다음 작업 할당받기
                                 </button>
@@ -744,13 +746,37 @@
                                 <td colspan="9">
                                     <div class="no-data">
                                         <i class="bi bi-calendar-x"></i>
-                                        <p class="mb-2">
-                                            {% if daily_quota > 0 %}
-                                                [다음 작업 할당받기] 버튼을 눌러 작업을 시작하세요.
-                                            {% else %}
-                                                할당된 작업이 없습니다. 관리자에게 문의하세요.
-                                            {% endif %}
-                                        </p>
+                                        {% if selected_date.strftime('%Y-%m-%d') == today.strftime('%Y-%m-%d') %}
+                                            <!-- 오늘 날짜인 경우 -->
+                                            <p class="mb-2">
+                                                {% if daily_quota > 0 %}
+                                                    오늘 할당된 작업이 없습니다.<br>
+                                                    <strong>[다음 작업 할당받기]</strong> 버튼을 눌러 작업을 시작하세요.
+                                                {% else %}
+                                                    할당된 작업이 없습니다. 관리자에게 문의하세요.
+                                                {% endif %}
+                                            </p>
+                                        {% elif selected_date < today %}
+                                            <!-- 과거 날짜인 경우 -->
+                                            <p class="mb-2">
+                                                <strong>{{ selected_date.strftime('%Y년 %m월 %d일') }}</strong>에 할당된 작업이 없습니다.<br>
+                                                {% if daily_quota > 0 %}
+                                                    과거 작업을 추가하려면 <strong>[다음 작업 할당받기]</strong> 버튼을 누르세요.
+                                                {% else %}
+                                                    할당된 작업이 없습니다. 관리자에게 문의하세요.
+                                                {% endif %}
+                                            </p>
+                                        {% else %}
+                                            <!-- 미래 날짜인 경우 -->
+                                            <p class="mb-2">
+                                                <strong>{{ selected_date.strftime('%Y년 %m월 %d일') }}</strong>에 할당된 작업이 없습니다.<br>
+                                                {% if daily_quota > 0 %}
+                                                    미래 작업을 미리 생성하려면 <strong>[다음 작업 할당받기]</strong> 버튼을 누르세요.
+                                                {% else %}
+                                                    할당된 작업이 없습니다. 관리자에게 문의하세요.
+                                                {% endif %}
+                                            </p>
+                                        {% endif %}
                                     </div>
                                 </td>
                             </tr>
@@ -1126,6 +1152,168 @@
         
         resultsDiv.style.display = 'block';
     }
+
+   // 📅 날짜 네비게이션
+    // ========================================
+
+    function changeDate(days) {
+        const currentDate = new Date('{{ selected_date }}');
+        currentDate.setDate(currentDate.getDate() + days);
+        const dateStr = currentDate.toISOString().split('T')[0];
+        window.location.href = `/marketing/cafe?tab=status&date=${dateStr}`;
+    }
+
+    function selectDate(date) {
+        window.location.href = `/marketing/cafe?tab=status&date=${date}`;
+    }
+
+    // ========================================
+    // 🎯 상태 필터링
+    // ========================================
+
+    function filterStatus(status) {
+        const rows = document.querySelectorAll('.schedule-row');
+        const buttons = document.querySelectorAll('.filter-btn');
+        
+        // 버튼 활성화 상태 변경
+        buttons.forEach(btn => btn.classList.remove('active'));
+        event.target.classList.add('active');
+        
+        // 행 표시/숨기기
+        rows.forEach(row => {
+            if (status === 'all' || row.dataset.status === status) {
+                row.style.display = '';
+            } else {
+                row.style.display = 'none';
+            }
+        });
+    }
+
+    // ========================================
+    // ✅ 완료 토글
+    // ========================================
+
+    function toggleComplete(scheduleId, checkbox) {
+        fetch(`/marketing/schedule/${scheduleId}/toggle-complete`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                is_completed: checkbox.checked
+            })
+        }).then(response => {
+            if (response.ok) {
+                location.reload();
+            } else {
+                checkbox.checked = !checkbox.checked;
+                alert('상태 변경에 실패했습니다.');
+            }
+        });
+    }
+
+    // ========================================
+    // 🔄 상태 변경
+    // ========================================
+
+    function changeStatus(scheduleId, newStatus) {
+        const statusNames = {
+            'pending': '대기중',
+            'in_progress': '진행중',
+            'completed': '완료',
+            'skipped': '건너뜀'
+        };
+        
+        if (confirm(`상태를 "${statusNames[newStatus]}"(으)로 변경하시겠습니까?`)) {
+            fetch(`/marketing/schedule/${scheduleId}/change-status`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    status: newStatus
+                })
+            }).then(response => {
+                if (response.ok) {
+                    location.reload();
+                } else {
+                    alert('상태 변경에 실패했습니다.');
+                }
+            }).catch(error => {
+                console.error('Error:', error);
+                alert('상태 변경 중 오류가 발생했습니다.');
+            });
+        }
+    }
+
+    // ========================================
+    // ✏️ 스케줄 수정
+    // ========================================
+
+    function editScheduleAndStart(scheduleId, currentStatus) {
+        if (currentStatus === 'completed') {
+            // 전체 스케줄 페이지로 이동
+            window.location.href = `/marketing/schedules?selected_date={{ selected_date }}&edit=${scheduleId}`;
+            return;
+        }
+        
+        fetch(`/marketing/schedule/${scheduleId}/change-status`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                status: 'in_progress'
+            })
+        }).then(response => {
+            if (response.ok) {
+                const row = document.querySelector(`tr[data-schedule-id="${scheduleId}"]`);
+                if (row) {
+                    const statusBadge = row.querySelector('.status-badge');
+                    if (statusBadge) {
+                        statusBadge.className = 'status-badge status-in-progress';
+                        statusBadge.textContent = '진행중';
+                    }
+                    row.setAttribute('data-status', 'in_progress');
+                }
+                // 전체 스케줄 페이지로 이동
+                window.location.href = `/marketing/schedules?selected_date={{ selected_date }}&edit=${scheduleId}`;
+            } else {
+                alert('상태 변경에 실패했습니다.');
+            }
+        }).catch(error => {
+            console.error('Error:', error);
+            alert('오류가 발생했습니다.');
+        });
+    }
+
+    // ========================================
+    // 🗑️ 스케줄 삭제
+    // ========================================
+
+    function deleteSchedule(scheduleId) {
+        if (confirm('이 스케줄을 삭제하시겠습니까?')) {
+            fetch(`/marketing/schedule/${scheduleId}/delete`, {
+                method: 'POST'
+            }).then(response => {
+                if (response.ok) {
+                    location.reload();
+                } else {
+                    alert('삭제에 실패했습니다.');
+                }
+            });
+        }
+    }
+
+    // ========================================
+    // 🎨 툴팁 초기화
+    // ========================================
+
+    // 툴팁 초기화 (페이지 로드 시)
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
+    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl)
+    });
 
 </script>
 {% endblock %}

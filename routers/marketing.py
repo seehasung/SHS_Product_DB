@@ -1098,53 +1098,142 @@ async def generate_schedules(
 # --- 기존 WorkTask 관련 라우터 유지 ---
 @router.post("/task/assign-next", response_class=RedirectResponse)
 async def assign_next_task(request: Request, db: Session = Depends(get_db)):
-    """현재 사용자에게 '다음 작업'을 할당하는 로직"""
+    """현재 사용자에게 선택된 날짜의 할당량만큼 작업을 한번에 생성"""
     username = request.session.get("user")
     current_user = db.query(User).filter(User.username == username).first()
     
     if not current_user:
         return RedirectResponse(url="/login", status_code=303)
     
-    today = date.today()
+    # ✅ 폼에서 날짜 받기
+    form_data = await request.form()
+    target_date_str = form_data.get('target_date')
     
-    # 1. 오늘 이미 완료한 작업 수 확인
-    completed_count = db.query(WorkTask).filter(
-        WorkTask.worker_id == current_user.id,
-        func.date(WorkTask.task_date) == today,
-        WorkTask.status == 'done'
+    if target_date_str:
+        try:
+            target_date = datetime.strptime(target_date_str, '%Y-%m-%d').date()
+        except:
+            target_date = date.today()
+    else:
+        target_date = date.today()
+    
+    daily_quota = current_user.daily_quota or 6
+    
+    # ✅ 선택된 날짜의 기존 작업 수 확인
+    existing_count = db.query(PostSchedule).filter(
+        PostSchedule.worker_id == current_user.id,
+        PostSchedule.scheduled_date == target_date
     ).count()
     
-    # 2. 할당량이 남았는지 확인
-    if completed_count < (current_user.daily_quota or 0):
-        # 3. 이미 진행중('todo')인 작업이 있는지 확인
-        existing_todo = db.query(WorkTask).filter(
-            WorkTask.worker_id == current_user.id,
-            WorkTask.status == 'todo'
-        ).first()
+    # 생성해야 할 작업 수
+    to_create = daily_quota - existing_count
+    
+    if to_create <= 0:
+        return RedirectResponse(url=f"/marketing/cafe?tab=status&date={target_date}", status_code=303)
+    
+    # ✅ 활성 마케팅 상품과 연동 가져오기
+    marketing_products = db.query(MarketingProduct).options(
+        joinedload(MarketingProduct.product)
+    ).all()
+    
+    active_memberships = db.query(CafeMembership).filter(
+        CafeMembership.status == 'active'
+    ).all()
+    
+    if not marketing_products or not active_memberships:
+        return RedirectResponse(url=f"/marketing/cafe?tab=status&date={target_date}&error=no_data", status_code=303)
+    
+    # ✅ 각 상품의 키워드 수집
+    all_keywords = []
+    for mp in marketing_products:
+        if mp.keywords:
+            try:
+                keywords_data = json.loads(mp.keywords)
+                for kw_item in keywords_data:
+                    if kw_item.get('active', True):
+                        all_keywords.append({
+                            'keyword': kw_item['keyword'],
+                            'product_id': mp.id,
+                            'product': mp
+                        })
+            except:
+                continue
+    
+    if not all_keywords:
+        return RedirectResponse(url=f"/marketing/cafe?tab=status&date={target_date}&error=no_keywords", status_code=303)
+    
+    # ✅ 작업 생성 (선택된 날짜로)
+    created_count = 0
+    keyword_index = 0
+    
+    while created_count < to_create and keyword_index < len(all_keywords) * 10:
+        kw_data = all_keywords[keyword_index % len(all_keywords)]
+        keyword = kw_data['keyword']
+        mp = kw_data['product']
         
-        # 4. 진행중인 작업이 없다면, 새로운 작업 할당
-        if not existing_todo:
-            # --- (임시 로직: 첫 번째 상품의 첫 번째 키워드와 첫 번째 연동 정보를 할당) ---
-            mp = db.query(MarketingProduct).first()
-            membership = db.query(CafeMembership).filter(CafeMembership.status == 'active').first()
-            
-            if mp and membership and mp.keywords:
-                keyword = json.loads(mp.keywords)[0].get('keyword', 'N/A')
-                
-                new_task = WorkTask(
-                    task_date=today,
-                    worker_id=current_user.id,
-                    marketing_product_id=mp.id,
-                    keyword_text=keyword,
-                    account_id=membership.account_id,
-                    cafe_id=membership.cafe_id,
-                    status="todo"
-                )
-                db.add(new_task)
-                db.commit()
-
-    return RedirectResponse(url="/marketing/cafe?tab=status", status_code=303)
-
+        # 이 키워드의 활성 글 수 체크 (6개 제한)
+        active_count = db.query(PostSchedule).filter(
+            PostSchedule.keyword_text == keyword,
+            PostSchedule.marketing_product_id == mp.id,
+            PostSchedule.status.in_(['completed', 'pending', 'in_progress'])
+        ).count()
+        
+        if active_count >= 6:
+            keyword_index += 1
+            continue
+        
+        # 카페 선택 (순환)
+        membership = active_memberships[created_count % len(active_memberships)]
+        
+        # 10개 제한 체크
+        total_posts = db.query(PostSchedule).filter(
+            PostSchedule.account_id == membership.account_id,
+            PostSchedule.cafe_id == membership.cafe_id,
+            PostSchedule.status.in_(['pending', 'in_progress', 'completed'])
+        ).count()
+        
+        if total_posts >= 10:
+            keyword_index += 1
+            continue
+        
+        # 제목 생성
+        post_title = generate_post_title(current_user.username, target_date, current_user.id, db)
+        
+        # MarketingPost 생성
+        new_post = MarketingPost(
+            marketing_product_id=mp.id,
+            keyword_text=keyword,
+            post_title=post_title,
+            post_body="",
+            post_url="",
+            worker_id=current_user.id,
+            account_id=membership.account_id,
+            cafe_id=membership.cafe_id
+        )
+        db.add(new_post)
+        db.flush()
+        
+        # PostSchedule 생성 (선택된 날짜로)
+        new_schedule = PostSchedule(
+            scheduled_date=target_date,  # ✅ 선택된 날짜
+            worker_id=current_user.id,
+            account_id=membership.account_id,
+            cafe_id=membership.cafe_id,
+            marketing_product_id=mp.id,
+            keyword_text=keyword,
+            status="pending",
+            marketing_post_id=new_post.id
+        )
+        db.add(new_schedule)
+        
+        created_count += 1
+        keyword_index += 1
+    
+    db.commit()
+    print(f"✅ {current_user.username}님에게 {target_date} 날짜로 {created_count}개 작업 할당 완료")
+    
+    # ✅ 생성된 날짜로 리다이렉트
+    return RedirectResponse(url=f"/marketing/cafe?tab=status&date={target_date}", status_code=303)
 # --- Reference & Comment Management (기존 유지) ---
 @router.post("/reference/add", response_class=RedirectResponse)
 async def add_reference(
