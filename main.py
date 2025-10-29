@@ -4,8 +4,12 @@ from fastapi.templating import Jinja2Templates
 from starlette.middleware.sessions import SessionMiddleware
 from datetime import date, datetime  # date와 datetime 한 번에 import
 from sqlalchemy import or_, func
+from sqlalchemy.orm import joinedload  # ✅ 추가!
 
-from database import Base, engine, SessionLocal, User, PostSchedule, MarketingPost
+from database import (
+    Base, engine, SessionLocal, User, PostSchedule, MarketingPost,
+    MarketingProduct  # ✅ 추가!
+)
 from routers import auth, admin_users, product, marketing
 
 
@@ -62,16 +66,26 @@ def read_root(request: Request):
             # 현재 로그인한 사용자 정보 가져오기
             current_user = db.query(User).filter(User.username == username).first()
             
-            # 오늘의 스케줄 통계 (로그인한 사용자의 스케줄만)
+            # ✅ 오늘의 스케줄 통계 (관계 데이터 미리 로드)
             if current_user:
                 if is_admin:
-                    # 관리자는 모든 스케줄 보기
-                    today_schedules = db.query(PostSchedule).filter(
+                    # 관리자는 모든 스케줄 보기 (joinedload 추가!)
+                    today_schedules = db.query(PostSchedule).options(
+                        joinedload(PostSchedule.worker),
+                        joinedload(PostSchedule.account),
+                        joinedload(PostSchedule.cafe),
+                        joinedload(PostSchedule.marketing_product).joinedload(MarketingProduct.product)
+                    ).filter(
                         PostSchedule.scheduled_date == today
-                    ).all()
+                    ).limit(10).all()  # 성능을 위해 최근 10개만
                 else:
-                    # 일반 사용자는 자신의 스케줄만 보기
-                    today_schedules = db.query(PostSchedule).filter(
+                    # 일반 사용자는 자신의 스케줄만 보기 (joinedload 추가!)
+                    today_schedules = db.query(PostSchedule).options(
+                        joinedload(PostSchedule.worker),
+                        joinedload(PostSchedule.account),
+                        joinedload(PostSchedule.cafe),
+                        joinedload(PostSchedule.marketing_product).joinedload(MarketingProduct.product)
+                    ).filter(
                         PostSchedule.scheduled_date == today,
                         PostSchedule.worker_id == current_user.id
                     ).all()
@@ -117,6 +131,7 @@ def read_root(request: Request):
             total_posts = 0
             new_posts_today = 0
             active_workers = 0
+            today_schedules = []  # ✅ 오류 시에도 빈 리스트로 초기화
         finally:
             db.close()
 
