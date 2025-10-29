@@ -197,19 +197,21 @@
         align-items: center;
     }
     
-    .comment-badge {
-        display: inline-block;
-        padding: 0.25em 0.6em;
-        font-size: 0.75em;
-        font-weight: 700;
-        line-height: 1;
-        color: #fff;
-        text-align: center;
-        white-space: nowrap;
-        vertical-align: baseline;
-        border-radius: 0.375rem;
+    .comment-author-icon {
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
         margin-right: 8px;
+        font-size: 11px;
+        color: white;
+        font-weight: bold;
     }
+    
+    .author-icon { background-color: #007bff; }
+    .account-icon { background-color: #6c757d; }
     
     .comment-text {
         color: #212529;
@@ -217,92 +219,164 @@
         white-space: pre-wrap;
     }
     
-    .keyword-badge {
-        display: inline-block;
-        padding: 0.4em 0.8em;
-        font-size: 0.85rem;
-        font-weight: 600;
-        color: white;
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        border-radius: 20px;
-        box-shadow: 0 2px 8px rgba(102, 126, 234, 0.4);
-        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    .comment-reply {
+        margin-left: 30px;
+        margin-top: 10px;
+        border-left: 3px solid #e9ecef;
+        padding-left: 15px;
     }
     
-    .keyword-badge:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.6);
+    .comment-reply .comment-item {
+        background-color: #f1f3f5;
     }
     
-    .table {
-        border-radius: 12px;
-        overflow: hidden;
-        box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
-        background: white;
+    .no-comments {
+        text-align: center;
+        color: #6c757d;
+        padding: 20px;
+        font-style: italic;
     }
     
-    .table thead th {
-        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
-        font-weight: 700;
-        color: #495057;
-        border: none;
-        padding: 16px 20px;
-        font-size: 0.9rem;
+    .comment-editor-toggle {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 10px;
     }
     
-    .table tbody tr {
-        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        border-bottom: 1px solid #f0f1f3;
+    .view-mode-btn {
+        btn-sm: true;
     }
     
-    .table tbody tr:hover {
-        background: linear-gradient(135deg, rgba(74, 144, 226, 0.05) 0%, rgba(91, 163, 245, 0.05) 100%);
-        transform: scale(1.01);
-    }
-
-    .table tbody td {
-        padding: 16px 20px;
-        vertical-align: middle;
-        border-color: #f0f1f3;
-        font-size: 0.9rem;
+    .comment-stats {
+        font-size: 0.85em;
+        color: #6c757d;
+        margin-top: 10px;
+        padding: 8px;
+        background: #f8f9fa;
+        border-radius: 4px;
     }
     
     /* 탭 스타일 */
-    .nav-tabs {
-        border: none;
-        margin-bottom: 0;
-        background: rgba(68, 68, 68, 0.95);
-        border-radius: 12px 12px 0 0;
-        padding: 10px 10px 0;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+    .comment-tabs {
+        border-bottom: 2px solid #dee2e6;
+        margin-bottom: 15px;
     }
     
-    .nav-tabs .nav-link {
+    .comment-tab {
+        padding: 8px 16px;
+        background: none;
         border: none;
+        border-bottom: 3px solid transparent;
         color: #6c757d;
+        cursor: pointer;
+        transition: all 0.2s;
+        font-weight: 500;
+    }
+    
+    .comment-tab.active {
+        color: #007bff;
+        border-bottom-color: #007bff;
+    }
+    
+    .comment-tab:hover:not(.active) {
+        color: #495057;
+        background-color: #f8f9fa;
+    }
+    
+    /* ========================================
+       🎨 버튼 스타일 추가
+       ======================================== */
+    
+    /* 목록으로, 닫기 버튼 스타일 */
+    .btn-secondary {
+        background: linear-gradient(135deg, #636e72 0%, #546e7a 100%);
+        color: white;
+        border: none;
         font-weight: 600;
-        padding: 12px 24px;
-        border-radius: 8px 8px 0 0;
         transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        margin-right: 4px;
     }
     
-    .nav-tabs .nav-link:hover {
-        background: rgba(74, 144, 226, 0.1);
+    .btn-secondary:hover {
+        background: linear-gradient(135deg, #546e7a 0%, #455a64 100%);
+        color: white;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(99, 110, 114, 0.4);
+    }
+    
+    /* 수정 버튼 스타일 (파란색 동그란 배지) */
+    .btn-outline-primary {
+        background: linear-gradient(135deg, rgba(74, 144, 226, 0.1) 0%, rgba(91, 163, 245, 0.1) 100%);
+        border: 2px solid rgba(74, 144, 226, 0.3);
         color: #4A90E2;
+        font-weight: 600;
+        border-radius: 20px;
+        padding: 6px 16px;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     }
     
-    .nav-tabs .nav-link.active {
+    .btn-outline-primary:hover {
+        background: linear-gradient(135deg, #4A90E2 0%, #5BA3F5 100%);
+        border-color: transparent;
+        color: white;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(74, 144, 226, 0.4);
+    }
+    
+    /* 삭제 버튼 스타일 (빨간색 동그란 배지) */
+    .btn-outline-danger {
+        background: linear-gradient(135deg, rgba(250, 82, 82, 0.1) 0%, rgba(240, 101, 101, 0.1) 100%);
+        border: 2px solid rgba(250, 82, 82, 0.3);
+        color: #fa5252;
+        font-weight: 600;
+        border-radius: 20px;
+        padding: 6px 16px;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    
+    .btn-outline-danger:hover {
+        background: linear-gradient(135deg, #fa5252 0%, #f06595 100%);
+        border-color: transparent;
+        color: white;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(250, 82, 82, 0.4);
+    }
+    
+    /* 작은 버튼 크기 */
+    .btn-sm {
+        font-size: 0.85rem;
+    }
+    
+    /* 새 글 등록 버튼 스타일 */
+    .btn-success {
+        background: linear-gradient(135deg, #51cf66 0%, #37b24d 100%);
+        color: white;
+        border: none;
+        font-weight: 600;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    
+    .btn-success:hover {
+        background: linear-gradient(135deg, #37b24d 0%, #2b8a3e 100%);
+        color: white;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(81, 207, 102, 0.4);
+    }
+    
+    /* 검색 버튼 스타일 */
+    .btn-primary {
         background: linear-gradient(135deg, #4A90E2 0%, #5BA3F5 100%);
         color: white;
-        box-shadow: 0 4px 12px rgba(74, 144, 226, 0.3);
+        border: none;
+        font-weight: 600;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     }
     
-    .tab-content {
-        background: white;
-        border-radius: 0 0 12px 12px;
-        padding: 20px;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+    .btn-primary:hover {
+        background: linear-gradient(135deg, #5BA3F5 0%, #6BB0FF 100%);
+        color: white;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(74, 144, 226, 0.4);
     }
 </style>
 
