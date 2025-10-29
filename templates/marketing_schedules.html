@@ -538,6 +538,166 @@
         box-shadow: 0 16px 48px rgba(0, 0, 0, 0.15);
     }
     
+    /* ========================================
+       🎨 레퍼런스 스타일 댓글 UI
+       ======================================== */
+    
+    .comments-manager {
+        border: 2px solid #e9ecef;
+        border-radius: 12px;
+        padding: 20px;
+        background: #f8f9fa;
+        margin-top: 10px;
+    }
+    
+    .comments-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 15px;
+    }
+    
+    .comments-title {
+        font-size: 1.1rem;
+        font-weight: 700;
+        color: #495057;
+    }
+    
+    .btn-add-comment {
+        background: linear-gradient(135deg, #51cf66 0%, #37b24d 100%);
+        color: white;
+        border: none;
+        padding: 8px 16px;
+        border-radius: 8px;
+        font-weight: 600;
+        font-size: 0.9rem;
+        transition: all 0.3s;
+    }
+    
+    .btn-add-comment:hover {
+        background: linear-gradient(135deg, #37b24d 0%, #2b8a3e 100%);
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(81, 207, 102, 0.4);
+    }
+    
+    .comment-card {
+        background: white;
+        border-radius: 10px;
+        padding: 15px;
+        margin-bottom: 12px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        transition: all 0.3s;
+        position: relative;
+    }
+    
+    .comment-card:hover {
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+        transform: translateY(-2px);
+    }
+    
+    .comment-card.reply {
+        margin-left: 30px;
+        background: #f1f3f5;
+        border-left: 3px solid #4A90E2;
+    }
+    
+    .comment-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 10px;
+    }
+    
+    .comment-author-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 12px;
+        border-radius: 20px;
+        font-weight: 600;
+        font-size: 0.9rem;
+    }
+    
+    .comment-author-icon {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        font-size: 0.75rem;
+        font-weight: 700;
+    }
+    
+    .comment-actions {
+        display: flex;
+        gap: 6px;
+    }
+    
+    .btn-comment-action {
+        padding: 4px 10px;
+        font-size: 0.8rem;
+        border-radius: 6px;
+        border: none;
+        font-weight: 600;
+        transition: all 0.2s;
+    }
+    
+    .btn-comment-edit {
+        background: #e3f2fd;
+        color: #1976d2;
+    }
+    
+    .btn-comment-edit:hover {
+        background: #1976d2;
+        color: white;
+    }
+    
+    .btn-comment-delete {
+        background: #ffebee;
+        color: #d32f2f;
+    }
+    
+    .btn-comment-delete:hover {
+        background: #d32f2f;
+        color: white;
+    }
+    
+    .btn-comment-reply {
+        background: #f3e5f5;
+        color: #7b1fa2;
+    }
+    
+    .btn-comment-reply:hover {
+        background: #7b1fa2;
+        color: white;
+    }
+    
+    .comment-text-display {
+        color: #212529;
+        line-height: 1.6;
+        white-space: pre-wrap;
+        word-wrap: break-word;
+    }
+    
+    .no-comments {
+        text-align: center;
+        padding: 30px;
+        color: #adb5bd;
+        font-style: italic;
+    }
+    
+    /* 계정별 색깔 */
+    .account-0 { background-color: #868e96; color: #fff; }
+    .account-1 { background-color: #fa5252; color: #fff; }
+    .account-2 { background-color: #fd7e14; color: #fff; }
+    .account-3 { background-color: #fcc419; color: #212529; }
+    .account-4 { background-color: #40c057; color: #fff; }
+    .account-5 { background-color: #228be6; color: #fff; }
+    .account-6 { background-color: #364fc7; color: #fff; }
+    .account-7 { background-color: #7048e8; color: #fff; }
+    .account-8 { background-color: #f06595; color: #fff; }
+    
     /* 반응형 */
     @media (max-width: 768px) {
         .container, .container-fluid {
@@ -1027,10 +1187,24 @@
                         <label class="form-label">글 본문</label>
                         <textarea class="form-control" id="edit_post_body" name="post_body" rows="6"></textarea>
                     </div>
+                    
+                    <!-- 댓글 섹션 (레퍼런스 스타일) -->
                     <div class="mb-3">
-                        <label class="form-label">💬 댓글</label>
-                        <textarea class="form-control" id="edit_post_comments" name="post_comments" rows="6" placeholder="댓글을 텍스트 형식으로 입력하세요..."></textarea>
+                        <div class="comments-manager">
+                            <div class="comments-header">
+                                <span class="comments-title">💬 댓글</span>
+                                <button type="button" class="btn-add-comment" onclick="addComment('edit_schedule', null)">
+                                    <i class="bi bi-plus-lg"></i> 댓글 추가
+                                </button>
+                            </div>
+                            <div id="edit_schedule_comments_list" class="comments-list">
+                                <div class="no-comments">댓글이 없습니다</div>
+                            </div>
+                        </div>
+                        <!-- Hidden input to store comments as text -->
+                        <input type="hidden" name="post_comments" id="edit_schedule_comments_data">
                     </div>
+                    
                     <hr>
                     <div class="form-check form-switch mb-2">
                         <input type="hidden" name="is_registration_complete" value="False">
@@ -1250,7 +1424,16 @@ function openPostEditModal(scheduleId) {
                 document.getElementById('edit_account_id').value = data.schedule.account_id || '';
                 document.getElementById('edit_post_title').value = post.post_title || '';
                 document.getElementById('edit_post_body').value = post.post_body || '';
-                document.getElementById('edit_post_comments').value = post.post_comments || '';
+                
+                // 댓글 데이터 로드 (레퍼런스 스타일)
+                const commentsText = post.post_comments || '';
+                const hiddenInput = document.getElementById('edit_schedule_comments_data');
+                hiddenInput.value = commentsText;
+                
+                // 텍스트를 JSON으로 파싱하고 렌더링
+                const commentsData = parseTextComments(commentsText);
+                renderCommentsManager('edit_schedule', commentsData);
+                
                 document.getElementById('edit_post_url').value = post.post_url || '';
                 
                 // 체크박스 설정
@@ -1347,7 +1530,11 @@ function loadReferenceModal(refId) {
                     const commentsText = data.comments.map(c => 
                         `${c.commenter_name}: ${c.comment_text}`
                     ).join('\n\n');
-                    document.getElementById('edit_post_comments').value = commentsText;
+                    document.getElementById('edit_schedule_comments_data').value = commentsText;
+                    
+                    // 파싱하고 렌더링
+                    const commentsData = parseTextComments(commentsText);
+                    renderCommentsManager('edit_schedule', commentsData);
                 }
             }
         })
@@ -1418,5 +1605,286 @@ document.addEventListener('keydown', function(e) {
         window.location.href = `/marketing/schedules?selected_date=${today}`;
     }
 });
+
+// ========================================
+// 🎨 레퍼런스 스타일 댓글 관리 시스템
+// ========================================
+
+/**
+ * 텍스트 형식의 댓글을 JSON 배열로 파싱
+ */
+function parseTextComments(textContent) {
+    if (!textContent || textContent.trim() === '') return [];
+    
+    const lines = textContent.split('\n');
+    const comments = [];
+    let currentComment = null;
+    let commentIdCounter = Date.now();
+    const parentStack = [];
+    
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        const trimmedLine = line.trim();
+        
+        if (!trimmedLine) continue;
+        
+        if (line.includes('(답글)')) {
+            if (currentComment) {
+                comments.push(currentComment);
+                parentStack.push(currentComment.id);
+            }
+            
+            const match = trimmedLine.match(/\(답글\)\s*(작성자|계정\s*(\d+)):\s*(.*)/);
+            if (match) {
+                const isAuthor = match[1] === '작성자';
+                const accountNum = isAuthor ? 0 : parseInt(match[2]);
+                const text = match[3] || '';
+                
+                currentComment = {
+                    id: commentIdCounter++,
+                    account_sequence: accountNum,
+                    text: text,
+                    parent_id: parentStack[parentStack.length - 1] || null
+                };
+            }
+        }
+        else if (trimmedLine.match(/^(작성자|계정\s*\d+):\s*$/)) {
+            if (currentComment) {
+                comments.push(currentComment);
+            }
+            
+            parentStack.length = 0;
+            
+            const match = trimmedLine.match(/^(작성자|계정\s*(\d+)):/);
+            if (match) {
+                const isAuthor = match[1] === '작성자';
+                const accountNum = isAuthor ? 0 : parseInt(match[2]);
+                
+                currentComment = {
+                    id: commentIdCounter++,
+                    account_sequence: accountNum,
+                    text: '',
+                    parent_id: null
+                };
+            }
+        }
+        else if (currentComment && trimmedLine) {
+            currentComment.text += (currentComment.text ? '\n' : '') + trimmedLine;
+        }
+    }
+    
+    if (currentComment) {
+        comments.push(currentComment);
+    }
+    
+    return comments;
+}
+
+// 전역 댓글 데이터 저장소
+const commentsDataStore = {};
+
+/**
+ * 댓글 추가 다이얼로그
+ */
+function addComment(modalId, parentId = null) {
+    const accountSequence = prompt(parentId ? '답글 작성 계정 (0=작성자, 1~8=계정 번호):' : '댓글 작성 계정 (0=작성자, 1~8=계정 번호):');
+    if (accountSequence === null) return;
+    
+    const accountNum = parseInt(accountSequence);
+    if (isNaN(accountNum) || accountNum < 0 || accountNum > 8) {
+        alert('0~8 사이의 숫자를 입력하세요.');
+        return;
+    }
+    
+    const commentText = prompt(parentId ? '답글 내용을 입력하세요:' : '댓글 내용을 입력하세요:');
+    if (!commentText || commentText.trim() === '') return;
+    
+    if (!commentsDataStore[modalId]) {
+        commentsDataStore[modalId] = [];
+    }
+    
+    const newComment = {
+        id: Date.now(),
+        account_sequence: accountNum,
+        text: commentText.trim(),
+        parent_id: parentId
+    };
+    
+    commentsDataStore[modalId].push(newComment);
+    saveCommentsToHidden(modalId);
+    renderCommentsManager(modalId, commentsDataStore[modalId]);
+}
+
+/**
+ * 댓글 수정
+ */
+function editComment(modalId, commentId) {
+    if (!commentsDataStore[modalId]) return;
+    
+    const comment = commentsDataStore[modalId].find(c => c.id === commentId);
+    if (!comment) return;
+    
+    const newText = prompt('댓글 내용 수정:', comment.text);
+    if (newText === null || newText.trim() === '') return;
+    
+    comment.text = newText.trim();
+    saveCommentsToHidden(modalId);
+    renderCommentsManager(modalId, commentsDataStore[modalId]);
+}
+
+/**
+ * 댓글 삭제
+ */
+function deleteComment(modalId, commentId) {
+    if (!confirm('이 댓글을 삭제하시겠습니까?')) return;
+    if (!commentsDataStore[modalId]) return;
+    
+    const hasReplies = commentsDataStore[modalId].some(c => c.parent_id === commentId);
+    if (hasReplies && !confirm('답글이 있습니다. 답글과 함께 삭제하시겠습니까?')) return;
+    
+    commentsDataStore[modalId] = commentsDataStore[modalId].filter(c => 
+        c.id !== commentId && c.parent_id !== commentId
+    );
+    
+    saveCommentsToHidden(modalId);
+    renderCommentsManager(modalId, commentsDataStore[modalId]);
+}
+
+/**
+ * 댓글 데이터를 hidden input에 저장 (텍스트 형식으로)
+ */
+function saveCommentsToHidden(modalId) {
+    const hiddenInput = document.getElementById(`${modalId}_comments_data`);
+    if (!hiddenInput) return;
+    
+    const comments = commentsDataStore[modalId] || [];
+    const formattedText = formatCommentsToText(comments);
+    hiddenInput.value = formattedText;
+}
+
+/**
+ * JSON 댓글 데이터를 텍스트 형식으로 변환
+ */
+function formatCommentsToText(comments) {
+    if (!comments || comments.length === 0) return '';
+    
+    const commentMap = {};
+    const topLevelComments = [];
+    
+    comments.forEach(c => {
+        commentMap[c.id] = {...c, replies: []};
+    });
+    
+    comments.forEach(c => {
+        if (c.parent_id && commentMap[c.parent_id]) {
+            commentMap[c.parent_id].replies.push(commentMap[c.id]);
+        } else if (!c.parent_id) {
+            topLevelComments.push(commentMap[c.id]);
+        }
+    });
+    
+    function formatComment(comment, indent = '') {
+        const prefix = comment.account_sequence === 0 ? '작성자' : `계정 ${comment.account_sequence}`;
+        let text = '';
+        
+        if (indent.includes('(답글)')) {
+            text = `${indent}${prefix}: ${comment.text}\n\n`;
+        } else {
+            const commentLines = comment.text.split('\n').map(line => `${indent}  ${line}`).join('\n');
+            text = `${indent}${prefix}:\n${commentLines}\n\n`;
+        }
+        
+        if (comment.replies && comment.replies.length > 0) {
+            comment.replies.forEach(reply => {
+                text += formatComment(reply, indent + '    (답글) ');
+            });
+        }
+        
+        return text;
+    }
+    
+    return topLevelComments.map(c => formatComment(c)).join('').trim();
+}
+
+/**
+ * 댓글 매니저 렌더링
+ */
+function renderCommentsManager(modalId, commentsData) {
+    const listContainer = document.getElementById(`${modalId}_comments_list`);
+    if (!listContainer) return;
+    
+    commentsDataStore[modalId] = commentsData || [];
+    
+    const commentMap = {};
+    const topLevelComments = [];
+    
+    commentsData.forEach(c => {
+        commentMap[c.id] = {...c, replies: []};
+    });
+    
+    commentsData.forEach(c => {
+        if (c.parent_id && commentMap[c.parent_id]) {
+            commentMap[c.parent_id].replies.push(commentMap[c.id]);
+        } else if (!c.parent_id) {
+            topLevelComments.push(commentMap[c.id]);
+        }
+    });
+    
+    if (topLevelComments.length === 0) {
+        listContainer.innerHTML = '<div class="no-comments">댓글이 없습니다</div>';
+        return;
+    }
+    
+    listContainer.innerHTML = topLevelComments.map(comment => 
+        renderCommentCard(modalId, comment)
+    ).join('');
+}
+
+/**
+ * 개별 댓글 카드 렌더링
+ */
+function renderCommentCard(modalId, comment, isReply = false) {
+    const accountNum = comment.account_sequence;
+    const accountLabel = accountNum === 0 ? '작성자' : `계정 ${accountNum}`;
+    const iconText = accountNum === 0 ? '작성' : `A${accountNum}`;
+    
+    let html = `
+        <div class="comment-card ${isReply ? 'reply' : ''}">
+            <div class="comment-header">
+                <div class="comment-author-badge account-${accountNum}">
+                    <span class="comment-author-icon account-${accountNum}">${iconText}</span>
+                    <strong>${accountLabel}</strong>
+                </div>
+                <div class="comment-actions">
+                    <button type="button" class="btn-comment-action btn-comment-edit" onclick="editComment('${modalId}', ${comment.id})">
+                        수정
+                    </button>
+                    <button type="button" class="btn-comment-action btn-comment-delete" onclick="deleteComment('${modalId}', ${comment.id})">
+                        삭제
+                    </button>
+                    ${!isReply ? `<button type="button" class="btn-comment-action btn-comment-reply" onclick="addComment('${modalId}', ${comment.id})">답글</button>` : ''}
+                </div>
+            </div>
+            <div class="comment-text-display">${escapeHtml(comment.text)}</div>
+        </div>
+    `;
+    
+    if (comment.replies && comment.replies.length > 0) {
+        comment.replies.forEach(reply => {
+            html += renderCommentCard(modalId, reply, true);
+        });
+    }
+    
+    return html;
+}
+
+/**
+ * HTML 이스케이프
+ */
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
 </script>
 {% endblock %}
