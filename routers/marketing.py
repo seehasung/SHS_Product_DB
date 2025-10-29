@@ -77,115 +77,86 @@ async def marketing_cafe(request: Request, db: Session = Depends(get_db)):
     tab = request.query_params.get('tab', 'status')
     error = request.query_params.get('error')
     
-    # ✅ ========================================
-    # 페이지 로드 시마다 모든 연동 자동 졸업 체크
-    # ========================================
+    # ✅ 1. 날짜 파라미터 처리
+    date_param = request.query_params.get('date')
+    if date_param:
+        try:
+            selected_date = datetime.strptime(date_param, '%Y-%m-%d').date()
+        except:
+            selected_date = date.today()
+    else:
+        selected_date = date.today()
+    
+    # ✅ 2. 자동 졸업 체크
     graduation_messages = []
     
-    # 모든 활성/정지 상태 연동 조회
-    all_memberships = db.query(CafeMembership).options(
+    all_memberships_for_grad = db.query(CafeMembership).options(
         joinedload(CafeMembership.account),
         joinedload(CafeMembership.cafe)
     ).filter(
         CafeMembership.status.in_(['active', 'suspended'])
     ).all()
     
-    # 각 연동에 대해 10개 체크
-    for membership in all_memberships:
-        # 전체 글 수 계산 (모든 상품, 모든 키워드)
+    for membership in all_memberships_for_grad:
         total_posts_count = db.query(PostSchedule).filter(
             PostSchedule.account_id == membership.account_id,
             PostSchedule.cafe_id == membership.cafe_id,
             PostSchedule.status.in_(['pending', 'in_progress', 'completed'])
         ).count()
         
-        # 10개 이상이면 자동 졸업
         if total_posts_count >= 10:
             membership.status = 'graduated'
-            
-            # 졸업 메시지 저장
             graduation_message = f"🎓 <strong>{membership.account.account_id}</strong>님이 <strong>{membership.cafe.name}</strong> 카페를 졸업했습니다! (총 {total_posts_count}개 글)"
             graduation_messages.append(graduation_message)
-            
-            print(f"✅ 자동 졸업: {membership.account.account_id} @ {membership.cafe.name} ({total_posts_count}개)")
     
-    # 변경사항 커밋
     if graduation_messages:
         db.commit()
     
-    # --- 기존 전체 현황 탭 데이터 ---
+    # ✅ 3. 현재 사용자 스케줄 조회
     username = request.session.get("user")
     current_user = db.query(User).filter(User.username == username).first()
     
-    today = date.today()
-    work_tasks = []
+    today_schedules = []
     completed_count = 0
     daily_quota = 0
     
     if current_user:
         daily_quota = current_user.daily_quota or 0
         
-        # 오늘 날짜로, 현재 사용자에게 할당된 모든 작업(WorkTask)을 조회
-        work_tasks_query = db.query(WorkTask).options(
-            joinedload(WorkTask.account),
-            joinedload(WorkTask.cafe),
-            joinedload(WorkTask.marketing_product).joinedload(MarketingProduct.product)
+        today_schedules_query = db.query(PostSchedule).options(
+            joinedload(PostSchedule.account),
+            joinedload(PostSchedule.cafe),
+            joinedload(PostSchedule.marketing_product).joinedload(MarketingProduct.product),
+            joinedload(PostSchedule.marketing_post),
+            joinedload(PostSchedule.worker)
         ).filter(
-            WorkTask.worker_id == current_user.id,
-            func.date(WorkTask.task_date) == today
+            PostSchedule.worker_id == current_user.id,
+            PostSchedule.scheduled_date == selected_date
         )
         
-        work_tasks = work_tasks_query.order_by(WorkTask.status.desc(), WorkTask.id).all()
-        
-        # 오늘 완료한 작업 수 계산
-        completed_count = sum(1 for task in work_tasks if task.status == 'done')
+        today_schedules = today_schedules_query.order_by(PostSchedule.status.desc(), PostSchedule.id).all()
+        completed_count = sum(1 for s in today_schedules if s.status == 'completed')
     
-    remaining_tasks = daily_quota - completed_count
+    remaining_tasks = daily_quota - len(today_schedules)
     
-    # --- 스케줄 관련 데이터 추가 ---
-    
-    # 오늘의 스케줄 (PostSchedule 사용)
-    today_schedules = db.query(PostSchedule).filter(
-        PostSchedule.scheduled_date == today
-    ).options(
-        joinedload(PostSchedule.worker),
-        joinedload(PostSchedule.marketing_product).joinedload(MarketingProduct.product),
-        joinedload(PostSchedule.cafe)
-    ).all()
-    
-    # 오늘의 통계
-    today_stats = {
-        'total': len(today_schedules),
-        'completed': sum(1 for s in today_schedules if s.status == 'completed'),
-        'in_progress': sum(1 for s in today_schedules if s.status == 'in_progress'),
-        'pending': sum(1 for s in today_schedules if s.status == 'pending')
-    }
-    
-    # 작업자 목록 (마케팅 권한 있는 사용자)
-    workers = db.query(User).filter(
-        or_(User.can_manage_marketing == True, User.is_admin == True)
-    ).all()
-    
-    # 작업자별 할당량 (User 모델의 daily_quota 사용)
-    worker_quotas = {}
-    for worker in workers:
-        worker_quotas[worker.id] = worker.daily_quota or 6  # 기본값 6
-    
-    # --- 기존 탭들 데이터 ---
+    # ✅ 4. 오류 메시지
     error_messages = {
         'duplicate_account': "이미 사용 중인 아이디입니다.",
         'duplicate_reference': "이미 사용 중인 레퍼런스 제목입니다.",
         'no_workers': "작업자를 선택해주세요.",
         'no_keywords': "키워드가 없습니다.",
         'invalid_keywords': "키워드 형식이 잘못되었습니다.",
-        'no_memberships': "활성 연동이 없습니다."
+        'no_memberships': "활성 연동이 없습니다.",
+        'no_data': "활성 상품이나 연동이 없습니다."
     }
     error_message = error_messages.get(error)
+    
+    # ✅ 5. 연동 관리 탭 데이터
     selected_cafe_id = request.query_params.get('cafe_id')
     status_filter = request.query_params.get('status_filter', 'all')
-    category_filter = request.query_params.get('category_filter', 'all')
-    reference_filter = request.query_params.get('ref_filter', 'all')
-    selected_cafe, memberships = None, []
+    selected_cafe = None
+    memberships = []
+    
     if selected_cafe_id:
         selected_cafe = db.query(TargetCafe).filter(TargetCafe.id == selected_cafe_id).first()
         query = db.query(CafeMembership).options(joinedload(CafeMembership.account))
@@ -194,27 +165,32 @@ async def marketing_cafe(request: Request, db: Session = Depends(get_db)):
             query = query.filter(CafeMembership.status == status_filter)
         memberships = query.order_by(CafeMembership.account_id).all()
     
-    # 카페 목록 조회 및 정렬 (1, 2, 10, 11 순서로)
+    # ✅ 6. 카페 목록
     cafes_raw = db.query(TargetCafe).all()
     cafes = sorted(cafes_raw, key=lambda c: sort_product_code(c.name))
     
+    # ✅ 7. 계정 목록
+    category_filter = request.query_params.get('category_filter', 'all')
     accounts_query = db.query(MarketingAccount)
     if category_filter != 'all':
         accounts_query = accounts_query.filter(MarketingAccount.category == category_filter)
     accounts = accounts_query.order_by(MarketingAccount.id).all()
     
-    # 마케팅 상품 목록 조회 및 정렬 (1-1, 1-2, 10-1 순서로)
-    marketing_products_raw = db.query(MarketingProduct).options(joinedload(MarketingProduct.product)).all()
-    marketing_products = sorted(marketing_products_raw, key=lambda mp: sort_product_code(mp.product.product_code if mp.product else ""))
+    # ✅ 8. 마케팅 상품 목록
+    marketing_products_raw = db.query(MarketingProduct).options(
+        joinedload(MarketingProduct.product)
+    ).all()
+    marketing_products = sorted(
+        marketing_products_raw, 
+        key=lambda mp: sort_product_code(mp.product.product_code if mp.product else "")
+    )
     
-    # 상품별 키워드 통계 추가
+    # 상품별 키워드 수 계산
     for mp in marketing_products:
         if mp.keywords:
             try:
                 keywords_data = json.loads(mp.keywords)
                 mp.keyword_count = len([k for k in keywords_data if k.get('active', True)])
-                
-                # 라운드 정보 계산 (간단한 버전)
                 usage = db.query(AccountCafeUsage).filter(
                     AccountCafeUsage.marketing_product_id == mp.id
                 ).all()
@@ -232,12 +208,13 @@ async def marketing_cafe(request: Request, db: Session = Depends(get_db)):
             mp.round2_progress = 0
             mp.remaining_tasks = 0
     
+    # ✅ 9. 레퍼런스 목록
+    reference_filter = request.query_params.get('ref_filter', 'all')
     references_query = db.query(Reference).options(joinedload(Reference.last_modified_by))
     if reference_filter != 'all':
         references_query = references_query.filter(Reference.ref_type == reference_filter)
     references_raw = references_query.order_by(Reference.id.desc()).all()
     
-    # SQLAlchemy 객체를 JSON 직렬화 가능한 딕셔너리로 변환
     references = []
     for ref in references_raw:
         ref_dict = {
@@ -249,30 +226,112 @@ async def marketing_cafe(request: Request, db: Session = Depends(get_db)):
         }
         references.append(ref_dict)
     
-    all_workers = db.query(User).filter(or_(User.can_manage_marketing == True, User.is_admin == True)).all()
-
+    # ✅ 10. 작업자 목록
+    all_workers = db.query(User).filter(
+        or_(User.can_manage_marketing == True, User.is_admin == True)
+    ).all()
+    
+    workers = all_workers  # 동일
+    
+    worker_quotas = {}
+    for worker in workers:
+        worker_quotas[worker.id] = worker.daily_quota or 6
+    
+    # ✅ 11. 전체 통계 (selected_date 기준)
+    all_today_schedules = db.query(PostSchedule).filter(
+        PostSchedule.scheduled_date == selected_date
+    ).all()
+    
+    today_stats = {
+        'total': len(all_today_schedules),
+        'completed': sum(1 for s in all_today_schedules if s.status == 'completed'),
+        'in_progress': sum(1 for s in all_today_schedules if s.status == 'in_progress'),
+        'pending': sum(1 for s in all_today_schedules if s.status == 'pending')
+    }
+    
+    # ✅ 12. 계정-카페 매핑 (membership_map)
+    all_memberships_map = db.query(CafeMembership).options(
+        joinedload(CafeMembership.cafe)
+    ).all()
+    
+    membership_map = {}
+    for membership in all_memberships_map:
+        if membership.status == 'active':
+            account_key = str(membership.account_id)
+            if account_key not in membership_map:
+                membership_map[account_key] = []
+            if membership.cafe:
+                membership_map[account_key].append({
+                    "id": membership.cafe.id, 
+                    "name": membership.cafe.name
+                })
+    
+    # ✅ 13. 상품별 키워드 매핑
+    product_keywords_map = {}
+    for mp in marketing_products:
+        if mp.keywords:
+            try:
+                keywords_list = json.loads(mp.keywords)
+                active_keywords = [
+                    item['keyword'] 
+                    for item in keywords_list 
+                    if item.get('active', True)
+                ]
+                product_keywords_map[mp.id] = active_keywords
+            except json.JSONDecodeError:
+                product_keywords_map[mp.id] = []
+        else:
+            product_keywords_map[mp.id] = []
+    
+    # ✅ 14. 레퍼런스 데이터 (타입별)
+    all_references = db.query(Reference).options(
+        joinedload(Reference.comments)
+    ).order_by(Reference.ref_type, Reference.title).all()
+    
+    references_by_type = {}
+    for ref in all_references:
+        ref_type = ref.ref_type or "기타"
+        if ref_type not in references_by_type:
+            references_by_type[ref_type] = []
+        references_by_type[ref_type].append(ref)
+    
+    # ✅ 15. 템플릿 렌더링
     return templates.TemplateResponse("marketing_cafe.html", {
-        "request": request, "cafes": cafes, "accounts": accounts,
-        "marketing_products": marketing_products, "memberships": memberships,
-        "selected_cafe": selected_cafe, "status_filter": status_filter,
-        "category_filter": category_filter, "error": error_message,
-        "references": references, "reference_filter": reference_filter,
+        "request": request,
+        "cafes": cafes,
+        "accounts": accounts,
+        "marketing_products": marketing_products,
+        "memberships": memberships,
+        "selected_cafe": selected_cafe,
+        "status_filter": status_filter,
+        "category_filter": category_filter,
+        "error": error_message,
+        "references": references,
+        "reference_filter": reference_filter,
         "active_tab": tab,
         
-        "work_tasks": work_tasks,
+        # 스케줄 관련
+        "today_schedules": today_schedules,
         "daily_quota": daily_quota,
         "completed_count": completed_count,
         "remaining_tasks": remaining_tasks,
         "all_workers": all_workers,
         
-        # 스케줄 관련 데이터 추가
-        "today_schedules": today_schedules[:10],  # 최근 10개만
+        # 통계
         "today_stats": today_stats,
         "workers": workers,
         "worker_quotas": worker_quotas,
+        "graduation_messages": graduation_messages,
         
-        # ✅ 졸업 메시지 추가
-        "graduation_messages": graduation_messages
+        # 매핑 데이터
+        "membership_map": membership_map,
+        "product_keywords_map": product_keywords_map,
+        "all_references": all_references,
+        "references_by_type": references_by_type,
+        
+        # 날짜
+        "selected_date": selected_date,
+        "today": date.today()
     })
 
 # --- 스케줄 관리 라우터 추가 ---
