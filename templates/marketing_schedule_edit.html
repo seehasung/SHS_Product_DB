@@ -1,0 +1,331 @@
+{% extends "base.html" %}
+{% block title %}스케줄 수정{% endblock %}
+
+{% block head %}
+{{ super() }}
+<style>
+    /* index.html 스타일과 동일한 모던 디자인 */
+    @keyframes fadeInUp {
+        from {
+            opacity: 0;
+            transform: translateY(30px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    
+    .container {
+        max-width: 900px;
+        margin: 0 auto;
+        padding: 40px 20px;
+    }
+    
+    .edit-header {
+        background: linear-gradient(135deg, #4A90E2 0%, #5BA3F5 100%);
+        border-radius: 20px;
+        padding: 30px;
+        margin-bottom: 30px;
+        color: white;
+        box-shadow: 0 8px 32px rgba(74, 144, 226, 0.3);
+        animation: fadeInUp 0.5s ease-out;
+    }
+    
+    .edit-card {
+        background: rgba(255, 255, 255, 0.95);
+        backdrop-filter: blur(20px);
+        border: 1px solid rgba(255, 255, 255, 0.3);
+        border-radius: 20px;
+        padding: 35px;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
+        animation: fadeInUp 0.7s ease-out;
+    }
+    
+    .form-label {
+        font-weight: 600;
+        color: #495057;
+        margin-bottom: 8px;
+        font-size: 0.95rem;
+    }
+    
+    .form-control, .form-select, textarea {
+        border-radius: 12px;
+        border: 2px solid #e9ecef;
+        padding: 12px 16px;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        font-size: 0.95rem;
+    }
+    
+    .form-control:focus, .form-select:focus, textarea:focus {
+        border-color: #4A90E2;
+        box-shadow: 0 0 0 4px rgba(74, 144, 226, 0.15);
+        outline: none;
+        transform: translateY(-2px);
+    }
+    
+    .btn {
+        border-radius: 14px;
+        padding: 12px 24px;
+        font-weight: 600;
+        font-size: 0.95rem;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        border: none;
+    }
+    
+    .btn-primary {
+        background: linear-gradient(135deg, #4A90E2 0%, #5BA3F5 100%);
+        color: white;
+        box-shadow: 0 8px 24px rgba(74, 144, 226, 0.35);
+    }
+    
+    .btn-primary:hover {
+        background: linear-gradient(135deg, #3A7BC8 0%, #4A90E2 100%);
+        transform: translateY(-4px);
+        box-shadow: 0 12px 32px rgba(74, 144, 226, 0.45);
+        color: white;
+    }
+    
+    .btn-secondary {
+        background: linear-gradient(135deg, #636e72 0%, #2d3436 100%);
+        color: white;
+        box-shadow: 0 8px 24px rgba(99, 110, 114, 0.35);
+    }
+    
+    .btn-secondary:hover {
+        background: linear-gradient(135deg, #2d3436 0%, #1a1d1f 100%);
+        transform: translateY(-4px);
+        box-shadow: 0 12px 32px rgba(99, 110, 114, 0.45);
+        color: white;
+    }
+    
+    .alert {
+        border-radius: 16px;
+        padding: 16px 20px;
+        border: none;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+        font-size: 0.95rem;
+    }
+    
+    .status-badge {
+        padding: 8px 16px;
+        border-radius: 20px;
+        font-size: 0.9rem;
+        font-weight: 600;
+        display: inline-block;
+    }
+    
+    .status-pending {
+        background: #ffd43b;
+        color: #000;
+    }
+    
+    .status-completed {
+        background: #51cf66;
+        color: white;
+    }
+    
+    .status-in-progress {
+        background: #339af0;
+        color: white;
+    }
+    
+    .status-skipped {
+        background: #868e96;
+        color: white;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <!-- 헤더 -->
+    <div class="edit-header">
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <h1 class="mb-2">📝 스케줄 수정</h1>
+                <p class="mb-0 opacity-90">작업 할당 정보를 수정합니다</p>
+            </div>
+            <span class="status-badge status-{{ schedule.status }}">
+                {% if schedule.status == 'pending' %}대기중
+                {% elif schedule.status == 'in_progress' %}진행중
+                {% elif schedule.status == 'completed' %}완료
+                {% elif schedule.status == 'skipped' %}건너뜀
+                {% endif %}
+            </span>
+        </div>
+    </div>
+    
+    <!-- 수정 폼 -->
+    <div class="edit-card">
+        <form action="/marketing/schedule/{{ schedule.id }}/update" method="post" id="editScheduleForm">
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">날짜 <span class="text-danger">*</span></label>
+                    <input type="date" name="scheduled_date" class="form-control" 
+                           value="{{ schedule.scheduled_date }}" required>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">작업자 <span class="text-danger">*</span></label>
+                    <select name="worker_id" class="form-select" required>
+                        <option value="">선택하세요</option>
+                        {% for worker in workers %}
+                        <option value="{{ worker.id }}" 
+                                {{ 'selected' if schedule.worker_id == worker.id }}>
+                            {{ worker.username }} (일일 {{ worker.daily_quota or 6 }}개)
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+            
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">네이버 계정 <span class="text-danger">*</span></label>
+                    <select name="account_id" class="form-select" required 
+                            onchange="updateCafeOptions(this.value)" id="accountSelect">
+                        <option value="">선택하세요</option>
+                        {% for account in accounts %}
+                        <option value="{{ account.id }}"
+                                {{ 'selected' if schedule.account_id == account.id }}>
+                            {{ account.account_id }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">카페 <span class="text-danger">*</span></label>
+                    <select name="cafe_id" class="form-select" required id="cafeSelect">
+                        <option value="">계정을 먼저 선택하세요</option>
+                        {% for cafe in cafes %}
+                        <option value="{{ cafe.id }}"
+                                {{ 'selected' if schedule.cafe_id == cafe.id }}>
+                            {{ cafe.name }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+            
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">상품 <span class="text-danger">*</span></label>
+                    <select name="marketing_product_id" class="form-select" required
+                            onchange="updateKeywordOptions(this.value)" id="productSelect">
+                        <option value="">선택하세요</option>
+                        {% for mp in marketing_products %}
+                        <option value="{{ mp.id }}"
+                                {{ 'selected' if schedule.marketing_product_id == mp.id }}>
+                            {{ mp.product.name }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">키워드 <span class="text-danger">*</span></label>
+                    <select name="keyword_text" class="form-select" required id="keywordSelect">
+                        <option value="">상품을 먼저 선택하세요</option>
+                    </select>
+                </div>
+            </div>
+            
+            <div class="mb-3">
+                <label class="form-label">메모</label>
+                <textarea name="notes" class="form-control" rows="3" 
+                          placeholder="작업에 대한 특별한 지시사항이나 메모를 입력하세요">{{ schedule.notes or '' }}</textarea>
+            </div>
+            
+            {% if schedule.marketing_post %}
+            <div class="alert alert-info">
+                <i class="bi bi-info-circle"></i>
+                <strong>연결된 글:</strong> 
+                <a href="{{ schedule.marketing_post.post_url }}" target="_blank">
+                    {{ schedule.marketing_post.post_title or '제목 없음' }}
+                </a>
+            </div>
+            {% endif %}
+            
+            <div class="d-flex justify-content-between align-items-center mt-4">
+                <a href="/marketing/schedules?selected_date={{ schedule.scheduled_date }}" 
+                   class="btn btn-secondary">
+                    <i class="bi bi-arrow-left"></i> 취소
+                </a>
+                <button type="submit" class="btn btn-primary">
+                    <i class="bi bi-check-circle"></i> 저장하기
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+// 계정-카페 매핑 데이터
+const membershipMap = {{ membership_map | tojson | safe }};
+
+// 상품-키워드 매핑 데이터  
+const productKeywordsMap = {{ product_keywords_map | tojson | safe }};
+
+// 현재 선택된 값들
+const currentCafeId = {{ schedule.cafe_id if schedule.cafe_id else 'null' }};
+const currentKeyword = "{{ schedule.keyword_text }}";
+
+// 카페 옵션 업데이트
+function updateCafeOptions(accountId) {
+    const cafeSelect = document.getElementById('cafeSelect');
+    cafeSelect.innerHTML = '<option value="">선택하세요</option>';
+    
+    if (accountId && membershipMap[accountId]) {
+        cafeSelect.disabled = false;
+        membershipMap[accountId].forEach(cafe => {
+            const option = document.createElement('option');
+            option.value = cafe.id;
+            option.textContent = cafe.name;
+            if (cafe.id === currentCafeId) {
+                option.selected = true;
+            }
+            cafeSelect.appendChild(option);
+        });
+    } else {
+        cafeSelect.disabled = true;
+        cafeSelect.innerHTML = '<option value="">계정을 먼저 선택하세요</option>';
+    }
+}
+
+// 키워드 옵션 업데이트
+function updateKeywordOptions(productId) {
+    const keywordSelect = document.getElementById('keywordSelect');
+    keywordSelect.innerHTML = '<option value="">선택하세요</option>';
+    
+    if (productId && productKeywordsMap[productId]) {
+        keywordSelect.disabled = false;
+        productKeywordsMap[productId].forEach(keyword => {
+            const option = document.createElement('option');
+            option.value = keyword;
+            option.textContent = keyword;
+            if (keyword === currentKeyword) {
+                option.selected = true;
+            }
+            keywordSelect.appendChild(option);
+        });
+    } else {
+        keywordSelect.disabled = true;
+        keywordSelect.innerHTML = '<option value="">상품을 먼저 선택하세요</option>';
+    }
+}
+
+// 페이지 로드 시 초기화
+document.addEventListener('DOMContentLoaded', function() {
+    // 현재 선택된 계정에 따라 카페 목록 업데이트
+    const accountSelect = document.getElementById('accountSelect');
+    if (accountSelect.value) {
+        updateCafeOptions(accountSelect.value);
+    }
+    
+    // 현재 선택된 상품에 따라 키워드 목록 업데이트
+    const productSelect = document.getElementById('productSelect');
+    if (productSelect.value) {
+        updateKeywordOptions(productSelect.value);
+    }
+});
+</script>
+{% endblock %}

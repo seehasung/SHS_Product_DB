@@ -433,6 +433,146 @@ async def delete_schedule(
     
     return {"success": True}
 
+@router.post("/schedule/{schedule_id}/change-status")
+async def change_schedule_status(
+    schedule_id: int,
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    """스케줄 상태 변경"""
+    
+    body = await request.json()
+    new_status = body.get('status')
+    
+    if new_status not in ['pending', 'in_progress', 'completed', 'skipped']:
+        return {"success": False, "error": "Invalid status"}
+    
+    schedule = db.query(PostSchedule).filter(
+        PostSchedule.id == schedule_id
+    ).first()
+    
+    if schedule:
+        schedule.status = new_status
+        
+        # 상태에 따른 추가 처리
+        if new_status == 'completed':
+            schedule.is_completed = True
+            if not schedule.completed_at:
+                schedule.completed_at = datetime.utcnow()
+        elif new_status == 'pending':
+            schedule.is_completed = False
+            schedule.completed_at = None
+        
+        db.commit()
+        return {"success": True}
+    
+    return {"success": False, "error": "Schedule not found"}
+
+@router.get("/schedule/{schedule_id}/edit", response_class=HTMLResponse)
+async def get_edit_schedule(
+    request: Request,
+    schedule_id: int,
+    db: Session = Depends(get_db)
+):
+    """스케줄 수정 페이지"""
+    
+    schedule = db.query(PostSchedule).options(
+        joinedload(PostSchedule.worker),
+        joinedload(PostSchedule.account),
+        joinedload(PostSchedule.cafe),
+        joinedload(PostSchedule.marketing_product).joinedload(MarketingProduct.product)
+    ).filter(PostSchedule.id == schedule_id).first()
+    
+    if not schedule:
+        return RedirectResponse(url="/marketing/schedules", status_code=303)
+    
+    # 작업자 목록
+    workers = db.query(User).filter(
+        or_(User.can_manage_marketing == True, User.is_admin == True)
+    ).all()
+    
+    # 계정 목록
+    accounts = db.query(MarketingAccount).all()
+    
+    # 카페 목록
+    cafes = db.query(TargetCafe).all()
+    
+    # 상품 목록
+    marketing_products = db.query(MarketingProduct).options(
+        joinedload(MarketingProduct.product)
+    ).all()
+    
+    # 계정별 카페 매핑
+    all_memberships = db.query(CafeMembership).options(
+        joinedload(CafeMembership.cafe)
+    ).filter(CafeMembership.status == 'active').all()
+    
+    membership_map = {}
+    for membership in all_memberships:
+        if membership.account_id not in membership_map:
+            membership_map[membership.account_id] = []
+        if membership.cafe:
+            membership_map[membership.account_id].append({
+                "id": membership.cafe.id,
+                "name": membership.cafe.name
+            })
+    
+    # 상품별 키워드 맵
+    product_keywords_map = {}
+    for mp in marketing_products:
+        if mp.keywords:
+            try:
+                keywords_list = json.loads(mp.keywords)
+                active_keywords = [item['keyword'] for item in keywords_list if item.get('active', True)]
+                product_keywords_map[mp.id] = active_keywords
+            except json.JSONDecodeError:
+                product_keywords_map[mp.id] = []
+    
+    return templates.TemplateResponse("marketing_schedule_edit.html", {
+        "request": request,
+        "schedule": schedule,
+        "workers": workers,
+        "accounts": accounts,
+        "cafes": cafes,
+        "marketing_products": marketing_products,
+        "membership_map": membership_map,
+        "product_keywords_map": product_keywords_map
+    })
+
+@router.post("/schedule/{schedule_id}/update", response_class=RedirectResponse)
+async def update_schedule(
+    schedule_id: int,
+    scheduled_date: date = Form(...),
+    worker_id: int = Form(...),
+    account_id: int = Form(...),
+    cafe_id: int = Form(...),
+    marketing_product_id: int = Form(...),
+    keyword_text: str = Form(...),
+    notes: str = Form(""),
+    db: Session = Depends(get_db)
+):
+    """스케줄 업데이트"""
+    
+    schedule = db.query(PostSchedule).filter(
+        PostSchedule.id == schedule_id
+    ).first()
+    
+    if schedule:
+        schedule.scheduled_date = scheduled_date
+        schedule.worker_id = worker_id
+        schedule.account_id = account_id
+        schedule.cafe_id = cafe_id
+        schedule.marketing_product_id = marketing_product_id
+        schedule.keyword_text = keyword_text
+        schedule.notes = notes
+        
+        db.commit()
+    
+    return RedirectResponse(
+        url=f"/marketing/schedules?selected_date={scheduled_date}",
+        status_code=303
+    )
+
 @router.post("/user/quota/update", response_class=RedirectResponse)
 async def update_user_quota(
     user_id: int = Form(...),

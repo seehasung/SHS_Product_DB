@@ -273,6 +273,7 @@
         background: linear-gradient(135deg, #2d3436 0%, #1a1d1f 100%);
         transform: translateY(-4px);
         box-shadow: 0 12px 32px rgba(99, 110, 114, 0.45);
+        color: white;
     }
     
     .btn-success {
@@ -1004,11 +1005,34 @@ function toggleComplete(scheduleId, checkbox) {
     });
 }
 
-// 상태 변경
+// 상태 변경 - ✅ 수정됨
 function changeStatus(scheduleId, newStatus) {
-    if (confirm(`상태를 변경하시겠습니까?`)) {
-        // 상태 변경 API 호출 (구현 필요)
-        alert('상태 변경 기능 구현 예정');
+    const statusNames = {
+        'pending': '대기중',
+        'in_progress': '진행중',
+        'completed': '완료',
+        'skipped': '건너뜀'
+    };
+    
+    if (confirm(`상태를 "${statusNames[newStatus]}"(으)로 변경하시겠습니까?`)) {
+        fetch(`/marketing/schedule/${scheduleId}/change-status`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                status: newStatus
+            })
+        }).then(response => {
+            if (response.ok) {
+                location.reload();
+            } else {
+                alert('상태 변경에 실패했습니다.');
+            }
+        }).catch(error => {
+            console.error('Error:', error);
+            alert('상태 변경 중 오류가 발생했습니다.');
+        });
     }
 }
 
@@ -1058,10 +1082,9 @@ function linkPost(scheduleId) {
     modal.show();
 }
 
-// 스케줄 수정
+// 스케줄 수정 - ✅ 수정됨
 function editSchedule(scheduleId) {
-    // 수정 기능 구현 (별도 페이지 또는 모달)
-    alert('수정 기능 구현 예정');
+    window.location.href = `/marketing/schedule/${scheduleId}/edit`;
 }
 
 // 스케줄 삭제
