@@ -39,6 +39,41 @@
         display: inline;
     }
 
+    /* 상태 배지 스타일 */
+    .status-badge {
+        padding: 5px 12px;
+        border-radius: 20px;
+        font-size: 0.85rem;
+        font-weight: 500;
+        white-space: nowrap;
+        display: inline-block;
+    }
+
+    .status-pending {
+        background: #ffd43b;
+        color: #000;
+    }
+    
+    .status-in-progress {
+        background: #339af0;
+        color: white;
+    }
+    
+    .status-completed {
+        background: #51cf66;
+        color: white;
+    }
+    
+    .status-skipped {
+        background: #868e96;
+        color: white;
+    }
+    
+    .status-deleted {
+        background: #fa5252;
+        color: white;
+    }
+
     /* 통계 대시보드 스타일 */
     .stats-dashboard {
         background: linear-gradient(135deg, #4A90E2 0%, #5BA3F5 100%);
@@ -269,16 +304,6 @@
         padding: 20px;
         box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
     }
-    .btn-secondary {
-        background-color: #495057 !important;
-        border-color: #495057 !important;
-        color: white !important;
-    }
-
-    .btn-secondary:hover {
-        background-color: #343a40 !important;
-        border-color: #2d3238 !important;
-    }
 </style>
 
 <div class="container mt-4">
@@ -305,19 +330,29 @@
                 <div class="stat-label">전체 글</div>
             </div>
             <div class="stat-card">
+                <div class="stat-icon">⏳</div>
+                <div class="stat-value" style="color: #ffd43b;">{{ post_stats.pending }}</div>
+                <div class="stat-label">대기중</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">🏃</div>
+                <div class="stat-value" style="color: #339af0;">{{ post_stats.in_progress }}</div>
+                <div class="stat-label">진행중</div>
+            </div>
+            <div class="stat-card">
                 <div class="stat-icon">✅</div>
-                <div class="stat-value stat-live">{{ post_stats.live }}</div>
-                <div class="stat-label">생존</div>
+                <div class="stat-value" style="color: #51cf66;">{{ post_stats.completed }}</div>
+                <div class="stat-label">완료</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">⏭️</div>
+                <div class="stat-value" style="color: #868e96;">{{ post_stats.skipped }}</div>
+                <div class="stat-label">건너뜀</div>
             </div>
             <div class="stat-card">
                 <div class="stat-icon">❌</div>
-                <div class="stat-value stat-deleted">{{ post_stats.deleted }}</div>
+                <div class="stat-value" style="color: #fa5252;">{{ post_stats.deleted }}</div>
                 <div class="stat-label">삭제됨</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-icon">⚠️</div>
-                <div class="stat-value stat-draft">{{ post_stats.draft }}</div>
-                <div class="stat-label">미등록</div>
             </div>
         </div>
     </div>
@@ -362,18 +397,18 @@
                             {% for post in posts %}
                             <tr>
                                 <td>
-                                    <span class="fs-4" title="{{ '등록 완료 (생존)' if post.is_live else ('등록 완료 (삭제됨)' if post.is_registration_complete else '작성중') }}">
-                                        {% if not post.is_registration_complete %}
-                                            ⚠️
-                                        {% elif post.is_live %}
-                                            ✅
-                                        {% else %}
-                                            ❌
+                                    <span class="status-badge status-{{ post.status or 'pending' }}">
+                                        {% if post.status == 'pending' %}대기중
+                                        {% elif post.status == 'in_progress' %}진행중
+                                        {% elif post.status == 'completed' %}완료
+                                        {% elif post.status == 'skipped' %}건너뜀
+                                        {% elif post.status == 'deleted' %}삭제됨
+                                        {% else %}대기중
                                         {% endif %}
                                     </span>
                                 </td>
                                 <td>
-                                    {% if post.is_registration_complete and post.post_url %}
+                                    {% if post.post_url %}
                                     <a href="{{ post.post_url }}" target="_blank" title="{{ post.post_url }}" style="display: block; max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ post.post_title or post.post_url }}</a>
                                     {% else %}
                                     <span title="{{ post.post_title }}" style="display: block; max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ post.post_title or '(제목 없음)' }}</span>

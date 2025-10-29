@@ -652,7 +652,9 @@
                                class="form-check-input check-complete" 
                                {{ 'checked' if schedule.is_completed }}
                                onchange="toggleComplete({{ schedule.id }}, this)"
-                               {{ 'disabled' if schedule.status == 'skipped' }}>
+                               {{ 'disabled' if schedule.status == 'completed' or schedule.status == 'skipped' }}
+                               data-bs-toggle="tooltip" 
+                               title="{{ '완료 잠김 (대기중 버튼으로 해제)' if schedule.status == 'completed' else '완료 체크' }}">
                     </td>
                     <td>
                         <strong>{{ schedule.worker.username if schedule.worker else '미할당' }}</strong>
@@ -693,15 +695,16 @@
                     </td>
                     <td class="text-center">
                         <div class="action-buttons">
-                            <button class="btn btn-sm btn-outline-info" 
-                                    onclick="editSchedule({{ schedule.id }})"
-                                    data-bs-toggle="tooltip" title="수정">
+                            <button class="btn btn-sm {{ 'btn-success' if schedule.status == 'completed' else 'btn-outline-info' }}" 
+                                    onclick="editScheduleAndStart({{ schedule.id }}, '{{ schedule.status }}')"
+                                    data-bs-toggle="tooltip" 
+                                    title="{{ '완료됨 (수정만 가능)' if schedule.status == 'completed' else '수정' }}">
                                 <i class="bi bi-pencil"></i>
                             </button>
-                            <button class="btn btn-sm btn-outline-info"
-                                    onclick="changeStatus({{ schedule.id }}, 'in_progress')"
-                                    data-bs-toggle="tooltip" title="진행중">
-                                <i class="bi bi-play-circle"></i>
+                            <button class="btn btn-sm btn-outline-warning"
+                                    onclick="changeStatus({{ schedule.id }}, 'pending')"
+                                    data-bs-toggle="tooltip" title="대기중">
+                                <i class="bi bi-pause-circle"></i>
                             </button>
                             <button class="btn btn-sm btn-outline-secondary"
                                     onclick="changeStatus({{ schedule.id }}, 'skipped')"
@@ -947,6 +950,99 @@
     </div>
 </div>
 
+<!-- 글 수정 모달 (스케줄 관리용) -->
+<div class="modal fade" id="editPostModalFromSchedule" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable modal-dialog-centered">
+        <div class="modal-content">
+            <form id="editPostFormFromSchedule" method="post">
+                <div class="modal-header">
+                    <h5 class="modal-title">글 정보 수정</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">작성자</label>
+                            <select class="form-select" id="edit_worker_id" name="worker_id" required>
+                                {% for worker in workers %}
+                                <option value="{{ worker.id }}">{{ worker.username }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">네이버 계정</label>
+                            <select class="form-select" id="edit_account_id" name="account_id" required onchange="updateCafeDropdownModal(this.value)">
+                                {% for acc in accounts %}
+                                <option value="{{ acc.id }}">{{ acc.account_id }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">작성 카페</label>
+                            <select class="form-select" id="edit_cafe_id" name="cafe_id" required>
+                                {% for cafe in cafes %}
+                                <option value="{{ cafe.id }}">{{ cafe.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    <hr>
+                    <div class="mb-3">
+                        <label class="form-label">레퍼런스 불러오기 (선택)</label>
+                        <div class="input-group">
+                            <select class="form-select" id="edit_ref_type" onchange="filterReferencesModal(this.value)">
+                                <option value="" selected>분류 선택...</option>
+                                {% for type_name in references_by_type.keys() %}
+                                <option value="{{ type_name }}">{{ type_name }}</option>
+                                {% endfor %}
+                            </select>
+                            <select class="form-select" id="edit_ref_title" onchange="loadReferenceModal(this.value)">
+                                <option value="" selected>제목 선택...</option>
+                                {% for type, refs in references_by_type.items() %}
+                                    {% for ref in refs %}
+                                    <option value="{{ ref.id }}" data-ref-type="{{ ref.ref_type }}" style="display:none;">{{ ref.title }}</option>
+                                    {% endfor %}
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">글 제목</label>
+                        <input type="text" class="form-control" id="edit_post_title" name="post_title">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">글 본문</label>
+                        <textarea class="form-control" id="edit_post_body" name="post_body" rows="6"></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">💬 댓글</label>
+                        <textarea class="form-control" id="edit_post_comments" name="post_comments" rows="6" placeholder="댓글을 텍스트 형식으로 입력하세요..."></textarea>
+                    </div>
+                    <hr>
+                    <div class="form-check form-switch mb-2">
+                        <input type="hidden" name="is_registration_complete" value="False">
+                        <input class="form-check-input" type="checkbox" role="switch" id="edit_is_registration_complete" name="is_registration_complete" value="True" onchange="toggleUrlFieldModal(this.checked)">
+                        <label class="form-check-label" for="edit_is_registration_complete">등록 완료 (체크 시 URL 입력)</label>
+                    </div>
+                    <div class="mb-3" id="edit_url_field" style="display:none;">
+                        <label class="form-label">글 URL</label>
+                        <input type="url" class="form-control" id="edit_post_url" name="post_url">
+                    </div>
+                    <div class="form-check form-switch">
+                        <input type="hidden" name="is_live" value="False">
+                        <input class="form-check-input" type="checkbox" role="switch" id="edit_is_live" name="is_live" value="True">
+                        <label class="form-check-label" for="edit_is_live">글 생존 여부 (체크 시 '살아있는 글')</label>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">닫기</button>
+                    <button type="submit" class="btn btn-primary">수정 저장</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 <script>
 // 계정-카페 매핑 데이터
 const membershipMap = {{ membership_map | tojson | safe }};
@@ -1082,9 +1178,172 @@ function linkPost(scheduleId) {
     modal.show();
 }
 
-// 스케줄 수정 - ✅ 수정됨
-function editSchedule(scheduleId) {
-    window.location.href = `/marketing/schedule/${scheduleId}/edit`;
+// 스케줄 수정 - 완료 상태가 아니면 진행중으로 변경 후 모달 열기
+function editScheduleAndStart(scheduleId, currentStatus) {
+    // 완료 상태면 상태 변경 없이 모달만 열기
+    if (currentStatus === 'completed') {
+        openPostEditModal(scheduleId);
+        return;
+    }
+    
+    // 완료가 아니면 진행중으로 변경 후 모달 열기
+    fetch(`/marketing/schedule/${scheduleId}/change-status`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            status: 'in_progress'
+        })
+    }).then(response => {
+        if (response.ok) {
+            // 상태 변경 성공 후 모달 열기
+            openPostEditModal(scheduleId);
+        } else {
+            alert('상태 변경에 실패했습니다.');
+        }
+    }).catch(error => {
+        console.error('Error:', error);
+        alert('오류가 발생했습니다.');
+    });
+}
+
+// 글 수정 모달 열기
+function openPostEditModal(scheduleId) {
+    // 스케줄 정보 가져오기
+    fetch(`/marketing/schedule/${scheduleId}/info`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success && data.post) {
+                const post = data.post;
+                
+                // 폼 action 설정
+                const form = document.getElementById('editPostFormFromSchedule');
+                form.action = `/marketing/post/update/${post.id}`;
+                
+                // 필드 채우기
+                document.getElementById('edit_worker_id').value = data.schedule.worker_id || '';
+                document.getElementById('edit_account_id').value = data.schedule.account_id || '';
+                document.getElementById('edit_post_title').value = post.post_title || '';
+                document.getElementById('edit_post_body').value = post.post_content || '';
+                document.getElementById('edit_post_comments').value = post.post_comments || '';
+                document.getElementById('edit_post_url').value = post.post_url || '';
+                
+                // 체크박스 설정
+                const isComplete = post.post_url && post.post_url.trim() !== '';
+                document.getElementById('edit_is_registration_complete').checked = isComplete;
+                document.getElementById('edit_is_live').checked = post.is_live || false;
+                
+                // URL 필드 표시/숨김
+                toggleUrlFieldModal(isComplete);
+                
+                // 카페 드롭다운 업데이트
+                if (data.schedule.account_id) {
+                    updateCafeDropdownModal(data.schedule.account_id);
+                    // 카페 선택 (드롭다운 업데이트 후)
+                    setTimeout(() => {
+                        document.getElementById('edit_cafe_id').value = data.schedule.cafe_id || '';
+                    }, 100);
+                }
+                
+                // 모달 열기
+                const modal = new bootstrap.Modal(document.getElementById('editPostModalFromSchedule'));
+                modal.show();
+            } else if (data.success && !data.post) {
+                alert('연결된 글이 없습니다. 글을 먼저 작성해주세요.');
+            } else {
+                alert('스케줄 정보를 불러오는데 실패했습니다.');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('오류가 발생했습니다.');
+        });
+}
+
+// 모달용 카페 드롭다운 업데이트
+function updateCafeDropdownModal(accountId) {
+    const cafeSelect = document.getElementById('edit_cafe_id');
+    cafeSelect.innerHTML = '<option value="">선택하세요</option>';
+    
+    if (accountId && membershipMap[accountId]) {
+        cafeSelect.disabled = false;
+        membershipMap[accountId].forEach(cafe => {
+            const option = document.createElement('option');
+            option.value = cafe.id;
+            option.textContent = cafe.name;
+            cafeSelect.appendChild(option);
+        });
+    } else {
+        cafeSelect.disabled = true;
+        cafeSelect.innerHTML = '<option value="">계정을 먼저 선택하세요</option>';
+    }
+}
+
+// 모달용 레퍼런스 필터링
+function filterReferencesModal(refType) {
+    const refTitleSelect = document.getElementById('edit_ref_title');
+    const options = refTitleSelect.querySelectorAll('option');
+    
+    // 모든 옵션 숨기기
+    options.forEach(option => {
+        if (option.value === '') {
+            option.style.display = 'block';
+        } else {
+            option.style.display = 'none';
+        }
+    });
+    
+    // 선택된 타입의 옵션만 표시
+    if (refType) {
+        options.forEach(option => {
+            if (option.dataset.refType === refType) {
+                option.style.display = 'block';
+            }
+        });
+    }
+    
+    // 선택 초기화
+    refTitleSelect.value = '';
+}
+
+// 모달용 레퍼런스 로드
+function loadReferenceModal(refId) {
+    if (!refId) return;
+    
+    fetch(`/marketing/reference/${refId}/content`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                document.getElementById('edit_post_title').value = data.title || '';
+                document.getElementById('edit_post_body').value = data.body || '';
+                
+                // 댓글 로드
+                if (data.comments && data.comments.length > 0) {
+                    const commentsText = data.comments.map(c => 
+                        `${c.commenter_name}: ${c.comment_text}`
+                    ).join('\n\n');
+                    document.getElementById('edit_post_comments').value = commentsText;
+                }
+            }
+        })
+        .catch(error => {
+            console.error('Error loading reference:', error);
+        });
+}
+
+// 모달용 URL 필드 토글
+function toggleUrlFieldModal(isChecked) {
+    const urlField = document.getElementById('edit_url_field');
+    const urlInput = document.getElementById('edit_post_url');
+    
+    if (isChecked) {
+        urlField.style.display = 'block';
+        urlInput.required = true;
+    } else {
+        urlField.style.display = 'none';
+        urlInput.required = false;
+    }
 }
 
 // 스케줄 삭제

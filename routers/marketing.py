@@ -24,6 +24,30 @@ templates = Jinja2Templates(directory="templates")
 
 # --- Helper Functions ---
 
+def generate_post_title(worker_username: str, scheduled_date: date, worker_id: int, db: Session) -> str:
+    """
+    글 제목 생성: {작업자명}/{날짜}-{순번}
+    예: "오승아/2025-01-05-3"
+    """
+    # 해당 날짜에 해당 작업자의 기존 글 개수 조회
+    existing_count = db.query(MarketingPost).join(
+        PostSchedule, MarketingPost.id == PostSchedule.marketing_post_id
+    ).filter(
+        PostSchedule.worker_id == worker_id,
+        PostSchedule.scheduled_date == scheduled_date
+    ).count()
+    
+    # 다음 순번
+    sequence = existing_count + 1
+    
+    # 날짜 포맷
+    date_str = scheduled_date.strftime('%Y-%m-%d')
+    
+    # 제목 생성
+    title = f"{worker_username}/{date_str}-{sequence}"
+    
+    return title
+
 def sort_product_code(product_code):
     """
     상품 코드를 정렬하기 위한 키 생성 함수
@@ -315,6 +339,17 @@ async def get_schedules(
         ~MarketingPost.id.in_(linked_post_ids)
     ).all()
     
+    # 레퍼런스 데이터 추가 (모달용)
+    all_references = db.query(Reference).options(
+        joinedload(Reference.comments)
+    ).order_by(Reference.ref_type, Reference.title).all()
+    
+    references_by_type = {}
+    for ref in all_references:
+        if ref.ref_type not in references_by_type:
+            references_by_type[ref.ref_type] = []
+        references_by_type[ref.ref_type].append(ref)
+    
     return templates.TemplateResponse("marketing_schedules.html", {
         "request": request,
         "username": username,
@@ -328,7 +363,9 @@ async def get_schedules(
         "marketing_products": marketing_products,
         "membership_map": membership_map,
         "product_keywords_map": product_keywords_map,
-        "unlinked_posts": unlinked_posts
+        "unlinked_posts": unlinked_posts,
+        "all_references": all_references,
+        "references_by_type": references_by_type
     })
 
 @router.post("/schedule/add", response_class=RedirectResponse)
@@ -343,8 +380,33 @@ async def add_schedule(
     notes: str = Form(""),
     db: Session = Depends(get_db)
 ):
-    """새 스케줄 추가"""
+    """새 스케줄 추가 + 글 자동 생성"""
     
+    # 작업자 정보 조회
+    worker = db.query(User).filter(User.id == worker_id).first()
+    if not worker:
+        return RedirectResponse(url="/marketing/schedules", status_code=303)
+    
+    # 제목 생성
+    post_title = generate_post_title(worker.username, scheduled_date, worker_id, db)
+    
+    # MarketingPost 생성
+    new_post = MarketingPost(
+        marketing_product_id=marketing_product_id,
+        keyword_text=keyword_text,
+        post_title=post_title,
+        post_content="",
+        post_url="",
+        worker_id=worker_id,
+        account_id=account_id,
+        cafe_id=cafe_id,
+        status="pending",
+        reference_id=None
+    )
+    db.add(new_post)
+    db.flush()  # ID 생성
+    
+    # PostSchedule 생성 (글과 연결)
     new_schedule = PostSchedule(
         scheduled_date=scheduled_date,
         worker_id=worker_id,
@@ -353,7 +415,8 @@ async def add_schedule(
         marketing_product_id=marketing_product_id,
         keyword_text=keyword_text,
         notes=notes,
-        status="pending"
+        status="pending",
+        marketing_post_id=new_post.id  # 연결!
     )
     
     db.add(new_schedule)
@@ -363,6 +426,7 @@ async def add_schedule(
         url=f"/marketing/schedules?selected_date={scheduled_date}",
         status_code=303
     )
+
 
 @router.post("/schedule/{schedule_id}/toggle-complete")
 async def toggle_schedule_complete(
@@ -421,13 +485,22 @@ async def delete_schedule(
     schedule_id: int,
     db: Session = Depends(get_db)
 ):
-    """스케줄 삭제"""
+    """스케줄 및 연결된 글 삭제"""
     
     schedule = db.query(PostSchedule).filter(
         PostSchedule.id == schedule_id
     ).first()
     
     if schedule:
+        # 연결된 MarketingPost 먼저 삭제
+        if schedule.marketing_post_id:
+            post = db.query(MarketingPost).filter(
+                MarketingPost.id == schedule.marketing_post_id
+            ).first()
+            if post:
+                db.delete(post)
+        
+        # 스케줄 삭제
         db.delete(schedule)
         db.commit()
     
@@ -439,12 +512,12 @@ async def change_schedule_status(
     request: Request,
     db: Session = Depends(get_db)
 ):
-    """스케줄 상태 변경"""
+    """스케줄 상태 변경 (MarketingPost와 동기화)"""
     
     body = await request.json()
     new_status = body.get('status')
     
-    if new_status not in ['pending', 'in_progress', 'completed', 'skipped']:
+    if new_status not in ['pending', 'in_progress', 'completed', 'skipped', 'deleted']:
         return {"success": False, "error": "Invalid status"}
     
     schedule = db.query(PostSchedule).filter(
@@ -462,6 +535,21 @@ async def change_schedule_status(
         elif new_status == 'pending':
             schedule.is_completed = False
             schedule.completed_at = None
+        
+        # 연결된 MarketingPost도 동기화
+        if schedule.marketing_post_id:
+            post = db.query(MarketingPost).filter(
+                MarketingPost.id == schedule.marketing_post_id
+            ).first()
+            if post:
+                post.status = new_status
+                if new_status == 'pending':
+                    post.is_completed = False
+                    post.completed_at = None
+                elif new_status == 'completed':
+                    post.is_completed = True
+                    if not post.completed_at:
+                        post.completed_at = datetime.utcnow()
         
         db.commit()
         return {"success": True}
@@ -538,6 +626,59 @@ async def get_edit_schedule(
         "membership_map": membership_map,
         "product_keywords_map": product_keywords_map
     })
+
+@router.get("/schedule/{schedule_id}/info")
+async def get_schedule_info(
+    schedule_id: int,
+    db: Session = Depends(get_db)
+):
+    """스케줄 정보 가져오기 (모달용)"""
+    
+    schedule = db.query(PostSchedule).options(
+        joinedload(PostSchedule.worker),
+        joinedload(PostSchedule.account),
+        joinedload(PostSchedule.cafe),
+        joinedload(PostSchedule.marketing_product)
+    ).filter(PostSchedule.id == schedule_id).first()
+    
+    if not schedule:
+        return {"success": False, "error": "Schedule not found"}
+    
+    # 스케줄 정보
+    schedule_data = {
+        "worker_id": schedule.worker_id,
+        "account_id": schedule.account_id,
+        "cafe_id": schedule.cafe_id
+    }
+    
+    # 연결된 글 정보
+    post_data = None
+    if schedule.marketing_post_id:
+        post = db.query(MarketingPost).filter(
+            MarketingPost.id == schedule.marketing_post_id
+        ).first()
+        if post:
+            post_data = {
+                "id": post.id,
+                "post_title": post.post_title,
+                "post_content": post.post_content,
+                "post_comments": post.post_comments,
+                "post_url": post.post_url,
+                "status": post.status,
+                "is_live": post.is_live,
+                "worker_id": post.worker_id,
+                "account_id": post.account_id,
+                "cafe_id": post.cafe_id
+            }
+    
+    return {
+        "success": True,
+        "schedule_id": schedule.id,
+        "marketing_post_id": schedule.marketing_post_id,
+        "status": schedule.status,
+        "schedule": schedule_data,
+        "post": post_data
+    }
 
 @router.post("/schedule/{schedule_id}/update", response_class=RedirectResponse)
 async def update_schedule(
@@ -669,6 +810,26 @@ async def generate_schedules(
                         if usage and usage.usage_count >= 2:
                             continue  # 최대 2회 제한
                         
+                        # 제목 생성
+                        post_title = generate_post_title(user.username, current_date, worker_id, db)
+                        
+                        # MarketingPost 생성
+                        new_post = MarketingPost(
+                            marketing_product_id=marketing_product_id,
+                            keyword_text=keyword,
+                            post_title=post_title,
+                            post_content="",
+                            post_url="",
+                            worker_id=worker_id,
+                            account_id=membership.account_id,
+                            cafe_id=membership.cafe_id,
+                            status="pending",
+                            reference_id=None
+                        )
+                        db.add(new_post)
+                        db.flush()  # ID 생성
+                        
+                        # PostSchedule 생성 (글과 연결)
                         new_schedule = PostSchedule(
                             scheduled_date=current_date,
                             worker_id=worker_id,
@@ -676,7 +837,8 @@ async def generate_schedules(
                             cafe_id=membership.cafe_id,
                             marketing_product_id=marketing_product_id,
                             keyword_text=keyword,
-                            status="pending"
+                            status="pending",
+                            marketing_post_id=new_post.id  # 연결!
                         )
                         db.add(new_schedule)
                         
@@ -1246,16 +1408,18 @@ async def get_product_posts(
             if p.keyword_text not in keywords_list and p.keyword_text not in all_post_keywords:
                 other_posts.append(p)
 
-    # 전체 통계 계산
+    # 전체 통계 계산 (status 필드 기반)
     all_posts = db.query(MarketingPost).filter(
         MarketingPost.marketing_product_id == mp_id
     ).all()
     
     post_stats = {
         'total': len(all_posts),
-        'live': sum(1 for p in all_posts if p.is_live),
-        'deleted': sum(1 for p in all_posts if p.is_registration_complete and not p.is_live),
-        'draft': sum(1 for p in all_posts if not p.is_registration_complete)
+        'pending': sum(1 for p in all_posts if p.status == 'pending'),
+        'in_progress': sum(1 for p in all_posts if p.status == 'in_progress'),
+        'completed': sum(1 for p in all_posts if p.status == 'completed'),
+        'skipped': sum(1 for p in all_posts if p.status == 'skipped'),
+        'deleted': sum(1 for p in all_posts if p.status == 'deleted')
     }
 
     posts_by_keyword = {}
@@ -1429,6 +1593,29 @@ async def update_marketing_post(
         post.is_registration_complete = is_registration_complete
         post.post_url = post_url if is_registration_complete else None
         post.is_live = is_live
+        
+        # Option C: URL 입력 시 자동 완료
+        if post_url and post_url.strip():
+            post.status = "completed"
+            post.is_completed = True
+            post.completed_at = datetime.utcnow()
+        
+        # 연결된 PostSchedule 동기화
+        schedule = db.query(PostSchedule).filter(
+            PostSchedule.marketing_post_id == post_id
+        ).first()
+        
+        if schedule:
+            schedule.account_id = account_id
+            schedule.cafe_id = cafe_id
+            schedule.worker_id = worker_id
+            
+            # URL 입력 시 스케줄도 완료로 변경
+            if post_url and post_url.strip():
+                schedule.status = "completed"
+                schedule.is_completed = True
+                schedule.completed_at = datetime.utcnow()
+        
         db.commit()
     
     redirect_url = f"/marketing/product/posts/{mp_id}" if mp_id else "/marketing/cafe?tab=products"
@@ -1440,6 +1627,15 @@ async def delete_marketing_post(post_id: int, db: Session = Depends(get_db)):
     mp_id = None
     if post:
         mp_id = post.marketing_product_id
+        
+        # 연결된 PostSchedule 먼저 삭제
+        schedule = db.query(PostSchedule).filter(
+            PostSchedule.marketing_post_id == post_id
+        ).first()
+        if schedule:
+            db.delete(schedule)
+        
+        # 글 삭제
         db.delete(post)
         db.commit()
     
