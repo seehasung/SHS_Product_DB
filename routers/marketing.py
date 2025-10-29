@@ -305,7 +305,7 @@ async def get_schedules(
     # 연결되지 않은 글 목록
     linked_post_ids = db.query(PostSchedule.marketing_post_id).filter(
         PostSchedule.marketing_post_id != None
-    ).subquery()
+    ).scalar_subquery()
     
     unlinked_posts = db.query(MarketingPost).options(
         joinedload(MarketingPost.worker),
@@ -319,6 +319,7 @@ async def get_schedules(
         "request": request,
         "username": username,
         "selected_date": target_date,
+        "today": today,  # ✅ today 추가!
         "schedules": schedules,
         "today_stats": today_stats,
         "workers": workers,
