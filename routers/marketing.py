@@ -1335,7 +1335,7 @@ async def get_product_posts(
     keyword_search: str = Query(""),
     error: str = Query(None)
 ):
-    PAGE_SIZE = 40
+    PAGE_SIZE = 20
     
     marketing_product = db.query(MarketingProduct).options(
         joinedload(MarketingProduct.product)
