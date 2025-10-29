@@ -485,7 +485,6 @@
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h1>☕ 카페 작업 관리</h1>
         <div class="d-flex gap-2">
-            <!-- ✅ 새로 추가: 레퍼런스 생성 버튼 -->
             <form action="/marketing/reference/add" method="post" class="d-inline">
                 <button type="submit" class="btn btn-success">
                     <i class="bi bi-plus-circle"></i> 레퍼런스 생성
@@ -758,7 +757,7 @@
                     <a href="?tab=references&ref_filter=all" class="btn btn-sm {{ 'btn-dark' if reference_filter == 'all' else 'btn-outline-dark' }}">전체</a>
                     <a href="?tab=references&ref_filter=대안" class="btn btn-sm {{ 'btn-danger' if reference_filter == '대안' else 'btn-outline-danger' }}">대안</a>
                     <a href="?tab=references&ref_filter=정보" class="btn btn-sm {{ 'btn-primary' if reference_filter == '정보' else 'btn-outline-primary' }}">정보</a>
-                    <a href="?tab=references&ref_filter=기타" class="btn btn-sm {{ 'btn-success' if reference_filter == '기타' else 'btn-outline-success' }}">기타</a>
+                    <a href="?tab=references&ref_filter=기타" class="btn btn-sm {{ 'btn-secondary' if reference_filter == '기타' else 'btn-outline-secondary' }}">기타</a>
                 </div>
             </div>
 
@@ -776,7 +775,7 @@
                     <tr>
                         <td><span class="ref-badge ref-{{ ref.ref_type or '기타' }}">{{ ref.ref_type or '미지정' }}</span></td>
                         <td><a href="/marketing/reference/{{ ref.id }}" class="text-decoration-none">{{ ref.title }}</a></td>
-                        <td>{{ ref.last_modified_by.username if ref.last_modified_by else '없음' }}</td>
+                        <td>{{ ref.last_modified_by_name or '없음' }}</td>
                         <td class="text-center">
                             <form action="/marketing/reference/delete/{{ ref.id }}" method="post" onsubmit="return confirm('\'{{ ref.title }}\' 레퍼런스를 정말 삭제하시겠습니까?');">
                                 <button type="submit" class="btn btn-sm btn-outline-danger">삭제</button>
@@ -894,6 +893,15 @@
 </div>
 
 <script>
+    // 🔥 전역 오류 무시 (네이버 스크립트 오류 방지)
+    window.addEventListener('error', function(e) {
+        // 네이버 관련 스크립트 오류 무시
+        if (e.filename && (e.filename.includes('naver') || e.filename.includes('web-client'))) {
+            e.preventDefault();
+            return true;
+        }
+    });
+
     document.addEventListener('DOMContentLoaded', function () {
         const params = new URLSearchParams(window.location.search);
         let tab = params.get('tab');
