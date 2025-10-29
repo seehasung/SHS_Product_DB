@@ -309,6 +309,19 @@
         transform: translateY(-4px);
     }
     
+    .btn-outline-warning {
+        background: linear-gradient(135deg, rgba(255, 212, 59, 0.1) 0%, rgba(255, 193, 7, 0.1) 100%);
+        border: 2px solid rgba(255, 193, 7, 0.3);
+        color: #ffc107;
+    }
+    
+    .btn-outline-warning:hover {
+        background: linear-gradient(135deg, #ffc107 0%, #ffb300 100%);
+        border-color: transparent;
+        color: #000;
+        transform: translateY(-4px);
+    }
+    
     .btn-outline-secondary {
         border: 2px solid rgba(99, 110, 114, 0.3);
         color: #636e72;
@@ -672,7 +685,7 @@
                         <span class="keyword-badge">{{ schedule.keyword_text }}</span>
                     </td>
                     <td>
-                        <span class="status-badge status-{{ schedule.status }}">
+                        <span class="status-badge status-{{ schedule.status|replace('_', '-') }}">
                             {% if schedule.status == 'pending' %}대기중
                             {% elif schedule.status == 'in_progress' %}진행중
                             {% elif schedule.status == 'completed' %}완료

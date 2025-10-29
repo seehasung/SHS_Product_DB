@@ -398,7 +398,7 @@
                             <tr>
                                 <td>
                                     {% set schedule_status = post.schedules[0].status if post.schedules else 'pending' %}
-                                    <span class="status-badge status-{{ schedule_status }}">
+                                    <span class="status-badge status-{{ schedule_status|replace('_', '-') }}">
                                         {% if schedule_status == 'pending' %}대기중
                                         {% elif schedule_status == 'in_progress' %}진행중
                                         {% elif schedule_status == 'completed' %}완료
