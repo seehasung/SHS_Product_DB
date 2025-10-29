@@ -493,6 +493,21 @@
             <a href="/" class="btn btn-secondary">← 홈으로</a>
         </div>
     </div>
+    
+
+    {% if graduation_messages %}
+    <div class="alert alert-success alert-dismissible fade show shadow-lg" role="alert" style="animation: fadeInUp 0.5s ease-out;">
+        <h5 class="alert-heading">
+            <i class="bi bi-mortarboard-fill"></i> 자동 졸업 처리 완료!
+        </h5>
+        <hr>
+        {% for message in graduation_messages %}
+        <p class="mb-2">{{ message|safe }}</p>
+        {% endfor %}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+    {% endif %}
+
 
     <!-- 오류 메시지 표시 -->
     {% if error == 'duplicate' %}

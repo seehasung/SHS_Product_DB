@@ -77,6 +77,42 @@ async def marketing_cafe(request: Request, db: Session = Depends(get_db)):
     tab = request.query_params.get('tab', 'status')
     error = request.query_params.get('error')
     
+    # ✅ ========================================
+    # 페이지 로드 시마다 모든 연동 자동 졸업 체크
+    # ========================================
+    graduation_messages = []
+    
+    # 모든 활성/정지 상태 연동 조회
+    all_memberships = db.query(CafeMembership).options(
+        joinedload(CafeMembership.account),
+        joinedload(CafeMembership.cafe)
+    ).filter(
+        CafeMembership.status.in_(['active', 'suspended'])
+    ).all()
+    
+    # 각 연동에 대해 10개 체크
+    for membership in all_memberships:
+        # 전체 글 수 계산 (모든 상품, 모든 키워드)
+        total_posts_count = db.query(PostSchedule).filter(
+            PostSchedule.account_id == membership.account_id,
+            PostSchedule.cafe_id == membership.cafe_id,
+            PostSchedule.status.in_(['pending', 'in_progress', 'completed'])
+        ).count()
+        
+        # 10개 이상이면 자동 졸업
+        if total_posts_count >= 10:
+            membership.status = 'graduated'
+            
+            # 졸업 메시지 저장
+            graduation_message = f"🎓 <strong>{membership.account.account_id}</strong>님이 <strong>{membership.cafe.name}</strong> 카페를 졸업했습니다! (총 {total_posts_count}개 글)"
+            graduation_messages.append(graduation_message)
+            
+            print(f"✅ 자동 졸업: {membership.account.account_id} @ {membership.cafe.name} ({total_posts_count}개)")
+    
+    # 변경사항 커밋
+    if graduation_messages:
+        db.commit()
+    
     # --- 기존 전체 현황 탭 데이터 ---
     username = request.session.get("user")
     current_user = db.query(User).filter(User.username == username).first()
@@ -233,7 +269,10 @@ async def marketing_cafe(request: Request, db: Session = Depends(get_db)):
         "today_schedules": today_schedules[:10],  # 최근 10개만
         "today_stats": today_stats,
         "workers": workers,
-        "worker_quotas": worker_quotas
+        "worker_quotas": worker_quotas,
+        
+        # ✅ 졸업 메시지 추가
+        "graduation_messages": graduation_messages
     })
 
 # --- 스케줄 관리 라우터 추가 ---
@@ -432,6 +471,8 @@ async def get_schedules(
         "all_references": all_references,
         "references_by_type": references_by_type
     })
+
+# ... (나머지 모든 라우터 함수들은 동일하게 유지) ...
 
 @router.post("/schedule/add", response_class=RedirectResponse)
 async def add_schedule(
@@ -697,7 +738,7 @@ async def generate_schedules(
     worker_ids: str = Form(""),
     db: Session = Depends(get_db)
 ):
-    """스케줄 자동 생성"""
+    """스케줄 자동 생성 (개선된 로직)"""
     
     if not worker_ids:
         return RedirectResponse(url="/marketing/cafe?tab=schedule&error=no_workers", status_code=303)
@@ -718,7 +759,7 @@ async def generate_schedules(
     except:
         return RedirectResponse(url="/marketing/cafe?tab=schedule&error=invalid_keywords", status_code=303)
     
-    # 계정-카페 매핑
+    # 활성 계정-카페 매핑
     memberships = db.query(CafeMembership).filter(
         CafeMembership.status == 'active'
     ).all()
@@ -726,7 +767,89 @@ async def generate_schedules(
     if not memberships:
         return RedirectResponse(url="/marketing/cafe?tab=schedule&error=no_memberships", status_code=303)
     
+    # ✅ ========================================
+    # 헬퍼 함수들
+    # ========================================
+    
+    def get_active_post_count(keyword):
+        """키워드의 활성 글 수 (completed + pending)"""
+        return db.query(PostSchedule).filter(
+            PostSchedule.keyword_text == keyword,
+            PostSchedule.marketing_product_id == marketing_product_id,
+            PostSchedule.status.in_(['completed', 'pending'])
+        ).count()
+    
+    def get_total_account_cafe_posts(account_id, cafe_id):
+        """계정+카페 조합의 전체 글 수 (모든 상품/키워드)"""
+        return db.query(PostSchedule).filter(
+            PostSchedule.account_id == account_id,
+            PostSchedule.cafe_id == cafe_id,
+            PostSchedule.status.in_(['pending', 'in_progress', 'completed'])
+        ).count()
+    
+    def get_existing_cafes_for_keyword(keyword):
+        """키워드에 이미 사용된 카페들"""
+        existing_posts = db.query(PostSchedule).filter(
+            PostSchedule.keyword_text == keyword,
+            PostSchedule.marketing_product_id == marketing_product_id,
+            PostSchedule.status != 'deleted'
+        ).all()
+        
+        cafe_ids = list(set([post.cafe_id for post in existing_posts]))
+        return cafe_ids[:3]  # 최대 3개만
+    
+    def get_alternative_account_cafe(keyword, unavailable_cafe_id):
+        """연동 해제 시 대체 계정+카페 조합 찾기 (순환)"""
+        
+        # 이 키워드로 작성된 다른 글들 (연동 해제된 카페 제외)
+        other_posts = db.query(PostSchedule).filter(
+            PostSchedule.keyword_text == keyword,
+            PostSchedule.marketing_product_id == marketing_product_id,
+            PostSchedule.cafe_id != unavailable_cafe_id,
+            PostSchedule.status != 'deleted'
+        ).order_by(PostSchedule.id).all()
+        
+        if not other_posts:
+            return None, None
+        
+        # 순환 인덱스 계산 (해당 카페에 대체로 생성된 글 수)
+        replacement_count = db.query(PostSchedule).filter(
+            PostSchedule.keyword_text == keyword,
+            PostSchedule.marketing_product_id == marketing_product_id,
+            PostSchedule.cafe_id == unavailable_cafe_id,
+            PostSchedule.status != 'deleted'
+        ).count() - 3  # 원래 3개를 제외
+        
+        if replacement_count < 0:
+            replacement_count = 0
+        
+        rotation_index = replacement_count % len(other_posts)
+        
+        # 10개 제한 체크하며 순환
+        attempts = 0
+        while attempts < len(other_posts):
+            selected_post = other_posts[rotation_index]
+            
+            # 10개 제한 체크
+            total_posts = get_total_account_cafe_posts(
+                selected_post.account_id, 
+                selected_post.cafe_id
+            )
+            
+            if total_posts < 10:
+                return selected_post.account_id, selected_post.cafe_id
+            
+            # 다음 인덱스로 순환
+            rotation_index = (rotation_index + 1) % len(other_posts)
+            attempts += 1
+        
+        # 모든 조합이 10개 제한에 걸림
+        return None, None
+    
+    # ✅ ========================================
     # 날짜 범위 내에서 스케줄 생성
+    # ========================================
+    
     current_date = start_date
     keyword_index = 0
     
@@ -741,34 +864,136 @@ async def generate_schedules(
                 
                 daily_quota = user.daily_quota or 6
                 
-                # 일일 할당량만큼 스케줄 생성
-                for _ in range(daily_quota):
+                # 일일 할당량만큼 스케줄 생성 시도
+                posts_created_today = 0
+                
+                while posts_created_today < daily_quota:
                     if keyword_index >= len(active_keywords):
                         keyword_index = 0  # 키워드 순환
                     
                     keyword = active_keywords[keyword_index]
                     
-                    # 카페 선택 (키워드당 3개 카페)
-                    posts_per_keyword = 3
-                    for i in range(posts_per_keyword):
-                        membership_index = (keyword_index * posts_per_keyword + i) % len(memberships)
-                        membership = memberships[membership_index]
+                    # ✅ 1단계: 키워드당 6개 제한 체크
+                    active_count = get_active_post_count(keyword)
+                    if active_count >= 6:
+                        keyword_index += 1
+                        continue  # 이 키워드 스킵
+                    
+                    available_slots = 6 - active_count
+                    
+                    # ✅ 2단계: 기존 카페 조회 (고정)
+                    existing_cafe_ids = get_existing_cafes_for_keyword(keyword)
+                    
+                    if len(existing_cafe_ids) == 0:
+                        # 첫 생성: 3개 카페 선택
+                        target_cafe_ids = []
+                        for i in range(3):
+                            membership_index = (keyword_index * 3 + i) % len(memberships)
+                            target_cafe_ids.append(memberships[membership_index].cafe_id)
+                    else:
+                        # 기존 카페 사용 (고정)
+                        target_cafe_ids = existing_cafe_ids
+                    
+                    # ✅ 3단계: 각 카페별로 글 생성
+                    for cafe_id in target_cafe_ids:
+                        if posts_created_today >= daily_quota:
+                            break
                         
-                        # 사용 횟수 체크
-                        usage = db.query(AccountCafeUsage).filter(
-                            AccountCafeUsage.account_id == membership.account_id,
-                            AccountCafeUsage.cafe_id == membership.cafe_id,
-                            AccountCafeUsage.keyword_text == keyword,
-                            AccountCafeUsage.marketing_product_id == marketing_product_id
-                        ).first()
+                        if active_count >= 6:
+                            break  # 6개 제한 도달
                         
-                        if usage and usage.usage_count >= 2:
-                            continue  # 최대 2회 제한
+                        # 이전에 사용된 계정 찾기
+                        previous_post = db.query(PostSchedule).filter(
+                            PostSchedule.keyword_text == keyword,
+                            PostSchedule.marketing_product_id == marketing_product_id,
+                            PostSchedule.cafe_id == cafe_id,
+                            PostSchedule.status != 'deleted'
+                        ).order_by(PostSchedule.id).first()
                         
-                        # 제목 생성
-                        post_title = generate_post_title(user.username, current_date, worker_id, db)
+                        if previous_post:
+                            # 기존 계정 재사용
+                            use_account_id = previous_post.account_id
+                            use_cafe_id = cafe_id
+                            
+                            # 연동 상태 체크
+                            membership = db.query(CafeMembership).filter(
+                                CafeMembership.account_id == use_account_id,
+                                CafeMembership.cafe_id == use_cafe_id,
+                                CafeMembership.status == 'active'
+                            ).first()
+                            
+                            if not membership:
+                                # ✅ 연동 해제됨 → 대체 계정 찾기 (순환)
+                                alt_account_id, alt_cafe_id = get_alternative_account_cafe(
+                                    keyword, 
+                                    cafe_id
+                                )
+                                
+                                if not alt_account_id:
+                                    # 대체 불가능 → 이 키워드 스킵
+                                    break
+                                
+                                use_account_id = alt_account_id
+                                use_cafe_id = alt_cafe_id
+                            
+                            # 10개 제한 체크
+                            total_posts = get_total_account_cafe_posts(
+                                use_account_id, 
+                                use_cafe_id
+                            )
+                            
+                            if total_posts >= 10:
+                                # 10개 제한 → 대체 계정 찾기
+                                alt_account_id, alt_cafe_id = get_alternative_account_cafe(
+                                    keyword, 
+                                    cafe_id
+                                )
+                                
+                                if not alt_account_id:
+                                    # 대체 불가능 → 이 키워드 스킵
+                                    break
+                                
+                                use_account_id = alt_account_id
+                                use_cafe_id = alt_cafe_id
+                        else:
+                            # 완전히 새로운 카페 → 새 계정 선택
+                            membership_index = (keyword_index * 3) % len(memberships)
+                            membership = memberships[membership_index]
+                            use_account_id = membership.account_id
+                            use_cafe_id = cafe_id
+                            
+                            # 10개 제한 체크
+                            total_posts = get_total_account_cafe_posts(
+                                use_account_id, 
+                                use_cafe_id
+                            )
+                            
+                            if total_posts >= 10:
+                                # 다른 계정 찾기
+                                found = False
+                                for mb in memberships:
+                                    if mb.cafe_id == cafe_id:
+                                        total = get_total_account_cafe_posts(
+                                            mb.account_id, 
+                                            cafe_id
+                                        )
+                                        if total < 10:
+                                            use_account_id = mb.account_id
+                                            found = True
+                                            break
+                                
+                                if not found:
+                                    continue  # 사용 가능한 계정 없음
                         
-                        # MarketingPost 생성
+                        # ✅ 제목 생성
+                        post_title = generate_post_title(
+                            user.username, 
+                            current_date, 
+                            worker_id, 
+                            db
+                        )
+                        
+                        # ✅ MarketingPost 생성
                         new_post = MarketingPost(
                             marketing_product_id=marketing_product_id,
                             keyword_text=keyword,
@@ -776,39 +1001,29 @@ async def generate_schedules(
                             post_body="",
                             post_url="",
                             worker_id=worker_id,
-                            account_id=membership.account_id,
-                            cafe_id=membership.cafe_id
+                            account_id=use_account_id,
+                            cafe_id=use_cafe_id
                         )
                         db.add(new_post)
                         db.flush()  # ID 생성
                         
-                        # PostSchedule 생성 (글과 연결)
+                        # ✅ PostSchedule 생성 (글과 연결)
                         new_schedule = PostSchedule(
                             scheduled_date=current_date,
                             worker_id=worker_id,
-                            account_id=membership.account_id,
-                            cafe_id=membership.cafe_id,
+                            account_id=use_account_id,
+                            cafe_id=use_cafe_id,
                             marketing_product_id=marketing_product_id,
                             keyword_text=keyword,
                             status="pending",
-                            marketing_post_id=new_post.id  # 연결!
+                            marketing_post_id=new_post.id
                         )
                         db.add(new_schedule)
                         
-                        # 사용 횟수 업데이트
-                        if usage:
-                            usage.usage_count += 1
-                            usage.last_used_date = current_date
-                        else:
-                            usage = AccountCafeUsage(
-                                account_id=membership.account_id,
-                                cafe_id=membership.cafe_id,
-                                keyword_text=keyword,
-                                marketing_product_id=marketing_product_id,
-                                usage_count=1,
-                                last_used_date=current_date
-                            )
-                            db.add(usage)
+                        posts_created_today += 1
+                        active_count += 1
+                        
+                        print(f"✅ 생성: {keyword} | {use_account_id} + {use_cafe_id} | {current_date}")
                     
                     keyword_index += 1
         
@@ -976,6 +1191,7 @@ async def get_reference_detail(request: Request, ref_id: int, db: Session = Depe
         "comments": top_level_comments,
         "product": product  # ✅ product 추가!
     })
+
 @router.post("/reference/update/{ref_id}", response_class=RedirectResponse)
 async def update_reference(request: Request, ref_id: int, title: str = Form(...), content: str = Form(""), ref_type: str = Form(...), db: Session = Depends(get_db)):
     username = request.session.get("user")
