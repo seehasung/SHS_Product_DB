@@ -1,5 +1,3 @@
-# main.py
-
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
@@ -54,16 +52,31 @@ def read_root(request: Request):
     total_posts = 0
     new_posts_today = 0
     active_workers = 0
+    today_schedules = []  # 초기화 추가!
     
     if username and (can_manage_marketing or is_admin):
         db = SessionLocal()
         try:
             today = datetime.now().date()
             
-            # 오늘의 스케줄 통계
-            today_schedules = db.query(PostSchedule).filter(
-                PostSchedule.scheduled_date == today
-            ).all()
+            # 현재 로그인한 사용자 정보 가져오기
+            current_user = db.query(User).filter(User.username == username).first()
+            
+            # 오늘의 스케줄 통계 (로그인한 사용자의 스케줄만)
+            if current_user:
+                if is_admin:
+                    # 관리자는 모든 스케줄 보기
+                    today_schedules = db.query(PostSchedule).filter(
+                        PostSchedule.scheduled_date == today
+                    ).all()
+                else:
+                    # 일반 사용자는 자신의 스케줄만 보기
+                    today_schedules = db.query(PostSchedule).filter(
+                        PostSchedule.scheduled_date == today,
+                        PostSchedule.worker_id == current_user.id
+                    ).all()
+            else:
+                today_schedules = []
             
             today_stats = {
                 'total': len(today_schedules),
@@ -118,5 +131,6 @@ def read_root(request: Request):
         "today_stats": today_stats,
         "total_posts": total_posts,
         "new_posts_today": new_posts_today,
-        "active_workers": active_workers
+        "active_workers": active_workers,
+        "today_schedules": today_schedules
     })

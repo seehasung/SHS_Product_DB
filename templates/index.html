@@ -218,6 +218,123 @@
         font-size: 1.1rem;
     }
     
+    /* 오늘 작업 목록 섹션 */
+    .today-tasks {
+        background: rgba(255, 255, 255, 0.95);
+        backdrop-filter: blur(20px);
+        border: 1px solid rgba(255, 255, 255, 0.3);
+        border-radius: 20px;
+        padding: 24px;
+        margin-bottom: 40px;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
+        animation: fadeInUp 0.8s ease-out 0.6s backwards;
+    }
+    
+    .today-tasks-title {
+        font-size: 1.5rem;
+        font-weight: 800;
+        margin-bottom: 20px;
+        background: linear-gradient(135deg, #fdcb6e 0%, #ffeaa7 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+    }
+    
+    .task-table {
+        width: 100%;
+        border-collapse: separate;
+        border-spacing: 0 8px;
+    }
+    
+    .task-table thead th {
+        background: linear-gradient(135deg, rgba(74, 144, 226, 0.1) 0%, rgba(91, 163, 245, 0.1) 100%);
+        padding: 12px;
+        text-align: left;
+        font-weight: 700;
+        color: #2d3436;
+        font-size: 0.9rem;
+        white-space: nowrap;
+    }
+    
+    .task-table thead th:first-child {
+        border-radius: 10px 0 0 10px;
+    }
+    
+    .task-table thead th:last-child {
+        border-radius: 0 10px 10px 0;
+    }
+    
+    .task-table tbody tr {
+        background: white;
+        transition: all 0.2s;
+    }
+    
+    .task-table tbody tr:hover {
+        transform: translateX(4px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    }
+    
+    .task-table tbody td {
+        padding: 12px;
+        border-top: 1px solid rgba(0, 0, 0, 0.05);
+        border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+        font-size: 0.9rem;
+        color: #636e72;
+        white-space: nowrap;
+    }
+    
+    .task-table tbody td:first-child {
+        border-left: 1px solid rgba(0, 0, 0, 0.05);
+        border-radius: 10px 0 0 10px;
+    }
+    
+    .task-table tbody td:last-child {
+        border-right: 1px solid rgba(0, 0, 0, 0.05);
+        border-radius: 0 10px 10px 0;
+    }
+    
+    /* 상태 배지 - 한 줄로 표시 */
+    .status-badge {
+        padding: 5px 12px;
+        border-radius: 20px;
+        font-size: 0.85rem;
+        font-weight: 500;
+        white-space: nowrap;
+        display: inline-block;
+    }
+    
+    .status-pending {
+        background: #ffd43b;
+        color: #000;
+    }
+    
+    .status-in-progress {
+        background: #339af0;
+        color: white;
+    }
+    
+    .status-completed {
+        background: #51cf66;
+        color: white;
+    }
+    
+    .status-skipped {
+        background: #868e96;
+        color: white;
+    }
+    
+    .no-tasks {
+        text-align: center;
+        padding: 40px;
+        color: #95a5a6;
+    }
+    
+    .no-tasks i {
+        font-size: 3rem;
+        margin-bottom: 16px;
+        opacity: 0.5;
+    }
+    
     /* 기능 카드 */
     .feature-card {
         background: rgba(255, 255, 255, 0.95);
@@ -502,6 +619,15 @@
             justify-content: center;
         }
         
+        .today-tasks {
+            padding: 20px;
+            overflow-x: auto;
+        }
+        
+        .task-table {
+            min-width: 600px;
+        }
+        
         .feature-card {
             padding: 24px;
             border-radius: 16px;
@@ -595,12 +721,11 @@
                 <div class="quick-actions-title">⚡ 빠른 작업</div>
                 <div class="quick-action-buttons">
                     {% if can_manage_marketing or is_admin %}
+                    {% if is_admin %}
                     <a href="/marketing/schedules" class="quick-action-btn">
                         <i class="bi bi-calendar-week"></i> 전체 스케줄
                     </a>
-                    <a href="/marketing/cafe?tab=schedule" class="quick-action-btn">
-                        <i class="bi bi-calendar-plus"></i> 스케줄 생성
-                    </a>
+                    {% endif %}
                     <a href="/marketing/product-selection" class="quick-action-btn">
                         <i class="bi bi-bag-plus"></i> 마케팅 상품 추가
                     </a>
@@ -616,6 +741,55 @@
                     </a>
                     {% endif %}
                 </div>
+            </div>
+            {% endif %}
+            
+            <!-- 오늘 진행할 작업 목록 (마케팅 권한 있을 때만) -->
+            {% if can_manage_marketing or is_admin %}
+            <div class="today-tasks">
+                <div class="today-tasks-title">📋 오늘 진행할 작업 목록</div>
+                {% if today_schedules %}
+                <div style="overflow-x: auto;">
+                    <table class="task-table">
+                        <thead>
+                            <tr>
+                                <th>상태</th>
+                                <th>작업자</th>
+                                <th>상품명</th>
+                                <th>키워드</th>
+                                <th>계정</th>
+                                <th>카페</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for schedule in today_schedules %}
+                            <tr>
+                                <td>
+                                    <span class="status-badge status-{{ schedule.status|replace('_', '-') }}">
+                                        {% if schedule.status == 'pending' %}대기중
+                                        {% elif schedule.status == 'in_progress' %}진행중
+                                        {% elif schedule.status == 'completed' %}완료
+                                        {% elif schedule.status == 'skipped' %}건너뜀
+                                        {% else %}대기중
+                                        {% endif %}
+                                    </span>
+                                </td>
+                                <td><strong>{{ schedule.worker.username if schedule.worker else '미할당' }}</strong></td>
+                                <td>{{ schedule.marketing_product.product.name if schedule.marketing_product and schedule.marketing_product.product else '상품 없음' }}</td>
+                                <td>{{ schedule.keyword_text }}</td>
+                                <td>{{ schedule.account.account_id if schedule.account else 'N/A' }}</td>
+                                <td>{{ schedule.cafe.name if schedule.cafe else 'N/A' }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="no-tasks">
+                    <i class="bi bi-calendar-x"></i>
+                    <p>오늘 할당된 작업이 없습니다</p>
+                </div>
+                {% endif %}
             </div>
             {% endif %}
             
@@ -685,14 +859,13 @@
                             날짜별 작업 할당, 진행 상황 추적, 자동 스케줄 생성 등 효율적인 일정 관리 시스템입니다.
                         </p>
                         <div class="feature-buttons">
+                            {% if is_admin %}
                             <a href="/marketing/schedules" class="btn-modern btn-modern-primary">
                                 <i class="bi bi-calendar3"></i> 전체 스케줄
                             </a>
+                            {% endif %}
                             <a href="/marketing/schedules?selected_date={{ today }}" class="btn-modern btn-modern-outline">
                                 <i class="bi bi-calendar-check"></i> 오늘 작업
-                            </a>
-                            <a href="/marketing/cafe?tab=schedule" class="btn-modern btn-modern-outline">
-                                <i class="bi bi-magic"></i> 자동 생성
                             </a>
                         </div>
                     </div>

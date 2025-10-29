@@ -244,12 +244,77 @@ async def get_schedules(
     selected_date: Optional[str] = Query(None),
     db: Session = Depends(get_db)
 ):
-    """전체 현황 관리 페이지"""
+    """전체 현황 관리 페이지 (관리자 전용)"""
     
     # 로그인 체크
     username = request.session.get("user")
     if not username:
         return RedirectResponse("/login", status_code=302)
+    
+    # 관리자 권한 체크
+    is_admin = request.session.get("is_admin", False)
+    if not is_admin:
+        return HTMLResponse("""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="UTF-8">
+            <title>접근 거부</title>
+            <style>
+                body {
+                    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                    display: flex;
+                    justify-content: center;
+                    align-items: center;
+                    height: 100vh;
+                    margin: 0;
+                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                }
+                .container {
+                    background: white;
+                    padding: 40px;
+                    border-radius: 15px;
+                    box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+                    text-align: center;
+                    max-width: 500px;
+                }
+                h1 {
+                    color: #e74c3c;
+                    margin-bottom: 20px;
+                }
+                p {
+                    color: #555;
+                    font-size: 18px;
+                    margin-bottom: 30px;
+                }
+                .btn {
+                    display: inline-block;
+                    padding: 12px 30px;
+                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    color: white;
+                    text-decoration: none;
+                    border-radius: 25px;
+                    transition: transform 0.2s;
+                }
+                .btn:hover {
+                    transform: translateY(-2px);
+                }
+                .icon {
+                    font-size: 80px;
+                    margin-bottom: 20px;
+                }
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <div class="icon">🚫</div>
+                <h1>접근 불가</h1>
+                <p>이 페이지는 관리자만 접근할 수 있습니다.<br>관리자에게 문의하세요.</p>
+                <a href="/" class="btn">홈으로 돌아가기</a>
+            </div>
+        </body>
+        </html>
+        """, status_code=403)
     
     # 날짜 파싱 (없으면 오늘)
     if selected_date:
