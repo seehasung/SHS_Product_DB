@@ -1193,7 +1193,7 @@
                         <div class="comments-manager">
                             <div class="comments-header">
                                 <span class="comments-title">💬 댓글</span>
-                                <button type="button" class="btn-add-comment" onclick="addComment('edit_schedule', null)">
+                                <button type="button" class="btn-add-comment" onclick="openCommentModal('edit_schedule', null)">
                                     <i class="bi bi-plus-lg"></i> 댓글 추가
                                 </button>
                             </div>
@@ -1682,55 +1682,83 @@ function parseTextComments(textContent) {
 
 // 전역 댓글 데이터 저장소
 const commentsDataStore = {};
+let currentCommentModalId = null;
+let currentCommentParentId = null;
+let currentEditingCommentId = null;
 
 /**
- * 댓글 추가 다이얼로그
+ * 댓글 추가/수정 모달 열기
  */
-function addComment(modalId, parentId = null) {
-    const accountSequence = prompt(parentId ? '답글 작성 계정 (0=작성자, 1~8=계정 번호):' : '댓글 작성 계정 (0=작성자, 1~8=계정 번호):');
-    if (accountSequence === null) return;
+function openCommentModal(modalId, parentId, commentId = null) {
+    currentCommentModalId = modalId;
+    currentCommentParentId = parentId;
+    currentEditingCommentId = commentId;
     
-    const accountNum = parseInt(accountSequence);
-    if (isNaN(accountNum) || accountNum < 0 || accountNum > 8) {
-        alert('0~8 사이의 숫자를 입력하세요.');
+    const modal = new bootstrap.Modal(document.getElementById('commentModal'));
+    const title = document.getElementById('commentModalTitle');
+    const accountSelect = document.getElementById('commentAccountSelect');
+    const textarea = document.getElementById('commentTextarea');
+    
+    if (commentId) {
+        // 수정 모드
+        title.textContent = '댓글 수정';
+        const comment = commentsDataStore[modalId]?.find(c => c.id === commentId);
+        if (comment) {
+            accountSelect.value = comment.account_sequence;
+            textarea.value = comment.text;
+        }
+    } else {
+        // 추가 모드
+        title.textContent = parentId ? '답글 추가' : '댓글 추가';
+        accountSelect.value = '0';
+        textarea.value = '';
+    }
+    
+    modal.show();
+}
+
+/**
+ * 댓글 저장 (추가 또는 수정)
+ */
+function saveComment() {
+    const accountSequence = parseInt(document.getElementById('commentAccountSelect').value);
+    const text = document.getElementById('commentTextarea').value.trim();
+    
+    if (!text) {
+        alert('댓글 내용을 입력하세요.');
         return;
     }
     
-    const commentText = prompt(parentId ? '답글 내용을 입력하세요:' : '댓글 내용을 입력하세요:');
-    if (!commentText || commentText.trim() === '') return;
-    
-    if (!commentsDataStore[modalId]) {
-        commentsDataStore[modalId] = [];
+    if (!commentsDataStore[currentCommentModalId]) {
+        commentsDataStore[currentCommentModalId] = [];
     }
     
-    const newComment = {
-        id: Date.now(),
-        account_sequence: accountNum,
-        text: commentText.trim(),
-        parent_id: parentId
-    };
+    if (currentEditingCommentId) {
+        // 수정
+        const comment = commentsDataStore[currentCommentModalId].find(c => c.id === currentEditingCommentId);
+        if (comment) {
+            comment.account_sequence = accountSequence;
+            comment.text = text;
+        }
+    } else {
+        // 추가
+        const newComment = {
+            id: Date.now(),
+            account_sequence: accountSequence,
+            text: text,
+            parent_id: currentCommentParentId
+        };
+        commentsDataStore[currentCommentModalId].push(newComment);
+    }
     
-    commentsDataStore[modalId].push(newComment);
-    saveCommentsToHidden(modalId);
-    renderCommentsManager(modalId, commentsDataStore[modalId]);
+    saveCommentsToHidden(currentCommentModalId);
+    renderCommentsManager(currentCommentModalId, commentsDataStore[currentCommentModalId]);
+    
+    // 모달 닫기
+    const modal = bootstrap.Modal.getInstance(document.getElementById('commentModal'));
+    modal.hide();
 }
 
-/**
- * 댓글 수정
- */
-function editComment(modalId, commentId) {
-    if (!commentsDataStore[modalId]) return;
-    
-    const comment = commentsDataStore[modalId].find(c => c.id === commentId);
-    if (!comment) return;
-    
-    const newText = prompt('댓글 내용 수정:', comment.text);
-    if (newText === null || newText.trim() === '') return;
-    
-    comment.text = newText.trim();
-    saveCommentsToHidden(modalId);
-    renderCommentsManager(modalId, commentsDataStore[modalId]);
-}
 
 /**
  * 댓글 삭제
@@ -1856,13 +1884,15 @@ function renderCommentCard(modalId, comment, isReply = false) {
                     <strong>${accountLabel}</strong>
                 </div>
                 <div class="comment-actions">
-                    <button type="button" class="btn-comment-action btn-comment-edit" onclick="editComment('${modalId}', ${comment.id})">
+                    <button type="button" class="btn-comment-action btn-comment-edit" onclick="openCommentModal('${modalId}', null, ${comment.id})">
                         수정
                     </button>
                     <button type="button" class="btn-comment-action btn-comment-delete" onclick="deleteComment('${modalId}', ${comment.id})">
                         삭제
                     </button>
-                    ${!isReply ? `<button type="button" class="btn-comment-action btn-comment-reply" onclick="addComment('${modalId}', ${comment.id})">답글</button>` : ''}
+                    <button type="button" class="btn-comment-action btn-comment-reply" onclick="openCommentModal('${modalId}', ${comment.id})">
+                        답글
+                    </button>
                 </div>
             </div>
             <div class="comment-text-display">${escapeHtml(comment.text)}</div>
@@ -1878,6 +1908,7 @@ function renderCommentCard(modalId, comment, isReply = false) {
     return html;
 }
 
+
 /**
  * HTML 이스케이프
  */
@@ -1887,4 +1918,41 @@ function escapeHtml(text) {
     return div.innerHTML;
 }
 </script>
+
+<!-- 댓글 추가/수정 모달 -->
+<div class="modal fade" id="commentModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="commentModalTitle">댓글 추가</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label">작성 계정</label>
+                    <select class="form-select" id="commentAccountSelect">
+                        <option value="0">작성자</option>
+                        <option value="1">계정 1</option>
+                        <option value="2">계정 2</option>
+                        <option value="3">계정 3</option>
+                        <option value="4">계정 4</option>
+                        <option value="5">계정 5</option>
+                        <option value="6">계정 6</option>
+                        <option value="7">계정 7</option>
+                        <option value="8">계정 8</option>
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">댓글 내용</label>
+                    <textarea class="form-control" id="commentTextarea" rows="4" placeholder="댓글 내용을 입력하세요..."></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">취소</button>
+                <button type="button" class="btn btn-primary" onclick="saveComment()">저장</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 {% endblock %}

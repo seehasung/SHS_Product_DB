@@ -645,7 +645,7 @@
                             <div class="comments-manager">
                                 <div class="comments-header">
                                     <span class="comments-title">💬 댓글</span>
-                                    <button type="button" class="btn-add-comment" onclick="addComment('edit_{{ post.id }}', null)">
+                                    <button type="button" class="btn-add-comment" onclick="openCommentModal('edit_{{ post.id }}', null)">
                                         <i class="bi bi-plus-lg"></i> 댓글 추가
                                     </button>
                                 </div>
@@ -763,7 +763,7 @@
                                 <div class="comments-manager">
                                     <div class="comments-header">
                                         <span class="comments-title">💬 댓글</span>
-                                        <button type="button" class="btn-add-comment" onclick="addComment('add', null)">
+                                        <button type="button" class="btn-add-comment" onclick="openCommentModal('add', null)">
                                             <i class="bi bi-plus-lg"></i> 댓글 추가
                                         </button>
                                     </div>
@@ -799,10 +799,45 @@
     </div>
 </div>
 
+<!-- 댓글 추가/수정 모달 (공통) -->
+<div class="modal fade" id="commentModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="commentModalTitle">댓글 추가</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label">작성 계정</label>
+                    <select class="form-select" id="commentAccountSelect">
+                        <option value="0">작성자</option>
+                        <option value="1">계정 1</option>
+                        <option value="2">계정 2</option>
+                        <option value="3">계정 3</option>
+                        <option value="4">계정 4</option>
+                        <option value="5">계정 5</option>
+                        <option value="6">계정 6</option>
+                        <option value="7">계정 7</option>
+                        <option value="8">계정 8</option>
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">댓글 내용</label>
+                    <textarea class="form-control" id="commentTextarea" rows="4" placeholder="댓글 내용을 입력하세요..."></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">취소</button>
+                <button type="button" class="btn btn-primary" onclick="saveComment()">저장</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
 // 🔥 전역 오류 무시 (네이버 스크립트 오류 방지)
 window.addEventListener('error', function(e) {
-    // 네이버 관련 스크립트 오류 무시
     if (e.filename && (
         e.filename.includes('naver') || 
         e.filename.includes('web-client') ||
@@ -817,18 +852,16 @@ window.addEventListener('error', function(e) {
 // Python에서 전달받은 '계정-카페' 연동 맵
 const membershipMap = {{ membership_map | tojson | safe }};
 
-// Python에서 전달받은 '레퍼런스' 전체 데이터 (안전하게 JSON 변환)
+// Python에서 전달받은 '레퍼런스' 전체 데이터
 const allReferences = {{ references_json | tojson | safe }};
 
-// 🔥 초기화 디버깅
-console.log('========================================');
-console.log('🚀 페이지 로드 완료!');
-console.log('========================================');
-console.log('📊 membershipMap:', membershipMap);
-console.log('📊 membershipMap 키 목록:', Object.keys(membershipMap));
-console.log('📊 allReferences 개수:', allReferences.length);
-console.log('📊 allReferences 목록:', allReferences.map(r => ({id: r.id, title: r.title, type: r.ref_type})));
-console.log('========================================');
+// 전역 댓글 데이터 저장소
+const commentsDataStore = {};
+
+// 댓글 모달 상태 저장
+let currentCommentModalId = null;
+let currentCommentParentId = null;
+let currentEditingCommentId = null;
 
 /**
  * 네이버 계정 드롭다운이 변경될 때 호출되는 함수
@@ -837,15 +870,9 @@ function updateCafeDropdown(accountSelectElement, cafeSelectId) {
     const cafeSelect = document.getElementById(cafeSelectId);
     const selectedAccountId = accountSelectElement.value;
     
-    console.log('=== updateCafeDropdown 디버깅 ===');
-    console.log('선택된 계정 ID:', selectedAccountId, typeof selectedAccountId);
-    console.log('membershipMap:', membershipMap);
-    
     cafeSelect.innerHTML = '<option value="" disabled selected>계정을 먼저 선택하세요</option>';
 
-    // 문자열로 검색 (select의 value는 항상 문자열)
     const cafes = membershipMap[selectedAccountId];
-    console.log('찾은 카페 목록:', cafes);
     
     if (cafes && cafes.length > 0) {
         cafeSelect.innerHTML = '<option value="" disabled selected>작성할 카페를 선택하세요</option>';
@@ -856,14 +883,11 @@ function updateCafeDropdown(accountSelectElement, cafeSelectId) {
             option.textContent = cafe.name;
             cafeSelect.appendChild(option);
         });
-        console.log('카페 옵션 추가 완료:', cafes.length + '개');
-    } else {
-        console.log('카페 목록이 없거나 비어있습니다');
     }
 }
 
 /**
- * '등록 완료' 체크박스 클릭 시 URL 필드 토글 및 'required' 속성 제어
+ * '등록 완료' 체크박스 클릭 시 URL 필드 토글
  */
 function toggleUrlField(checkbox, fieldId) {
     const urlFieldDiv = document.getElementById(fieldId);
@@ -885,36 +909,23 @@ function filterReferences(typeSelect, titleSelectId) {
     const selectedType = typeSelect.value;
     const titleSelect = document.getElementById(titleSelectId);
     
-    console.log('========================================');
-    console.log('🔍 filterReferences 호출');
-    console.log('선택된 분류:', selectedType);
-    console.log('titleSelectId:', titleSelectId);
-    console.log('allReferences 전체:', allReferences.length + '개');
-    
-    // 🔥 제목 선택 드롭다운 초기화
     titleSelect.innerHTML = '';
     
     if (selectedType === "") {
-        // 분류를 선택하지 않았으면 기본 메시지
         const defaultOption = document.createElement('option');
         defaultOption.value = "";
         defaultOption.selected = true;
         defaultOption.textContent = "먼저 분류를 선택하세요";
         titleSelect.appendChild(defaultOption);
-        console.log('→ 분류 미선택, 기본 메시지 표시');
-        console.log('========================================');
         return;
     }
     
-    // 기본 옵션 추가
     const defaultOption = document.createElement('option');
     defaultOption.value = "";
     defaultOption.selected = true;
     defaultOption.textContent = "제목 선택...";
     titleSelect.appendChild(defaultOption);
     
-    // 🔥 선택된 분류에 맞는 레퍼런스만 필터링하여 추가
-    let addedCount = 0;
     allReferences.forEach(ref => {
         if (ref.ref_type === selectedType) {
             const option = document.createElement('option');
@@ -922,139 +933,85 @@ function filterReferences(typeSelect, titleSelectId) {
             option.textContent = ref.title;
             option.setAttribute('data-ref-type', ref.ref_type);
             titleSelect.appendChild(option);
-            addedCount++;
-            console.log(`  → 추가: ID ${ref.id}, 제목: "${ref.title}"`);
         }
     });
-    
-    console.log('✅ 필터링 완료! 추가된 제목:', addedCount + '개');
-    console.log('========================================');
 }
 
 // ========================================
-// 🎨 레퍼런스 스타일 댓글 관리 시스템
+// 🎨 댓글 관리 시스템
 // ========================================
 
 /**
- * 텍스트 형식의 댓글을 JSON 배열로 파싱
+ * 댓글 추가/수정 모달 열기
  */
-function parseTextComments(textContent) {
-    if (!textContent || textContent.trim() === '') return [];
+function openCommentModal(modalId, parentId, commentId = null) {
+    currentCommentModalId = modalId;
+    currentCommentParentId = parentId;
+    currentEditingCommentId = commentId;
     
-    const lines = textContent.split('\n');
-    const comments = [];
-    let currentComment = null;
-    let commentIdCounter = Date.now();
-    const parentStack = [];
+    const modal = new bootstrap.Modal(document.getElementById('commentModal'));
+    const title = document.getElementById('commentModalTitle');
+    const accountSelect = document.getElementById('commentAccountSelect');
+    const textarea = document.getElementById('commentTextarea');
     
-    for (let i = 0; i < lines.length; i++) {
-        const line = lines[i];
-        const trimmedLine = line.trim();
-        
-        if (!trimmedLine) continue;
-        
-        if (line.includes('(답글)')) {
-            if (currentComment) {
-                comments.push(currentComment);
-                parentStack.push(currentComment.id);
-            }
-            
-            const match = trimmedLine.match(/\(답글\)\s*(작성자|계정\s*(\d+)):\s*(.*)/);
-            if (match) {
-                const isAuthor = match[1] === '작성자';
-                const accountNum = isAuthor ? 0 : parseInt(match[2]);
-                const text = match[3] || '';
-                
-                currentComment = {
-                    id: commentIdCounter++,
-                    account_sequence: accountNum,
-                    text: text,
-                    parent_id: parentStack[parentStack.length - 1] || null
-                };
-            }
+    if (commentId) {
+        // 수정 모드
+        title.textContent = '댓글 수정';
+        const comment = commentsDataStore[modalId]?.find(c => c.id === commentId);
+        if (comment) {
+            accountSelect.value = comment.account_sequence;
+            textarea.value = comment.text;
         }
-        else if (trimmedLine.match(/^(작성자|계정\s*\d+):\s*$/)) {
-            if (currentComment) {
-                comments.push(currentComment);
-            }
-            
-            parentStack.length = 0;
-            
-            const match = trimmedLine.match(/^(작성자|계정\s*(\d+)):/);
-            if (match) {
-                const isAuthor = match[1] === '작성자';
-                const accountNum = isAuthor ? 0 : parseInt(match[2]);
-                
-                currentComment = {
-                    id: commentIdCounter++,
-                    account_sequence: accountNum,
-                    text: '',
-                    parent_id: null
-                };
-            }
-        }
-        else if (currentComment && trimmedLine) {
-            currentComment.text += (currentComment.text ? '\n' : '') + trimmedLine;
-        }
+    } else {
+        // 추가 모드
+        title.textContent = parentId ? '답글 추가' : '댓글 추가';
+        accountSelect.value = '0';
+        textarea.value = '';
     }
     
-    if (currentComment) {
-        comments.push(currentComment);
-    }
-    
-    return comments;
+    modal.show();
 }
 
-// 전역 댓글 데이터 저장소
-const commentsDataStore = {};
-
 /**
- * 댓글 추가 다이얼로그
+ * 댓글 저장 (추가 또는 수정)
  */
-function addComment(modalId, parentId = null) {
-    const accountSequence = prompt(parentId ? '답글 작성 계정 (0=작성자, 1~8=계정 번호):' : '댓글 작성 계정 (0=작성자, 1~8=계정 번호):');
-    if (accountSequence === null) return;
+function saveComment() {
+    const accountSequence = parseInt(document.getElementById('commentAccountSelect').value);
+    const text = document.getElementById('commentTextarea').value.trim();
     
-    const accountNum = parseInt(accountSequence);
-    if (isNaN(accountNum) || accountNum < 0 || accountNum > 8) {
-        alert('0~8 사이의 숫자를 입력하세요.');
+    if (!text) {
+        alert('댓글 내용을 입력하세요.');
         return;
     }
     
-    const commentText = prompt(parentId ? '답글 내용을 입력하세요:' : '댓글 내용을 입력하세요:');
-    if (!commentText || commentText.trim() === '') return;
-    
-    if (!commentsDataStore[modalId]) {
-        commentsDataStore[modalId] = [];
+    if (!commentsDataStore[currentCommentModalId]) {
+        commentsDataStore[currentCommentModalId] = [];
     }
     
-    const newComment = {
-        id: Date.now(),
-        account_sequence: accountNum,
-        text: commentText.trim(),
-        parent_id: parentId
-    };
+    if (currentEditingCommentId) {
+        // 수정
+        const comment = commentsDataStore[currentCommentModalId].find(c => c.id === currentEditingCommentId);
+        if (comment) {
+            comment.account_sequence = accountSequence;
+            comment.text = text;
+        }
+    } else {
+        // 추가
+        const newComment = {
+            id: Date.now(),
+            account_sequence: accountSequence,
+            text: text,
+            parent_id: currentCommentParentId
+        };
+        commentsDataStore[currentCommentModalId].push(newComment);
+    }
     
-    commentsDataStore[modalId].push(newComment);
-    saveCommentsToHidden(modalId);
-    renderCommentsManager(modalId, commentsDataStore[modalId]);
-}
-
-/**
- * 댓글 수정
- */
-function editComment(modalId, commentId) {
-    if (!commentsDataStore[modalId]) return;
+    saveCommentsToHidden(currentCommentModalId);
+    renderCommentsManager(currentCommentModalId, commentsDataStore[currentCommentModalId]);
     
-    const comment = commentsDataStore[modalId].find(c => c.id === commentId);
-    if (!comment) return;
-    
-    const newText = prompt('댓글 내용 수정:', comment.text);
-    if (newText === null || newText.trim() === '') return;
-    
-    comment.text = newText.trim();
-    saveCommentsToHidden(modalId);
-    renderCommentsManager(modalId, commentsDataStore[modalId]);
+    // 모달 닫기
+    const modal = bootstrap.Modal.getInstance(document.getElementById('commentModal'));
+    modal.hide();
 }
 
 /**
@@ -1166,7 +1123,7 @@ function renderCommentsManager(modalId, commentsData) {
 }
 
 /**
- * 개별 댓글 카드 렌더링
+ * 개별 댓글 카드 렌더링 (답글에도 답글 버튼 표시)
  */
 function renderCommentCard(modalId, comment, isReply = false) {
     const accountNum = comment.account_sequence;
@@ -1181,13 +1138,13 @@ function renderCommentCard(modalId, comment, isReply = false) {
                     <strong>${accountLabel}</strong>
                 </div>
                 <div class="comment-actions">
-                    <button type="button" class="btn-comment-action btn-comment-edit" onclick="editComment('${modalId}', ${comment.id})">
+                    <button type="button" class="btn-comment-action btn-comment-edit" onclick="openCommentModal('${modalId}', null, ${comment.id})">
                         수정
                     </button>
                     <button type="button" class="btn-comment-action btn-comment-delete" onclick="deleteComment('${modalId}', ${comment.id})">
                         삭제
                     </button>
-                    ${!isReply ? `<button type="button" class="btn-comment-action btn-comment-reply" onclick="addComment('${modalId}', ${comment.id})">답글</button>` : ''}
+                    <button type="button" class="btn-comment-action btn-comment-reply" onclick="openCommentModal('${modalId}', ${comment.id})">답글</button>
                 </div>
             </div>
             <div class="comment-text-display">${escapeHtml(comment.text)}</div>
@@ -1213,6 +1170,76 @@ function escapeHtml(text) {
 }
 
 /**
+ * 텍스트 형식의 댓글을 JSON 배열로 파싱
+ */
+function parseTextComments(textContent) {
+    if (!textContent || textContent.trim() === '') return [];
+    
+    const lines = textContent.split('\n');
+    const comments = [];
+    let currentComment = null;
+    let commentIdCounter = Date.now();
+    const parentStack = [];
+    
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        const trimmedLine = line.trim();
+        
+        if (!trimmedLine) continue;
+        
+        if (line.includes('(답글)')) {
+            if (currentComment) {
+                comments.push(currentComment);
+                parentStack.push(currentComment.id);
+            }
+            
+            const match = trimmedLine.match(/\(답글\)\s*(작성자|계정\s*(\d+)):\s*(.*)/);
+            if (match) {
+                const isAuthor = match[1] === '작성자';
+                const accountNum = isAuthor ? 0 : parseInt(match[2]);
+                const text = match[3] || '';
+                
+                currentComment = {
+                    id: commentIdCounter++,
+                    account_sequence: accountNum,
+                    text: text,
+                    parent_id: parentStack[parentStack.length - 1] || null
+                };
+            }
+        }
+        else if (trimmedLine.match(/^(작성자|계정\s*\d+):\s*$/)) {
+            if (currentComment) {
+                comments.push(currentComment);
+            }
+            
+            parentStack.length = 0;
+            
+            const match = trimmedLine.match(/^(작성자|계정\s*(\d+)):/);
+            if (match) {
+                const isAuthor = match[1] === '작성자';
+                const accountNum = isAuthor ? 0 : parseInt(match[2]);
+                
+                currentComment = {
+                    id: commentIdCounter++,
+                    account_sequence: accountNum,
+                    text: '',
+                    parent_id: null
+                };
+            }
+        }
+        else if (currentComment && trimmedLine) {
+            currentComment.text += (currentComment.text ? '\n' : '') + trimmedLine;
+        }
+    }
+    
+    if (currentComment) {
+        comments.push(currentComment);
+    }
+    
+    return comments;
+}
+
+/**
  * 레퍼런스 제목 선택 시, 폼 필드 채우기
  */
 function loadReference(titleSelect, titleFieldId, bodyFieldId, commentsDataId, refIdInputId) {
@@ -1223,7 +1250,6 @@ function loadReference(titleSelect, titleFieldId, bodyFieldId, commentsDataId, r
     const contentWrapper = document.getElementById(titleFieldId.replace('_post_title', '_content_wrapper'));
     const refIdInput = refIdInputId ? document.getElementById(refIdInputId) : null;
     
-    // modalId 추출 (예: "add" 또는 "edit_123")
     const modalId = commentsDataId.replace('_comments_data', '');
     
     if (!selectedId) {
@@ -1232,7 +1258,6 @@ function loadReference(titleSelect, titleFieldId, bodyFieldId, commentsDataId, r
         titleField.value = "";
         bodyField.value = "";
         
-        // 댓글 초기화
         commentsDataStore[modalId] = [];
         saveCommentsToHidden(modalId);
         renderCommentsManager(modalId, []);
@@ -1245,7 +1270,6 @@ function loadReference(titleSelect, titleFieldId, bodyFieldId, commentsDataId, r
         titleField.value = ref.title;
         bodyField.value = ref.content;
 
-        // 댓글 데이터를 JSON 형식으로 저장
         const commentsData = ref.comments.map(c => ({
             id: c.id,
             account_sequence: c.account_sequence,
@@ -1253,7 +1277,6 @@ function loadReference(titleSelect, titleFieldId, bodyFieldId, commentsDataId, r
             parent_id: c.parent_id
         }));
         
-        // 댓글 데이터 저장 및 렌더링
         commentsDataStore[modalId] = commentsData;
         saveCommentsToHidden(modalId);
         renderCommentsManager(modalId, commentsData);
@@ -1264,7 +1287,6 @@ function loadReference(titleSelect, titleFieldId, bodyFieldId, commentsDataId, r
 
 // 페이지 로드 시 댓글 초기화
 document.addEventListener('DOMContentLoaded', function() {
-    // 모든 hidden input에서 댓글 데이터 로드 및 렌더링
     document.querySelectorAll('[id$="_comments_data"]').forEach(input => {
         const modalId = input.id.replace('_comments_data', '');
         try {
@@ -1274,7 +1296,6 @@ document.addEventListener('DOMContentLoaded', function() {
             if (textContent.trim() === '' || textContent.trim() === '[]') {
                 commentsData = [];
             } else {
-                // 텍스트 형식 파싱
                 commentsData = parseTextComments(textContent);
             }
             
