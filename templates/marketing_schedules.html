@@ -63,6 +63,7 @@
         font-weight: 600;
         color: #495057;
         border-bottom: 2px solid #dee2e6;
+        white-space: nowrap;  /* ✅ 추가 */
     }
     
     .schedule-row {
@@ -78,8 +79,10 @@
         border-radius: 20px;
         font-size: 0.85rem;
         font-weight: 500;
+        white-space: nowrap;  /* ✅ 추가 */
+        display: inline-block;  /* ✅ 추가 */
     }
-    
+
     .status-pending {
         background: #ffd43b;
         color: #000;
@@ -149,6 +152,8 @@
         padding: 4px 8px;
         border-radius: 5px;
         font-size: 0.85rem;
+        white-space: nowrap;  /* ✅ 추가 */
+        display: inline-block;  /* ✅ 추가 */
     }
     
     .action-buttons {
