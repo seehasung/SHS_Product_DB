@@ -5,8 +5,7 @@ from dotenv import load_dotenv
 from sqlalchemy import create_engine, Column, Integer, String, Boolean, Text, ForeignKey, DateTime, Date, UniqueConstraint
 from sqlalchemy.orm import sessionmaker, declarative_base, relationship
 from passlib.hash import bcrypt
-import datetime
-from datetime import timezone
+from datetime import datetime, date, timedelta, timezone
 import pytz
 
 KST = pytz.timezone('Asia/Seoul')
@@ -14,7 +13,7 @@ KST = pytz.timezone('Asia/Seoul')
 # 한국 시간 반환 함수
 def get_kst_now():
     """현재 한국 시간 반환"""
-    return datetime.now(KST)
+    return datetime.now(KST) 
 
 load_dotenv()
 DATABASE_URL = os.environ.get("DATABASE_URL")
@@ -140,7 +139,7 @@ class Comment(Base):
     id = Column(Integer, primary_key=True, index=True)
     account_sequence = Column(Integer, nullable=False, server_default='0')
     text = Column(Text, nullable=False)
-    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    created_at = Column(DateTime, default=get_kst_now)
     reference_id = Column(Integer, ForeignKey("references.id", ondelete="CASCADE"))
     parent_id = Column(Integer, ForeignKey("comments.id", ondelete="CASCADE"), nullable=True)
     
@@ -152,7 +151,7 @@ class Comment(Base):
 class WorkTask(Base):
     __tablename__ = "work_tasks"
     id = Column(Integer, primary_key=True, index=True)
-    task_date = Column(DateTime, default=datetime.datetime.utcnow)
+    task_date = Column(DateTime, default=get_kst_now)
     status = Column(String, default="todo")
     worker_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     marketing_product_id = Column(Integer, ForeignKey("marketing_products.id", ondelete="CASCADE"))
@@ -184,8 +183,8 @@ class MarketingPost(Base):
     cafe_id = Column(Integer, ForeignKey("target_cafes.id", ondelete="SET NULL"), nullable=True)
     
     # ⭐ created_at 필드 추가 (통계를 위해 필요!)
-    created_at = Column(DateTime, default=datetime.datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+    created_at = Column(DateTime, default=get_kst_now)
+    updated_at = Column(DateTime, default=get_kst_now, onupdate=get_kst_now)
     
     # 통계 필드 추가 (선택사항)
     view_count = Column(Integer, default=0)
@@ -203,7 +202,7 @@ class MarketingPost(Base):
 class PostLog(Base):
     __tablename__ = "post_logs"
     id = Column(Integer, primary_key=True, index=True)
-    posted_at = Column(DateTime, default=datetime.datetime.utcnow)
+    posted_at = Column(DateTime, default=get_kst_now)
     post_url = Column(String, nullable=True)
     status = Column(String)
     membership_id = Column(Integer, ForeignKey("cafe_memberships.id", ondelete="CASCADE"))
@@ -242,8 +241,8 @@ class PostSchedule(Base):
     notes = Column(Text, nullable=True)
     
     # 타임스탬프
-    created_at = Column(DateTime, default=datetime.datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+    created_at = Column(DateTime, default=get_kst_now)
+    updated_at = Column(DateTime, default=get_kst_now, onupdate=get_kst_now)
     
     # 관계 설정
     worker = relationship("User", back_populates="schedules")
@@ -282,7 +281,7 @@ class PostingRound(Base):
     round_number = Column(Integer, default=1)  # 현재 라운드 (1 or 2)
     current_keyword_index = Column(Integer, default=0)  # 현재 진행중인 키워드 인덱스
     is_completed = Column(Boolean, default=False)
-    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    created_at = Column(DateTime, default=get_kst_now)
     
     # 관계
     marketing_product = relationship("MarketingProduct", back_populates="rounds")
@@ -294,7 +293,7 @@ class LoginLog(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
-    login_time = Column(DateTime, default=datetime.datetime.utcnow)
+    login_time = Column(DateTime, default=get_kst_now)
     ip_address = Column(String, nullable=True)
     user_agent = Column(String, nullable=True)
     success = Column(Boolean, default=True)  # 로그인 성공 여부
