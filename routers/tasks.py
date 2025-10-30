@@ -666,7 +666,7 @@ def get_current_user_id(request: Request, db: Session = Depends(get_db)):
     if not current_user:
         raise HTTPException(status_code=404, detail="사용자를 찾을 수 없습니다")
     
-    return {"user_id": current_user.id}
+    return {"user_id": current_user.id, "username": current_user.username}
 
 
 @router.post("/notifications/{notification_id}/read")
