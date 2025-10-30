@@ -765,37 +765,201 @@
             position: fixed;
             bottom: 30px;
             right: 30px;
-            width: 64px;
-            height: 64px;
+            width: 70px;
+            height: 70px;
             border-radius: 50%;
             border: none;
             background: linear-gradient(135deg, #4A90E2 0%, #5BA3F5 100%);
             box-shadow: 0 8px 32px rgba(74, 144, 226, 0.45);
             transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             z-index: 9999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0;
         " onmouseover="this.style.transform='translateY(-4px) scale(1.1)'" 
            onmouseout="this.style.transform='translateY(0) scale(1)'">
-            <i class="bi bi-bell-fill" style="font-size: 26px; color: white;"></i>
-            <!-- 알림 배지 -->
-            <span id="taskNotificationBadge" style="
+            <i class="bi bi-bell-fill" style="font-size: 28px; color: white;"></i>
+            
+            <!-- 알림 배지 컨테이너 -->
+            <div id="taskNotificationBadgeContainer" style="
                 position: absolute;
-                top: -4px;
-                right: -4px;
-                background: linear-gradient(135deg, #eb3349 0%, #f45c43 100%);
-                color: white;
-                border-radius: 50%;
-                width: 26px;
-                height: 26px;
+                top: -8px;
+                right: -8px;
                 display: none;
-                align-items: center;
-                justify-content: center;
-                font-size: 12px;
-                font-weight: 700;
-                box-shadow: 0 4px 12px rgba(235, 51, 73, 0.5);
-                animation: pulse 2s infinite;
-            ">0</span>
+            ">
+                <!-- 상태별 배지들 -->
+                <div style="display: flex; flex-direction: column; gap: 2px;">
+                    <!-- 새 지시 (빨간색) -->
+                    <span id="badgeNew" class="status-badge" data-status="new" style="
+                        background: linear-gradient(135deg, #eb3349 0%, #f45c43 100%);
+                        color: white;
+                        border-radius: 10px;
+                        width: 32px;
+                        height: 16px;
+                        display: none;
+                        align-items: center;
+                        justify-content: center;
+                        font-size: 10px;
+                        font-weight: 700;
+                        box-shadow: 0 2px 8px rgba(235, 51, 73, 0.5);
+                        animation: pulse 2s infinite;
+                    ">0</span>
+                    
+                    <!-- 확인함 (파란색) -->
+                    <span id="badgeConfirmed" class="status-badge" data-status="confirmed" style="
+                        background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+                        color: white;
+                        border-radius: 10px;
+                        width: 32px;
+                        height: 16px;
+                        display: none;
+                        align-items: center;
+                        justify-content: center;
+                        font-size: 10px;
+                        font-weight: 700;
+                        box-shadow: 0 2px 8px rgba(79, 172, 254, 0.4);
+                    ">0</span>
+                    
+                    <!-- 진행중 (노란색) -->
+                    <span id="badgeInProgress" class="status-badge" data-status="in_progress" style="
+                        background: linear-gradient(135deg, #fdcb6e 0%, #ffeaa7 100%);
+                        color: #2d3436;
+                        border-radius: 10px;
+                        width: 32px;
+                        height: 16px;
+                        display: none;
+                        align-items: center;
+                        justify-content: center;
+                        font-size: 10px;
+                        font-weight: 700;
+                        box-shadow: 0 2px 8px rgba(253, 203, 110, 0.4);
+                    ">0</span>
+                    
+                    <!-- 보류 (회색) -->
+                    <span id="badgeOnHold" class="status-badge" data-status="on_hold" style="
+                        background: linear-gradient(135deg, #636e72 0%, #b2bec3 100%);
+                        color: white;
+                        border-radius: 10px;
+                        width: 32px;
+                        height: 16px;
+                        display: none;
+                        align-items: center;
+                        justify-content: center;
+                        font-size: 10px;
+                        font-weight: 700;
+                        box-shadow: 0 2px 8px rgba(99, 110, 114, 0.4);
+                    ">0</span>
+                </div>
+            </div>
         </button>
     </div>
+
+    <!-- 플로팅 알림 버튼 (우측 하단 고정) -->
+    <div id="taskNotificationFloat" style="display: none;">
+        <!-- 기존 알림 버튼 코드 그대로 유지 -->
+        <button id="taskNotificationBtn" class="btn shadow-lg" style="...">
+            ...
+        </button>
+    </div>
+
+    <!-- ============================================ -->
+    <!-- ➕ 업무 지시 요청 버튼 (추가!) -->
+    <!-- ============================================ -->
+    <div id="taskRequestFloat" style="display: none;">
+        <button id="taskRequestBtn" class="btn shadow-lg" style="
+            position: fixed;
+            bottom: 30px;
+            right: 110px;
+            width: 70px;
+            height: 70px;
+            border-radius: 50%;
+            border: none;
+            background: linear-gradient(135deg, #00b894 0%, #55efc4 100%);
+            box-shadow: 0 8px 32px rgba(0, 184, 148, 0.45);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            z-index: 9999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0;
+        " onmouseover="this.style.transform='translateY(-4px) scale(1.1)'" 
+           onmouseout="this.style.transform='translateY(0) scale(1)'">
+            <i class="bi bi-plus-lg" style="font-size: 32px; color: white; font-weight: bold;"></i>
+        </button>
+    </div>
+
+    <!-- 업무 지시 오버레이 -->
+    <div id="taskRequestOverlay" style="
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.6);
+        backdrop-filter: blur(4px);
+        z-index: 9998;
+        display: none;
+        opacity: 0;
+        transition: opacity 0.3s ease;
+    "></div>
+
+    <!-- 업무 지시 사이드 패널 (Drawer) -->
+    <div id="taskRequestDrawer" style="
+        position: fixed;
+        top: 0;
+        right: -520px;
+        width: 520px;
+        height: 100vh;
+        background: rgba(255, 255, 255, 0.98);
+        backdrop-filter: blur(20px);
+        box-shadow: -8px 0 32px rgba(0, 0, 0, 0.2);
+        z-index: 9999;
+        transition: right 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        overflow-y: auto;
+        border-radius: 24px 0 0 24px;
+    ">
+        <!-- 헤더 -->
+        <div style="
+            background: linear-gradient(135deg, #00b894 0%, #55efc4 100%);
+            padding: 28px 24px;
+            border-radius: 24px 0 0 0;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            box-shadow: 0 4px 20px rgba(0, 184, 148, 0.25);
+        ">
+            <div class="d-flex justify-content-between align-items-center">
+                <h4 style="color: white; margin: 0; font-weight: 800; font-size: 1.5rem;">
+                    <i class="bi bi-plus-circle-fill me-2"></i>업무 지시 관리
+                </h4>
+                <button id="closeRequestDrawerBtn" class="btn btn-light" style="
+                    border-radius: 50%;
+                    width: 40px;
+                    height: 40px;
+                    padding: 0;
+                    border: none;
+                    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+                    transition: all 0.3s ease;
+                " onmouseover="this.style.transform='rotate(90deg) scale(1.1)'" 
+                   onmouseout="this.style.transform='rotate(0) scale(1)'">
+                    <i class="bi bi-x-lg" style="font-size: 1.2rem;"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- 내용 -->
+        <div id="taskRequestContent" style="padding: 24px;">
+            <!-- 로딩 표시 -->
+            <div class="text-center py-5">
+                <div class="spinner-border text-success" role="status" style="width: 3rem; height: 3rem;">
+                    <span class="visually-hidden">로딩 중...</span>
+                </div>
+                <p class="mt-3 text-muted">업무 목록을 불러오는 중...</p>
+            </div>
+        </div>
+    </div>
+
 
     <!-- 오버레이 (배경 어둡게) -->
     <div id="taskNotificationOverlay" style="
@@ -901,7 +1065,6 @@
 
         .task-notification-item.unread {
             background: linear-gradient(135deg, rgba(74, 144, 226, 0.08) 0%, rgba(91, 163, 245, 0.08) 100%);
-            border-left-color: #eb3349;
         }
 
         .task-notification-item.urgent {
@@ -917,18 +1080,25 @@
         .task-notification-title {
             font-weight: 700;
             color: #2d3436;
-            margin-bottom: 8px;
+            margin-bottom: 12px;
             font-size: 1rem;
+            display: flex;
+            align-items: center;
         }
 
         .task-notification-meta {
             display: flex;
-            gap: 12px;
-            font-size: 0.85rem;
+            gap: 16px;
+            font-size: 0.9rem;
             color: #636e72;
             margin-bottom: 12px;
             flex-wrap: wrap;
             align-items: center;
+        }
+
+        .task-notification-meta i {
+            margin-right: 4px;
+            color: #4A90E2;
         }
 
         .task-notification-actions {
@@ -936,6 +1106,7 @@
             gap: 10px;
             margin-top: 12px;
         }
+
 
         /* 토스트 알림 스타일 */
         .task-toast {
@@ -1043,6 +1214,68 @@
             0%, 100% { transform: scale(1); }
             50% { transform: scale(1.1); }
         }
+
+        /* 아코디언 스타일 */
+        .task-notification-wrapper {
+            margin-bottom: 16px;
+        }
+
+        .task-accordion-content {
+            animation: slideDown 0.3s ease-out;
+            border-radius: 0 0 20px 20px;
+            overflow: hidden;
+        }
+
+        @keyframes slideDown {
+            from {
+                opacity: 0;
+                max-height: 0;
+            }
+            to {
+                opacity: 1;
+                max-height: 2000px;
+            }
+        }
+
+        /* 댓글 영역 스크롤바 */
+        [id^="comments-"]::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        [id^="comments-"]::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 10px;
+        }
+
+        [id^="comments-"]::-webkit-scrollbar-thumb {
+            background: #4A90E2;
+            border-radius: 10px;
+        }
+
+        /* 업무 지시 요청 아이템 */
+        .task-request-item {
+            margin-bottom: 16px;
+        }
+
+        /* 반응형 - 모바일 */
+        @media (max-width: 768px) {
+            #taskRequestDrawer {
+                width: 100%;
+                right: -100%;
+                border-radius: 0;
+            }
+
+            #taskRequestFloat button {
+                bottom: 20px;
+                right: 90px;
+                width: 56px;
+                height: 56px;
+            }
+
+            #taskRequestFloat button i {
+                font-size: 28px;
+            }
+        }
     </style>
 
     <!-- JavaScript -->
@@ -1064,6 +1297,7 @@
             if (username) {
                 // 로그인된 경우에만 알림 시스템 활성화
                 document.getElementById('taskNotificationFloat').style.display = 'block';
+                document.getElementById('taskRequestFloat').style.display = 'block';  // ⭐ 추가
                 
                 // 사용자 ID 가져오기
                 fetch('/tasks/get-current-user-id')
@@ -1089,6 +1323,11 @@
             document.getElementById('taskNotificationBtn').addEventListener('click', toggleDrawer);
             document.getElementById('closeDrawerBtn').addEventListener('click', closeDrawer);
             document.getElementById('taskNotificationOverlay').addEventListener('click', closeDrawer);
+            
+            // ⭐ 업무 지시 버튼 이벤트 리스너 추가
+            document.getElementById('taskRequestBtn').addEventListener('click', toggleRequestDrawer);
+            document.getElementById('closeRequestDrawerBtn').addEventListener('click', closeRequestDrawer);
+            document.getElementById('taskRequestOverlay').addEventListener('click', closeRequestDrawer);
         });
 
         // ============================================
@@ -1177,6 +1416,504 @@
         }
 
         // ============================================
+        // 업무 지시 드로어 열기/닫기
+        // ============================================
+        let isRequestDrawerOpen = false;
+
+        function toggleRequestDrawer() {
+            if (isRequestDrawerOpen) {
+                closeRequestDrawer();
+            } else {
+                openRequestDrawer();
+            }
+        }
+
+        function openRequestDrawer() {
+            isRequestDrawerOpen = true;
+            const drawer = document.getElementById('taskRequestDrawer');
+            const overlay = document.getElementById('taskRequestOverlay');
+            
+            drawer.style.right = '0';
+            overlay.style.display = 'block';
+            
+            setTimeout(() => {
+                overlay.style.opacity = '1';
+            }, 10);
+            
+            // 업무 지시 내용 로드
+            loadTaskRequestContent();
+        }
+
+        function closeRequestDrawer() {
+            isRequestDrawerOpen = false;
+            const drawer = document.getElementById('taskRequestDrawer');
+            const overlay = document.getElementById('taskRequestOverlay');
+            
+            drawer.style.right = window.innerWidth <= 768 ? '-100%' : '-520px';
+            overlay.style.opacity = '0';
+            
+            setTimeout(() => {
+                overlay.style.display = 'none';
+            }, 300);
+        }
+
+        // ============================================
+        // 업무 지시 내용 로드
+        // ============================================
+        async function loadTaskRequestContent() {
+            const container = document.getElementById('taskRequestContent');
+            
+            try {
+                // 대시보드 데이터 가져오기
+                const dashboardResponse = await fetch('/tasks/api/my-tasks-dashboard');
+                const dashboard = await dashboardResponse.json();
+                
+                // 내가 지시한 업무 목록 가져오기
+                const tasksResponse = await fetch('/tasks/api/my-created-tasks');
+                const tasks = await tasksResponse.json();
+                
+                // 담당자 목록 가져오기
+                const usersResponse = await fetch('/tasks/api/assignee-list');
+                const users = await usersResponse.json();
+                
+                let html = `
+                    <!-- 1. 간략한 대시보드 -->
+                    <div class="mb-4" style="background: linear-gradient(135deg, rgba(0, 184, 148, 0.1) 0%, rgba(85, 239, 196, 0.1) 100%); padding: 20px; border-radius: 16px;">
+                        <h6 style="font-weight: 700; color: #2d3436; margin-bottom: 16px;">
+                            <i class="bi bi-bar-chart-fill"></i> 업무 현황
+                        </h6>
+                        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px;">
+                            <div style="text-align: center; background: white; padding: 12px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.05);">
+                                <div style="font-size: 1.8rem; font-weight: 800; color: #eb3349;">${dashboard.new}</div>
+                                <div style="font-size: 0.85rem; color: #636e72; font-weight: 600;">새 지시</div>
+                            </div>
+                            <div style="text-align: center; background: white; padding: 12px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.05);">
+                                <div style="font-size: 1.8rem; font-weight: 800; color: #4facfe;">${dashboard.confirmed}</div>
+                                <div style="font-size: 0.85rem; color: #636e72; font-weight: 600;">확인함</div>
+                            </div>
+                            <div style="text-align: center; background: white; padding: 12px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.05);">
+                                <div style="font-size: 1.8rem; font-weight: 800; color: #fdcb6e;">${dashboard.in_progress}</div>
+                                <div style="font-size: 0.85rem; color: #636e72; font-weight: 600;">진행중</div>
+                            </div>
+                            <div style="text-align: center; background: white; padding: 12px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.05);">
+                                <div style="font-size: 1.8rem; font-weight: 800; color: #636e72;">${dashboard.on_hold}</div>
+                                <div style="font-size: 0.85rem; color: #636e72; font-weight: 600;">보류</div>
+                            </div>
+                            <div style="text-align: center; background: white; padding: 12px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.05);">
+                                <div style="font-size: 1.8rem; font-weight: 800; color: #00b894;">${dashboard.completed}</div>
+                                <div style="font-size: 0.85rem; color: #636e72; font-weight: 600;">완료</div>
+                            </div>
+                            <div style="text-align: center; background: white; padding: 12px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.05);">
+                                <div style="font-size: 1.8rem; font-weight: 800; color: #2d3436;">${dashboard.total}</div>
+                                <div style="font-size: 0.85rem; color: #636e72; font-weight: 600;">전체</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 2. 새 업무 지시 버튼 -->
+                    <div class="mb-4">
+                        <button onclick="toggleNewTaskForm()" class="btn w-100" style="
+                            background: linear-gradient(135deg, #00b894 0%, #55efc4 100%);
+                            color: white;
+                            border-radius: 16px;
+                            padding: 16px;
+                            font-weight: 700;
+                            font-size: 1.1rem;
+                            box-shadow: 0 4px 16px rgba(0, 184, 148, 0.3);
+                        ">
+                            <i class="bi bi-plus-circle-fill me-2"></i>새 업무 지시
+                        </button>
+                        
+                        <!-- 새 업무 지시 폼 (아코디언) -->
+                        <div id="newTaskForm" style="display: none; margin-top: 16px; background: white; padding: 20px; border-radius: 16px; box-shadow: 0 4px 16px rgba(0,0,0,0.08);">
+                            <form id="createTaskForm" onsubmit="submitNewTask(event)">
+                                <div class="mb-3">
+                                    <label class="form-label" style="font-weight: 600;">제목 *</label>
+                                    <input type="text" name="title" class="form-control" required style="border-radius: 12px;">
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label" style="font-weight: 600;">담당자 선택 *</label>
+                                    <select name="assignee_ids" class="form-select" required style="border-radius: 12px;">
+                                        <option value="">선택하세요</option>
+                                        ${users.map(user => `<option value="${user.id}">${user.username}</option>`).join('')}
+                                    </select>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label" style="font-weight: 600;">우선순위</label>
+                                    <select name="priority" class="form-select" style="border-radius: 12px;">
+                                        <option value="normal">보통</option>
+                                        <option value="important">중요</option>
+                                        <option value="urgent">긴급</option>
+                                    </select>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label" style="font-weight: 600;">마감시한</label>
+                                    <input type="datetime-local" name="custom_deadline" class="form-control" style="border-radius: 12px;">
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label" style="font-weight: 600;">내용 *</label>
+                                    <textarea name="content" class="form-control" rows="4" required style="border-radius: 12px; resize: none;"></textarea>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label" style="font-weight: 600;">첨부파일</label>
+                                    <input type="file" name="files" class="form-control" multiple style="border-radius: 12px;">
+                                </div>
+                                <div class="d-flex gap-2">
+                                    <button type="button" onclick="toggleNewTaskForm()" class="btn btn-secondary flex-fill" style="border-radius: 12px;">취소</button>
+                                    <button type="submit" class="btn btn-success flex-fill" style="border-radius: 12px;">
+                                        <i class="bi bi-send"></i> 지시하기
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                    
+                    <!-- 3. 작업자명 필터 -->
+                    <div class="mb-4">
+                        <h6 style="font-weight: 700; color: #2d3436; margin-bottom: 12px;">
+                            <i class="bi bi-funnel-fill"></i> 작업자 필터
+                        </h6>
+                        <select id="assigneeFilter" onchange="filterTasksByAssignee()" class="form-select" style="border-radius: 12px;">
+                            <option value="">전체 작업자</option>
+                            ${users.map(user => `<option value="${user.id}">${user.username}</option>`).join('')}
+                        </select>
+                    </div>
+                    
+                    <!-- 4. 업무 지시 요청 내역 -->
+                    <div class="mb-4">
+                        <h6 style="font-weight: 700; color: #2d3436; margin-bottom: 12px;">
+                            <i class="bi bi-list-task"></i> 내가 지시한 업무 (${tasks.length})
+                        </h6>
+                        <div id="myTasksList">
+                            ${tasks.length > 0 ? tasks.map(task => `
+                                <div class="task-request-item" data-assignee-id="${task.assignee_id}" data-task-id="${task.id}">
+                                    <div class="task-notification-item ${task.priority === 'urgent' ? 'urgent' : task.priority === 'important' ? 'important' : ''}" 
+                                         onclick="toggleRequestAccordion(${task.id})">
+                                        <div class="task-notification-title">
+                                            ${getStatusBadge(task.status)}
+                                            <span style="margin-left: 8px; font-size: 1rem;">${task.title}</span>
+                                        </div>
+                                        <div class="task-notification-meta">
+                                            <span><i class="bi bi-person-fill"></i> 담당자: ${task.assignee_name}</span>
+                                            <span><i class="bi bi-clock"></i> ${formatTimeAgo(task.created_at)}</span>
+                                        </div>
+                                        <div class="task-notification-actions" onclick="event.stopPropagation()">
+                                            <button class="btn btn-primary btn-sm" onclick="goToTask(${task.id})" style="border-radius: 12px; padding: 8px 16px; font-weight: 600;">
+                                                <i class="bi bi-eye"></i> 상세보기
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <!-- 아코디언 내용 -->
+                                    <div class="task-accordion-content" id="request-accordion-${task.id}" style="display: none;">
+                                        <div class="text-center py-3">
+                                            <div class="spinner-border text-success" role="status">
+                                                <span class="visually-hidden">로딩 중...</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            `).join('') : '<p style="text-align: center; color: #adb5bd; padding: 40px;">지시한 업무가 없습니다</p>'}
+                        </div>
+                    </div>
+                    
+                    <!-- 5. 대시보드 이동 (관리자만) -->
+                    ${dashboard.is_admin ? `
+                        <div class="mb-4">
+                            <a href="/tasks/dashboard" class="btn w-100" style="
+                                background: linear-gradient(135deg, #6c5ce7 0%, #a29bfe 100%);
+                                color: white;
+                                border-radius: 16px;
+                                padding: 16px;
+                                font-weight: 700;
+                                font-size: 1.1rem;
+                                box-shadow: 0 4px 16px rgba(108, 92, 231, 0.3);
+                                text-decoration: none;
+                                display: block;
+                            ">
+                                <i class="bi bi-speedometer2 me-2"></i>업무 관리 대시보드
+                            </a>
+                        </div>
+                    ` : ''}
+                `;
+                
+                container.innerHTML = html;
+                
+            } catch (error) {
+                console.error('업무 지시 내용 로드 오류:', error);
+                container.innerHTML = `
+                    <div style="padding: 40px; text-align: center; color: #dc3545;">
+                        <i class="bi bi-exclamation-triangle" style="font-size: 3rem;"></i>
+                        <p class="mt-3">정보를 불러오는데 실패했습니다.</p>
+                    </div>
+                `;
+            }
+        }
+
+        // ============================================
+        // 새 업무 지시 폼 토글
+        // ============================================
+        function toggleNewTaskForm() {
+            const form = document.getElementById('newTaskForm');
+            if (form.style.display === 'none' || form.style.display === '') {
+                form.style.display = 'block';
+                form.style.animation = 'slideDown 0.3s ease-out';
+            } else {
+                form.style.display = 'none';
+            }
+        }
+
+        // ============================================
+        // 새 업무 지시 제출
+        // ============================================
+        async function submitNewTask(event) {
+            event.preventDefault();
+            
+            const form = event.target;
+            const formData = new FormData(form);
+            
+            try {
+                const response = await fetch('/tasks/create', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                if (response.ok) {
+                    showToast('업무가 지시되었습니다', 'success');
+                    
+                    // 폼 초기화 및 닫기
+                    form.reset();
+                    toggleNewTaskForm();
+                    
+                    // 업무 목록 새로고침
+                    loadTaskRequestContent();
+                    
+                } else {
+                    showToast('업무 지시에 실패했습니다', 'error');
+                }
+            } catch (error) {
+                console.error('업무 지시 오류:', error);
+                showToast('업무 지시 중 오류가 발생했습니다', 'error');
+            }
+        }
+
+        // ============================================
+        // 작업자 필터
+        // ============================================
+        function filterTasksByAssignee() {
+            const filter = document.getElementById('assigneeFilter').value;
+            const items = document.querySelectorAll('.task-request-item');
+            
+            items.forEach(item => {
+                const assigneeId = item.dataset.assigneeId;
+                
+                if (filter === '' || assigneeId === filter) {
+                    item.style.display = 'block';
+                } else {
+                    item.style.display = 'none';
+                }
+            });
+        }
+
+        // ============================================
+        // 업무 지시 아코디언 토글
+        // ============================================
+        let openedRequestAccordion = null;
+
+        async function toggleRequestAccordion(taskId) {
+            const accordion = document.getElementById(`request-accordion-${taskId}`);
+            
+            // 이미 열려있으면 닫기
+            if (accordion.style.display === 'block') {
+                accordion.style.display = 'none';
+                openedRequestAccordion = null;
+                return;
+            }
+            
+            // 다른 아코디언이 열려있으면 닫기
+            if (openedRequestAccordion && openedRequestAccordion !== accordion) {
+                openedRequestAccordion.style.display = 'none';
+            }
+            
+            // 현재 아코디언 열기
+            accordion.style.display = 'block';
+            openedRequestAccordion = accordion;
+            
+            // 업무 상세 정보 로드 (알림 팝업과 동일한 함수 재사용)
+            await loadRequestTaskDetail(taskId);
+        }
+
+        async function loadRequestTaskDetail(taskId) {
+            const accordion = document.getElementById(`request-accordion-${taskId}`);
+            
+            try {
+                // 업무 상세 정보 가져오기
+                const response = await fetch(`/tasks/api/${taskId}/detail`);
+                const task = await response.json();
+                
+                // 아코디언 내용 생성 (알림 팝업과 동일한 구조)
+                let html = `
+                    <div style="padding: 20px; background: rgba(255, 255, 255, 0.98); border-radius: 0 0 20px 20px;">
+                        <!-- 업무 내용 -->
+                        <div class="mb-4">
+                            <h6 style="font-weight: 700; color: #2d3436; margin-bottom: 12px;">
+                                <i class="bi bi-file-text"></i> 업무 내용
+                            </h6>
+                            <div style="background: #f8f9fa; padding: 16px; border-radius: 12px; white-space: pre-wrap; line-height: 1.6;">
+                                ${task.content}
+                            </div>
+                        </div>
+                        
+                        <!-- 첨부파일 -->
+                        ${task.files.length > 0 ? `
+                        <div class="mb-4">
+                            <h6 style="font-weight: 700; color: #2d3436; margin-bottom: 12px;">
+                                <i class="bi bi-paperclip"></i> 첨부파일 (${task.files.length})
+                            </h6>
+                            <div style="display: flex; flex-direction: column; gap: 8px;">
+                                ${task.files.map(file => `
+                                    <a href="/${file.filepath}" download="${file.filename}" 
+                                       style="display: flex; align-items: center; gap: 8px; padding: 10px; background: white; border-radius: 8px; text-decoration: none; color: #4A90E2; border: 1px solid #e1e8ed;">
+                                        <i class="bi bi-file-earmark"></i>
+                                        <span style="flex: 1;">${file.filename}</span>
+                                        <span style="font-size: 0.85rem; color: #636e72;">${formatFileSize(file.filesize)}</span>
+                                        <i class="bi bi-download"></i>
+                                    </a>
+                                `).join('')}
+                            </div>
+                        </div>
+                        ` : ''}
+                        
+                        <!-- 마감시한 -->
+                        ${task.deadline ? `
+                        <div class="mb-4">
+                            <h6 style="font-weight: 700; color: #2d3436; margin-bottom: 12px;">
+                                <i class="bi bi-calendar-event"></i> 마감시한
+                            </h6>
+                            <div style="background: #fff3cd; padding: 12px; border-radius: 8px; color: #856404;">
+                                <i class="bi bi-clock"></i> ${formatDeadline(task.deadline)}
+                            </div>
+                        </div>
+                        ` : ''}
+                        
+                        <!-- 현재 상태 -->
+                        <div class="mb-4">
+                            <h6 style="font-weight: 700; color: #2d3436; margin-bottom: 12px;">
+                                <i class="bi bi-info-circle"></i> 현재 상태
+                            </h6>
+                            <div style="display: flex; align-items: center; gap: 12px; background: #f8f9fa; padding: 14px; border-radius: 12px;">
+                                ${getStatusBadge(task.status)}
+                                <span style="color: #636e72; font-size: 0.9rem;">담당자: ${task.assignee_name}</span>
+                            </div>
+                            ${task.status === 'on_hold' && task.hold_reason ? `
+                                <div style="margin-top: 10px; background: white; padding: 12px; border-radius: 8px; border-left: 3px solid #636e72;">
+                                    <strong style="color: #636e72;">보류 사유:</strong> ${task.hold_reason}
+                                    ${task.hold_resume_date ? `<br><strong style="color: #636e72;">재개 예정일:</strong> ${task.hold_resume_date}` : ''}
+                                </div>
+                            ` : ''}
+                        </div>
+                        
+                        <!-- 댓글 목록 -->
+                        <div class="mb-4">
+                            <h6 style="font-weight: 700; color: #2d3436; margin-bottom: 12px;">
+                                <i class="bi bi-chat-dots"></i> 댓글 (${task.comments.length})
+                            </h6>
+                            <div id="request-comments-${taskId}" style="max-height: 300px; overflow-y: auto;">
+                                ${task.comments.length > 0 ? task.comments.map(comment => `
+                                    <div style="background: white; padding: 14px; border-radius: 12px; margin-bottom: 10px; border-left: 3px solid #00b894;">
+                                        <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                                            <span style="font-weight: 600; color: #2d3436;">
+                                                <i class="bi bi-person-circle"></i> ${comment.username}
+                                            </span>
+                                            <span style="font-size: 0.85rem; color: #636e72;">
+                                                ${formatTimeAgo(comment.created_at)}
+                                            </span>
+                                        </div>
+                                        <div style="color: #495057; line-height: 1.6; white-space: pre-wrap;">
+                                            ${comment.content}
+                                        </div>
+                                        ${comment.files.length > 0 ? `
+                                            <div style="margin-top: 8px; display: flex; flex-wrap: wrap; gap: 6px;">
+                                                ${comment.files.map(file => `
+                                                    <a href="/${file.filepath}" download="${file.filename}" 
+                                                       style="font-size: 0.85rem; color: #00b894; text-decoration: none;">
+                                                        <i class="bi bi-file-earmark"></i> ${file.filename}
+                                                    </a>
+                                                `).join('')}
+                                            </div>
+                                        ` : ''}
+                                    </div>
+                                `).join('') : '<p style="text-align: center; color: #adb5bd; padding: 20px;">댓글이 없습니다</p>'}
+                            </div>
+                        </div>
+                        
+                        <!-- 댓글 작성 -->
+                        <div class="mb-3">
+                            <h6 style="font-weight: 700; color: #2d3436; margin-bottom: 12px;">
+                                <i class="bi bi-pencil"></i> 댓글 작성
+                            </h6>
+                            <form id="request-comment-form-${taskId}" onsubmit="submitRequestComment(event, ${taskId})">
+                                <textarea class="form-control mb-2" name="content" rows="3" placeholder="댓글을 입력하세요..." 
+                                          style="border-radius: 12px; resize: none;" required></textarea>
+                                <div class="d-flex gap-2">
+                                    <input type="file" id="request-comment-files-${taskId}" name="files" multiple class="form-control" 
+                                           style="border-radius: 12px; flex: 1;">
+                                    <button type="submit" class="btn btn-success" style="border-radius: 12px; padding: 8px 20px;">
+                                        <i class="bi bi-send"></i> 전송
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                `;
+                
+                accordion.innerHTML = html;
+                
+            } catch (error) {
+                console.error('업무 상세 로드 오류:', error);
+                accordion.innerHTML = `
+                    <div style="padding: 20px; text-align: center; color: #dc3545;">
+                        <i class="bi bi-exclamation-triangle"></i> 정보를 불러오는데 실패했습니다.
+                    </div>
+                `;
+            }
+        }
+
+        // ============================================
+        // 업무 지시 드로어에서 댓글 작성
+        // ============================================
+        async function submitRequestComment(event, taskId) {
+            event.preventDefault();
+            
+            const form = event.target;
+            const formData = new FormData(form);
+            
+            try {
+                const response = await fetch(`/tasks/api/${taskId}/comment`, {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    // 폼 초기화
+                    form.reset();
+                    
+                    // 업무 상세 다시 로드
+                    await loadRequestTaskDetail(taskId);
+                    
+                    // 성공 메시지
+                    showToast('댓글이 등록되었습니다', 'success');
+                } else {
+                    showToast('댓글 등록에 실패했습니다', 'error');
+                }
+            } catch (error) {
+                console.error('댓글 작성 오류:', error);
+                showToast('댓글 등록 중 오류가 발생했습니다', 'error');
+            }
+        }
+
+        // ============================================
         // 알림 목록 로드
         // ============================================
         async function loadNotifications() {
@@ -1198,36 +1935,429 @@
 
                 let html = '';
                 notifications.forEach(notif => {
-                    const isUrgent = notif.notification_type === 'new_task' && notif.priority === 'urgent';
-                    const isImportant = notif.notification_type === 'new_task' && notif.priority === 'important';
+                    // 상태별 뱃지 설정
+                    const statusBadge = getStatusBadge(notif.status);
+                    
+                    // 우선순위별 클래스
+                    const priorityClass = notif.priority === 'urgent' ? 'urgent' : 
+                                         notif.priority === 'important' ? 'important' : '';
                     
                     html += `
-                        <div class="task-notification-item ${!notif.is_read ? 'unread' : ''} ${isUrgent ? 'urgent' : ''} ${isImportant ? 'important' : ''}" 
-                             onclick="goToTask(${notif.task_id}, ${notif.id})">
-                            <div class="task-notification-title">
-                                ${!notif.is_read ? '<span class="badge bg-danger me-2" style="font-size: 0.75rem; padding: 6px 10px; border-radius: 8px;">NEW</span>' : ''}
-                                ${notif.message}
+                        <div class="task-notification-wrapper" id="notif-${notif.id}">
+                            <div class="task-notification-item ${!notif.is_read ? 'unread' : ''} ${priorityClass}" 
+                                 data-task-id="${notif.task_id}"
+                                 data-notif-id="${notif.id}"
+                                 onclick="toggleAccordion(${notif.task_id}, ${notif.id})">
+                                <div class="task-notification-title">
+                                    ${statusBadge}
+                                    <span style="margin-left: 8px; font-size: 1rem;">${notif.title}</span>
+                                </div>
+                                <div class="task-notification-meta">
+                                    <span><i class="bi bi-person-fill"></i> 지시자: ${notif.creator_name}</span>
+                                    <span><i class="bi bi-clock"></i> ${formatTimeAgo(notif.created_at)}</span>
+                                </div>
+                                <div class="task-notification-actions" onclick="event.stopPropagation()">
+                                    <button class="btn btn-primary btn-sm" onclick="goToTask(${notif.task_id}, ${notif.id})" style="border-radius: 12px; padding: 8px 16px; font-weight: 600;">
+                                        <i class="bi bi-eye"></i> 상세보기
+                                    </button>
+                                </div>
                             </div>
-                            <div class="task-notification-meta">
-                                ${getNotificationIcon(notif.notification_type)}
-                                <span><i class="bi bi-clock"></i> ${formatTimeAgo(notif.created_at)}</span>
-                            </div>
-                            <div class="task-notification-actions">
-                                <button class="btn btn-primary btn-sm" onclick="event.stopPropagation(); goToTask(${notif.task_id}, ${notif.id})" style="border-radius: 12px; padding: 8px 16px; font-weight: 600;">
-                                    <i class="bi bi-eye"></i> 상세보기
-                                </button>
-                                <button class="btn btn-outline-secondary btn-sm" onclick="event.stopPropagation(); markAsRead(${notif.id})" style="border-radius: 12px; padding: 8px 16px; font-weight: 600;">
-                                    <i class="bi bi-check"></i> 읽음
-                                </button>
+                            <!-- 아코디언 내용 (처음엔 숨김) -->
+                            <div class="task-accordion-content" id="accordion-${notif.task_id}" style="display: none;">
+                                <div class="text-center py-3">
+                                    <div class="spinner-border text-primary" role="status">
+                                        <span class="visually-hidden">로딩 중...</span>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     `;
                 });
 
                 listContainer.innerHTML = html;
+                
             } catch (error) {
                 console.error('알림 로드 오류:', error);
             }
+        }
+
+        // ============================================
+        // 아코디언 토글
+        // ============================================
+        let openedAccordion = null;
+
+        async function toggleAccordion(taskId, notifId) {
+            const accordion = document.getElementById(`accordion-${taskId}`);
+            
+            // 이미 열려있으면 닫기
+            if (accordion.style.display === 'block') {
+                accordion.style.display = 'none';
+                openedAccordion = null;
+                return;
+            }
+            
+            // 다른 아코디언이 열려있으면 닫기
+            if (openedAccordion && openedAccordion !== accordion) {
+                openedAccordion.style.display = 'none';
+            }
+            
+            // 현재 아코디언 열기
+            accordion.style.display = 'block';
+            openedAccordion = accordion;
+            
+            // 업무 상세 정보 로드
+            await loadTaskDetail(taskId, notifId);
+        }
+
+        async function loadTaskDetail(taskId, notifId) {
+            const accordion = document.getElementById(`accordion-${taskId}`);
+            
+            try {
+                // 업무 상세 정보 가져오기
+                const response = await fetch(`/tasks/api/${taskId}/detail`);
+                const task = await response.json();
+                
+                // 상태를 'confirmed'로 변경 (새 지시 → 확인함)
+                if (task.status === 'new' && task.is_assignee) {
+                    await fetch(`/tasks/api/${taskId}/status`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/x-www-form-urlencoded',
+                        },
+                        body: 'status=confirmed'
+                    });
+                    // 알림 목록 새로고침
+                    setTimeout(() => {
+                        loadNotifications();
+                        updateNotificationBadge();
+                    }, 500);
+                }
+                
+                // 아코디언 내용 생성
+                let html = `
+                    <div style="padding: 20px; background: rgba(255, 255, 255, 0.98); border-radius: 0 0 20px 20px;">
+                        <!-- 업무 내용 -->
+                        <div class="mb-4">
+                            <h6 style="font-weight: 700; color: #2d3436; margin-bottom: 12px;">
+                                <i class="bi bi-file-text"></i> 업무 내용
+                            </h6>
+                            <div style="background: #f8f9fa; padding: 16px; border-radius: 12px; white-space: pre-wrap; line-height: 1.6;">
+                                ${task.content}
+                            </div>
+                        </div>
+                        
+                        <!-- 첨부파일 -->
+                        ${task.files.length > 0 ? `
+                        <div class="mb-4">
+                            <h6 style="font-weight: 700; color: #2d3436; margin-bottom: 12px;">
+                                <i class="bi bi-paperclip"></i> 첨부파일 (${task.files.length})
+                            </h6>
+                            <div style="display: flex; flex-direction: column; gap: 8px;">
+                                ${task.files.map(file => `
+                                    <a href="/${file.filepath}" download="${file.filename}" 
+                                       style="display: flex; align-items: center; gap: 8px; padding: 10px; background: white; border-radius: 8px; text-decoration: none; color: #4A90E2; border: 1px solid #e1e8ed;">
+                                        <i class="bi bi-file-earmark"></i>
+                                        <span style="flex: 1;">${file.filename}</span>
+                                        <span style="font-size: 0.85rem; color: #636e72;">${formatFileSize(file.filesize)}</span>
+                                        <i class="bi bi-download"></i>
+                                    </a>
+                                `).join('')}
+                            </div>
+                        </div>
+                        ` : ''}
+                        
+                        <!-- 마감시한 -->
+                        ${task.deadline ? `
+                        <div class="mb-4">
+                            <h6 style="font-weight: 700; color: #2d3436; margin-bottom: 12px;">
+                                <i class="bi bi-calendar-event"></i> 마감시한
+                            </h6>
+                            <div style="background: #fff3cd; padding: 12px; border-radius: 8px; color: #856404;">
+                                <i class="bi bi-clock"></i> ${formatDeadline(task.deadline)}
+                            </div>
+                        </div>
+                        ` : ''}
+                        
+                        <!-- 댓글 목록 -->
+                        <div class="mb-4">
+                            <h6 style="font-weight: 700; color: #2d3436; margin-bottom: 12px;">
+                                <i class="bi bi-chat-dots"></i> 댓글 (${task.comments.length})
+                            </h6>
+                            <div id="comments-${taskId}" style="max-height: 300px; overflow-y: auto;">
+                                ${task.comments.length > 0 ? task.comments.map(comment => `
+                                    <div style="background: white; padding: 14px; border-radius: 12px; margin-bottom: 10px; border-left: 3px solid #4A90E2;">
+                                        <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                                            <span style="font-weight: 600; color: #2d3436;">
+                                                <i class="bi bi-person-circle"></i> ${comment.username}
+                                            </span>
+                                            <span style="font-size: 0.85rem; color: #636e72;">
+                                                ${formatTimeAgo(comment.created_at)}
+                                            </span>
+                                        </div>
+                                        <div style="color: #495057; line-height: 1.6; white-space: pre-wrap;">
+                                            ${comment.content}
+                                        </div>
+                                        ${comment.files.length > 0 ? `
+                                            <div style="margin-top: 8px; display: flex; flex-wrap: wrap; gap: 6px;">
+                                                ${comment.files.map(file => `
+                                                    <a href="/${file.filepath}" download="${file.filename}" 
+                                                       style="font-size: 0.85rem; color: #4A90E2; text-decoration: none;">
+                                                        <i class="bi bi-file-earmark"></i> ${file.filename}
+                                                    </a>
+                                                `).join('')}
+                                            </div>
+                                        ` : ''}
+                                    </div>
+                                `).join('') : '<p style="text-align: center; color: #adb5bd; padding: 20px;">댓글이 없습니다</p>'}
+                            </div>
+                        </div>
+                        
+                        <!-- 댓글 작성 -->
+                        <div class="mb-4">
+                            <h6 style="font-weight: 700; color: #2d3436; margin-bottom: 12px;">
+                                <i class="bi bi-pencil"></i> 댓글 작성
+                            </h6>
+                            <form id="comment-form-${taskId}" onsubmit="submitComment(event, ${taskId})">
+                                <textarea class="form-control mb-2" name="content" rows="3" placeholder="댓글을 입력하세요..." 
+                                          style="border-radius: 12px; resize: none;" required></textarea>
+                                <div class="d-flex gap-2">
+                                    <input type="file" id="comment-files-${taskId}" name="files" multiple class="form-control" 
+                                           style="border-radius: 12px; flex: 1;">
+                                    <button type="submit" class="btn btn-primary" style="border-radius: 12px; padding: 8px 20px;">
+                                        <i class="bi bi-send"></i> 전송
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                        
+                        <!-- 상태 변경 (담당자만) -->
+                        ${task.is_assignee ? `
+                        <div class="mb-3">
+                            <h6 style="font-weight: 700; color: #2d3436; margin-bottom: 12px;">
+                                <i class="bi bi-arrow-repeat"></i> 상태 변경
+                            </h6>
+                            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                                ${task.status !== 'confirmed' ? `
+                                    <button onclick="changeStatus(${taskId}, 'confirmed')" class="btn btn-sm" 
+                                            style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: white; border-radius: 10px; padding: 8px 16px; font-weight: 600;">
+                                        <i class="bi bi-check-circle"></i> 확인함
+                                    </button>
+                                ` : ''}
+                                ${task.status !== 'in_progress' ? `
+                                    <button onclick="changeStatus(${taskId}, 'in_progress')" class="btn btn-sm" 
+                                            style="background: linear-gradient(135deg, #fdcb6e 0%, #ffeaa7 100%); color: #2d3436; border-radius: 10px; padding: 8px 16px; font-weight: 600;">
+                                        <i class="bi bi-play-circle"></i> 진행중
+                                    </button>
+                                ` : ''}
+                                ${task.status !== 'on_hold' ? `
+                                    <button onclick="showHoldReasonModal(${taskId})" class="btn btn-sm" 
+                                            style="background: linear-gradient(135deg, #636e72 0%, #b2bec3 100%); color: white; border-radius: 10px; padding: 8px 16px; font-weight: 600;">
+                                        <i class="bi bi-pause-circle"></i> 보류
+                                    </button>
+                                ` : ''}
+                                ${task.status !== 'completed' ? `
+                                    <button onclick="changeStatus(${taskId}, 'completed')" class="btn btn-sm" 
+                                            style="background: linear-gradient(135deg, #00b894 0%, #55efc4 100%); color: white; border-radius: 10px; padding: 8px 16px; font-weight: 600;">
+                                        <i class="bi bi-check-circle-fill"></i> 완료
+                                    </button>
+                                ` : ''}
+                            </div>
+                            
+                            <!-- 보류 사유 표시 -->
+                            ${task.status === 'on_hold' && task.hold_reason ? `
+                                <div style="margin-top: 12px; background: #f8f9fa; padding: 12px; border-radius: 8px;">
+                                    <strong>보류 사유:</strong> ${task.hold_reason}
+                                    ${task.hold_resume_date ? `<br><strong>재개 예정일:</strong> ${task.hold_resume_date}` : ''}
+                                </div>
+                            ` : ''}
+                        </div>
+                        ` : ''}
+                    </div>
+                `;
+                
+                accordion.innerHTML = html;
+                
+            } catch (error) {
+                console.error('업무 상세 로드 오류:', error);
+                accordion.innerHTML = `
+                    <div style="padding: 20px; text-align: center; color: #dc3545;">
+                        <i class="bi bi-exclamation-triangle"></i> 정보를 불러오는데 실패했습니다.
+                    </div>
+                `;
+            }
+        }
+
+
+        // ============================================
+        // 댓글 작성
+        // ============================================
+        async function submitComment(event, taskId) {
+            event.preventDefault();
+            
+            const form = event.target;
+            const formData = new FormData(form);
+            
+            try {
+                const response = await fetch(`/tasks/api/${taskId}/comment`, {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    // 폼 초기화
+                    form.reset();
+                    
+                    // 업무 상세 다시 로드
+                    await loadTaskDetail(taskId, null);
+                    
+                    // 성공 메시지
+                    showToast('댓글이 등록되었습니다', 'success');
+                } else {
+                    showToast('댓글 등록에 실패했습니다', 'error');
+                }
+            } catch (error) {
+                console.error('댓글 작성 오류:', error);
+                showToast('댓글 등록 중 오류가 발생했습니다', 'error');
+            }
+        }
+
+        // ============================================
+        // 상태 변경
+        // ============================================
+        async function changeStatus(taskId, status) {
+            try {
+                const formData = new URLSearchParams();
+                formData.append('status', status);
+                
+                const response = await fetch(`/tasks/api/${taskId}/status`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body: formData
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    // 업무 상세 다시 로드
+                    await loadTaskDetail(taskId, null);
+                    
+                    // 알림 목록 새로고침
+                    loadNotifications();
+                    updateNotificationBadge();
+                    
+                    showToast('상태가 변경되었습니다', 'success');
+                } else {
+                    showToast('상태 변경에 실패했습니다', 'error');
+                }
+            } catch (error) {
+                console.error('상태 변경 오류:', error);
+                showToast('상태 변경 중 오류가 발생했습니다', 'error');
+            }
+        }
+
+        // 보류 사유 모달 표시
+        function showHoldReasonModal(taskId) {
+            const reason = prompt('보류 사유를 입력하세요:');
+            if (reason && reason.trim()) {
+                changeStatusWithReason(taskId, 'on_hold', reason.trim());
+            }
+        }
+
+        async function changeStatusWithReason(taskId, status, reason) {
+            try {
+                const formData = new URLSearchParams();
+                formData.append('status', status);
+                formData.append('hold_reason', reason);
+                
+                const response = await fetch(`/tasks/api/${taskId}/status`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body: formData
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    await loadTaskDetail(taskId, null);
+                    loadNotifications();
+                    updateNotificationBadge();
+                    showToast('상태가 변경되었습니다', 'success');
+                } else {
+                    showToast('상태 변경에 실패했습니다', 'error');
+                }
+            } catch (error) {
+                console.error('상태 변경 오류:', error);
+                showToast('상태 변경 중 오류가 발생했습니다', 'error');
+            }
+        }
+
+        // ============================================
+        // 유틸리티 함수들
+        // ============================================
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
+        }
+
+        function formatDeadline(deadline) {
+            const date = new Date(deadline);
+            return date.toLocaleString('ko-KR', {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        }
+
+        function showToast(message, type) {
+            // 간단한 토스트 메시지
+            const toast = document.createElement('div');
+            toast.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                background: ${type === 'success' ? '#00b894' : '#d63031'};
+                color: white;
+                padding: 16px 24px;
+                border-radius: 12px;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+                z-index: 10000;
+                animation: slideInRight 0.3s ease-out;
+            `;
+            toast.textContent = message;
+            document.body.appendChild(toast);
+            
+            setTimeout(() => {
+                toast.style.animation = 'slideOutRight 0.3s ease-out';
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
+
+
+
+        // ============================================
+        // 상태별 뱃지 생성
+        // ============================================
+        function getStatusBadge(status) {
+            const badges = {
+                'new': '<span class="badge" style="background: linear-gradient(135deg, #eb3349 0%, #f45c43 100%); color: white; padding: 6px 12px; border-radius: 8px; font-size: 0.75rem; font-weight: 700;">새 지시</span>',
+                'confirmed': '<span class="badge" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: white; padding: 6px 12px; border-radius: 8px; font-size: 0.75rem; font-weight: 700;">확인함</span>',
+                'in_progress': '<span class="badge" style="background: linear-gradient(135deg, #fdcb6e 0%, #ffeaa7 100%); color: #2d3436; padding: 6px 12px; border-radius: 8px; font-size: 0.75rem; font-weight: 700;">진행중</span>',
+                'on_hold': '<span class="badge" style="background: linear-gradient(135deg, #636e72 0%, #b2bec3 100%); color: white; padding: 6px 12px; border-radius: 8px; font-size: 0.75rem; font-weight: 700;">보류</span>',
+                'completed': '<span class="badge" style="background: linear-gradient(135deg, #00b894 0%, #55efc4 100%); color: white; padding: 6px 12px; border-radius: 8px; font-size: 0.75rem; font-weight: 700;">완료</span>'
+            };
+            return badges[status] || badges['new'];
         }
 
         // ============================================
@@ -1237,15 +2367,80 @@
             try {
                 const response = await fetch('/tasks/notifications/unread');
                 const notifications = await response.json();
-                const count = notifications.length;
-
-                const badge = document.getElementById('taskNotificationBadge');
-                if (count > 0) {
-                    badge.textContent = count > 99 ? '99+' : count;
-                    badge.style.display = 'flex';
-                } else {
-                    badge.style.display = 'none';
+                
+                // 상태별 카운트
+                const statusCounts = {
+                    new: 0,
+                    confirmed: 0,
+                    in_progress: 0,
+                    on_hold: 0
+                };
+                
+                // 각 알림의 업무 상태를 확인하여 카운트
+                for (const notif of notifications) {
+                    // 업무 상태 가져오기
+                    try {
+                        const taskResponse = await fetch(`/tasks/api/${notif.task_id}/status`);
+                        const taskData = await taskResponse.json();
+                        const status = taskData.status;
+                        
+                        if (statusCounts.hasOwnProperty(status)) {
+                            statusCounts[status]++;
+                        }
+                    } catch (error) {
+                        console.error('업무 상태 조회 오류:', error);
+                    }
                 }
+                
+                // 배지 컨테이너
+                const container = document.getElementById('taskNotificationBadgeContainer');
+                const badgeNew = document.getElementById('badgeNew');
+                const badgeConfirmed = document.getElementById('badgeConfirmed');
+                const badgeInProgress = document.getElementById('badgeInProgress');
+                const badgeOnHold = document.getElementById('badgeOnHold');
+                
+                let hasAnyNotification = false;
+                
+                // 각 배지 업데이트
+                if (statusCounts.new > 0) {
+                    badgeNew.textContent = statusCounts.new > 99 ? '99+' : statusCounts.new;
+                    badgeNew.style.display = 'flex';
+                    hasAnyNotification = true;
+                } else {
+                    badgeNew.style.display = 'none';
+                }
+                
+                if (statusCounts.confirmed > 0) {
+                    badgeConfirmed.textContent = statusCounts.confirmed > 99 ? '99+' : statusCounts.confirmed;
+                    badgeConfirmed.style.display = 'flex';
+                    hasAnyNotification = true;
+                } else {
+                    badgeConfirmed.style.display = 'none';
+                }
+                
+                if (statusCounts.in_progress > 0) {
+                    badgeInProgress.textContent = statusCounts.in_progress > 99 ? '99+' : statusCounts.in_progress;
+                    badgeInProgress.style.display = 'flex';
+                    hasAnyNotification = true;
+                } else {
+                    badgeInProgress.style.display = 'none';
+                }
+                
+                if (statusCounts.on_hold > 0) {
+                    badgeOnHold.textContent = statusCounts.on_hold > 99 ? '99+' : statusCounts.on_hold;
+                    badgeOnHold.style.display = 'flex';
+                    hasAnyNotification = true;
+                } else {
+                    badgeOnHold.style.display = 'none';
+                }
+                
+                // 컨테이너 표시/숨김
+                if (hasAnyNotification) {
+                    container.style.display = 'block';
+                } else {
+                    container.style.display = 'none';
+                }
+                
             } catch (error) {
                 console.error('배지 업데이트 오류:', error);
             }

@@ -6,6 +6,15 @@ from sqlalchemy import create_engine, Column, Integer, String, Boolean, Text, Fo
 from sqlalchemy.orm import sessionmaker, declarative_base, relationship
 from passlib.hash import bcrypt
 import datetime
+from datetime import timezone
+import pytz
+
+KST = pytz.timezone('Asia/Seoul')
+
+# 한국 시간 반환 함수
+def get_kst_now():
+    """현재 한국 시간 반환"""
+    return datetime.now(KST)
 
 load_dotenv()
 DATABASE_URL = os.environ.get("DATABASE_URL")
@@ -310,7 +319,7 @@ class TaskAssignment(Base):
     # 우선순위 및 마감
     priority = Column(String(20), default="normal")  # urgent, important, normal
     deadline_type = Column(String(50), nullable=True)  # 2시간 내, 오늘 중, 이번 주, 직접입력
-    deadline = Column(DateTime, nullable=True)  # 실제 마감 시간
+    deadline = Column(DateTime(timezone=True), nullable=True)
     
     # 상태 관리 (6단계)
     status = Column(String(20), default="new")  # new, confirmed, in_progress, completed, on_hold, cancelled
@@ -327,9 +336,9 @@ class TaskAssignment(Base):
     batch_group_id = Column(String(50), nullable=True)  # 같은 일괄 지시는 같은 ID
     
     # 타임스탬프
-    created_at = Column(DateTime, default=datetime.datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
-    completed_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime(timezone=True), default=get_kst_now, nullable=False)
+    updated_at = Column(DateTime(timezone=True), default=get_kst_now, onupdate=get_kst_now)
+    completed_at = Column(DateTime(timezone=True), nullable=True)
     
     # 읽음 여부
     is_read = Column(Boolean, default=False)
@@ -352,7 +361,7 @@ class TaskComment(Base):
     user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     
     content = Column(Text, nullable=False)
-    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    created_at = Column(DateTime(timezone=True), default=get_kst_now, nullable=False)
     
     # 읽음 여부 (수신자가 읽었는지)
     is_read = Column(Boolean, default=False)
@@ -375,7 +384,7 @@ class TaskFile(Base):
     filepath = Column(String(1000), nullable=False)
     filesize = Column(Integer, nullable=True)  # bytes
     uploaded_by = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
-    uploaded_at = Column(DateTime, default=datetime.datetime.utcnow)
+    uploaded_at = Column(DateTime(timezone=True), default=get_kst_now, nullable=False)
     
     # 관계
     task = relationship("TaskAssignment", back_populates="files")
@@ -395,10 +404,10 @@ class TaskNotification(Base):
     message = Column(Text, nullable=False)
     
     is_read = Column(Boolean, default=False)
-    read_at = Column(DateTime, nullable=True)
+    read_at = Column(DateTime(timezone=True), nullable=True)
     
-    created_at = Column(DateTime, default=datetime.datetime.utcnow, index=True)
-    auto_delete_at = Column(DateTime, nullable=True)  # 3개월 후 자동 삭제
+    created_at = Column(DateTime(timezone=True), default=get_kst_now, nullable=False)
+    auto_delete_at = Column(DateTime(timezone=True), nullable=True)
     
     # 관계
     task = relationship("TaskAssignment", back_populates="notifications")

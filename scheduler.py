@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 from sqlalchemy import and_
 import asyncio
 
-from database import SessionLocal, TaskAssignment, TaskNotification, User
+from database import SessionLocal, TaskAssignment, TaskNotification, User, get_kst_now, KST
 from websocket_manager import manager
 
 scheduler = AsyncIOScheduler()
@@ -15,7 +15,7 @@ async def send_pending_notifications():
     """미완료 업무에 대한 반복 알림 전송"""
     db = SessionLocal()
     try:
-        now = datetime.now()
+        now = get_kst_now()
         
         # 퇴근 1시간 전인지 확인 (18시 기준 - 17시부터)
         work_end_time = now.replace(hour=18, minute=0, second=0, microsecond=0)
@@ -57,7 +57,7 @@ async def send_pending_notifications():
                     user_id=task.assignee_id,
                     notification_type='deadline_warning',
                     message=notification_message,
-                    auto_delete_at=now + timedelta(days=90)
+                    auto_delete_at=get_kst_now() + timedelta(days=90)
                 )
                 db.add(notification)
                 
@@ -67,7 +67,7 @@ async def send_pending_notifications():
                     'task_id': task.id,
                     'message': notification_message,
                     'priority': task.priority,
-                    'timestamp': now.isoformat()
+                    'timestamp': get_kst_now().isoformat()
                 }, task.assignee_id)
         
         db.commit()

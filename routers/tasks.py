@@ -16,7 +16,7 @@ import asyncio
 
 from database import (
     SessionLocal, User, TaskAssignment, TaskComment, 
-    TaskFile, TaskNotification
+    TaskFile, TaskNotification, get_kst_now, KST
 )
 
 router = APIRouter(prefix="/tasks")
@@ -234,16 +234,32 @@ async def create_task(
     
     # 마감 시간 계산
     deadline = None
+
     if deadline_type == "custom" and custom_deadline:
-        deadline = datetime.fromisoformat(custom_deadline)
+        try:
+            # 커스텀 마감시한 (시간대 정보 추가)
+            deadline = datetime.fromisoformat(custom_deadline)
+            if deadline.tzinfo is None:
+                # 시간대 정보가 없으면 한국 시간으로 간주
+                deadline = KST.localize(deadline)
+        except Exception as e:
+            print(f"커스텀 마감시한 파싱 오류: {e}")
+            
     elif deadline_type == "2hours":
-        deadline = datetime.now() + timedelta(hours=2)
+        # 2시간 후
+        deadline = get_kst_now() + timedelta(hours=2)
+        
     elif deadline_type == "today":
-        deadline = datetime.now().replace(hour=18, minute=0, second=0)
+        # 오늘 18시
+        now = get_kst_now()
+        deadline = now.replace(hour=18, minute=0, second=0, microsecond=0)
+        
     elif deadline_type == "this_week":
-        days_until_friday = (4 - datetime.now().weekday()) % 7
-        deadline = (datetime.now() + timedelta(days=days_until_friday)).replace(hour=18, minute=0)
-    
+        # 이번주 금요일 18시
+        now = get_kst_now()
+        days_until_friday = (4 - now.weekday()) % 7
+        deadline = (now + timedelta(days=days_until_friday)).replace(hour=18, minute=0, second=0, microsecond=0)
+        
     # 일괄 지시 여부
     is_batch = len(assignee_id_list) > 1
     batch_group_id = str(uuid.uuid4()) if is_batch else None
@@ -267,23 +283,25 @@ async def create_task(
         
         # 파일 업로드 처리
         if files:
+            upload_dir = "static/task_files"
+            os.makedirs(upload_dir, exist_ok=True)
+            
             for file in files:
                 if file.filename:
-                    # 파일명 중복 방지
-                    file_ext = os.path.splitext(file.filename)[1]
-                    unique_filename = f"{uuid.uuid4()}{file_ext}"
-                    filepath = os.path.join(UPLOAD_DIR, unique_filename)
+                    # ⭐ 수정: 파일명에 한국 시간 사용
+                    timestamp = get_kst_now().strftime("%Y%m%d_%H%M%S")
+                    filename = f"{timestamp}_{file.filename}"
+                    filepath = os.path.join(upload_dir, filename)
                     
-                    # 파일 저장
-                    with open(filepath, "wb") as f:
-                        f.write(await file.read())
+                    with open(filepath, "wb") as buffer:
+                        shutil.copyfileobj(file.file, buffer)
                     
                     task_file = TaskFile(
                         task_id=new_task.id,
                         filename=file.filename,
                         filepath=filepath,
-                        filesize=os.path.getsize(filepath),
-                        uploaded_by=current_user.id
+                        filesize=os.path.getsize(filepath)
+                        # uploaded_at은 자동으로 get_kst_now()가 호출됨
                     )
                     db.add(task_file)
         
@@ -293,7 +311,7 @@ async def create_task(
             user_id=assignee_id,
             notification_type='new_task',
             message=f"새 업무: {title}",
-            auto_delete_at=datetime.now() + timedelta(days=90)
+            auto_delete_at=get_kst_now() + timedelta(days=90)
         )
         db.add(notification)
     
@@ -306,7 +324,7 @@ async def create_task(
                 'task_id': new_task.id,
                 'message': f"새 업무가 할당되었습니다: {title}",
                 'priority': priority,
-                'timestamp': datetime.now().isoformat()
+                'timestamp': get_kst_now().isoformat()
             }, assignee_id)
         except Exception as e:
             print(f"WebSocket 전송 오류: {e}")
@@ -390,7 +408,7 @@ async def update_task_status(
     elif status == 'completed':
         if completion_note:
             task.completion_note = completion_note
-        task.completed_at = datetime.now()
+        task.completed_at = get_kst_now()  # ⭐ 수정
     elif status == 'on_hold':
         if hold_reason:
             task.hold_reason = hold_reason
@@ -521,7 +539,7 @@ async def add_comment(
             user_id=recipient_id,
             notification_type='comment',
             message=f"새 댓글: {task.title}",
-            auto_delete_at=datetime.now() + timedelta(days=90)
+            auto_delete_at=get_kst_now() + timedelta(days=90)  # ⭐ 수정
         )
         db.add(notification)
     
@@ -556,12 +574,17 @@ def get_unread_notifications(request: Request, db: Session = Depends(get_db)):
     if not current_user:
         return []
     
-    # 읽지 않은 알림 조회
+    # 읽지 않은 알림 조회 (완료 상태가 아닌 업무만)
     notifications = db.query(TaskNotification).options(
-        joinedload(TaskNotification.task)
+        joinedload(TaskNotification.task).joinedload(TaskAssignment.creator),
+        joinedload(TaskNotification.task).joinedload(TaskAssignment.assignee)
     ).filter(
         TaskNotification.user_id == current_user.id,
         TaskNotification.is_read == False
+    ).join(
+        TaskAssignment, TaskNotification.task_id == TaskAssignment.id
+    ).filter(
+        TaskAssignment.status != 'completed'  # ⭐ 완료된 업무는 제외
     ).order_by(
         TaskNotification.created_at.desc()
     ).all()
@@ -569,10 +592,13 @@ def get_unread_notifications(request: Request, db: Session = Depends(get_db)):
     # JSON 직렬화 가능한 형태로 변환
     result = []
     for notif in notifications:
-        # 업무 우선순위 가져오기
-        priority = 'normal'
-        if notif.task:
-            priority = notif.task.priority
+        if not notif.task:
+            continue
+        
+        task = notif.task
+        
+        # 지시자 이름
+        creator_name = task.creator.username if task.creator else "알 수 없음"
         
         result.append({
             "id": notif.id,
@@ -581,7 +607,10 @@ def get_unread_notifications(request: Request, db: Session = Depends(get_db)):
             "message": notif.message,
             "is_read": notif.is_read,
             "created_at": notif.created_at.isoformat(),
-            "priority": priority  # ⭐ 우선순위 추가
+            "priority": task.priority,
+            "status": task.status,  # ⭐ 업무 상태 추가
+            "title": task.title,  # ⭐ 업무 제목 추가
+            "creator_name": creator_name  # ⭐ 지시자 이름 추가
         })
     
     return result
@@ -652,8 +681,7 @@ def mark_notification_as_read(
     
     # 읽음 처리
     notification.is_read = True
-    notification.read_at = datetime.now()
-    
+    notification.read_at = get_kst_now()    
     db.commit()
     
     return {"success": True, "message": "알림을 읽음 처리했습니다"}
@@ -698,6 +726,399 @@ def get_all_notifications(
             "created_at": notif.created_at.isoformat(),
             "read_at": notif.read_at.isoformat() if notif.read_at else None,
             "priority": priority
+        })
+    
+    return result
+
+@router.get("/api/{task_id}/status")
+def get_task_status(
+    task_id: int,
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    """업무 상태 조회 API (배지용)"""
+    username = request.session.get("user")
+    if not username:
+        raise HTTPException(status_code=401, detail="로그인이 필요합니다")
+    
+    current_user = db.query(User).filter(User.username == username).first()
+    if not current_user:
+        raise HTTPException(status_code=404, detail="사용자를 찾을 수 없습니다")
+    
+    task = db.query(TaskAssignment).filter(TaskAssignment.id == task_id).first()
+    
+    if not task:
+        raise HTTPException(status_code=404, detail="업무를 찾을 수 없습니다")
+    
+    # 권한 확인 (담당자, 지시자만)
+    if task.assignee_id != current_user.id and task.creator_id != current_user.id:
+        raise HTTPException(status_code=403, detail="권한이 없습니다")
+    
+    return {
+        "task_id": task.id,
+        "status": task.status,
+        "priority": task.priority
+    }
+    
+@router.get("/api/{task_id}/detail")
+def get_task_detail(
+    task_id: int,
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    """업무 상세 정보 조회 API (아코디언용)"""
+    username = request.session.get("user")
+    if not username:
+        raise HTTPException(status_code=401, detail="로그인이 필요합니다")
+    
+    current_user = db.query(User).filter(User.username == username).first()
+    if not current_user:
+        raise HTTPException(status_code=404, detail="사용자를 찾을 수 없습니다")
+    
+    task = db.query(TaskAssignment).options(
+        joinedload(TaskAssignment.creator),
+        joinedload(TaskAssignment.assignee),
+        joinedload(TaskAssignment.files),
+        joinedload(TaskAssignment.comments).joinedload(TaskComment.user),
+        joinedload(TaskAssignment.comments).joinedload(TaskComment.files)
+    ).filter(TaskAssignment.id == task_id).first()
+    
+    if not task:
+        raise HTTPException(status_code=404, detail="업무를 찾을 수 없습니다")
+    
+    # 권한 확인 (담당자, 지시자만)
+    if task.assignee_id != current_user.id and task.creator_id != current_user.id:
+        raise HTTPException(status_code=403, detail="권한이 없습니다")
+    
+    # 댓글 리스트
+    comments = []
+    for comment in task.comments:
+        comment_files = []
+        for file in comment.files:
+            comment_files.append({
+                "id": file.id,
+                "filename": file.filename,
+                "filepath": file.filepath,
+                "filesize": file.filesize,
+                "uploaded_at": file.uploaded_at.isoformat()
+            })
+        
+        comments.append({
+            "id": comment.id,
+            "user_id": comment.user_id,
+            "username": comment.user.username,
+            "content": comment.content,
+            "created_at": comment.created_at.isoformat(),
+            "files": comment_files
+        })
+    
+    # 첨부파일 리스트
+    files = []
+    for file in task.files:
+        if file.comment_id is None:  # 업무 생성 시 첨부한 파일만
+            files.append({
+                "id": file.id,
+                "filename": file.filename,
+                "filepath": file.filepath,
+                "filesize": file.filesize,
+                "uploaded_at": file.uploaded_at.isoformat()
+            })
+    
+    return {
+        "id": task.id,
+        "title": task.title,
+        "content": task.content,
+        "priority": task.priority,
+        "status": task.status,
+        "creator_id": task.creator_id,
+        "creator_name": task.creator.username if task.creator else "알 수 없음",
+        "assignee_id": task.assignee_id,
+        "assignee_name": task.assignee.username if task.assignee else "알 수 없음",
+        "deadline": task.deadline.isoformat() if task.deadline else None,
+        "created_at": task.created_at.isoformat(),
+        "completed_at": task.completed_at.isoformat() if task.completed_at else None,
+        "hold_reason": task.hold_reason,
+        "hold_resume_date": task.hold_resume_date.isoformat() if task.hold_resume_date else None,
+        "files": files,
+        "comments": comments,
+        "is_assignee": task.assignee_id == current_user.id  # 담당자 여부
+    }
+
+
+@router.post("/api/{task_id}/comment")
+async def add_comment_api(
+    task_id: int,
+    request: Request,
+    content: str = Form(...),
+    files: List[UploadFile] = File(None),
+    db: Session = Depends(get_db)
+):
+    """댓글 추가 API (아코디언용)"""
+    username = request.session.get("user")
+    if not username:
+        raise HTTPException(status_code=401, detail="로그인이 필요합니다")
+    
+    current_user = db.query(User).filter(User.username == username).first()
+    task = db.query(TaskAssignment).filter(TaskAssignment.id == task_id).first()
+    
+    if not task:
+        raise HTTPException(status_code=404, detail="업무를 찾을 수 없습니다")
+    
+    # 댓글 추가
+    comment = TaskComment(
+        task_id=task_id,
+        user_id=current_user.id,
+        content=content
+    )
+    db.add(comment)
+    db.flush()
+    
+    # 파일 첨부 처리
+    uploaded_files = []
+    if files:
+        for file in files:
+            if file.filename:
+                file_ext = os.path.splitext(file.filename)[1]
+                unique_filename = f"{uuid.uuid4()}{file_ext}"
+                filepath = os.path.join(UPLOAD_DIR, unique_filename)
+                
+                with open(filepath, "wb") as f:
+                    f.write(await file.read())
+                
+                task_file = TaskFile(
+                    task_id=task_id,
+                    comment_id=comment.id,
+                    filename=file.filename,
+                    filepath=filepath,
+                    filesize=os.path.getsize(filepath)
+                )
+                db.add(task_file)
+                db.flush()
+                
+                uploaded_files.append({
+                    "id": task_file.id,
+                    "filename": task_file.filename,
+                    "filepath": task_file.filepath
+                })
+    
+    # 상대방에게 알림
+    recipient_id = None
+    if current_user.id == task.assignee_id:
+        recipient_id = task.creator_id
+    elif current_user.id == task.creator_id:
+        recipient_id = task.assignee_id
+    
+    if recipient_id:
+        notification = TaskNotification(
+            task_id=task.id,
+            user_id=recipient_id,
+            notification_type='comment',
+            message=f"새 댓글: {task.title}",
+            auto_delete_at=get_kst_now() + timedelta(days=90)
+        )
+        db.add(notification)
+    
+    db.commit()
+    
+    # WebSocket 알림
+    if recipient_id:
+        try:
+            await manager.send_personal_message({
+                'type': 'new_comment',
+                'task_id': task.id,
+                'message': f"새 댓글이 달렸습니다: {task.title}",
+                'timestamp': get_kst_now().isoformat()
+            }, recipient_id)
+        except Exception as e:
+            print(f"WebSocket 전송 오류: {e}")
+    
+    return {
+        "success": True,
+        "comment": {
+            "id": comment.id,
+            "user_id": comment.user_id,
+            "username": current_user.username,
+            "content": comment.content,
+            "created_at": comment.created_at.isoformat(),
+            "files": uploaded_files
+        }
+    }
+
+
+@router.post("/api/{task_id}/status")
+async def update_task_status_api(
+    task_id: int,
+    request: Request,
+    status: str = Form(...),
+    hold_reason: str = Form(None),
+    hold_resume_date: str = Form(None),
+    db: Session = Depends(get_db)
+):
+    """업무 상태 변경 API (아코디언용)"""
+    username = request.session.get("user")
+    if not username:
+        raise HTTPException(status_code=401, detail="로그인이 필요합니다")
+    
+    current_user = db.query(User).filter(User.username == username).first()
+    task = db.query(TaskAssignment).filter(TaskAssignment.id == task_id).first()
+    
+    if not task or task.assignee_id != current_user.id:
+        raise HTTPException(status_code=403, detail="권한이 없습니다")
+    
+    # 보류 상태일 때 사유 필수
+    if status == 'on_hold' and not hold_reason:
+        raise HTTPException(status_code=400, detail="보류 사유를 입력해주세요")
+    
+    # 상태 변경
+    task.status = status
+    task.updated_at = get_kst_now()
+    
+    if status == 'completed':
+        task.completed_at = get_kst_now()
+    elif status == 'on_hold':
+        task.hold_reason = hold_reason
+        if hold_resume_date:
+            task.hold_resume_date = datetime.fromisoformat(hold_resume_date).date()
+    
+    # 지시자에게 알림
+    if task.creator_id:
+        notification = TaskNotification(
+            task_id=task.id,
+            user_id=task.creator_id,
+            notification_type='status_change',
+            message=f"업무 상태 변경: {task.title} → {status}",
+            auto_delete_at=get_kst_now() + timedelta(days=90)
+        )
+        db.add(notification)
+    
+    db.commit()
+    
+    # WebSocket 알림
+    if task.creator_id:
+        try:
+            await manager.send_personal_message({
+                'type': 'status_change',
+                'task_id': task.id,
+                'message': f"업무 상태가 변경되었습니다: {task.title}",
+                'timestamp': get_kst_now().isoformat()
+            }, task.creator_id)
+        except Exception as e:
+            print(f"WebSocket 전송 오류: {e}")
+    
+    return {
+        "success": True,
+        "status": status,
+        "message": "상태가 변경되었습니다"
+    }
+    
+# ============================================
+# 업무 지시 관리 API
+# ============================================
+
+@router.get("/api/my-tasks-dashboard")
+def get_my_tasks_dashboard(request: Request, db: Session = Depends(get_db)):
+    """내가 지시한 업무 대시보드 (상태별 개수)"""
+    username = request.session.get("user")
+    if not username:
+        raise HTTPException(status_code=401, detail="로그인이 필요합니다")
+    
+    current_user = db.query(User).filter(User.username == username).first()
+    if not current_user:
+        raise HTTPException(status_code=404, detail="사용자를 찾을 수 없습니다")
+    
+    # 내가 지시한 업무들
+    total = db.query(TaskAssignment).filter(TaskAssignment.creator_id == current_user.id).count()
+    new = db.query(TaskAssignment).filter(
+        TaskAssignment.creator_id == current_user.id,
+        TaskAssignment.status == 'new'
+    ).count()
+    confirmed = db.query(TaskAssignment).filter(
+        TaskAssignment.creator_id == current_user.id,
+        TaskAssignment.status == 'confirmed'
+    ).count()
+    in_progress = db.query(TaskAssignment).filter(
+        TaskAssignment.creator_id == current_user.id,
+        TaskAssignment.status == 'in_progress'
+    ).count()
+    on_hold = db.query(TaskAssignment).filter(
+        TaskAssignment.creator_id == current_user.id,
+        TaskAssignment.status == 'on_hold'
+    ).count()
+    completed = db.query(TaskAssignment).filter(
+        TaskAssignment.creator_id == current_user.id,
+        TaskAssignment.status == 'completed'
+    ).count()
+    
+    return {
+        "total": total,
+        "new": new,
+        "confirmed": confirmed,
+        "in_progress": in_progress,
+        "on_hold": on_hold,
+        "completed": completed,
+        "is_admin": current_user.is_admin
+    }
+
+
+@router.get("/api/my-created-tasks")
+def get_my_created_tasks(request: Request, db: Session = Depends(get_db)):
+    """내가 지시한 업무 목록"""
+    username = request.session.get("user")
+    if not username:
+        raise HTTPException(status_code=401, detail="로그인이 필요합니다")
+    
+    current_user = db.query(User).filter(User.username == username).first()
+    if not current_user:
+        raise HTTPException(status_code=404, detail="사용자를 찾을 수 없습니다")
+    
+    # 내가 지시한 업무 조회 (완료 제외)
+    tasks = db.query(TaskAssignment).options(
+        joinedload(TaskAssignment.assignee)
+    ).filter(
+        TaskAssignment.creator_id == current_user.id,
+        TaskAssignment.status != 'completed'  # 완료된 업무 제외
+    ).order_by(
+        TaskAssignment.created_at.desc()
+    ).all()
+    
+    result = []
+    for task in tasks:
+        result.append({
+            "id": task.id,
+            "title": task.title,
+            "status": task.status,
+            "priority": task.priority,
+            "assignee_id": task.assignee_id,
+            "assignee_name": task.assignee.username if task.assignee else "알 수 없음",
+            "created_at": task.created_at.isoformat(),
+            "deadline": task.deadline.isoformat() if task.deadline else None
+        })
+    
+    return result
+
+
+@router.get("/api/assignee-list")
+def get_assignee_list(request: Request, db: Session = Depends(get_db)):
+    """담당자 목록 조회 (업무 지시용)"""
+    username = request.session.get("user")
+    if not username:
+        raise HTTPException(status_code=401, detail="로그인이 필요합니다")
+    
+    current_user = db.query(User).filter(User.username == username).first()
+    if not current_user:
+        raise HTTPException(status_code=404, detail="사용자를 찾을 수 없습니다")
+    
+    # ⭐ 모든 사용자 조회 (본인 제외) - 12번 권한 수정 반영
+    users = db.query(User).filter(
+        User.id != current_user.id
+    ).all()
+    
+    result = []
+    for user in users:
+        result.append({
+            "id": user.id,
+            "username": user.username,
+            "is_admin": user.is_admin
         })
     
     return result
