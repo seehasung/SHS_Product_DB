@@ -428,12 +428,6 @@
             loginBtn.disabled = true;
         });
         
-        // Enter 키로 로그인
-        document.addEventListener('keypress', function(e) {
-            if (e.key === 'Enter') {
-                document.getElementById('loginForm').dispatchEvent(new Event('submit'));
-            }
-        });
     </script>
 </body>
 </html>
