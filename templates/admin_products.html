@@ -549,6 +549,37 @@
             gap: 15px;
         }
     }
+
+    /* 자동완성 드롭다운 내 버튼 스타일 개선 */
+    .autocomplete-dropdown button.btn {
+        transition: all 0.3s ease;
+        border: 2px solid rgba(74, 144, 226, 0.3);
+    }
+
+    .autocomplete-dropdown button.btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(74, 144, 226, 0.3);
+        border-color: #4A90E2;
+    }
+
+    /* 자동완성 드롭다운 스크롤바 스타일 */
+    .autocomplete-dropdown::-webkit-scrollbar {
+        width: 8px;
+    }
+
+    .autocomplete-dropdown::-webkit-scrollbar-track {
+        background: #f1f1f1;
+        border-radius: 10px;
+    }
+
+    .autocomplete-dropdown::-webkit-scrollbar-thumb {
+        background: #4A90E2;
+        border-radius: 10px;
+    }
+
+    .autocomplete-dropdown::-webkit-scrollbar-thumb:hover {
+        background: #3A7BC8;
+    }
 </style>
 {% endblock %}
 
@@ -643,6 +674,9 @@ let currentPage = 1;
 let itemsPerPage = 20;
 let currentSearchTerm = '';  // 현재 검색어 저장
 
+let currentAutocompleteResults = [];
+let autocompleteDisplayLimit = 10;
+
 // 검색 요소들
 const searchInput = document.getElementById('searchInput');
 const autocompleteDropdown = document.getElementById('autocompleteDropdown');
@@ -675,6 +709,7 @@ function resetSearch() {
     currentSearchTerm = '';
     filteredProducts = [...allProducts];
     currentPage = 1;
+    autocompleteDisplayLimit = 10; // 리셋
     displayProducts(currentPage);
     autocompleteDropdown.classList.remove('show');
 }
@@ -689,20 +724,47 @@ searchInput.addEventListener('input', function(e) {
     }
     
     // 검색어와 일치하는 상품 찾기
+    searchInput.addEventListener('input', function(e) {
+    const searchTerm = e.target.value.toLowerCase().trim();
+    
+    // 검색어가 변경되면 limit 초기화
+    autocompleteDisplayLimit = 10;
+    
+    if (searchTerm.length < 1) {
+        autocompleteDropdown.classList.remove('show');
+        currentAutocompleteResults = [];
+        return;
+    }
+    
+    // 검색어와 일치하는 상품 찾기
     const matchingProducts = allProducts.filter(product => {
         const name = (product.name || '').toLowerCase();
         const code = (product.product_code || '').toLowerCase();
         return name.includes(searchTerm) || code.includes(searchTerm);
-    }).slice(0, 10);  // 최대 10개만 표시
+    });
+    
+    currentAutocompleteResults = matchingProducts;
     
     if (matchingProducts.length === 0) {
-        autocompleteDropdown.classList.remove('show');
+        autocompleteDropdown.innerHTML = `
+            <div style="padding: 30px; text-align: center; color: #adb5bd;">
+                <i class="bi bi-search" style="font-size: 2.5rem; color: #dee2e6;"></i>
+                <p style="margin-top: 15px; font-weight: 500;">검색 결과가 없습니다</p>
+                <p style="font-size: 0.9rem; color: #adb5bd;">다른 키워드로 검색해보세요</p>
+            </div>
+        `;
+        autocompleteDropdown.classList.add('show');
         return;
     }
     
-    // 자동완성 드롭다운 표시
+    renderAutocompleteResults(matchingProducts, searchTerm, autocompleteDisplayLimit);
+});
+
+function renderAutocompleteResults(products, searchTerm, limit) {
     let html = '';
-    matchingProducts.forEach(product => {
+    const displayProducts = products.slice(0, limit);
+    
+    displayProducts.forEach(product => {
         const highlightedName = highlightText(product.name, searchTerm);
         const highlightedCode = highlightText(product.product_code || '-', searchTerm);
         
@@ -720,16 +782,57 @@ searchInput.addEventListener('input', function(e) {
         `;
     });
     
-    // 엔터키 안내 추가
+    // 더 많은 결과가 있으면 더보기 버튼 표시
+    if (products.length > limit) {
+        const remaining = products.length - limit;
+        html += `
+            <div style="padding: 15px; background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%); 
+                        text-align: center; border-top: 2px solid #e9ecef;">
+                <button onclick="loadMoreAutocomplete('${searchTerm}')" 
+                        class="btn btn-outline-primary btn-sm"
+                        style="width: 100%; max-width: 300px; font-weight: 600; border-radius: 10px; padding: 10px 20px;">
+                    <i class="bi bi-chevron-down"></i>
+                    ${remaining}개 더보기
+                </button>
+            </div>
+        `;
+    } else if (products.length > 10) {
+        // 전체 결과를 다 보여준 경우
+        html += `
+            <div style="padding: 12px; background: #f8f9fa; text-align: center; 
+                        color: #636e72; font-size: 0.9rem; border-top: 1px solid #e9ecef;">
+                <i class="bi bi-check-circle"></i> 전체 ${products.length}개 결과
+            </div>
+        `;
+    }
+    
+    / // 엔터키 안내 추가
     html += `
-        <div style="padding: 10px 15px; background: #f8f9fa; border-top: 1px solid #e9ecef; text-align: center; font-size: 0.85rem; color: #6c757d;">
+        <div style="padding: 10px 15px; background: #f0f2f5; border-top: 1px solid #e9ecef; 
+                    text-align: center; font-size: 0.85rem; color: #6c757d;">
             <i class="bi bi-info-circle"></i> 클릭 시 상품 상세 페이지로 이동 | Enter 키로 필터링
         </div>
     `;
     
     autocompleteDropdown.innerHTML = html;
     autocompleteDropdown.classList.add('show');
-});
+    selectedIndex = -1;
+}
+
+
+// 자동완성 더보기 버튼 클릭 (새로 추가)
+function loadMoreAutocomplete(searchTerm) {
+    autocompleteDisplayLimit += 20; // 20개씩 추가로 표시
+    renderAutocompleteResults(currentAutocompleteResults, searchTerm, autocompleteDisplayLimit);
+    
+    // 드롭다운 하단으로 부드럽게 스크롤
+    setTimeout(() => {
+        autocompleteDropdown.scrollTo({
+            top: autocompleteDropdown.scrollHeight,
+            behavior: 'smooth'
+        });
+    }, 50);
+}
 
 // 텍스트 하이라이트 - 더 진한 노란색
 function highlightText(text, searchTerm) {
