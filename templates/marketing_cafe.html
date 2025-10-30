@@ -1669,6 +1669,45 @@ document.addEventListener('DOMContentLoaded', function () {
     var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
         return new bootstrap.Tooltip(tooltipTriggerEl)
     });
+
+    document.addEventListener('DOMContentLoaded', function() {
+        const editForm = document.getElementById('editPostFormFromStatus');
+        
+        if (editForm) {
+            editForm.addEventListener('submit', function(e) {
+                e.preventDefault(); // ✅ 기본 submit 동작 막기
+                
+                const formData = new FormData(this);
+                const actionUrl = this.action;
+                
+                // ✅ AJAX로 데이터 전송
+                fetch(actionUrl, {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => {
+                    if (response.ok) {
+                        // ✅ 성공: 모달 닫기
+                        const modal = bootstrap.Modal.getInstance(document.getElementById('editPostModalFromStatus'));
+                        modal.hide();
+                        
+                        // ✅ 성공 메시지 (선택사항)
+                        alert('✅ 저장되었습니다!');
+                        
+                        // ✅ 현재 페이지 새로고침 (같은 날짜 유지)
+                        const currentDate = '{{ selected_date }}';
+                        window.location.href = `/marketing/cafe?tab=status&date=${currentDate}`;
+                    } else {
+                        alert('❌ 저장에 실패했습니다.');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('❌ 오류가 발생했습니다: ' + error.message);
+                });
+            });
+        }
+    });
 });
 
 // ========================================
