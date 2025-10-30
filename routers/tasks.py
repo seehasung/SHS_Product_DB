@@ -1,6 +1,6 @@
 # routers/tasks.py
 
-from fastapi import APIRouter, Request, Form, Depends, File, UploadFile, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Form, UploadFile, File, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session, joinedload
@@ -25,6 +25,9 @@ templates = Jinja2Templates(directory="templates")
 # 파일 업로드 디렉토리
 UPLOAD_DIR = "static/task_files"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
+
+router = APIRouter(prefix="/tasks", tags=["tasks"])
+
 
 def get_db():
     db = SessionLocal()

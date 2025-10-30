@@ -10,6 +10,7 @@ from sqlalchemy.orm import joinedload  # ✅ 추가!
 from websocket_manager import manager
 from contextlib import asynccontextmanager
 from scheduler import start_scheduler, stop_scheduler
+from routers import tasks
 
 from database import (
     Base, engine, SessionLocal, User, PostSchedule, MarketingPost,
