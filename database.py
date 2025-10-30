@@ -1,3 +1,5 @@
+#database.py
+ 
 import os
 from dotenv import load_dotenv
 from sqlalchemy import create_engine, Column, Integer, String, Boolean, Text, ForeignKey, DateTime, Date, UniqueConstraint
@@ -290,11 +292,123 @@ class LoginLog(Base):
     
     # 관계
     user = relationship("User", back_populates="login_logs")
+    
+class TaskAssignment(Base):
+    """업무 지시 테이블"""
+    __tablename__ = "task_assignments"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    
+    # 지시 정보
+    title = Column(String(500), nullable=False)
+    content = Column(Text, nullable=False)
+    
+    # 사용자 정보
+    creator_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)  # 지시자
+    assignee_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)  # 담당자
+    
+    # 우선순위 및 마감
+    priority = Column(String(20), default="normal")  # urgent, important, normal
+    deadline_type = Column(String(50), nullable=True)  # 2시간 내, 오늘 중, 이번 주, 직접입력
+    deadline = Column(DateTime, nullable=True)  # 실제 마감 시간
+    
+    # 상태 관리 (6단계)
+    status = Column(String(20), default="new")  # new, confirmed, in_progress, completed, on_hold, cancelled
+    
+    # 상태별 추가 정보
+    estimated_completion_time = Column(DateTime, nullable=True)  # 진행중일 때 예상 완료 시간
+    completion_note = Column(Text, nullable=True)  # 완료 시 결과 내용
+    hold_reason = Column(Text, nullable=True)  # 보류 사유
+    hold_resume_date = Column(Date, nullable=True)  # 보류 후 재개 예정일
+    cancel_reason = Column(Text, nullable=True)  # 취소 사유
+    
+    # 일괄 지시 여부
+    is_batch = Column(Boolean, default=False)
+    batch_group_id = Column(String(50), nullable=True)  # 같은 일괄 지시는 같은 ID
+    
+    # 타임스탬프
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+    completed_at = Column(DateTime, nullable=True)
+    
+    # 읽음 여부
+    is_read = Column(Boolean, default=False)
+    read_at = Column(DateTime, nullable=True)
+    
+    # 관계 설정
+    creator = relationship("User", foreign_keys=[creator_id], backref="created_tasks")
+    assignee = relationship("User", foreign_keys=[assignee_id], backref="assigned_tasks")
+    comments = relationship("TaskComment", back_populates="task", cascade="all, delete-orphan")
+    files = relationship("TaskFile", back_populates="task", cascade="all, delete-orphan")
+    notifications = relationship("TaskNotification", back_populates="task", cascade="all, delete-orphan")
+
+
+class TaskComment(Base):
+    """업무 지시 댓글 테이블"""
+    __tablename__ = "task_comments"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    task_id = Column(Integer, ForeignKey("task_assignments.id", ondelete="CASCADE"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    
+    content = Column(Text, nullable=False)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    
+    # 읽음 여부 (수신자가 읽었는지)
+    is_read = Column(Boolean, default=False)
+    
+    # 관계
+    task = relationship("TaskAssignment", back_populates="comments")
+    user = relationship("User", backref="task_comments")
+    files = relationship("TaskFile", back_populates="comment", cascade="all, delete-orphan")
+
+
+class TaskFile(Base):
+    """업무 지시 첨부파일 테이블"""
+    __tablename__ = "task_files"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    task_id = Column(Integer, ForeignKey("task_assignments.id", ondelete="CASCADE"), nullable=True)
+    comment_id = Column(Integer, ForeignKey("task_comments.id", ondelete="CASCADE"), nullable=True)
+    
+    filename = Column(String(500), nullable=False)
+    filepath = Column(String(1000), nullable=False)
+    filesize = Column(Integer, nullable=True)  # bytes
+    uploaded_by = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    uploaded_at = Column(DateTime, default=datetime.datetime.utcnow)
+    
+    # 관계
+    task = relationship("TaskAssignment", back_populates="files")
+    comment = relationship("TaskComment", back_populates="files")
+    uploader = relationship("User", backref="uploaded_task_files")
+
+
+class TaskNotification(Base):
+    """업무 지시 알림 로그 테이블 (3개월 보관)"""
+    __tablename__ = "task_notifications"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    task_id = Column(Integer, ForeignKey("task_assignments.id", ondelete="CASCADE"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    
+    notification_type = Column(String(50), nullable=False)  # new_task, comment, deadline_warning, status_change
+    message = Column(Text, nullable=False)
+    
+    is_read = Column(Boolean, default=False)
+    read_at = Column(DateTime, nullable=True)
+    
+    created_at = Column(DateTime, default=datetime.datetime.utcnow, index=True)
+    auto_delete_at = Column(DateTime, nullable=True)  # 3개월 후 자동 삭제
+    
+    # 관계
+    task = relationship("TaskAssignment", back_populates="notifications")
+    user = relationship("User", backref="task_notifications")
 
 # __all__ 리스트 업데이트
 __all__ = [
     "User", "Product", "MarketingAccount", "TargetCafe", "CafeMembership",
     "MarketingProduct", "Reference", "PostLog", "Comment", "MarketingPost",
     "WorkTask", "PostSchedule", "AccountCafeUsage", "PostingRound", "LoginLog",
+    "TaskAssignment", "TaskComment", "TaskFile", "TaskNotification",
     "SessionLocal", "Base", "engine"
 ]

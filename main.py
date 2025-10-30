@@ -1,19 +1,33 @@
-from fastapi import FastAPI, Request
+#main.py
+
+from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from starlette.middleware.sessions import SessionMiddleware
 from datetime import date, datetime  # date와 datetime 한 번에 import
 from sqlalchemy import or_, func
 from sqlalchemy.orm import joinedload  # ✅ 추가!
+from websocket_manager import manager
+from contextlib import asynccontextmanager
+from scheduler import start_scheduler, stop_scheduler
 
 from database import (
     Base, engine, SessionLocal, User, PostSchedule, MarketingPost,
     MarketingProduct  # ✅ 추가!
 )
-from routers import auth, admin_users, product, marketing
+from routers import auth, admin_users, product, marketing, tasks
 
 
-app = FastAPI()
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """앱 시작/종료 시 실행되는 이벤트"""
+    # 시작 시
+    start_scheduler()
+    yield
+    # 종료 시
+    stop_scheduler()
+
+app = FastAPI(lifespan=lifespan)
 
 # 세션 미들웨어 설정
 app.add_middleware(
@@ -34,6 +48,8 @@ app.include_router(auth.router)
 app.include_router(admin_users.router)  # prefix 제거됨 (admin_users.py에서 처리)
 app.include_router(product.router)
 app.include_router(marketing.router)
+app.include_router(tasks.router)
+
 
 @app.get("/", response_class=HTMLResponse)
 def read_root(request: Request):
@@ -149,3 +165,20 @@ def read_root(request: Request):
         "active_workers": active_workers,
         "today_schedules": today_schedules
     })
+    
+@app.websocket("/ws/{user_id}")
+async def websocket_endpoint(websocket: WebSocket, user_id: int):
+    """실시간 알림을 위한 WebSocket 연결"""
+    await manager.connect(websocket, user_id)
+    try:
+        while True:
+            # 클라이언트로부터 메시지 수신 (keep-alive)
+            data = await websocket.receive_text()
+            # ping 응답
+            if data == "ping":
+                await websocket.send_text("pong")
+    except WebSocketDisconnect:
+        manager.disconnect(websocket, user_id)
+    except Exception as e:
+        print(f"WebSocket 오류: {e}")
+        manager.disconnect(websocket, user_id)
