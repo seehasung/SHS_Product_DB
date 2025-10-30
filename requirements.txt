@@ -30,5 +30,4 @@ psycopg2-binary
 python-socketio==5.11.0
 python-engineio==4.8.0
 apscheduler==3.10.4
-python-multipart==0.0.6
 aiofiles==23.2.1
