@@ -1441,7 +1441,10 @@
         <div class="modal-content">
             <form id="editPostFormFromStatus" method="post">
                 <div class="modal-header">
-                    <h5 class="modal-title">✏️ 글 정보 수정</h5>
+                   <h5 class="modal-title">
+                        ✏️ 글 정보 수정 
+                        <span id="edit_keyword_display" class="badge bg-info ms-2" style="font-size: 0.9rem;"></span>
+                    </h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
@@ -1914,6 +1917,14 @@ function openPostEditModalStatus(scheduleId) {
                 
                 const form = document.getElementById('editPostFormFromStatus');
                 form.action = `/marketing/post/update/${post.id}`;
+
+                const keywordDisplay = document.getElementById('edit_keyword_display');
+                if (keywordDisplay) {
+                    // schedule에서 키워드 가져오기
+                    const keyword = data.schedule.keyword_text || post.keyword_text || '';
+                    keywordDisplay.textContent = keyword;
+                }
+
                 
                 document.getElementById('edit_worker_id_status').value = data.schedule.worker_id || '';
                 document.getElementById('edit_account_id_status').value = data.schedule.account_id || '';

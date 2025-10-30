@@ -758,7 +758,9 @@ async def get_schedule_info(
     schedule_data = {
         "worker_id": schedule.worker_id,
         "account_id": schedule.account_id,
-        "cafe_id": schedule.cafe_id
+        "cafe_id": schedule.cafe_id,
+        "keyword_text": schedule.keyword_text  # ✅ 키워드 추가!
+
     }
     
     # 연결된 글 정보
@@ -778,7 +780,9 @@ async def get_schedule_info(
                 "is_registration_complete": post.is_registration_complete,
                 "worker_id": post.worker_id,
                 "account_id": post.account_id,
-                "cafe_id": post.cafe_id
+                "cafe_id": post.cafe_id,
+                "keyword_text": post.keyword_text  # ✅ 키워드 추가!
+
             }
     
     return {
