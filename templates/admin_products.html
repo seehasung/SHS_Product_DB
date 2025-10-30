@@ -674,6 +674,7 @@ let currentPage = 1;
 let itemsPerPage = 20;
 let currentSearchTerm = '';  // 현재 검색어 저장
 
+// 자동완성 관련 변수 추가
 let currentAutocompleteResults = [];
 let autocompleteDisplayLimit = 10;
 
@@ -840,7 +841,7 @@ function renderAutocompleteResults(products, searchTerm, limit) {
         html += `
             <div style="padding: 15px; background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%); 
                         text-align: center; border-top: 2px solid #e9ecef;">
-                <button onclick="loadMoreAutocomplete('${searchTerm}')" 
+                <button onclick="loadMoreAutocomplete(event, '${searchTerm.replace(/'/g, "\\'")}')" 
                         class="btn btn-outline-primary btn-sm"
                         style="width: 100%; max-width: 300px; font-weight: 600; border-radius: 10px; padding: 10px 20px;">
                     <i class="bi bi-chevron-down"></i>
@@ -871,7 +872,12 @@ function renderAutocompleteResults(products, searchTerm, limit) {
 }
 
 // 자동완성 더보기 버튼 클릭
-function loadMoreAutocomplete(searchTerm) {
+function loadMoreAutocomplete(event, searchTerm) {
+    // 이벤트 버블링 방지
+    if (event) {
+        event.stopPropagation();
+    }
+    
     autocompleteDisplayLimit += 20;
     renderAutocompleteResults(currentAutocompleteResults, searchTerm, autocompleteDisplayLimit);
     
@@ -945,7 +951,7 @@ function updateSelection(items) {
     });
 }
 
-// 상품 편집 - 현재 상태 저장
+// 상품 편집 - 현재 상태 저장 (수정됨)
 function editProduct(productId) {
     const params = new URLSearchParams();
     params.set('return_page', currentPage);
@@ -1125,7 +1131,7 @@ function goToPage(page) {
     
     currentPage = page;
     displayProducts(currentPage);
-    updateURL();
+    updateURL();  // URL 업데이트
     
     // 페이지 상단으로 스크롤
     window.scrollTo({ top: 0, behavior: 'smooth' });

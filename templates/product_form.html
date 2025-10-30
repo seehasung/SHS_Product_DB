@@ -657,14 +657,19 @@
                     </h2>
                     <p>{{ '기존 상품 정보를 수정합니다' if product else '새로운 상품을 등록합니다' }}</p>
                 </div>
-                <a href="/" class="btn btn-light">
-                    <i class="bi bi-house"></i> 홈으로
+                <a href="/products?page={{ return_page if return_page is defined else '1' }}&keyword={{ return_keyword if return_keyword is defined else '' }}&per_page={{ return_per_page if return_per_page is defined else '20' }}" 
+                class="btn btn-light">
+                    <i class="bi bi-arrow-left"></i> 목록으로
                 </a>
             </div>
         </div>
         
         <!-- 폼 시작 -->
         <form method="post" action="{{ '/products/edit/' ~ product.id if product else '/products/create' }}">
+
+            <input type="hidden" name="return_page" value="{{ return_page if return_page is defined else '1' }}">
+            <input type="hidden" name="return_keyword" value="{{ return_keyword if return_keyword is defined else '' }}">
+            <input type="hidden" name="return_per_page" value="{{ return_per_page if return_per_page is defined else '20' }}">
             
             <!-- 기본 정보 섹션 -->
             <div class="form-card">
@@ -949,7 +954,8 @@
             
             <!-- 액션 버튼 -->
             <div class="action-buttons">
-                <a href="/products" class="btn btn-secondary-custom">
+                <a href="/products?page={{ return_page if return_page is defined else '1' }}&keyword={{ return_keyword if return_keyword is defined else '' }}&per_page={{ return_per_page if return_per_page is defined else '20' }}" 
+                class="btn btn-secondary-custom">
                     <i class="bi bi-x-lg"></i> 취소
                 </a>
                 <button type="submit" class="btn btn-primary-gradient">

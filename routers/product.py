@@ -349,7 +349,13 @@ def product_detail(request: Request, product_id: int):
 
 # ✅ 상품 수정 폼
 @router.get("/products/edit/{product_id}", response_class=HTMLResponse)
-def edit_product_form(request: Request, product_id: int):
+def edit_product_form(
+    request: Request, 
+    product_id: int,
+    return_page: str = Query("1"),
+    return_keyword: str = Query(""),
+    return_per_page: str = Query("20")
+):
     db = SessionLocal()
     product = db.query(Product).filter(Product.id == product_id).first()
     db.close()
@@ -367,13 +373,16 @@ def edit_product_form(request: Request, product_id: int):
         "product": product,
         "coupang_options": json.loads(product.coupang_options or "[]"),
         "taobao_options": json.loads(product.taobao_options or "[]"),
-        "naver_options": naver_options  # 네이버 옵션 추가
+        "naver_options": naver_options,
+        "return_page": return_page,
+        "return_keyword": return_keyword,
+        "return_per_page": return_per_page
     })
 
-# ✅ 상품 수정 처리
+# ✅ 상품 수정 처리 (수정됨 - return 파라미터 처리)
 @router.post("/products/edit/{product_id}")
 def edit_product(
-    request: Request,  # request 파라미터 추가
+    request: Request,
     product_id: int,
     product_code: str = Form(...),
     name: str = Form(...),
@@ -383,15 +392,18 @@ def edit_product(
     customs_cost: int = Form(0),
     coupang_link: Optional[str] = Form(""),
     taobao_link: Optional[str] = Form(""),
-    naver_link: Optional[str] = Form(""),  # 네이버 링크 추가
+    naver_link: Optional[str] = Form(""),
     coupang_option_names: Optional[List[str]] = Form([]),
     coupang_option_prices: Optional[List[int]] = Form([]),
     taobao_option_names: Optional[List[str]] = Form([]),
     taobao_option_prices: Optional[List[int]] = Form([]),
-    naver_option_names: Optional[List[str]] = Form([]),  # 네이버 옵션 추가
-    naver_option_prices: Optional[List[int]] = Form([]),  # 네이버 옵션 추가
+    naver_option_names: Optional[List[str]] = Form([]),
+    naver_option_prices: Optional[List[int]] = Form([]),
     thumbnail: Optional[str] = Form(""),
-    details: Optional[str] = Form("")
+    details: Optional[str] = Form(""),
+    return_page: str = Form("1"),  # 추가
+    return_keyword: str = Form(""),  # 추가
+    return_per_page: str = Form("20")  # 추가
 ):
     coupang_options = json.dumps([
         {"name": n, "price": p} for n, p in zip(coupang_option_names, coupang_option_prices)
@@ -421,7 +433,6 @@ def edit_product(
             product.thumbnail = thumbnail
             product.details = details
             
-            # 네이버 필드 (컬럼이 있는 경우만)
             if hasattr(product, 'naver_link'):
                 product.naver_link = naver_link
             if hasattr(product, 'naver_options'):
@@ -429,11 +440,27 @@ def edit_product(
             
             db.commit()
         db.close()
-        return RedirectResponse("/products?success=edit", status_code=302)
+        
+        # 리다이렉트 URL 구성 (수정됨)
+        redirect_url = "/products?"
+        params = []
+        if return_page != "1":
+            params.append(f"page={return_page}")
+        if return_keyword:
+            params.append(f"keyword={return_keyword}")
+        if return_per_page != "20":
+            params.append(f"per_page={return_per_page}")
+        
+        if params:
+            redirect_url += "&".join(params)
+        else:
+            redirect_url = "/products"
+            
+        return RedirectResponse(redirect_url, status_code=302)
+        
     except IntegrityError:
         db.rollback()
         db.close()
-        # 에러 발생 시, 현재 product 객체에 입력된 값을 덮어써서 form에 전달
         form_data_from_product = product.__dict__
         form_data_from_product.update({
              "product_code": product_code, "name": name, "price": price,
@@ -449,20 +476,78 @@ def edit_product(
             "product": form_data_from_product,
             "coupang_options": json.loads(coupang_options or "[]"),
             "taobao_options": json.loads(taobao_options or "[]"),
-            "naver_options": json.loads(naver_options or "[]")
+            "naver_options": json.loads(naver_options or "[]"),
+            "return_page": return_page,
+            "return_keyword": return_keyword,
+            "return_per_page": return_per_page
         })
         
-# ✅ 상품 삭제
+# ✅ 상품 삭제 (수정됨 - return 파라미터 처리)
 @router.post("/products/delete")
-def product_delete(product_id: int = Form(...)):
+def product_delete(
+    product_id: int = Form(...),
+    return_page: str = Form("1"),  # 추가
+    return_keyword: str = Form(""),  # 추가
+    return_per_page: str = Form("20")  # 추가
+):
     db = SessionLocal()
     product = db.query(Product).filter(Product.id == product_id).first()
     if product:
         db.delete(product)
         db.commit()
     db.close()
-    return RedirectResponse("/products", status_code=302)
+    
+    # 리다이렉트 URL 구성 (수정됨)
+    redirect_url = "/products?"
+    params = []
+    if return_page != "1":
+        params.append(f"page={return_page}")
+    if return_keyword:
+        params.append(f"keyword={return_keyword}")
+    if return_per_page != "20":
+        params.append(f"per_page={return_per_page}")
+    
+    if params:
+        redirect_url += "&".join(params)
+    else:
+        redirect_url = "/products"
+        
+    return RedirectResponse(redirect_url, status_code=302)
 
+# ✅ 상품 상세 보기 (수정됨 - return 파라미터 추가)
+@router.get("/products/{product_id}", response_class=HTMLResponse)
+def product_detail(
+    request: Request, 
+    product_id: int,
+    return_page: str = Query("1"),
+    return_keyword: str = Query(""),
+    return_per_page: str = Query("20")
+):
+    db = SessionLocal()
+    product = db.query(Product).filter(Product.id == product_id).first()
+    db.close()
+    if not product:
+        return RedirectResponse("/products", status_code=302)
+    
+    # 네이버 옵션 파싱
+    naver_options = []
+    if hasattr(product, 'naver_options') and product.naver_options:
+        try:
+            naver_options = json.loads(product.naver_options)
+        except:
+            naver_options = []
+    
+    return templates.TemplateResponse("product_detail.html", {
+        "request": request,
+        "product": product,
+        "coupang_options": json.loads(product.coupang_options or "[]"),
+        "taobao_options": json.loads(product.taobao_options or "[]"),
+        "naver_options": naver_options,
+        "return_page": return_page,
+        "return_keyword": return_keyword,
+        "return_per_page": return_per_page
+    })
+    
 # ✅ 상품 검색 API (자동완성)
 @router.get("/search")
 def search_products(q: str = Query("", description="검색어")):

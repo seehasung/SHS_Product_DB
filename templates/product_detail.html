@@ -1034,13 +1034,13 @@
                     
                     <!-- 액션 버튼 -->
                     <div class="action-buttons">
-                        <button onclick="location.href='/products/edit/{{ product.id }}'" class="btn-action btn-edit">
+                        <button onclick="editProductWithState({{ product.id }})" class="btn-action btn-edit">
                             <i class="bi bi-pencil-fill"></i> 수정
                         </button>
                         <button onclick="deleteProduct({{ product.id }})" class="btn-action btn-delete">
                             <i class="bi bi-trash-fill"></i> 삭제
                         </button>
-                        <button onclick="location.href='/products'" class="btn-action btn-back">
+                        <button onclick="goBackToList()" class="btn-action btn-back">
                             <i class="bi bi-arrow-left"></i> 목록으로
                         </button>
                     </div>
@@ -1171,6 +1171,14 @@ let searchInput = document.getElementById('productSearch');
 let autocompleteDropdown = document.getElementById('autocompleteDropdown');
 let searchTimeout = null;
 let selectedIndex = -1;
+let currentSearchResults = [];
+let displayLimit = 10;
+
+// URL 파라미터 가져오기
+const urlParams = new URLSearchParams(window.location.search);
+const returnPage = urlParams.get('return_page') || '1';
+const returnKeyword = urlParams.get('return_keyword') || '';
+const returnPerPage = urlParams.get('return_per_page') || '20';
 
 // 페이지 로드 시 전체 상품 가져오기
 document.addEventListener('DOMContentLoaded', function() {
@@ -1187,7 +1195,6 @@ function fetchAllProducts() {
         })
         .catch(error => {
             console.error('상품 목록 로드 실패:', error);
-            // 대체: 기본 검색 사용
         });
 }
 
@@ -1224,7 +1231,6 @@ searchInput.addEventListener('input', function(e) {
 
 // 상품 검색 API 호출 (폴백)
 function searchProducts(searchTerm) {
-    // 간단한 검색 쿼리
     fetch('/products?keyword=' + encodeURIComponent(searchTerm), {
         headers: {
             'Accept': 'application/json'
@@ -1259,37 +1265,8 @@ function showAutocomplete(products, searchTerm) {
     
     renderAutocompleteResults(products, searchTerm, displayLimit);
 }
-    
-    let html = '';
-    products.slice(0, 10).forEach((product, index) => {
-        const highlightedName = highlightText(product.name || '', searchTerm);
-        const highlightedCode = highlightText(product.product_code || '', searchTerm);
-        const price = product.price ? `₩${product.price.toLocaleString()}` : '가격 미정';
-        
-        html += `
-            <div class="autocomplete-item" 
-                 onclick="goToProduct(${product.id})"
-                 data-index="${index}">
-                ${product.thumbnail ? 
-                    `<img src="${product.thumbnail}" class="autocomplete-thumbnail" onerror="this.style.display='none'">` :
-                    `<div class="autocomplete-thumbnail" style="display: flex; align-items: center; justify-content: center; background: #f8f9fa;">
-                        <i class="bi bi-image" style="color: #adb5bd; font-size: 1.5rem;"></i>
-                    </div>`
-                }
-                <div class="autocomplete-info">
-                    <div class="autocomplete-name">${highlightedName}</div>
-                    <div class="autocomplete-price">
-                        ${price} 
-                        ${product.product_code ? `• 코드: ${highlightedCode}` : ''}
-                    </div>
-                </div>
-                <div style="margin-left: auto; color: #4A90E2;">
-                    <i class="bi bi-arrow-right-circle" style="font-size: 1.3rem;"></i>
-                </div>
-            </div>
-        `;
-    });
 
+// 자동완성 결과 렌더링
 function renderAutocompleteResults(products, searchTerm, limit) {
     let html = '';
     const displayProducts = products.slice(0, limit);
@@ -1338,7 +1315,6 @@ function renderAutocompleteResults(products, searchTerm, limit) {
             </div>
         `;
     } else if (products.length > 10) {
-        // 전체 결과를 다 보여준 경우
         html += `
             <div style="padding: 12px; background: #f8f9fa; text-align: center; 
                         color: #636e72; font-size: 0.9rem; border-top: 1px solid #e9ecef;">
@@ -1352,16 +1328,17 @@ function renderAutocompleteResults(products, searchTerm, limit) {
     selectedIndex = -1;
 }
 
-// 더보기 버튼 클릭 시 (새로 추가)
+// 더보기 버튼 클릭
 function loadMoreResults(searchTerm) {
-    displayLimit += 20; // 20개씩 추가로 표시
+    displayLimit += 20;
     renderAutocompleteResults(currentSearchResults, searchTerm, displayLimit);
     
-    // 드롭다운 상단으로 부드럽게 스크롤
-    autocompleteDropdown.scrollTo({
-        top: autocompleteDropdown.scrollHeight,
-        behavior: 'smooth'
-    });
+    setTimeout(() => {
+        autocompleteDropdown.scrollTo({
+            top: autocompleteDropdown.scrollHeight,
+            behavior: 'smooth'
+        });
+    }, 50);
 }
 
 // 텍스트 하이라이트
@@ -1372,29 +1349,78 @@ function highlightText(text, searchTerm) {
     return text.replace(regex, '<span class="highlight">$1</span>');
 }
 
-// 상품 페이지로 이동
+// 상품 페이지로 이동 (return 파라미터 포함)
 function goToProduct(productId) {
+    const params = new URLSearchParams();
+    params.set('return_page', returnPage);
+    if (returnKeyword) params.set('return_keyword', returnKeyword);
+    if (returnPerPage !== '20') params.set('return_per_page', returnPerPage);
+    
     if (window.location.pathname === `/products/${productId}`) {
         window.location.reload();
     } else {
-        window.location.href = `/products/${productId}`;
+        window.location.href = `/products/${productId}?${params.toString()}`;
     }
 }
 
-// 상품 삭제
+// 상품 수정 (return 파라미터 포함)
+function editProductWithState(productId) {
+    const params = new URLSearchParams();
+    params.set('return_page', returnPage);
+    if (returnKeyword) params.set('return_keyword', returnKeyword);
+    if (returnPerPage !== '20') params.set('return_per_page', returnPerPage);
+    
+    window.location.href = `/products/edit/${productId}?${params.toString()}`;
+}
+
+// 목록으로 돌아가기 (return 파라미터 포함)
+function goBackToList() {
+    const params = new URLSearchParams();
+    if (returnPage !== '1') params.set('page', returnPage);
+    if (returnKeyword) params.set('keyword', returnKeyword);
+    if (returnPerPage !== '20') params.set('per_page', returnPerPage);
+    
+    const url = params.toString() ? `/products?${params.toString()}` : '/products';
+    window.location.href = url;
+}
+
+// 상품 삭제 (return 파라미터 포함)
 function deleteProduct(productId) {
     if (confirm('정말로 이 상품을 삭제하시겠습니까?')) {
-        // Form 방식으로 전송
         const form = document.createElement('form');
         form.method = 'POST';
         form.action = '/products/delete';
         
-        const input = document.createElement('input');
-        input.type = 'hidden';
-        input.name = 'product_id';
-        input.value = productId;
+        // 상품 ID
+        const productIdInput = document.createElement('input');
+        productIdInput.type = 'hidden';
+        productIdInput.name = 'product_id';
+        productIdInput.value = productId;
+        form.appendChild(productIdInput);
         
-        form.appendChild(input);
+        // return 파라미터들
+        const pageInput = document.createElement('input');
+        pageInput.type = 'hidden';
+        pageInput.name = 'return_page';
+        pageInput.value = returnPage;
+        form.appendChild(pageInput);
+        
+        if (returnKeyword) {
+            const keywordInput = document.createElement('input');
+            keywordInput.type = 'hidden';
+            keywordInput.name = 'return_keyword';
+            keywordInput.value = returnKeyword;
+            form.appendChild(keywordInput);
+        }
+        
+        if (returnPerPage !== '20') {
+            const perPageInput = document.createElement('input');
+            perPageInput.type = 'hidden';
+            perPageInput.name = 'return_per_page';
+            perPageInput.value = returnPerPage;
+            form.appendChild(perPageInput);
+        }
+        
         document.body.appendChild(form);
         form.submit();
     }
