@@ -287,14 +287,34 @@ async def marketing_cafe(request: Request, db: Session = Depends(get_db)):
     all_references = db.query(Reference).options(
         joinedload(Reference.comments)
     ).order_by(Reference.ref_type, Reference.title).all()
-    
+
+    # ✅ JSON 직렬화 가능한 형태로 변환
+    references_json = []
+    for ref in all_references:
+        ref_dict = {
+            'id': ref.id,
+            'title': ref.title,
+            'ref_type': ref.ref_type,
+            'content': ref.content,
+            'comments': [
+                {
+                    'id': c.id,
+                    'account_sequence': c.account_sequence,
+                    'text': c.text,
+                    'parent_id': c.parent_id
+                }
+                for c in (ref.comments or [])
+            ]
+        }
+        references_json.append(ref_dict)
+
     references_by_type = {}
     for ref in all_references:
         ref_type = ref.ref_type or "기타"
         if ref_type not in references_by_type:
             references_by_type[ref_type] = []
         references_by_type[ref_type].append(ref)
-    
+
     # ✅ 15. 템플릿 렌더링
     return templates.TemplateResponse("marketing_cafe.html", {
         "request": request,
@@ -328,6 +348,7 @@ async def marketing_cafe(request: Request, db: Session = Depends(get_db)):
         "product_keywords_map": product_keywords_map,
         "all_references": all_references,
         "references_by_type": references_by_type,
+        "references_json": references_json,  # ✅ 추가!
         
         # 날짜
         "selected_date": selected_date,
@@ -719,17 +740,9 @@ async def change_schedule_status(
 @router.get("/schedule/{schedule_id}/info")
 async def get_schedule_info(
     schedule_id: int,
-    request: Request,  # ✅ 추가
     db: Session = Depends(get_db)
 ):
     """스케줄 정보 가져오기 (모달용)"""
-    
-    # ✅ 권한 체크 추가 (시작 부분에만)
-    username = request.session.get("user")
-    current_user = db.query(User).filter(User.username == username).first()
-    
-    if not current_user:
-        return {"success": False, "error": "로그인이 필요합니다."}
     
     schedule = db.query(PostSchedule).options(
         joinedload(PostSchedule.worker),
@@ -741,18 +754,14 @@ async def get_schedule_info(
     if not schedule:
         return {"success": False, "error": "Schedule not found"}
     
-    # ✅ 본인 스케줄이거나 관리자인 경우만 접근 허용
-    if schedule.worker_id != current_user.id and not current_user.is_admin and not current_user.can_manage_marketing:
-        return {"success": False, "error": "권한이 없습니다."}
-    
-    # 스케줄 정보 (기존 코드 그대로)
+    # 스케줄 정보
     schedule_data = {
         "worker_id": schedule.worker_id,
         "account_id": schedule.account_id,
         "cafe_id": schedule.cafe_id
     }
     
-    # 연결된 글 정보 (기존 코드 그대로)
+    # 연결된 글 정보
     post_data = None
     if schedule.marketing_post_id:
         post = db.query(MarketingPost).filter(
@@ -772,7 +781,6 @@ async def get_schedule_info(
                 "cafe_id": post.cafe_id
             }
     
-    # 반환 구조 (기존 코드 그대로)
     return {
         "success": True,
         "schedule_id": schedule.id,
