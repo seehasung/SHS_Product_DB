@@ -545,35 +545,46 @@ async def add_comment(
 # 알림 관련
 # ============================================
 
-@router.get("/notifications/unread", response_class=JSONResponse)
-async def get_unread_notifications(request: Request, db: Session = Depends(get_db)):
-    """읽지 않은 알림 조회 (API)"""
-    username = check_session(request)
+@router.get("/notifications/unread")
+def get_unread_notifications(request: Request, db: Session = Depends(get_db)):
+    """읽지 않은 알림 목록 조회"""
+    username = request.session.get("user")
     if not username:
-        return JSONResponse({"error": "Unauthorized"}, status_code=401)
+        return []
     
     current_user = db.query(User).filter(User.username == username).first()
+    if not current_user:
+        return []
     
+    # 읽지 않은 알림 조회
     notifications = db.query(TaskNotification).options(
         joinedload(TaskNotification.task)
     ).filter(
         TaskNotification.user_id == current_user.id,
         TaskNotification.is_read == False
-    ).order_by(TaskNotification.created_at.desc()).limit(50).all()
+    ).order_by(
+        TaskNotification.created_at.desc()
+    ).all()
     
+    # JSON 직렬화 가능한 형태로 변환
     result = []
     for notif in notifications:
+        # 업무 우선순위 가져오기
+        priority = 'normal'
+        if notif.task:
+            priority = notif.task.priority
+        
         result.append({
-            'id': notif.id,
-            'task_id': notif.task_id,
-            'type': notif.notification_type,
-            'message': notif.message,
-            'created_at': notif.created_at.isoformat(),
-            'task_title': notif.task.title if notif.task else ''
+            "id": notif.id,
+            "task_id": notif.task_id,
+            "notification_type": notif.notification_type,
+            "message": notif.message,
+            "is_read": notif.is_read,
+            "created_at": notif.created_at.isoformat(),
+            "priority": priority  # ⭐ 우선순위 추가
         })
     
-    return JSONResponse(result)
-
+    return result
 
 @router.post("/notifications/{notif_id}/read", response_class=JSONResponse)
 async def mark_notification_read(
@@ -600,3 +611,93 @@ async def mark_notification_read(
         return JSONResponse({"success": True})
     
     return JSONResponse({"error": "Not found"}, status_code=404)
+
+@router.get("/get-current-user-id")
+def get_current_user_id(request: Request, db: Session = Depends(get_db)):
+    """현재 로그인한 사용자 ID 반환 (WebSocket 연결용)"""
+    username = request.session.get("user")
+    if not username:
+        raise HTTPException(status_code=401, detail="로그인이 필요합니다")
+    
+    current_user = db.query(User).filter(User.username == username).first()
+    if not current_user:
+        raise HTTPException(status_code=404, detail="사용자를 찾을 수 없습니다")
+    
+    return {"user_id": current_user.id}
+
+
+@router.post("/notifications/{notification_id}/read")
+def mark_notification_as_read(
+    notification_id: int,
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    """알림을 읽음 처리"""
+    username = request.session.get("user")
+    if not username:
+        raise HTTPException(status_code=401, detail="로그인이 필요합니다")
+    
+    current_user = db.query(User).filter(User.username == username).first()
+    if not current_user:
+        raise HTTPException(status_code=404, detail="사용자를 찾을 수 없습니다")
+    
+    # 알림 조회
+    notification = db.query(TaskNotification).filter(
+        TaskNotification.id == notification_id,
+        TaskNotification.user_id == current_user.id
+    ).first()
+    
+    if not notification:
+        raise HTTPException(status_code=404, detail="알림을 찾을 수 없습니다")
+    
+    # 읽음 처리
+    notification.is_read = True
+    notification.read_at = datetime.now()
+    
+    db.commit()
+    
+    return {"success": True, "message": "알림을 읽음 처리했습니다"}
+
+
+@router.get("/notifications/all")
+def get_all_notifications(
+    request: Request,
+    db: Session = Depends(get_db),
+    limit: int = 50
+):
+    """모든 알림 조회 (읽은 알림 포함)"""
+    username = request.session.get("user")
+    if not username:
+        return []
+    
+    current_user = db.query(User).filter(User.username == username).first()
+    if not current_user:
+        return []
+    
+    notifications = db.query(TaskNotification).options(
+        joinedload(TaskNotification.task)
+    ).filter(
+        TaskNotification.user_id == current_user.id
+    ).order_by(
+        TaskNotification.created_at.desc()
+    ).limit(limit).all()
+    
+    result = []
+    for notif in notifications:
+        # 업무 우선순위 가져오기
+        priority = 'normal'
+        if notif.task:
+            priority = notif.task.priority
+        
+        result.append({
+            "id": notif.id,
+            "task_id": notif.task_id,
+            "notification_type": notif.notification_type,
+            "message": notif.message,
+            "is_read": notif.is_read,
+            "created_at": notif.created_at.isoformat(),
+            "read_at": notif.read_at.isoformat() if notif.read_at else None,
+            "priority": priority
+        })
+    
+    return result
