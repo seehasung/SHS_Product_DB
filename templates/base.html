@@ -905,6 +905,17 @@
         </button>
     </div>
 
+    <!-- 업무 지시 오버레이 -->
+    <div id="taskRequestOverlay" style="
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: transparent;
+        z-index: 9998;
+        display: none;
+    "></div>
 
     <!-- 업무 지시 사이드 패널 (Drawer) -->
     <div id="taskRequestDrawer" style="
@@ -962,6 +973,18 @@
         </div>
     </div>
 
+
+    <!-- 오버레이 (배경 어둡게) -->
+    <div id="taskNotificationOverlay" style="
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: transparent;
+        z-index: 9998;
+        display: none;
+    "></div>
 
     <!-- 사이드 패널 (Drawer) -->
     <div id="taskNotificationDrawer" style="
@@ -1389,7 +1412,6 @@
             const overlay = document.getElementById('taskNotificationOverlay');
             
             drawer.style.right = '0';
-            overlay.style.display = 'block';
             
             setTimeout(() => {
                 overlay.style.opacity = '1';
@@ -1430,7 +1452,6 @@
             const overlay = document.getElementById('taskRequestOverlay');
             
             drawer.style.right = '0';
-            overlay.style.display = 'block';
             
             setTimeout(() => {
                 overlay.style.opacity = '1';
