@@ -1616,7 +1616,7 @@ window.addEventListener('error', function(e) {
 // ========================================
 
 const membershipMap = {{ membership_map | tojson | safe }};
-const allReferences = {{ all_references | tojson | safe }};
+const allReferences = {{ references_json | tojson | safe }};
 
 // 댓글 관리
 const commentsDataStore = {};
