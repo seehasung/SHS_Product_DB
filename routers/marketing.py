@@ -719,9 +719,17 @@ async def change_schedule_status(
 @router.get("/schedule/{schedule_id}/info")
 async def get_schedule_info(
     schedule_id: int,
+    request: Request,  # ✅ 추가
     db: Session = Depends(get_db)
 ):
     """스케줄 정보 가져오기 (모달용)"""
+    
+    # ✅ 권한 체크 추가 (시작 부분에만)
+    username = request.session.get("user")
+    current_user = db.query(User).filter(User.username == username).first()
+    
+    if not current_user:
+        return {"success": False, "error": "로그인이 필요합니다."}
     
     schedule = db.query(PostSchedule).options(
         joinedload(PostSchedule.worker),
@@ -733,14 +741,18 @@ async def get_schedule_info(
     if not schedule:
         return {"success": False, "error": "Schedule not found"}
     
-    # 스케줄 정보
+    # ✅ 본인 스케줄이거나 관리자인 경우만 접근 허용
+    if schedule.worker_id != current_user.id and not current_user.is_admin and not current_user.can_manage_marketing:
+        return {"success": False, "error": "권한이 없습니다."}
+    
+    # 스케줄 정보 (기존 코드 그대로)
     schedule_data = {
         "worker_id": schedule.worker_id,
         "account_id": schedule.account_id,
         "cafe_id": schedule.cafe_id
     }
     
-    # 연결된 글 정보
+    # 연결된 글 정보 (기존 코드 그대로)
     post_data = None
     if schedule.marketing_post_id:
         post = db.query(MarketingPost).filter(
@@ -760,6 +772,7 @@ async def get_schedule_info(
                 "cafe_id": post.cafe_id
             }
     
+    # 반환 구조 (기존 코드 그대로)
     return {
         "success": True,
         "schedule_id": schedule.id,
@@ -1234,6 +1247,7 @@ async def assign_next_task(request: Request, db: Session = Depends(get_db)):
     
     # ✅ 생성된 날짜로 리다이렉트
     return RedirectResponse(url=f"/marketing/cafe?tab=status&date={target_date}", status_code=303)
+
 # --- Reference & Comment Management (기존 유지) ---
 @router.post("/reference/add", response_class=RedirectResponse)
 async def add_reference(
