@@ -892,6 +892,37 @@
             margin-bottom: 20px;
         }
     }
+
+    /* 더보기 버튼 호버 효과 개선 */
+    .autocomplete-dropdown button.btn {
+        transition: all 0.3s ease;
+    }
+
+    .autocomplete-dropdown button.btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(74, 144, 226, 0.3);
+    }
+
+    /* 자동완성 드롭다운 스크롤 스타일 개선 */
+    .autocomplete-dropdown::-webkit-scrollbar {
+        width: 8px;
+    }
+
+    .autocomplete-dropdown::-webkit-scrollbar-track {
+        background: #f1f1f1;
+        border-radius: 10px;
+    }
+
+    .autocomplete-dropdown::-webkit-scrollbar-thumb {
+        background: #4A90E2;
+        border-radius: 10px;
+    }
+
+    .autocomplete-dropdown::-webkit-scrollbar-thumb:hover {
+        background: #3A7BC8;
+    }
+
+
 </style>
 {% endblock %}
 
@@ -1165,9 +1196,13 @@ searchInput.addEventListener('input', function(e) {
     clearTimeout(searchTimeout);
     const searchTerm = e.target.value.trim().toLowerCase();
     
+    // 검색어가 변경되면 limit 초기화
+    displayLimit = 10;
+    
     if (searchTerm.length < 1) {
         autocompleteDropdown.classList.remove('show');
         selectedIndex = -1;
+        currentSearchResults = [];
         return;
     }
     
@@ -1208,6 +1243,8 @@ function searchProducts(searchTerm) {
 
 // 자동완성 표시
 function showAutocomplete(products, searchTerm) {
+    currentSearchResults = products; // 전체 결과 저장
+    
     if (products.length === 0) {
         autocompleteDropdown.innerHTML = `
             <div style="padding: 30px; text-align: center; color: #adb5bd;">
@@ -1219,6 +1256,9 @@ function showAutocomplete(products, searchTerm) {
         autocompleteDropdown.classList.add('show');
         return;
     }
+    
+    renderAutocompleteResults(products, searchTerm, displayLimit);
+}
     
     let html = '';
     products.slice(0, 10).forEach((product, index) => {
@@ -1249,12 +1289,60 @@ function showAutocomplete(products, searchTerm) {
             </div>
         `;
     });
+
+function renderAutocompleteResults(products, searchTerm, limit) {
+    let html = '';
+    const displayProducts = products.slice(0, limit);
     
-    // 더 많은 결과가 있으면 표시
-    if (products.length > 10) {
+    displayProducts.forEach((product, index) => {
+        const highlightedName = highlightText(product.name || '', searchTerm);
+        const highlightedCode = highlightText(product.product_code || '', searchTerm);
+        const price = product.price ? `₩${product.price.toLocaleString()}` : '가격 미정';
+        
         html += `
-            <div style="padding: 15px; background: #f8f9fa; text-align: center; color: #636e72; font-size: 0.9rem; border-top: 1px solid #e9ecef;">
-                <i class="bi bi-info-circle"></i> ${products.length - 10}개의 추가 결과가 더 있습니다
+            <div class="autocomplete-item" 
+                 onclick="goToProduct(${product.id})"
+                 data-index="${index}">
+                ${product.thumbnail ? 
+                    `<img src="${product.thumbnail}" class="autocomplete-thumbnail" onerror="this.style.display='none'">` :
+                    `<div class="autocomplete-thumbnail" style="display: flex; align-items: center; justify-content: center; background: #f8f9fa;">
+                        <i class="bi bi-image" style="color: #adb5bd; font-size: 1.5rem;"></i>
+                    </div>`
+                }
+                <div class="autocomplete-info">
+                    <div class="autocomplete-name">${highlightedName}</div>
+                    <div class="autocomplete-price">
+                        ${price} 
+                        ${product.product_code ? `• 코드: ${highlightedCode}` : ''}
+                    </div>
+                </div>
+                <div style="margin-left: auto; color: #4A90E2;">
+                    <i class="bi bi-arrow-right-circle" style="font-size: 1.3rem;"></i>
+                </div>
+            </div>
+        `;
+    });
+    
+    // 더 많은 결과가 있으면 더보기 버튼 표시
+    if (products.length > limit) {
+        const remaining = products.length - limit;
+        html += `
+            <div style="padding: 15px; background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%); 
+                        text-align: center; border-top: 2px solid #e9ecef;">
+                <button onclick="loadMoreResults('${searchTerm}')" 
+                        class="btn btn-outline-primary btn-sm"
+                        style="width: 100%; max-width: 300px; font-weight: 600;">
+                    <i class="bi bi-chevron-down"></i>
+                    ${remaining}개 더보기
+                </button>
+            </div>
+        `;
+    } else if (products.length > 10) {
+        // 전체 결과를 다 보여준 경우
+        html += `
+            <div style="padding: 12px; background: #f8f9fa; text-align: center; 
+                        color: #636e72; font-size: 0.9rem; border-top: 1px solid #e9ecef;">
+                <i class="bi bi-check-circle"></i> 전체 ${products.length}개 결과
             </div>
         `;
     }
@@ -1262,6 +1350,18 @@ function showAutocomplete(products, searchTerm) {
     autocompleteDropdown.innerHTML = html;
     autocompleteDropdown.classList.add('show');
     selectedIndex = -1;
+}
+
+// 더보기 버튼 클릭 시 (새로 추가)
+function loadMoreResults(searchTerm) {
+    displayLimit += 20; // 20개씩 추가로 표시
+    renderAutocompleteResults(currentSearchResults, searchTerm, displayLimit);
+    
+    // 드롭다운 상단으로 부드럽게 스크롤
+    autocompleteDropdown.scrollTo({
+        top: autocompleteDropdown.scrollHeight,
+        behavior: 'smooth'
+    });
 }
 
 // 텍스트 하이라이트
