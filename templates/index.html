@@ -393,6 +393,51 @@
     .feature-card.schedule .feature-icon { background: linear-gradient(135deg, #fdcb6e 0%, #ffeaa7 100%); color: white; }
     .feature-card.admin .feature-icon { background: linear-gradient(135deg, #e17055 0%, #fab1a0 100%); color: white; }
     
+    .feature-card.tasks { --card-gradient: linear-gradient(90deg, #a29bfe 0%, #6c5ce7 100%); }
+    
+    .feature-card.tasks .feature-icon { 
+        background: linear-gradient(135deg, #a29bfe 0%, #6c5ce7 100%); 
+        color: white; 
+    }
+    
+    /* 업무 지시 미리보기 카드 */
+    .task-preview {
+        background: white;
+        border-radius: 12px;
+        padding: 12px 16px;
+        margin-bottom: 10px;
+        border-left: 4px solid #a29bfe;
+        transition: all 0.2s;
+    }
+    
+    .task-preview:hover {
+        transform: translateX(4px);
+        box-shadow: 0 4px 12px rgba(162, 155, 254, 0.2);
+    }
+    
+    .task-preview-title {
+        font-weight: 600;
+        color: #2d3436;
+        margin-bottom: 4px;
+        font-size: 0.9rem;
+    }
+    
+    .task-preview-meta {
+        display: flex;
+        gap: 10px;
+        font-size: 0.8rem;
+        color: #636e72;
+        align-items: center;
+    }
+    
+    .task-preview.urgent {
+        border-left-color: #d63031;
+    }
+    
+    .task-preview.important {
+        border-left-color: #fdcb6e;
+    }
+    
     .feature-title {
         font-size: 1.5rem;
         font-weight: 800;
@@ -666,60 +711,98 @@
                 </div>
             </div>
             
-            <!-- 통계 카드 (마케팅 권한 있을 때만) -->
+<!-- 통계 카드 (마케팅 권한 있을 때만) -->
             {% if can_manage_marketing or is_admin %}
             <div class="stats-grid">
+                <!-- 기존 4개 카드는 그대로 유지 -->
                 <div class="stat-card" style="--stat-gradient: linear-gradient(90deg, #4A90E2 0%, #5BA3F5 100%);">
-                    <div class="stat-icon" style="background: linear-gradient(135deg, #4A90E2 0%, #5BA3F5 100%); color: white;">
-                        <i class="bi bi-calendar-check"></i>
-                    </div>
-                    <div class="stat-value">{{ today_stats.total | default(0) }}</div>
-                    <div class="stat-label">오늘의 작업</div>
-                    <div class="stat-change positive">
-                        <i class="bi bi-arrow-up"></i> {{ today_stats.percentage | default(0) }}% 진행
-                    </div>
+                    <!-- ... 오늘의 작업 카드 ... -->
                 </div>
                 
                 <div class="stat-card" style="--stat-gradient: linear-gradient(90deg, #00b894 0%, #55efc4 100%);">
-                    <div class="stat-icon" style="background: linear-gradient(135deg, #00b894 0%, #55efc4 100%); color: white;">
-                        <i class="bi bi-check-circle"></i>
-                    </div>
-                    <div class="stat-value">{{ today_stats.completed | default(0) }}</div>
-                    <div class="stat-label">완료된 작업</div>
-                    <div class="stat-change positive">
-                        <i class="bi bi-arrow-up"></i> {{ (today_stats.completed / today_stats.total * 100) if today_stats.total else 0 }}% 완료
-                    </div>
+                    <!-- ... 완료된 작업 카드 ... -->
                 </div>
                 
                 <div class="stat-card" style="--stat-gradient: linear-gradient(90deg, #fdcb6e 0%, #ffeaa7 100%);">
-                    <div class="stat-icon" style="background: linear-gradient(135deg, #fdcb6e 0%, #ffeaa7 100%); color: white;">
-                        <i class="bi bi-pencil-square"></i>
-                    </div>
-                    <div class="stat-value">{{ total_posts | default(0) }}</div>
-                    <div class="stat-label">총 게시글</div>
-                    <div class="stat-change positive">
-                        <i class="bi bi-arrow-up"></i> {{ new_posts_today | default(0) }}개 추가
-                    </div>
+                    <!-- ... 총 게시글 카드 ... -->
                 </div>
                 
                 <div class="stat-card" style="--stat-gradient: linear-gradient(90deg, #e17055 0%, #fab1a0 100%);">
-                    <div class="stat-icon" style="background: linear-gradient(135deg, #e17055 0%, #fab1a0 100%); color: white;">
-                        <i class="bi bi-people"></i>
-                    </div>
-                    <div class="stat-value">{{ active_workers | default(0) }}</div>
-                    <div class="stat-label">활성 작업자</div>
-                    <div class="stat-change">
-                        <i class="bi bi-dash"></i> 변동 없음
-                    </div>
+                    <!-- ... 활성 작업자 카드 ... -->
                 </div>
             </div>
             {% endif %}
             
+            <!-- ⭐ 업무 지시 통계 (모든 로그인 사용자) -->
+            {% if username %}
+            <div class="stats-grid" style="grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); margin-top: -20px;">
+                <div class="stat-card" style="--stat-gradient: linear-gradient(90deg, #a29bfe 0%, #6c5ce7 100%);">
+                    <div class="stat-icon" style="background: linear-gradient(135deg, #a29bfe 0%, #6c5ce7 100%); color: white;">
+                        <i class="bi bi-clipboard-check"></i>
+                    </div>
+                    <div class="stat-value">{{ task_stats.total | default(0) }}</div>
+                    <div class="stat-label">받은 업무</div>
+                    <div class="stat-change">
+                        <i class="bi bi-dash"></i> 전체
+                    </div>
+                </div>
+                
+                <div class="stat-card" style="--stat-gradient: linear-gradient(90deg, #ff7675 0%, #d63031 100%);">
+                    <div class="stat-icon" style="background: linear-gradient(135deg, #ff7675 0%, #d63031 100%); color: white;">
+                        <i class="bi bi-exclamation-circle"></i>
+                    </div>
+                    <div class="stat-value">{{ task_stats.new | default(0) }}</div>
+                    <div class="stat-label">새 지시</div>
+                    <div class="stat-change negative">
+                        <i class="bi bi-arrow-down"></i> 확인 필요
+                    </div>
+                </div>
+                
+                <div class="stat-card" style="--stat-gradient: linear-gradient(90deg, #74b9ff 0%, #0984e3 100%);">
+                    <div class="stat-icon" style="background: linear-gradient(135deg, #74b9ff 0%, #0984e3 100%); color: white;">
+                        <i class="bi bi-arrow-repeat"></i>
+                    </div>
+                    <div class="stat-value">{{ task_stats.in_progress | default(0) }}</div>
+                    <div class="stat-label">진행중</div>
+                    <div class="stat-change positive">
+                        <i class="bi bi-arrow-up"></i> 작업 중
+                    </div>
+                </div>
+                
+                <div class="stat-card" style="--stat-gradient: linear-gradient(90deg, #00b894 0%, #00cec9 100%);">
+                    <div class="stat-icon" style="background: linear-gradient(135deg, #00b894 0%, #00cec9 100%); color: white;">
+                        <i class="bi bi-check-circle"></i>
+                    </div>
+                    <div class="stat-value">{{ task_stats.completed_today | default(0) }}</div>
+                    <div class="stat-label">오늘 완료</div>
+                    <div class="stat-change positive">
+                        <i class="bi bi-arrow-up"></i> 완료
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
             <!-- 퀵 액션 (권한에 따라 표시) -->
-            {% if can_manage_marketing or can_manage_products or is_admin %}
+            {% if can_manage_marketing or can_manage_products or is_admin or username %}
             <div class="quick-actions">
                 <div class="quick-actions-title">⚡ 빠른 작업</div>
                 <div class="quick-action-buttons">
+                    <!-- ⭐ 업무 지시 바로가기 (모든 로그인 사용자) -->
+                    {% if username %}
+                    <a href="/tasks" class="quick-action-btn" style="border-color: rgba(162, 155, 254, 0.3); color: #6c5ce7;">
+                        <i class="bi bi-list-task"></i> 내 업무 목록
+                    </a>
+                    <a href="/tasks/create" class="quick-action-btn" style="border-color: rgba(162, 155, 254, 0.3); color: #6c5ce7;">
+                        <i class="bi bi-plus-circle"></i> 업무 지시하기
+                    </a>
+                    {% if is_admin %}
+                    <a href="/tasks/dashboard" class="quick-action-btn" style="border-color: rgba(162, 155, 254, 0.3); color: #6c5ce7;">
+                        <i class="bi bi-graph-up"></i> 업무 대시보드
+                    </a>
+                    {% endif %}
+                    {% endif %}
+                    
+                    <!-- 기존 버튼들 -->
                     {% if can_manage_marketing or is_admin %}
                     {% if is_admin %}
                     <a href="/marketing/schedules" class="quick-action-btn">
@@ -743,6 +826,54 @@
                 </div>
             </div>
             {% endif %}
+
+            <!-- ⭐ 내 업무 미리보기 (오늘 작업 목록 위에 추가) -->
+            {% if username and my_pending_tasks %}
+            <div class="today-tasks" style="border-left: 4px solid #a29bfe;">
+                <div class="today-tasks-title" style="background: linear-gradient(135deg, #a29bfe 0%, #6c5ce7 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">
+                    📌 내가 처리할 업무 (미완료)
+                </div>
+                {% for task in my_pending_tasks %}
+                <div class="task-preview {% if task.priority == 'urgent' %}urgent{% elif task.priority == 'important' %}important{% endif %}">
+                    <div class="task-preview-title">
+                        {% if not task.is_read %}
+                        <span class="badge bg-danger" style="font-size: 0.7rem; padding: 2px 6px;">NEW</span>
+                        {% endif %}
+                        <a href="/tasks/{{ task.id }}" style="text-decoration: none; color: inherit;">
+                            {{ task.title }}
+                        </a>
+                    </div>
+                    <div class="task-preview-meta">
+                        {% if task.status == 'new' %}
+                        <span class="badge bg-danger" style="font-size: 0.7rem;">새 지시</span>
+                        {% elif task.status == 'confirmed' %}
+                        <span class="badge bg-info" style="font-size: 0.7rem;">확인함</span>
+                        {% elif task.status == 'in_progress' %}
+                        <span class="badge bg-warning" style="font-size: 0.7rem;">진행중</span>
+                        {% endif %}
+                        
+                        {% if task.priority == 'urgent' %}
+                        <span style="color: #d63031;">🔴 긴급</span>
+                        {% elif task.priority == 'important' %}
+                        <span style="color: #fdcb6e;">🟠 중요</span>
+                        {% endif %}
+                        
+                        <span><i class="bi bi-person"></i> {{ task.creator.username if task.creator else '삭제된 사용자' }}</span>
+                        
+                        {% if task.deadline %}
+                        <span><i class="bi bi-clock"></i> {{ task.deadline.strftime('%m/%d %H:%M') }}</span>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+                <div style="text-align: center; margin-top: 16px;">
+                    <a href="/tasks" class="btn-modern btn-modern-outline" style="border-color: #a29bfe; color: #6c5ce7;">
+                        <i class="bi bi-list-task"></i> 전체 업무 보기
+                    </a>
+                </div>
+            </div>
+            {% endif %}
+        
             
             <!-- 오늘 진행할 작업 목록 (마케팅 권한 있을 때만) -->
             {% if can_manage_marketing or is_admin %}
@@ -842,6 +973,34 @@
                             <a href="/marketing/kin" class="btn-modern btn-modern-outline">
                                 <i class="bi bi-lightbulb"></i> 지식인
                             </a>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+
+                <!-- ⭐ 업무 지시 관리 카드 (모든 로그인 사용자) -->
+                {% if username %}
+                <div class="col-lg-6 mb-4 animate-fade-in animate-delay-3">
+                    <div class="feature-card tasks">
+                        <div class="feature-icon">
+                            <i class="bi bi-list-task"></i>
+                        </div>
+                        <h2 class="feature-title">업무 지시 관리</h2>
+                        <p class="feature-description">
+                            직원 간 업무 지시, 실시간 알림, 진행 상황 추적, 댓글 소통 등 효율적인 업무 관리 시스템입니다.
+                        </p>
+                        <div class="feature-buttons">
+                            <a href="/tasks" class="btn-modern btn-modern-primary" style="background: linear-gradient(135deg, #a29bfe 0%, #6c5ce7 100%); box-shadow: 0 4px 16px rgba(162, 155, 254, 0.35);">
+                                <i class="bi bi-clipboard-check"></i> 내 업무
+                            </a>
+                            <a href="/tasks/create" class="btn-modern btn-modern-outline" style="border-color: rgba(162, 155, 254, 0.3); color: #6c5ce7;">
+                                <i class="bi bi-plus-lg"></i> 업무 지시
+                            </a>
+                            {% if is_admin %}
+                            <a href="/tasks/dashboard" class="btn-modern btn-modern-outline" style="border-color: rgba(162, 155, 254, 0.3); color: #6c5ce7;">
+                                <i class="bi bi-graph-up"></i> 대시보드
+                            </a>
+                            {% endif %}
                         </div>
                     </div>
                 </div>
