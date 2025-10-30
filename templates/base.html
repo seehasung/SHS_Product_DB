@@ -784,71 +784,80 @@
             <!-- 알림 배지 컨테이너 -->
             <div id="taskNotificationBadgeContainer" style="
                 position: absolute;
-                top: -8px;
-                right: -8px;
+                top: -10px;
+                right: -10px;
                 display: none;
+                min-width: 60px;
             ">
                 <!-- 상태별 배지들 -->
-                <div style="display: flex; flex-direction: column; gap: 2px;">
+                <div style="display: flex; flex-direction: column; gap: 3px; align-items: flex-end;">
                     <!-- 새 지시 (빨간색) -->
                     <span id="badgeNew" class="status-badge" data-status="new" style="
                         background: linear-gradient(135deg, #eb3349 0%, #f45c43 100%);
                         color: white;
-                        border-radius: 10px;
-                        width: 32px;
-                        height: 16px;
+                        border-radius: 12px;
+                        min-width: 36px;
+                        height: 18px;
                         display: none;
                         align-items: center;
                         justify-content: center;
-                        font-size: 10px;
+                        font-size: 11px;
                         font-weight: 700;
-                        box-shadow: 0 2px 8px rgba(235, 51, 73, 0.5);
+                        box-shadow: 0 3px 10px rgba(235, 51, 73, 0.6);
                         animation: pulse 2s infinite;
+                        padding: 0 6px;
+                        white-space: nowrap;
                     ">0</span>
                     
                     <!-- 확인함 (파란색) -->
                     <span id="badgeConfirmed" class="status-badge" data-status="confirmed" style="
                         background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
                         color: white;
-                        border-radius: 10px;
-                        width: 32px;
-                        height: 16px;
+                        border-radius: 12px;
+                        min-width: 36px;
+                        height: 18px;
                         display: none;
                         align-items: center;
                         justify-content: center;
-                        font-size: 10px;
+                        font-size: 11px;
                         font-weight: 700;
-                        box-shadow: 0 2px 8px rgba(79, 172, 254, 0.4);
+                        box-shadow: 0 3px 10px rgba(79, 172, 254, 0.5);
+                        padding: 0 6px;
+                        white-space: nowrap;
                     ">0</span>
                     
                     <!-- 진행중 (노란색) -->
                     <span id="badgeInProgress" class="status-badge" data-status="in_progress" style="
                         background: linear-gradient(135deg, #fdcb6e 0%, #ffeaa7 100%);
                         color: #2d3436;
-                        border-radius: 10px;
-                        width: 32px;
-                        height: 16px;
+                        border-radius: 12px;
+                        min-width: 36px;
+                        height: 18px;
                         display: none;
                         align-items: center;
                         justify-content: center;
-                        font-size: 10px;
+                        font-size: 11px;
                         font-weight: 700;
-                        box-shadow: 0 2px 8px rgba(253, 203, 110, 0.4);
+                        box-shadow: 0 3px 10px rgba(253, 203, 110, 0.5);
+                        padding: 0 6px;
+                        white-space: nowrap;
                     ">0</span>
                     
                     <!-- 보류 (회색) -->
                     <span id="badgeOnHold" class="status-badge" data-status="on_hold" style="
                         background: linear-gradient(135deg, #636e72 0%, #b2bec3 100%);
                         color: white;
-                        border-radius: 10px;
-                        width: 32px;
-                        height: 16px;
+                        border-radius: 12px;
+                        min-width: 36px;
+                        height: 18px;
                         display: none;
                         align-items: center;
                         justify-content: center;
-                        font-size: 10px;
+                        font-size: 11px;
                         font-weight: 700;
-                        box-shadow: 0 2px 8px rgba(99, 110, 114, 0.4);
+                        box-shadow: 0 3px 10px rgba(99, 110, 114, 0.5);
+                        padding: 0 6px;
+                        white-space: nowrap;
                     ">0</span>
                 </div>
             </div>
@@ -1354,7 +1363,7 @@
                 const data = JSON.parse(event.data);
                 console.log('📨 알림 수신:', data);
 
-                // 토스트 알림 표시
+                // ⭐ 토스트 알림 표시
                 showToastNotification(data);
 
                 // 배지 업데이트
@@ -2450,33 +2459,57 @@
         // 토스트 알림 표시 (10초 자동 사라짐)
         // ============================================
         function showToastNotification(data) {
+            console.log('🍞 토스트 알림 표시:', data);
+            
             const container = document.getElementById('taskToastContainer');
             
+            if (!container) {
+                console.error('❌ 토스트 컨테이너를 찾을 수 없습니다');
+                return;
+            }
+            
+            // 우선순위 확인
             const isUrgent = data.priority === 'urgent';
             const isImportant = data.priority === 'important';
             
             const toast = document.createElement('div');
             toast.className = `task-toast ${isUrgent ? 'urgent' : ''} ${isImportant ? 'important' : ''}`;
             toast.onclick = () => {
-                goToTask(data.task_id);
+                if (data.task_id) {
+                    goToTask(data.task_id);
+                }
                 removeToast(toast);
             };
+            
+            // 메시지 텍스트
+            let message = data.message || '새 알림이 도착했습니다';
+            let typeText = '알림';
+            
+            if (data.type === 'new_task') {
+                typeText = '새 업무';
+            } else if (data.type === 'new_comment') {
+                typeText = '새 댓글';
+            } else if (data.type === 'status_change') {
+                typeText = '상태 변경';
+            }
             
             toast.innerHTML = `
                 <div style="display: flex; align-items: start; gap: 16px;">
                     <i class="bi bi-bell-fill" style="font-size: 28px; color: ${isUrgent ? '#eb3349' : isImportant ? '#ffc107' : '#4A90E2'}; flex-shrink: 0;"></i>
                     <div style="flex: 1;">
                         <div style="font-weight: 700; color: #2d3436; margin-bottom: 6px; font-size: 1rem;">
-                            ${isUrgent ? '🔴 ' : isImportant ? '🟠 ' : ''}${data.message}
+                            ${isUrgent ? '🔴 ' : isImportant ? '🟠 ' : ''}${message}
                         </div>
                         <div style="font-size: 0.9rem; color: #636e72; font-weight: 500;">
-                            ${data.type === 'new_task' ? '새 업무' : '댓글'} • 방금 전
+                            ${typeText} • 방금 전
                         </div>
                     </div>
                 </div>
             `;
             
             container.appendChild(toast);
+            
+            console.log('✅ 토스트 추가됨');
             
             // 10초 후 자동 제거
             setTimeout(() => {
@@ -2485,9 +2518,13 @@
         }
 
         function removeToast(toast) {
+            if (!toast) return;
+            
             toast.classList.add('removing');
             setTimeout(() => {
-                toast.remove();
+                if (toast && toast.parentNode) {
+                    toast.remove();
+                }
             }, 300);
         }
 

@@ -4,7 +4,7 @@ from fastapi import APIRouter, Request, Form, Depends, File, UploadFile, HTTPExc
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import or_, and_, func
+from sqlalchemy import and_, or_, func
 from datetime import date, datetime, timedelta
 from typing import List, Optional
 import os
@@ -565,7 +565,7 @@ async def add_comment(
 
 @router.get("/notifications/unread")
 def get_unread_notifications(request: Request, db: Session = Depends(get_db)):
-    """읽지 않은 알림 목록 조회"""
+    """읽지 않은 알림 목록 조회 (업무당 최신 하나만)"""
     username = request.session.get("user")
     if not username:
         return []
@@ -574,17 +574,31 @@ def get_unread_notifications(request: Request, db: Session = Depends(get_db)):
     if not current_user:
         return []
     
-    # 읽지 않은 알림 조회 (완료 상태가 아닌 업무만)
-    notifications = db.query(TaskNotification).options(
-        joinedload(TaskNotification.task).joinedload(TaskAssignment.creator),
-        joinedload(TaskNotification.task).joinedload(TaskAssignment.assignee)
+    # ⭐ 서브쿼리: 각 업무별 최신 알림 ID 추출
+    from sqlalchemy import func
+    
+    subquery = db.query(
+        TaskNotification.task_id,
+        func.max(TaskNotification.id).label('max_id')
     ).filter(
         TaskNotification.user_id == current_user.id,
         TaskNotification.is_read == False
+    ).group_by(TaskNotification.task_id).subquery()
+    
+    # 최신 알림만 조회 (완료 상태가 아닌 업무만)
+    notifications = db.query(TaskNotification).options(
+        joinedload(TaskNotification.task).joinedload(TaskAssignment.creator),
+        joinedload(TaskNotification.task).joinedload(TaskAssignment.assignee)
+    ).join(
+        subquery, 
+        and_(
+            TaskNotification.task_id == subquery.c.task_id,
+            TaskNotification.id == subquery.c.max_id
+        )
     ).join(
         TaskAssignment, TaskNotification.task_id == TaskAssignment.id
     ).filter(
-        TaskAssignment.status != 'completed'  # ⭐ 완료된 업무는 제외
+        TaskAssignment.status != 'completed'  # 완료된 업무는 제외
     ).order_by(
         TaskNotification.created_at.desc()
     ).all()
@@ -608,9 +622,9 @@ def get_unread_notifications(request: Request, db: Session = Depends(get_db)):
             "is_read": notif.is_read,
             "created_at": notif.created_at.isoformat(),
             "priority": task.priority,
-            "status": task.status,  # ⭐ 업무 상태 추가
-            "title": task.title,  # ⭐ 업무 제목 추가
-            "creator_name": creator_name  # ⭐ 지시자 이름 추가
+            "status": task.status,
+            "title": task.title,
+            "creator_name": creator_name
         })
     
     return result
@@ -927,6 +941,7 @@ async def add_comment_api(
                 'type': 'new_comment',
                 'task_id': task.id,
                 'message': f"새 댓글이 달렸습니다: {task.title}",
+                'priority': task.priority,  # ⭐ 우선순위 추가
                 'timestamp': get_kst_now().isoformat()
             }, recipient_id)
         except Exception as e:
@@ -1000,6 +1015,7 @@ async def update_task_status_api(
                 'type': 'status_change',
                 'task_id': task.id,
                 'message': f"업무 상태가 변경되었습니다: {task.title}",
+                'priority': task.priority,  # ⭐ 우선순위 추가
                 'timestamp': get_kst_now().isoformat()
             }, task.creator_id)
         except Exception as e:
