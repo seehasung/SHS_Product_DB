@@ -711,24 +711,51 @@
                 </div>
             </div>
             
-<!-- 통계 카드 (마케팅 권한 있을 때만) -->
+            <!-- 통계 카드 (마케팅 권한 있을 때만) -->
             {% if can_manage_marketing or is_admin %}
             <div class="stats-grid">
-                <!-- 기존 4개 카드는 그대로 유지 -->
                 <div class="stat-card" style="--stat-gradient: linear-gradient(90deg, #4A90E2 0%, #5BA3F5 100%);">
-                    <!-- ... 오늘의 작업 카드 ... -->
+                    <div class="stat-icon" style="background: linear-gradient(135deg, #4A90E2 0%, #5BA3F5 100%); color: white;">
+                        <i class="bi bi-calendar-check"></i>
+                    </div>
+                    <div class="stat-value">{{ today_stats.total | default(0) }}</div>
+                    <div class="stat-label">오늘의 작업</div>
+                    <div class="stat-change positive">
+                        <i class="bi bi-arrow-up"></i> {{ today_stats.percentage | default(0) }}% 진행
+                    </div>
                 </div>
                 
                 <div class="stat-card" style="--stat-gradient: linear-gradient(90deg, #00b894 0%, #55efc4 100%);">
-                    <!-- ... 완료된 작업 카드 ... -->
+                    <div class="stat-icon" style="background: linear-gradient(135deg, #00b894 0%, #55efc4 100%); color: white;">
+                        <i class="bi bi-check-circle"></i>
+                    </div>
+                    <div class="stat-value">{{ today_stats.completed | default(0) }}</div>
+                    <div class="stat-label">완료된 작업</div>
+                    <div class="stat-change positive">
+                        <i class="bi bi-arrow-up"></i> {{ (today_stats.completed / today_stats.total * 100) if today_stats.total else 0 }}% 완료
+                    </div>
                 </div>
                 
                 <div class="stat-card" style="--stat-gradient: linear-gradient(90deg, #fdcb6e 0%, #ffeaa7 100%);">
-                    <!-- ... 총 게시글 카드 ... -->
+                    <div class="stat-icon" style="background: linear-gradient(135deg, #fdcb6e 0%, #ffeaa7 100%); color: white;">
+                        <i class="bi bi-pencil-square"></i>
+                    </div>
+                    <div class="stat-value">{{ total_posts | default(0) }}</div>
+                    <div class="stat-label">총 게시글</div>
+                    <div class="stat-change positive">
+                        <i class="bi bi-arrow-up"></i> {{ new_posts_today | default(0) }}개 추가
+                    </div>
                 </div>
                 
                 <div class="stat-card" style="--stat-gradient: linear-gradient(90deg, #e17055 0%, #fab1a0 100%);">
-                    <!-- ... 활성 작업자 카드 ... -->
+                    <div class="stat-icon" style="background: linear-gradient(135deg, #e17055 0%, #fab1a0 100%); color: white;">
+                        <i class="bi bi-people"></i>
+                    </div>
+                    <div class="stat-value">{{ active_workers | default(0) }}</div>
+                    <div class="stat-label">활성 작업자</div>
+                    <div class="stat-change">
+                        <i class="bi bi-dash"></i> 변동 없음
+                    </div>
                 </div>
             </div>
             {% endif %}
