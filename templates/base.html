@@ -871,13 +871,6 @@
         </div>
     </div>
 
-    <!-- 플로팅 알림 버튼 (우측 하단 고정) -->
-    <div id="taskNotificationFloat" style="display: none;">
-        <!-- 기존 알림 버튼 코드 그대로 유지 -->
-        <button id="taskNotificationBtn" class="btn shadow-lg" style="...">
-            ...
-        </button>
-    </div>
 
     <!-- ============================================ -->
     <!-- ➕ 업무 지시 요청 버튼 (추가!) -->
@@ -1310,45 +1303,47 @@
         // 초기화 (페이지 로드 시)
         // ============================================
         document.addEventListener('DOMContentLoaded', function() {
-            // 로그인 여부 확인
             const username = '{{ username if username else "" }}';
             
             if (username) {
-                // 로그인된 경우에만 알림 시스템 활성화
                 document.getElementById('taskNotificationFloat').style.display = 'block';
-                document.getElementById('taskRequestFloat').style.display = 'block';  // ⭐ 추가
+                document.getElementById('taskRequestFloat').style.display = 'block';
                 
-                // 사용자 ID 가져오기
                 fetch('/tasks/get-current-user-id')
-                    .then(response => response.json())
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error('사용자 ID 가져오기 실패');
+                        }
+                        return response.json();
+                    })
                     .then(data => {
                         currentUserId = data.user_id;
-                        
-                        // WebSocket 연결
                         connectTaskWebSocket();
-                        
-                        // 초기 알림 로드
                         loadNotifications();
-                        
-                        // 2초마다 배지 업데이트
                         setInterval(updateNotificationBadge, 2000);
                     })
                     .catch(error => {
-                        console.error('사용자 ID 가져오기 오류:', error);
+                        console.error('❌ 사용자 ID 가져오기 오류:', error);
                     });
             }
 
-            // 이벤트 리스너
-            document.getElementById('taskNotificationBtn').addEventListener('click', toggleDrawer);
-            document.getElementById('closeDrawerBtn').addEventListener('click', closeDrawer);
-            document.getElementById('taskNotificationOverlay').addEventListener('click', closeDrawer);
+            // ⭐ 이벤트 리스너 (요소가 존재할 때만 추가)
+            const notificationBtn = document.getElementById('taskNotificationBtn');
+            const closeDrawerBtn = document.getElementById('closeDrawerBtn');
+            const notificationOverlay = document.getElementById('taskNotificationOverlay');
+            const requestBtn = document.getElementById('taskRequestBtn');
+            const closeRequestBtn = document.getElementById('closeRequestDrawerBtn');
+            const requestOverlay = document.getElementById('taskRequestOverlay');
             
-            // ⭐ 업무 지시 버튼 이벤트 리스너 추가
-            document.getElementById('taskRequestBtn').addEventListener('click', toggleRequestDrawer);
-            document.getElementById('closeRequestDrawerBtn').addEventListener('click', closeRequestDrawer);
-            document.getElementById('taskRequestOverlay').addEventListener('click', closeRequestDrawer);
+            if (notificationBtn) notificationBtn.addEventListener('click', toggleDrawer);
+            if (closeDrawerBtn) closeDrawerBtn.addEventListener('click', closeDrawer);
+            if (notificationOverlay) notificationOverlay.addEventListener('click', closeDrawer);
+            
+            if (requestBtn) requestBtn.addEventListener('click', toggleRequestDrawer);
+            if (closeRequestBtn) closeRequestBtn.addEventListener('click', closeRequestDrawer);
+            if (requestOverlay) requestOverlay.addEventListener('click', closeRequestDrawer);
         });
-
+        
         // ============================================
         // WebSocket 연결
         // ============================================

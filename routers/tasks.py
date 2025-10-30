@@ -9,6 +9,7 @@ from datetime import date, datetime, timedelta
 from typing import List, Optional
 import os
 import uuid
+import shutil  # ⭐ 추가 (파일 복사에 필요)
 from websocket_manager import manager
 import asyncio
 
@@ -25,8 +26,6 @@ templates = Jinja2Templates(directory="templates")
 # 파일 업로드 디렉토리
 UPLOAD_DIR = "static/task_files"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
-
-router = APIRouter(prefix="/tasks", tags=["tasks"])
 
 
 def get_db():
