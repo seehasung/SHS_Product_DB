@@ -681,6 +681,64 @@ let autocompleteDisplayLimit = 10;
 const searchInput = document.getElementById('searchInput');
 const autocompleteDropdown = document.getElementById('autocompleteDropdown');
 
+// URL 파라미터에서 페이지 상태 복원
+function restorePageState() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const page = urlParams.get('page');
+    const keyword = urlParams.get('keyword');
+    const perPage = urlParams.get('per_page');
+    
+    // 검색어 복원
+    if (keyword) {
+        searchInput.value = keyword;
+        currentSearchTerm = keyword;
+        
+        // 검색어로 필터링
+        filteredProducts = allProducts.filter(product => {
+            const name = (product.name || '').toLowerCase();
+            const code = (product.product_code || '').toLowerCase();
+            return name.includes(keyword.toLowerCase()) || code.includes(keyword.toLowerCase());
+        });
+    }
+    
+    // 페이지당 표시 개수 복원
+    if (perPage) {
+        itemsPerPage = perPage === 'all' ? 'all' : parseInt(perPage);
+        document.getElementById('itemsPerPageSelect').value = perPage;
+    }
+    
+    // 페이지 번호 복원
+    if (page) {
+        currentPage = parseInt(page);
+    }
+    
+    displayProducts(currentPage);
+}
+
+// URL 업데이트 함수
+function updateURL() {
+    const params = new URLSearchParams();
+    
+    if (currentPage > 1) {
+        params.set('page', currentPage);
+    }
+    
+    if (currentSearchTerm) {
+        params.set('keyword', currentSearchTerm);
+    }
+    
+    if (itemsPerPage !== 20) {
+        params.set('per_page', itemsPerPage);
+    }
+    
+    const newURL = params.toString() ? 
+        `${window.location.pathname}?${params.toString()}` : 
+        window.location.pathname;
+    
+    // URL 업데이트 (페이지 새로고침 없이)
+    window.history.replaceState({}, '', newURL);
+}
+
 // 검색 실행 - 필터링 후 하이라이트
 function executeSearch() {
     const searchTerm = searchInput.value.toLowerCase().trim();
@@ -700,6 +758,7 @@ function executeSearch() {
     
     currentPage = 1;
     displayProducts(currentPage);
+    updateURL();
     autocompleteDropdown.classList.remove('show');
 }
 
@@ -709,22 +768,14 @@ function resetSearch() {
     currentSearchTerm = '';
     filteredProducts = [...allProducts];
     currentPage = 1;
-    autocompleteDisplayLimit = 10; // 리셋
+    autocompleteDisplayLimit = 10;
     displayProducts(currentPage);
+    updateURL();
     autocompleteDropdown.classList.remove('show');
 }
 
 // 검색 입력 시 자동완성
 searchInput.addEventListener('input', function(e) {
-    const searchTerm = e.target.value.toLowerCase().trim();
-    
-    if (searchTerm.length < 1) {
-        autocompleteDropdown.classList.remove('show');
-        return;
-    }
-    
-    // 검색어와 일치하는 상품 찾기
-    searchInput.addEventListener('input', function(e) {
     const searchTerm = e.target.value.toLowerCase().trim();
     
     // 검색어가 변경되면 limit 초기화
@@ -760,6 +811,7 @@ searchInput.addEventListener('input', function(e) {
     renderAutocompleteResults(matchingProducts, searchTerm, autocompleteDisplayLimit);
 });
 
+// 자동완성 결과 렌더링 함수
 function renderAutocompleteResults(products, searchTerm, limit) {
     let html = '';
     const displayProducts = products.slice(0, limit);
@@ -797,7 +849,6 @@ function renderAutocompleteResults(products, searchTerm, limit) {
             </div>
         `;
     } else if (products.length > 10) {
-        // 전체 결과를 다 보여준 경우
         html += `
             <div style="padding: 12px; background: #f8f9fa; text-align: center; 
                         color: #636e72; font-size: 0.9rem; border-top: 1px solid #e9ecef;">
@@ -806,7 +857,7 @@ function renderAutocompleteResults(products, searchTerm, limit) {
         `;
     }
     
-    / // 엔터키 안내 추가
+    // 엔터키 안내 추가
     html += `
         <div style="padding: 10px 15px; background: #f0f2f5; border-top: 1px solid #e9ecef; 
                     text-align: center; font-size: 0.85rem; color: #6c757d;">
@@ -819,13 +870,11 @@ function renderAutocompleteResults(products, searchTerm, limit) {
     selectedIndex = -1;
 }
 
-
-// 자동완성 더보기 버튼 클릭 (새로 추가)
+// 자동완성 더보기 버튼 클릭
 function loadMoreAutocomplete(searchTerm) {
-    autocompleteDisplayLimit += 20; // 20개씩 추가로 표시
+    autocompleteDisplayLimit += 20;
     renderAutocompleteResults(currentAutocompleteResults, searchTerm, autocompleteDisplayLimit);
     
-    // 드롭다운 하단으로 부드럽게 스크롤
     setTimeout(() => {
         autocompleteDropdown.scrollTo({
             top: autocompleteDropdown.scrollHeight,
@@ -834,7 +883,7 @@ function loadMoreAutocomplete(searchTerm) {
     }, 50);
 }
 
-// 텍스트 하이라이트 - 더 진한 노란색
+// 텍스트 하이라이트
 function highlightText(text, searchTerm) {
     if (!searchTerm || !text) return text;
     
@@ -842,9 +891,14 @@ function highlightText(text, searchTerm) {
     return text.replace(regex, '<span class="highlight">$1</span>');
 }
 
-// 상품 상세 페이지로 이동
+// 상품 상세 페이지로 이동 (현재 상태 저장)
 function goToProductDetail(productId) {
-    window.location.href = `/products/${productId}`;
+    const params = new URLSearchParams();
+    params.set('return_page', currentPage);
+    if (currentSearchTerm) params.set('return_keyword', currentSearchTerm);
+    if (itemsPerPage !== 20) params.set('return_per_page', itemsPerPage);
+    
+    window.location.href = `/products/${productId}?${params.toString()}`;
 }
 
 // 클릭 외부 영역 시 드롭다운 닫기
@@ -854,7 +908,7 @@ document.addEventListener('click', function(e) {
     }
 });
 
-// 키보드 네비게이션 (수정됨)
+// 키보드 네비게이션
 let selectedIndex = -1;
 searchInput.addEventListener('keydown', function(e) {
     const items = autocompleteDropdown.querySelectorAll('.autocomplete-item');
@@ -870,9 +924,9 @@ searchInput.addEventListener('keydown', function(e) {
     } else if (e.key === 'Enter') {
         e.preventDefault();
         if (selectedIndex >= 0 && items[selectedIndex]) {
-            items[selectedIndex].click();  // 선택된 항목 클릭
+            items[selectedIndex].click();
         } else {
-            executeSearch();  // 선택 항목이 없으면 검색 실행
+            executeSearch();
         }
     } else if (e.key === 'Escape') {
         autocompleteDropdown.classList.remove('show');
@@ -884,35 +938,62 @@ function updateSelection(items) {
     items.forEach((item, index) => {
         if (index === selectedIndex) {
             item.style.background = '#f8f9fa';
+            item.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
         } else {
             item.style.background = '';
         }
     });
 }
 
-// 상품 편집 - 페이지 이동으로 변경
+// 상품 편집 - 현재 상태 저장
 function editProduct(productId) {
-    window.location.href = `/products/edit/${productId}`;
+    const params = new URLSearchParams();
+    params.set('return_page', currentPage);
+    if (currentSearchTerm) params.set('return_keyword', currentSearchTerm);
+    if (itemsPerPage !== 20) params.set('return_per_page', itemsPerPage);
+    
+    window.location.href = `/products/edit/${productId}?${params.toString()}`;
 }
 
 // 상품 삭제
 function deleteProduct(productId) {
     if (confirm('정말로 이 상품을 삭제하시겠습니까?')) {
-        // Form 데이터로 전송
         const form = document.createElement('form');
         form.method = 'POST';
         form.action = `/products/delete/${productId}`;
+        
+        // 현재 페이지 정보 추가
+        const pageInput = document.createElement('input');
+        pageInput.type = 'hidden';
+        pageInput.name = 'return_page';
+        pageInput.value = currentPage;
+        form.appendChild(pageInput);
+        
+        if (currentSearchTerm) {
+            const keywordInput = document.createElement('input');
+            keywordInput.type = 'hidden';
+            keywordInput.name = 'return_keyword';
+            keywordInput.value = currentSearchTerm;
+            form.appendChild(keywordInput);
+        }
+        
+        if (itemsPerPage !== 20) {
+            const perPageInput = document.createElement('input');
+            perPageInput.type = 'hidden';
+            perPageInput.name = 'return_per_page';
+            perPageInput.value = itemsPerPage;
+            form.appendChild(perPageInput);
+        }
         
         document.body.appendChild(form);
         form.submit();
     }
 }
 
-// 페이지네이션 함수들 - 하이라이트 적용
+// 페이지네이션 함수들
 function displayProducts(page = 1) {
     const tbody = document.getElementById('productTableBody');
     
-    // "전체 보기"인 경우 처리
     let start, end, pageProducts;
     if (itemsPerPage === 'all') {
         start = 0;
@@ -924,7 +1005,6 @@ function displayProducts(page = 1) {
         pageProducts = filteredProducts.slice(start, end);
     }
     
-    // 테이블 내용 다시 그리기 - 검색어 하이라이트 적용
     tbody.innerHTML = pageProducts.map(product => {
         const productName = currentSearchTerm ? 
             highlightText(product.name, currentSearchTerm) : product.name;
@@ -941,7 +1021,7 @@ function displayProducts(page = 1) {
                     }
                 </td>
                 <td>
-                    <a href="/products/${product.id}" class="product-name-link">
+                    <a href="#" onclick="event.preventDefault(); goToProductDetail(${product.id});" class="product-name-link">
                         ${productName}
                     </a>
                 </td>
@@ -989,10 +1069,8 @@ function displayProducts(page = 1) {
         `;
     }).join('');
     
-    // 페이지 버튼 업데이트
     updatePagination();
     
-    // 상품 개수 정보 표시
     const startNum = filteredProducts.length > 0 ? start + 1 : 0;
     const endNum = itemsPerPage === 'all' ? filteredProducts.length : Math.min(end, filteredProducts.length);
     document.getElementById('productInfo').textContent = 
@@ -1002,7 +1080,6 @@ function displayProducts(page = 1) {
 function updatePagination() {
     const pagination = document.querySelector('.pagination');
     
-    // "전체 보기"인 경우 페이지네이션 숨기기
     if (itemsPerPage === 'all') {
         pagination.innerHTML = '';
         return;
@@ -1016,7 +1093,6 @@ function updatePagination() {
         </button>
     `;
     
-    // 페이지 번호 버튼 (최대 10개 표시)
     let startPage = Math.max(1, currentPage - 4);
     let endPage = Math.min(totalPages, startPage + 9);
     
@@ -1049,6 +1125,10 @@ function goToPage(page) {
     
     currentPage = page;
     displayProducts(currentPage);
+    updateURL();
+    
+    // 페이지 상단으로 스크롤
+    window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 // 페이지당 표시 개수 변경
@@ -1060,15 +1140,15 @@ function changeItemsPerPage(value) {
     }
     currentPage = 1;
     displayProducts(currentPage);
+    updateURL();
 }
 
 // 페이지 로드 시 초기 표시
 document.addEventListener('DOMContentLoaded', function() {
-    // 전체 데이터 확인
     console.log(`총 상품 수: ${allProducts.length}개`);
     
-    // 초기 표시
-    displayProducts(1);
+    // URL에서 페이지 상태 복원
+    restorePageState();
 });
 </script>
 {% endblock %}
