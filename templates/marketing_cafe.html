@@ -26,6 +26,11 @@
         max-height: calc(100vh - 250px);
         overflow-y: auto;
     }
+
+    .modal-dialog-scrollable .modal-body {
+        max-height: calc(100vh - 200px) !important;
+        overflow-y: auto !important;
+    }
     
     /* 모달 대화상자 최적화 */
     .modal-dialog {
@@ -67,24 +72,30 @@
     .modal-body::-webkit-scrollbar-thumb:hover {
         background: #555;
     }
+    
 
-  /* 레퍼런스 분류 뱃지 스타일 */
-  .ref-badge {
-    display: inline-block;
-    padding: 0.35em 0.65em;
-    font-size: .75em;
-    font-weight: 700;
-    line-height: 1;
-    color: #fff;
-    text-align: center;
-    white-space: nowrap;
-    vertical-align: baseline;
-    border-radius: 0.25rem;
-  }
-  .ref-대안 { background-color: #fa5252; } /* 빨강 */
-  .ref-정보 { background-color: #228be6; } /* 파랑 */
-  .ref-기타 { background-color: #40c057; } /* 초록 */
-  .ref-미지정 { background-color: #868e96; } /* 회색 */
+    .modal textarea {
+        resize: vertical;
+        min-height: 100px;
+    }
+
+    /* 레퍼런스 분류 뱃지 스타일 */
+    .ref-badge {
+        display: inline-block;
+        padding: 0.35em 0.65em;
+        font-size: .75em;
+        font-weight: 700;
+        line-height: 1;
+        color: #fff;
+        text-align: center;
+        white-space: nowrap;
+        vertical-align: baseline;
+        border-radius: 0.25rem;
+    }
+    .ref-대안 { background-color: #fa5252; } /* 빨강 */
+    .ref-정보 { background-color: #228be6; } /* 파랑 */
+    .ref-기타 { background-color: #40c057; } /* 초록 */
+    .ref-미지정 { background-color: #868e96; } /* 회색 */
 
     /* marketing_cafe.html <style> 태그에 추가 */
     .btn-info {
@@ -198,6 +209,19 @@
         transform: translateY(-4px);
         box-shadow: 0 12px 32px rgba(74, 144, 226, 0.45);
         color: white;
+    }
+
+    .btn-outline-warning {
+        background: linear-gradient(135deg, rgba(255, 212, 59, 0.1) 0%, rgba(255, 193, 7, 0.1) 100%);
+        border: 2px solid rgba(255, 193, 7, 0.3);
+        color: #ffc107;
+    }
+    
+    .btn-outline-warning:hover {
+        background: linear-gradient(135deg, #ffc107 0%, #ffb300 100%);
+        border-color: transparent;
+        color: #000;
+        transform: translateY(-4px);
     }
     
     .btn-secondary {
@@ -715,6 +739,168 @@
         color: #dee2e6;
     }
 
+    /* ========================================
+       🎨 레퍼런스 스타일 댓글 UI
+       ======================================== */
+    
+    .comments-manager {
+        border: 2px solid #e9ecef;
+        border-radius: 12px;
+        padding: 20px;
+        background: #f8f9fa;
+        margin-top: 10px;
+    }
+    
+    .comments-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 15px;
+    }
+    
+    .comments-title {
+        font-size: 1.1rem;
+        font-weight: 700;
+        color: #495057;
+    }
+    
+    .btn-add-comment {
+        background: linear-gradient(135deg, #51cf66 0%, #37b24d 100%);
+        color: white;
+        border: none;
+        padding: 8px 16px;
+        border-radius: 8px;
+        font-weight: 600;
+        font-size: 0.9rem;
+        transition: all 0.3s;
+    }
+    
+    .btn-add-comment:hover {
+        background: linear-gradient(135deg, #37b24d 0%, #2b8a3e 100%);
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(81, 207, 102, 0.4);
+    }
+    
+    .comment-card {
+        background: white;
+        border-radius: 10px;
+        padding: 15px;
+        margin-bottom: 12px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        transition: all 0.3s;
+        position: relative;
+    }
+    
+    .comment-card:hover {
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+        transform: translateY(-2px);
+    }
+    
+    .comment-card.reply {
+        margin-left: 30px;
+        background: #f1f3f5;
+        border-left: 3px solid #4A90E2;
+    }
+    
+    .comment-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 10px;
+    }
+    
+    .comment-author-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 12px;
+        border-radius: 20px;
+        font-weight: 600;
+        font-size: 0.9rem;
+    }
+    
+    .comment-author-icon {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        font-size: 0.75rem;
+        font-weight: 700;
+    }
+    
+    .comment-actions {
+        display: flex;
+        gap: 6px;
+    }
+    
+    .btn-comment-action {
+        padding: 4px 10px;
+        font-size: 0.8rem;
+        border-radius: 6px;
+        border: none;
+        font-weight: 600;
+        transition: all 0.2s;
+    }
+    
+    .btn-comment-edit {
+        background: #e3f2fd;
+        color: #1976d2;
+    }
+    
+    .btn-comment-edit:hover {
+        background: #1976d2;
+        color: white;
+    }
+    
+    .btn-comment-delete {
+        background: #ffebee;
+        color: #d32f2f;
+    }
+    
+    .btn-comment-delete:hover {
+        background: #d32f2f;
+        color: white;
+    }
+    
+    .btn-comment-reply {
+        background: #f3e5f5;
+        color: #7b1fa2;
+    }
+    
+    .btn-comment-reply:hover {
+        background: #7b1fa2;
+        color: white;
+    }
+    
+    .comment-text-display {
+        color: #212529;
+        line-height: 1.6;
+        white-space: pre-wrap;
+        word-wrap: break-word;
+    }
+    
+    .no-comments {
+        text-align: center;
+        padding: 30px;
+        color: #adb5bd;
+        font-style: italic;
+    }
+    
+    /* 계정별 색깔 */
+    .account-0 { background-color: #868e96; color: #fff; }
+    .account-1 { background-color: #fa5252; color: #fff; }
+    .account-2 { background-color: #fd7e14; color: #fff; }
+    .account-3 { background-color: #fcc419; color: #212529; }
+    .account-4 { background-color: #40c057; color: #fff; }
+    .account-5 { background-color: #228be6; color: #fff; }
+    .account-6 { background-color: #364fc7; color: #fff; }
+    .account-7 { background-color: #7048e8; color: #fff; }
+    .account-8 { background-color: #f06595; color: #fff; }
+
+
+
 </style>
 {% endblock %}
 
@@ -954,7 +1140,7 @@
                                     {% endif %}
                                 </td>
                                 <td class="text-center">
-                                    <div class="action-buttons" style="display: flex; gap: 5px;">
+                                    <div class="action-buttons">
                                         <button class="btn btn-sm {{ 'btn-success' if schedule.status == 'completed' else 'btn-outline-info' }}" 
                                                 onclick="editScheduleAndStart({{ schedule.id }}, '{{ schedule.status }}')"
                                                 data-bs-toggle="tooltip" 
@@ -1250,6 +1436,149 @@
     </div>
 </div>
 
+<div class="modal fade" id="editPostModalFromStatus" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable modal-dialog-centered">
+        <div class="modal-content">
+            <form id="editPostFormFromStatus" method="post">
+                <div class="modal-header">
+                    <h5 class="modal-title">✏️ 글 정보 수정</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">작성자</label>
+                            <select class="form-select" id="edit_worker_id_status" name="worker_id" required>
+                                {% for worker in workers %}
+                                <option value="{{ worker.id }}">{{ worker.username }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">네이버 계정</label>
+                            <select class="form-select" id="edit_account_id_status" name="account_id" required onchange="updateCafeDropdownStatus(this.value)">
+                                {% for acc in accounts %}
+                                <option value="{{ acc.id }}">{{ acc.account_id }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">작성 카페</label>
+                            <select class="form-select" id="edit_cafe_id_status" name="cafe_id" required>
+                                {% for cafe in cafes %}
+                                <option value="{{ cafe.id }}">{{ cafe.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    <hr>
+                    <div class="mb-3">
+                        <label class="form-label">레퍼런스 불러오기 (선택)</label>
+                        <div class="input-group">
+                            <select class="form-select" id="edit_ref_type_status" onchange="filterReferencesStatus(this.value)">
+                                <option value="" selected>분류 선택...</option>
+                                {% for type_name in references_by_type.keys() %}
+                                <option value="{{ type_name }}">{{ type_name }}</option>
+                                {% endfor %}
+                            </select>
+                            <select class="form-select" id="edit_ref_title_status" onchange="loadReferenceStatus(this.value)">
+                                <option value="" selected>제목 선택...</option>
+                                {% for type, refs in references_by_type.items() %}
+                                    {% for ref in refs %}
+                                    <option value="{{ ref.id }}" data-ref-type="{{ ref.ref_type }}" style="display:none;">{{ ref.title }}</option>
+                                    {% endfor %}
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">글 제목</label>
+                        <input type="text" class="form-control" id="edit_post_title_status" name="post_title">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">글 본문</label>
+                        <textarea class="form-control" id="edit_post_body_status" name="post_body" rows="6"></textarea>
+                    </div>
+                    
+                    <!-- ✅ 댓글 섹션 (레퍼런스 스타일) -->
+                    <div class="mb-3">
+                        <div class="comments-manager">
+                            <div class="comments-header">
+                                <span class="comments-title">💬 댓글</span>
+                                <button type="button" class="btn-add-comment" onclick="openCommentModal('edit_status', null)">
+                                    <i class="bi bi-plus-lg"></i> 댓글 추가
+                                </button>
+                            </div>
+                            <div id="edit_status_comments_list" class="comments-list">
+                                <div class="no-comments">댓글이 없습니다</div>
+                            </div>
+                        </div>
+                        <input type="hidden" name="post_comments" id="edit_status_comments_data">
+                    </div>
+                    
+                    <hr>
+                    <div class="form-check form-switch mb-2">
+                        <input type="hidden" name="is_registration_complete" value="False">
+                        <input class="form-check-input" type="checkbox" role="switch" id="edit_is_registration_complete_status" name="is_registration_complete" value="True" onchange="toggleUrlFieldStatus(this.checked)">
+                        <label class="form-check-label" for="edit_is_registration_complete_status">등록 완료 (체크 시 URL 입력)</label>
+                    </div>
+                    <div class="mb-3" id="edit_url_field_status" style="display:none;">
+                        <label class="form-label">글 URL</label>
+                        <input type="url" class="form-control" id="edit_post_url_status" name="post_url">
+                    </div>
+                    <div class="form-check form-switch">
+                        <input type="hidden" name="is_live" value="False">
+                        <input class="form-check-input" type="checkbox" role="switch" id="edit_is_live_status" name="is_live" value="True">
+                        <label class="form-check-label" for="edit_is_live_status">글 생존 여부 (체크 시 '살아있는 글')</label>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">닫기</button>
+                    <button type="submit" class="btn btn-primary">수정 저장</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- ✅ 댓글 추가/수정 모달 (공통) -->
+<div class="modal fade" id="commentModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="commentModalTitle">댓글 추가</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label">작성 계정</label>
+                    <select class="form-select" id="commentAccountSelect">
+                        <option value="0">작성자</option>
+                        <option value="1">계정 1</option>
+                        <option value="2">계정 2</option>
+                        <option value="3">계정 3</option>
+                        <option value="4">계정 4</option>
+                        <option value="5">계정 5</option>
+                        <option value="6">계정 6</option>
+                        <option value="7">계정 7</option>
+                        <option value="8">계정 8</option>
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">댓글 내용</label>
+                    <textarea class="form-control" id="commentTextarea" rows="4" placeholder="댓글 내용을 입력하세요..."></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">취소</button>
+                <button type="button" class="btn btn-primary" onclick="saveComment()">저장</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+
 <!-- 계정 수정 모달 -->
 <div class="modal fade" id="editAccountModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog">
@@ -1274,227 +1603,244 @@
 </div>
 
 <script>
-    // 🔥 전역 오류 무시 (네이버 스크립트 오류 방지)
-    window.addEventListener('error', function(e) {
-        // 네이버 관련 스크립트 오류 무시
-        if (e.filename && (e.filename.includes('naver') || e.filename.includes('web-client'))) {
-            e.preventDefault();
-            return true;
-        }
-    });
+// 🔥 전역 오류 무시
+window.addEventListener('error', function(e) {
+    if (e.filename && (e.filename.includes('naver') || e.filename.includes('web-client'))) {
+        e.preventDefault();
+        return true;
+    }
+});
 
-    document.addEventListener('DOMContentLoaded', function () {
-        const params = new URLSearchParams(window.location.search);
-        let tab = params.get('tab');
-        if (!tab) {
-            tab = 'status'; // 기본 탭 설정
-        }
+// ========================================
+// 전역 변수
+// ========================================
 
-        const triggerEl = document.querySelector(`#${tab}-tab`);
-        if (triggerEl) {
-            // Bootstrap 탭 인스턴스 생성 및 표시
-            const tabTrigger = new bootstrap.Tab(triggerEl);
-            tabTrigger.show();
-        }
+const membershipMap = {{ membership_map | tojson | safe }};
+const allReferences = {{ all_references | tojson | safe }};
 
-        // 탭 클릭 시 URL 변경 (페이지 새로고침 방지)
-        const tabTriggers = document.querySelectorAll('#myTab a[data-bs-toggle="tab"]');
-        tabTriggers.forEach(el => {
-            el.addEventListener('shown.bs.tab', event => {
-                const newTabId = event.target.getAttribute('href').substring(1); // #status-tab-pane
-                const newTab = newTabId.replace('-tab-pane', ''); // status
-                
-                const url = new URL(window.location);
-                url.searchParams.set('tab', newTab);
-                
-                // 탭 변경 시 관련 필터 파라미터 외에는 제거
-                if (newTab !== 'memberships') {
-                    url.searchParams.delete('cafe_id');
-                    url.searchParams.delete('status_filter');
-                }
-                if (newTab !== 'accounts') {
-                    url.searchParams.delete('category_filter');
-                }
-                if (newTab !== 'references') {
-                    url.searchParams.delete('ref_filter');
-                }
-                
-                // 페이지 새로고침 없이 URL만 변경
-                history.pushState({}, '', url);
-            });
+// 댓글 관리
+const commentsDataStore = {};
+let currentCommentModalId = null;
+let currentCommentParentId = null;
+let currentEditingCommentId = null;
+
+// ========================================
+// 탭 관리
+// ========================================
+
+document.addEventListener('DOMContentLoaded', function () {
+    const params = new URLSearchParams(window.location.search);
+    let tab = params.get('tab');
+    if (!tab) {
+        tab = 'status';
+    }
+
+    const triggerEl = document.querySelector(`#${tab}-tab`);
+    if (triggerEl) {
+        const tabTrigger = new bootstrap.Tab(triggerEl);
+        tabTrigger.show();
+    }
+
+    const tabTriggers = document.querySelectorAll('#myTab a[data-bs-toggle="tab"]');
+    tabTriggers.forEach(el => {
+        el.addEventListener('shown.bs.tab', event => {
+            const newTabId = event.target.getAttribute('href').substring(1);
+            const newTab = newTabId.replace('-tab-pane', '');
+            
+            const url = new URL(window.location);
+            url.searchParams.set('tab', newTab);
+            
+            if (newTab !== 'memberships') {
+                url.searchParams.delete('cafe_id');
+                url.searchParams.delete('status_filter');
+            }
+            if (newTab !== 'accounts') {
+                url.searchParams.delete('category_filter');
+            }
+            if (newTab !== 'references') {
+                url.searchParams.delete('ref_filter');
+            }
+            
+            history.pushState({}, '', url);
         });
     });
+    
+    // 툴팁 초기화
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
+    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl)
+    });
+});
 
-    // 계정 수정 모달 제어
-    const editAccountModal = document.getElementById('editAccountModal');
-    if(editAccountModal) {
-        editAccountModal.addEventListener('show.bs.modal', event => {
-            const button = event.relatedTarget;
-            const id = button.getAttribute('data-bs-id');
-            const accountId = button.getAttribute('data-bs-account-id');
-            const accountPw = button.getAttribute('data-bs-account-pw');
-            const category = button.getAttribute('data-bs-category');
-            const ipAddress = button.getAttribute('data-bs-ip');
-            
-            const form = editAccountModal.querySelector('#editAccountForm');
-            form.action = `/marketing/account/update/${id}`;
-            
-            editAccountModal.querySelector('#edit-account-id').value = accountId;
-            editAccountModal.querySelector('#edit-account-pw').value = accountPw;
-            editAccountModal.querySelector('#edit-category').value = category;
-            editAccountModal.querySelector('#edit-ip-address').value = ipAddress;
-        });
+// ========================================
+// 계정 수정 모달
+// ========================================
+
+const editAccountModal = document.getElementById('editAccountModal');
+if(editAccountModal) {
+    editAccountModal.addEventListener('show.bs.modal', event => {
+        const button = event.relatedTarget;
+        const id = button.getAttribute('data-bs-id');
+        const accountId = button.getAttribute('data-bs-account-id');
+        const accountPw = button.getAttribute('data-bs-account-pw');
+        const category = button.getAttribute('data-bs-category');
+        const ipAddress = button.getAttribute('data-bs-ip');
+        
+        const form = editAccountModal.querySelector('#editAccountForm');
+        form.action = `/marketing/account/update/${id}`;
+        
+        editAccountModal.querySelector('#edit-account-id').value = accountId;
+        editAccountModal.querySelector('#edit-account-pw').value = accountPw;
+        editAccountModal.querySelector('#edit-category').value = category;
+        editAccountModal.querySelector('#edit-ip-address').value = ipAddress;
+    });
+}
+
+// ========================================
+// 레퍼런스 검색
+// ========================================
+
+const allReferencesData = {{ references|tojson|safe }};
+
+function searchReferences(query) {
+    const resultsDiv = document.getElementById('search_results');
+    
+    if (!query || query.trim() === '') {
+        resultsDiv.style.display = 'none';
+        return;
     }
     
-    // 레퍼런스 검색 자동완성
-    const allReferencesData = {{ references|tojson|safe }};
+    const searchLower = query.toLowerCase();
+    const matches = allReferencesData.filter(ref => 
+        ref.title.toLowerCase().includes(searchLower)
+    );
     
-    function searchReferences(query) {
-        const resultsDiv = document.getElementById('search_results');
+    if (matches.length === 0) {
+        resultsDiv.innerHTML = '<div class="list-group-item">검색 결과가 없습니다</div>';
+        resultsDiv.style.display = 'block';
+        return;
+    }
+    
+    resultsDiv.innerHTML = '';
+    matches.forEach(ref => {
+        const item = document.createElement('a');
+        item.href = `/marketing/reference/${ref.id}`;
+        item.className = 'list-group-item list-group-item-action';
         
-        if (!query || query.trim() === '') {
-            resultsDiv.style.display = 'none';
-            return;
-        }
-        
-        const searchLower = query.toLowerCase();
-        const matches = allReferencesData.filter(ref => 
-            ref.title.toLowerCase().includes(searchLower)
+        const titleHtml = ref.title.replace(
+            new RegExp(query, 'gi'),
+            match => `<mark style="background-color: #ffeb3b;">${match}</mark>`
         );
         
-        if (matches.length === 0) {
-            resultsDiv.innerHTML = '<div class="list-group-item">검색 결과가 없습니다</div>';
-            resultsDiv.style.display = 'block';
-            return;
+        const badge = ref.ref_type ? 
+            `<span class="badge bg-${ref.ref_type === '대안' ? 'danger' : ref.ref_type === '정보' ? 'primary' : 'success'} me-2">${ref.ref_type}</span>` : 
+            '';
+        
+        item.innerHTML = badge + titleHtml;
+        resultsDiv.appendChild(item);
+    });
+    
+    resultsDiv.style.display = 'block';
+}
+
+// ========================================
+// 📅 날짜 네비게이션
+// ========================================
+
+function changeDate(days) {
+    const currentDate = new Date('{{ selected_date }}');
+    currentDate.setDate(currentDate.getDate() + days);
+    const dateStr = currentDate.toISOString().split('T')[0];
+    window.location.href = `/marketing/cafe?tab=status&date=${dateStr}`;
+}
+
+function selectDate(date) {
+    window.location.href = `/marketing/cafe?tab=status&date=${date}`;
+}
+
+// ========================================
+// 🎯 상태 필터링
+// ========================================
+
+function filterStatus(status) {
+    const rows = document.querySelectorAll('.schedule-row');
+    const buttons = document.querySelectorAll('.filter-btn');
+    
+    buttons.forEach(btn => btn.classList.remove('active'));
+    event.target.classList.add('active');
+    
+    rows.forEach(row => {
+        if (status === 'all' || row.dataset.status === status) {
+            row.style.display = '';
+        } else {
+            row.style.display = 'none';
         }
-        
-        resultsDiv.innerHTML = '';
-        matches.forEach(ref => {
-            const item = document.createElement('a');
-            item.href = `/marketing/reference/${ref.id}`;
-            item.className = 'list-group-item list-group-item-action';
-            
-            // 검색어 하이라이트 (노란색)
-            const titleHtml = ref.title.replace(
-                new RegExp(query, 'gi'),
-                match => `<mark style="background-color: #ffeb3b;">${match}</mark>`
-            );
-            
-            const badge = ref.ref_type ? 
-                `<span class="badge bg-${ref.ref_type === '대안' ? 'danger' : ref.ref_type === '정보' ? 'primary' : 'success'} me-2">${ref.ref_type}</span>` : 
-                '';
-            
-            item.innerHTML = badge + titleHtml;
-            resultsDiv.appendChild(item);
-        });
-        
-        resultsDiv.style.display = 'block';
-    }
+    });
+}
 
-   // 📅 날짜 네비게이션
-    // ========================================
+// ========================================
+// ✅ 완료 토글
+// ========================================
 
-    function changeDate(days) {
-        const currentDate = new Date('{{ selected_date }}');
-        currentDate.setDate(currentDate.getDate() + days);
-        const dateStr = currentDate.toISOString().split('T')[0];
-        window.location.href = `/marketing/cafe?tab=status&date=${dateStr}`;
-    }
+function toggleComplete(scheduleId, checkbox) {
+    fetch(`/marketing/schedule/${scheduleId}/toggle-complete`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            is_completed: checkbox.checked
+        })
+    }).then(response => {
+        if (response.ok) {
+            location.reload();
+        } else {
+            checkbox.checked = !checkbox.checked;
+            alert('상태 변경에 실패했습니다.');
+        }
+    });
+}
 
-    function selectDate(date) {
-        window.location.href = `/marketing/cafe?tab=status&date=${date}`;
-    }
+// ========================================
+// 🔄 상태 변경
+// ========================================
 
-    // ========================================
-    // 🎯 상태 필터링
-    // ========================================
-
-    function filterStatus(status) {
-        const rows = document.querySelectorAll('.schedule-row');
-        const buttons = document.querySelectorAll('.filter-btn');
-        
-        // 버튼 활성화 상태 변경
-        buttons.forEach(btn => btn.classList.remove('active'));
-        event.target.classList.add('active');
-        
-        // 행 표시/숨기기
-        rows.forEach(row => {
-            if (status === 'all' || row.dataset.status === status) {
-                row.style.display = '';
-            } else {
-                row.style.display = 'none';
-            }
-        });
-    }
-
-    // ========================================
-    // ✅ 완료 토글
-    // ========================================
-
-    function toggleComplete(scheduleId, checkbox) {
-        fetch(`/marketing/schedule/${scheduleId}/toggle-complete`, {
+function changeStatus(scheduleId, newStatus) {
+    const statusNames = {
+        'pending': '대기중',
+        'in_progress': '진행중',
+        'completed': '완료',
+        'skipped': '건너뜀'
+    };
+    
+    if (confirm(`상태를 "${statusNames[newStatus]}"(으)로 변경하시겠습니까?`)) {
+        fetch(`/marketing/schedule/${scheduleId}/change-status`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({
-                is_completed: checkbox.checked
+                status: newStatus
             })
         }).then(response => {
             if (response.ok) {
                 location.reload();
             } else {
-                checkbox.checked = !checkbox.checked;
                 alert('상태 변경에 실패했습니다.');
             }
+        }).catch(error => {
+            console.error('Error:', error);
+            alert('상태 변경 중 오류가 발생했습니다.');
         });
     }
+}
 
-    // ========================================
-    // 🔄 상태 변경
-    // ========================================
+// ========================================
+// ✏️ 스케줄 수정 (모달 열기)
+// ========================================
 
-    function changeStatus(scheduleId, newStatus) {
-        const statusNames = {
-            'pending': '대기중',
-            'in_progress': '진행중',
-            'completed': '완료',
-            'skipped': '건너뜀'
-        };
-        
-        if (confirm(`상태를 "${statusNames[newStatus]}"(으)로 변경하시겠습니까?`)) {
-            fetch(`/marketing/schedule/${scheduleId}/change-status`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    status: newStatus
-                })
-            }).then(response => {
-                if (response.ok) {
-                    location.reload();
-                } else {
-                    alert('상태 변경에 실패했습니다.');
-                }
-            }).catch(error => {
-                console.error('Error:', error);
-                alert('상태 변경 중 오류가 발생했습니다.');
-            });
-        }
-    }
-
-    // ========================================
-    // ✏️ 스케줄 수정
-    // ========================================
-
-    function editScheduleAndStart(scheduleId, currentStatus) {
-        if (currentStatus === 'completed') {
-            // 전체 스케줄 페이지로 이동
-            window.location.href = `/marketing/schedules?selected_date={{ selected_date }}&edit=${scheduleId}`;
-            return;
-        }
-        
+function editScheduleAndStart(scheduleId, currentStatus) {
+    if (currentStatus !== 'completed') {
         fetch(`/marketing/schedule/${scheduleId}/change-status`, {
             method: 'POST',
             headers: {
@@ -1514,44 +1860,425 @@
                     }
                     row.setAttribute('data-status', 'in_progress');
                 }
-                // 전체 스케줄 페이지로 이동
-                window.location.href = `/marketing/schedules?selected_date={{ selected_date }}&edit=${scheduleId}`;
-            } else {
-                alert('상태 변경에 실패했습니다.');
             }
-        }).catch(error => {
-            console.error('Error:', error);
-            alert('오류가 발생했습니다.');
         });
     }
+    
+    openPostEditModalStatus(scheduleId);
+}
 
-    // ========================================
-    // 🗑️ 스케줄 삭제
-    // ========================================
-
-    function deleteSchedule(scheduleId) {
-        if (confirm('이 스케줄을 삭제하시겠습니까?')) {
-            fetch(`/marketing/schedule/${scheduleId}/delete`, {
-                method: 'POST'
-            }).then(response => {
-                if (response.ok) {
-                    location.reload();
-                } else {
-                    alert('삭제에 실패했습니다.');
+function openPostEditModalStatus(scheduleId) {
+    fetch(`/marketing/schedule/${scheduleId}/info`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success && data.post) {
+                const post = data.post;
+                
+                const form = document.getElementById('editPostFormFromStatus');
+                form.action = `/marketing/post/update/${post.id}`;
+                
+                document.getElementById('edit_worker_id_status').value = data.schedule.worker_id || '';
+                document.getElementById('edit_account_id_status').value = data.schedule.account_id || '';
+                document.getElementById('edit_post_title_status').value = post.post_title || '';
+                document.getElementById('edit_post_body_status').value = post.post_body || '';
+                
+                // 댓글 로드
+                const commentsText = post.post_comments || '';
+                const hiddenInput = document.getElementById('edit_status_comments_data');
+                hiddenInput.value = commentsText;
+                
+                const commentsData = parseTextComments(commentsText);
+                renderCommentsManager('edit_status', commentsData);
+                
+                document.getElementById('edit_post_url_status').value = post.post_url || '';
+                
+                const isComplete = post.post_url && post.post_url.trim() !== '';
+                document.getElementById('edit_is_registration_complete_status').checked = isComplete;
+                document.getElementById('edit_is_live_status').checked = post.is_live || false;
+                
+                toggleUrlFieldStatus(isComplete);
+                
+                if (data.schedule.account_id) {
+                    updateCafeDropdownStatus(data.schedule.account_id);
+                    setTimeout(() => {
+                        document.getElementById('edit_cafe_id_status').value = data.schedule.cafe_id || '';
+                    }, 100);
                 }
+                
+                const modal = new bootstrap.Modal(document.getElementById('editPostModalFromStatus'));
+                modal.show();
+            } else if (data.success && !data.post) {
+                alert('연결된 글이 없습니다. 글을 먼저 작성해주세요.');
+            } else {
+                alert('스케줄 정보를 불러오는데 실패했습니다: ' + (data.error || '알 수 없는 오류'));
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('오류가 발생했습니다: ' + error.message);
+        });
+}
+
+// ========================================
+// 🗑️ 스케줄 삭제
+// ========================================
+
+function deleteSchedule(scheduleId) {
+    if (confirm('이 스케줄을 삭제하시겠습니까?')) {
+        fetch(`/marketing/schedule/${scheduleId}/delete`, {
+            method: 'POST'
+        }).then(response => {
+            if (response.ok) {
+                location.reload();
+            } else {
+                alert('삭제에 실패했습니다.');
+            }
+        });
+    }
+}
+
+// ========================================
+// 모달 헬퍼 함수들
+// ========================================
+
+function updateCafeDropdownStatus(accountId) {
+    const cafeSelect = document.getElementById('edit_cafe_id_status');
+    cafeSelect.innerHTML = '<option value="">선택하세요</option>';
+    
+    if (accountId && membershipMap[accountId]) {
+        cafeSelect.disabled = false;
+        membershipMap[accountId].forEach(cafe => {
+            const option = document.createElement('option');
+            option.value = cafe.id;
+            option.textContent = cafe.name;
+            cafeSelect.appendChild(option);
+        });
+    } else {
+        cafeSelect.disabled = true;
+    }
+}
+
+function filterReferencesStatus(refType) {
+    const refTitleSelect = document.getElementById('edit_ref_title_status');
+    const options = refTitleSelect.querySelectorAll('option');
+    
+    options.forEach(option => {
+        if (option.value === '') {
+            option.style.display = 'block';
+        } else {
+            option.style.display = 'none';
+        }
+    });
+    
+    if (refType) {
+        options.forEach(option => {
+            if (option.dataset.refType === refType) {
+                option.style.display = 'block';
+            }
+        });
+    }
+    
+    refTitleSelect.value = '';
+}
+
+function loadReferenceStatus(refId) {
+    if (!refId) return;
+    
+    const ref = allReferences.find(r => r.id == refId);
+    if (ref) {
+        document.getElementById('edit_post_title_status').value = ref.title || '';
+        document.getElementById('edit_post_body_status').value = ref.content || '';
+        
+        const commentsData = ref.comments.map(c => ({
+            id: c.id,
+            account_sequence: c.account_sequence,
+            text: c.text,
+            parent_id: c.parent_id
+        }));
+        
+        commentsDataStore['edit_status'] = commentsData;
+        saveCommentsToHidden('edit_status');
+        renderCommentsManager('edit_status', commentsData);
+    }
+}
+
+function toggleUrlFieldStatus(isChecked) {
+    const urlField = document.getElementById('edit_url_field_status');
+    const urlInput = document.getElementById('edit_post_url_status');
+    
+    if (isChecked) {
+        urlField.style.display = 'block';
+        urlInput.required = true;
+    } else {
+        urlField.style.display = 'none';
+        urlInput.required = false;
+    }
+}
+
+// ========================================
+// 🎨 댓글 관리 시스템
+// ========================================
+
+function openCommentModal(modalId, parentId, commentId = null) {
+    currentCommentModalId = modalId;
+    currentCommentParentId = parentId;
+    currentEditingCommentId = commentId;
+    
+    const modal = new bootstrap.Modal(document.getElementById('commentModal'));
+    const title = document.getElementById('commentModalTitle');
+    const accountSelect = document.getElementById('commentAccountSelect');
+    const textarea = document.getElementById('commentTextarea');
+    
+    if (commentId) {
+        title.textContent = '댓글 수정';
+        const comment = commentsDataStore[modalId]?.find(c => c.id === commentId);
+        if (comment) {
+            accountSelect.value = comment.account_sequence;
+            textarea.value = comment.text;
+        }
+    } else {
+        title.textContent = parentId ? '답글 추가' : '댓글 추가';
+        accountSelect.value = '0';
+        textarea.value = '';
+    }
+    
+    modal.show();
+}
+
+function saveComment() {
+    const accountSequence = parseInt(document.getElementById('commentAccountSelect').value);
+    const text = document.getElementById('commentTextarea').value.trim();
+    
+    if (!text) {
+        alert('댓글 내용을 입력하세요.');
+        return;
+    }
+    
+    if (!commentsDataStore[currentCommentModalId]) {
+        commentsDataStore[currentCommentModalId] = [];
+    }
+    
+    if (currentEditingCommentId) {
+        const comment = commentsDataStore[currentCommentModalId].find(c => c.id === currentEditingCommentId);
+        if (comment) {
+            comment.account_sequence = accountSequence;
+            comment.text = text;
+        }
+    } else {
+        const newComment = {
+            id: Date.now(),
+            account_sequence: accountSequence,
+            text: text,
+            parent_id: currentCommentParentId
+        };
+        commentsDataStore[currentCommentModalId].push(newComment);
+    }
+    
+    saveCommentsToHidden(currentCommentModalId);
+    renderCommentsManager(currentCommentModalId, commentsDataStore[currentCommentModalId]);
+    
+    const modal = bootstrap.Modal.getInstance(document.getElementById('commentModal'));
+    modal.hide();
+}
+
+function deleteComment(modalId, commentId) {
+    if (!confirm('이 댓글을 삭제하시겠습니까?')) return;
+    if (!commentsDataStore[modalId]) return;
+    
+    const hasReplies = commentsDataStore[modalId].some(c => c.parent_id === commentId);
+    if (hasReplies && !confirm('답글이 있습니다. 답글과 함께 삭제하시겠습니까?')) return;
+    
+    commentsDataStore[modalId] = commentsDataStore[modalId].filter(c => 
+        c.id !== commentId && c.parent_id !== commentId
+    );
+    
+    saveCommentsToHidden(modalId);
+    renderCommentsManager(modalId, commentsDataStore[modalId]);
+}
+
+function saveCommentsToHidden(modalId) {
+    const hiddenInput = document.getElementById(`${modalId}_comments_data`);
+    if (!hiddenInput) return;
+    
+    const comments = commentsDataStore[modalId] || [];
+    const formattedText = formatCommentsToText(comments);
+    hiddenInput.value = formattedText;
+}
+
+function formatCommentsToText(comments) {
+    if (!comments || comments.length === 0) return '';
+    
+    const commentMap = {};
+    const topLevelComments = [];
+    
+    comments.forEach(c => {
+        commentMap[c.id] = {...c, replies: []};
+    });
+    
+    comments.forEach(c => {
+        if (c.parent_id && commentMap[c.parent_id]) {
+            commentMap[c.parent_id].replies.push(commentMap[c.id]);
+        } else if (!c.parent_id) {
+            topLevelComments.push(commentMap[c.id]);
+        }
+    });
+    
+    function formatComment(comment, indent = '') {
+        const prefix = comment.account_sequence === 0 ? '작성자' : `계정 ${comment.account_sequence}`;
+        let text = '';
+        
+        if (indent.includes('(답글)')) {
+            text = `${indent}${prefix}: ${comment.text}\n\n`;
+        } else {
+            const commentLines = comment.text.split('\n').map(line => `${indent}  ${line}`).join('\n');
+            text = `${indent}${prefix}:\n${commentLines}\n\n`;
+        }
+        
+        if (comment.replies && comment.replies.length > 0) {
+            comment.replies.forEach(reply => {
+                text += formatComment(reply, indent + '    (답글) ');
             });
         }
+        
+        return text;
     }
+    
+    return topLevelComments.map(c => formatComment(c)).join('').trim();
+}
 
-    // ========================================
-    // 🎨 툴팁 초기화
-    // ========================================
-
-    // 툴팁 초기화 (페이지 로드 시)
-    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
-    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
-        return new bootstrap.Tooltip(tooltipTriggerEl)
+function renderCommentsManager(modalId, commentsData) {
+    const listContainer = document.getElementById(`${modalId}_comments_list`);
+    if (!listContainer) return;
+    
+    commentsDataStore[modalId] = commentsData || [];
+    
+    const commentMap = {};
+    const topLevelComments = [];
+    
+    commentsData.forEach(c => {
+        commentMap[c.id] = {...c, replies: []};
     });
+    
+    commentsData.forEach(c => {
+        if (c.parent_id && commentMap[c.parent_id]) {
+            commentMap[c.parent_id].replies.push(commentMap[c.id]);
+        } else if (!c.parent_id) {
+            topLevelComments.push(commentMap[c.id]);
+        }
+    });
+    
+    if (topLevelComments.length === 0) {
+        listContainer.innerHTML = '<div class="no-comments">댓글이 없습니다</div>';
+        return;
+    }
+    
+    listContainer.innerHTML = topLevelComments.map(comment => 
+        renderCommentCard(modalId, comment)
+    ).join('');
+}
 
+function renderCommentCard(modalId, comment, isReply = false) {
+    const accountNum = comment.account_sequence;
+    const accountLabel = accountNum === 0 ? '작성자' : `계정 ${accountNum}`;
+    const iconText = accountNum === 0 ? '작성' : `A${accountNum}`;
+    
+    let html = `
+        <div class="comment-card ${isReply ? 'reply' : ''}">
+            <div class="comment-header">
+                <div class="comment-author-badge account-${accountNum}">
+                    <span class="comment-author-icon account-${accountNum}">${iconText}</span>
+                    <strong>${accountLabel}</strong>
+                </div>
+                <div class="comment-actions">
+                    <button type="button" class="btn-comment-action btn-comment-edit" onclick="openCommentModal('${modalId}', null, ${comment.id})">수정</button>
+                    <button type="button" class="btn-comment-action btn-comment-delete" onclick="deleteComment('${modalId}', ${comment.id})">삭제</button>
+                    <button type="button" class="btn-comment-action btn-comment-reply" onclick="openCommentModal('${modalId}', ${comment.id})">답글</button>
+                </div>
+            </div>
+            <div class="comment-text-display">${escapeHtml(comment.text)}</div>
+        </div>
+    `;
+    
+    if (comment.replies && comment.replies.length > 0) {
+        comment.replies.forEach(reply => {
+            html += renderCommentCard(modalId, reply, true);
+        });
+    }
+    
+    return html;
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+function parseTextComments(textContent) {
+    if (!textContent || textContent.trim() === '') return [];
+    
+    const lines = textContent.split('\n');
+    const comments = [];
+    let currentComment = null;
+    let commentIdCounter = Date.now();
+    const parentStack = [];
+    
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        const trimmedLine = line.trim();
+        
+        if (!trimmedLine) continue;
+        
+        if (line.includes('(답글)')) {
+            if (currentComment) {
+                comments.push(currentComment);
+                parentStack.push(currentComment.id);
+            }
+            
+            const match = trimmedLine.match(/\(답글\)\s*(작성자|계정\s*(\d+)):\s*(.*)/);
+            if (match) {
+                const isAuthor = match[1] === '작성자';
+                const accountNum = isAuthor ? 0 : parseInt(match[2]);
+                const text = match[3] || '';
+                
+                currentComment = {
+                    id: commentIdCounter++,
+                    account_sequence: accountNum,
+                    text: text,
+                    parent_id: parentStack[parentStack.length - 1] || null
+                };
+            }
+        }
+        else if (trimmedLine.match(/^(작성자|계정\s*\d+):\s*$/)) {
+            if (currentComment) {
+                comments.push(currentComment);
+            }
+            
+            parentStack.length = 0;
+            
+            const match = trimmedLine.match(/^(작성자|계정\s*(\d+)):/);
+            if (match) {
+                const isAuthor = match[1] === '작성자';
+                const accountNum = isAuthor ? 0 : parseInt(match[2]);
+                
+                currentComment = {
+                    id: commentIdCounter++,
+                    account_sequence: accountNum,
+                    text: '',
+                    parent_id: null
+                };
+            }
+        }
+        else if (currentComment && trimmedLine) {
+            currentComment.text += (currentComment.text ? '\n' : '') + trimmedLine;
+        }
+    }
+    
+    if (currentComment) {
+        comments.push(currentComment);
+    }
+    
+    return comments;
+}
 </script>
 {% endblock %}
