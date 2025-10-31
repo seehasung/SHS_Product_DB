@@ -1328,7 +1328,7 @@ async def get_reference_detail(request: Request, ref_id: int, db: Session = Depe
         return RedirectResponse("/login", status_code=303)
     
     # ⭐ 권한 설정
-    is_admin = current_user.role == "admin"
+    is_admin = current_user.is_admin
     can_manage_products = current_user.can_manage_products or is_admin
     can_manage_marketing = current_user.can_manage_marketing or is_admin
     
@@ -1475,7 +1475,7 @@ async def get_product_keywords(
         return RedirectResponse("/login", status_code=303)
     
     # ⭐ 권한 설정
-    is_admin = current_user.role == "admin"
+    is_admin = current_user.is_admin
     can_manage_products = current_user.can_manage_products or is_admin
     can_manage_marketing = current_user.can_manage_marketing or is_admin
     
@@ -1746,7 +1746,7 @@ async def select_marketing_product(request: Request, db: Session = Depends(get_d
         return RedirectResponse("/login", status_code=303)
     
     # ⭐ 권한 설정
-    is_admin = current_user.role == "admin"
+    is_admin = current_user.is_admin
     can_manage_products = current_user.can_manage_products or is_admin
     can_manage_marketing = current_user.can_manage_marketing or is_admin
     
@@ -1798,7 +1798,7 @@ async def get_product_posts(
         return RedirectResponse("/login", status_code=303)
     
     # ⭐ 권한 설정
-    is_admin = current_user.role == "admin"
+    is_admin = current_user.is_admin
     can_manage_products = current_user.can_manage_products or is_admin
     can_manage_marketing = current_user.can_manage_marketing or is_admin
     
@@ -2142,7 +2142,7 @@ async def marketing_blog(request: Request, db: Session = Depends(get_db)):
         return RedirectResponse("/login", status_code=303)
     
     # ⭐ 권한 설정
-    is_admin = current_user.role == "admin"
+    is_admin = current_user.is_admin
     can_manage_products = current_user.can_manage_products or is_admin
     can_manage_marketing = current_user.can_manage_marketing or is_admin
     
@@ -2168,7 +2168,7 @@ async def marketing_homepage(request: Request, db: Session = Depends(get_db)):
         return RedirectResponse("/login", status_code=303)
     
     # ⭐ 권한 설정
-    is_admin = current_user.role == "admin"
+    is_admin = current_user.is_admin
     can_manage_products = current_user.can_manage_products or is_admin
     can_manage_marketing = current_user.can_manage_marketing or is_admin
     
@@ -2194,7 +2194,7 @@ async def marketing_kin(request: Request, db: Session = Depends(get_db)):
         return RedirectResponse("/login", status_code=303)
     
     # ⭐ 권한 설정
-    is_admin = current_user.role == "admin"
+    is_admin = current_user.is_admin
     can_manage_products = current_user.can_manage_products or is_admin
     can_manage_marketing = current_user.can_manage_marketing or is_admin
     
@@ -2221,7 +2221,7 @@ async def create_schedule(request: Request, db: Session = Depends(get_db)):
         return RedirectResponse("/login", status_code=303)
     
     # ⭐ 권한 설정
-    is_admin = current_user.role == "admin"
+    is_admin = current_user.is_admin
     can_manage_products = current_user.can_manage_products or is_admin
     can_manage_marketing = current_user.can_manage_marketing or is_admin
     
