@@ -1332,11 +1332,29 @@
         // ============================================
         document.addEventListener('DOMContentLoaded', function() {
             const username = '{{ username if username else "" }}';
-            console.log('🔍 Username:', username);  // ⭐ 디버깅
-
+            console.log('🔍 Username:', username);
+            
             if (username) {
-                document.getElementById('taskNotificationFloat').style.display = 'block';
-                document.getElementById('taskRequestFloat').style.display = 'block';
+                // ⭐ 요소 존재 확인 후 처리
+                const notifFloat = document.getElementById('taskNotificationFloat');
+                const taskFloat = document.getElementById('taskRequestFloat');
+                
+                console.log('🔍 알림 버튼 요소:', notifFloat);
+                console.log('🔍 지시 버튼 요소:', taskFloat);
+                
+                if (notifFloat) {
+                    notifFloat.style.display = 'block';
+                    console.log('✅ 알림 버튼 표시');
+                } else {
+                    console.error('❌ taskNotificationFloat 요소를 찾을 수 없습니다!');
+                }
+                
+                if (taskFloat) {
+                    taskFloat.style.display = 'block';
+                    console.log('✅ 지시 버튼 표시');
+                } else {
+                    console.error('❌ taskRequestFloat 요소를 찾을 수 없습니다!');
+                }
                 
                 fetch('/tasks/get-current-user-id')
                     .then(response => {
@@ -1350,25 +1368,42 @@
                         console.log('✅ 사용자 ID:', currentUserId);
                         
                         // WebSocket 연결
-                        connectTaskWebSocket();
+                        if (typeof connectTaskWebSocket === 'function') {
+                            connectTaskWebSocket();
+                        } else {
+                            console.error('❌ connectTaskWebSocket 함수가 없습니다!');
+                        }
                         
                         // 알림 로드
-                        loadNotifications();
+                        if (typeof loadNotifications === 'function') {
+                            loadNotifications();
+                        } else {
+                            console.error('❌ loadNotifications 함수가 없습니다!');
+                        }
                         
                         // ⭐ 즉시 배지 업데이트
-                        updateNotificationBadge();
-                        
-                        // ⭐ 2초마다 배지 업데이트
-                        setInterval(updateNotificationBadge, 2000);
+                        if (typeof updateNotificationBadge === 'function') {
+                            updateNotificationBadge();
+                            // ⭐ 2초마다 배지 업데이트
+                            setInterval(updateNotificationBadge, 2000);
+                        } else {
+                            console.error('❌ updateNotificationBadge 함수가 없습니다!');
+                        }
                     })
                     .catch(error => {
                         console.error('❌ 사용자 ID 가져오기 오류:', error);
                         
                         // ⭐ 오류 발생해도 알림은 작동하도록 (세션 쿠키 사용)
-                        loadNotifications();
-                        updateNotificationBadge();
-                        setInterval(updateNotificationBadge, 2000);
+                        if (typeof loadNotifications === 'function') {
+                            loadNotifications();
+                        }
+                        if (typeof updateNotificationBadge === 'function') {
+                            updateNotificationBadge();
+                            setInterval(updateNotificationBadge, 2000);
+                        }
                     });
+            } else {
+                console.log('❌ Username이 없습니다 - 버튼 숨김');
             }
 
             // ⭐ 이벤트 리스너 (요소가 존재할 때만 추가)
@@ -1379,15 +1414,41 @@
             const closeRequestBtn = document.getElementById('closeRequestDrawerBtn');
             const requestOverlay = document.getElementById('taskRequestOverlay');
             
-            if (notificationBtn) notificationBtn.addEventListener('click', toggleDrawer);
-            if (closeDrawerBtn) closeDrawerBtn.addEventListener('click', closeDrawer);
-            if (notificationOverlay) notificationOverlay.addEventListener('click', closeDrawer);
+            console.log('🔍 이벤트 리스너 대상 요소들:');
+            console.log('  - notificationBtn:', notificationBtn);
+            console.log('  - closeDrawerBtn:', closeDrawerBtn);
+            console.log('  - requestBtn:', requestBtn);
             
-            if (requestBtn) requestBtn.addEventListener('click', toggleRequestDrawer);
-            if (closeRequestBtn) closeRequestBtn.addEventListener('click', closeRequestDrawer);
-            if (requestOverlay) requestOverlay.addEventListener('click', closeRequestDrawer);
+            if (notificationBtn && typeof toggleDrawer === 'function') {
+                notificationBtn.addEventListener('click', toggleDrawer);
+                console.log('✅ 알림 버튼 이벤트 리스너 추가됨');
+            }
+            
+            if (closeDrawerBtn && typeof closeDrawer === 'function') {
+                closeDrawerBtn.addEventListener('click', closeDrawer);
+                console.log('✅ 닫기 버튼 이벤트 리스너 추가됨');
+            }
+            
+            if (notificationOverlay && typeof closeDrawer === 'function') {
+                notificationOverlay.addEventListener('click', closeDrawer);
+                console.log('✅ 오버레이 이벤트 리스너 추가됨');
+            }
+            
+            if (requestBtn && typeof toggleRequestDrawer === 'function') {
+                requestBtn.addEventListener('click', toggleRequestDrawer);
+                console.log('✅ 지시 버튼 이벤트 리스너 추가됨');
+            }
+            
+            if (closeRequestBtn && typeof closeRequestDrawer === 'function') {
+                closeRequestBtn.addEventListener('click', closeRequestDrawer);
+                console.log('✅ 지시 닫기 버튼 이벤트 리스너 추가됨');
+            }
+            
+            if (requestOverlay && typeof closeRequestDrawer === 'function') {
+                requestOverlay.addEventListener('click', closeRequestDrawer);
+                console.log('✅ 지시 오버레이 이벤트 리스너 추가됨');
+            }
         });
-
         
         // ============================================
         // WebSocket 연결
