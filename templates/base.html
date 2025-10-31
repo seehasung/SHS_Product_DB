@@ -706,14 +706,22 @@
         </footer>
         {% endif %}
     </div>
+    
 
-    {% if username %}  ← username 변수가 있어야 아이콘 표시
-        <div id="taskNotificationFloat" style="display: none;">
-            <button id="taskNotificationBtn">...</button>
-        </div>
-        <div id="taskRequestFloat" style="display: none;">
-            <button id="taskRequestBtn">...</button>
-        </div>
+    {% if username %}
+    <div id="taskNotificationFloat" style="display: none; position: fixed; bottom: 30px; right: 30px; z-index: 9999;">
+        <button id="taskNotificationBtn" class="btn shadow-lg" style="width: 60px; height: 60px; border-radius: 50%; background: linear-gradient(135deg, #4A90E2 0%, #5BA3F5 100%); border: none; position: relative;">
+            <i class="bi bi-bell-fill" style="font-size: 1.5rem; color: white;"></i>
+            <span class="notification-badge" id="notificationBadge" style="display: none; position: absolute; top: 5px; right: 5px; background: #ff6b6b; color: white; border-radius: 50%; width: 20px; height: 20px; font-size: 0.7rem; font-weight: bold; display: flex; align-items: center; justify-content: center;">0</span>
+        </button>
+    </div>
+
+    <div id="taskRequestFloat" style="display: none; position: fixed; bottom: 30px; right: 110px; z-index: 9999;">
+        <button id="taskRequestBtn" class="btn shadow-lg" style="width: 60px; height: 60px; border-radius: 50%; background: linear-gradient(135deg, #00d2ff 0%, #3a7bd5 100%); border: none; position: relative;">
+            <i class="bi bi-plus-lg" style="font-size: 1.5rem; color: white;"></i>
+            <span class="request-badge" id="requestBadge" style="display: none; position: absolute; top: 5px; right: 5px; background: #feca57; color: #2d3436; border-radius: 50%; width: 20px; height: 20px; font-size: 0.7rem; font-weight: bold; display: flex; align-items: center; justify-content: center;">0</span>
+        </button>
+    </div>
     {% endif %}
     
     <!-- 로딩 스피너 -->
