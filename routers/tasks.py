@@ -45,6 +45,21 @@ def check_session(request: Request):
         return None
     return username
 
+@router.get("/get-current-user-id")
+def get_current_user_id(request: Request, db: Session = Depends(get_db)):
+    """현재 로그인한 사용자 ID 반환 (WebSocket 연결용)"""
+    username = request.session.get("user")
+    if not username:
+        raise HTTPException(status_code=401, detail="로그인이 필요합니다")
+    
+    current_user = db.query(User).filter(User.username == username).first()
+    if not current_user:
+        raise HTTPException(status_code=404, detail="사용자를 찾을 수 없습니다")
+    
+    return {"user_id": current_user.id, "username": current_user.username}
+
+
+
 # ============================================
 # 업무 지시 목록 및 대시보드
 # ============================================
@@ -210,6 +225,7 @@ async def create_task_page(request: Request, db: Session = Depends(get_db)):
         "is_admin": is_admin,
         "assignees": assignees
     })
+
 
 
 @router.post("/create", response_class=RedirectResponse)
@@ -657,18 +673,6 @@ async def mark_notification_read(
     
     return JSONResponse({"error": "Not found"}, status_code=404)
 
-@router.get("/get-current-user-id")
-def get_current_user_id(request: Request, db: Session = Depends(get_db)):
-    """현재 로그인한 사용자 ID 반환 (WebSocket 연결용)"""
-    username = request.session.get("user")
-    if not username:
-        raise HTTPException(status_code=401, detail="로그인이 필요합니다")
-    
-    current_user = db.query(User).filter(User.username == username).first()
-    if not current_user:
-        raise HTTPException(status_code=404, detail="사용자를 찾을 수 없습니다")
-    
-    return {"user_id": current_user.id, "username": current_user.username}
 
 
 @router.post("/notifications/{notification_id}/read")

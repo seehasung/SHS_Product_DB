@@ -1303,7 +1303,7 @@
         // ============================================
         // 초기화 (페이지 로드 시)
         // ============================================
-        document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', function() {
             const username = '{{ username if username else "" }}';
             
             if (username) {
@@ -1319,12 +1319,27 @@
                     })
                     .then(data => {
                         currentUserId = data.user_id;
+                        console.log('✅ 사용자 ID:', currentUserId);
+                        
+                        // WebSocket 연결
                         connectTaskWebSocket();
+                        
+                        // 알림 로드
                         loadNotifications();
+                        
+                        // ⭐ 즉시 배지 업데이트
+                        updateNotificationBadge();
+                        
+                        // ⭐ 2초마다 배지 업데이트
                         setInterval(updateNotificationBadge, 2000);
                     })
                     .catch(error => {
                         console.error('❌ 사용자 ID 가져오기 오류:', error);
+                        
+                        // ⭐ 오류 발생해도 알림은 작동하도록 (세션 쿠키 사용)
+                        loadNotifications();
+                        updateNotificationBadge();
+                        setInterval(updateNotificationBadge, 2000);
                     });
             }
 
@@ -1345,6 +1360,7 @@
             if (requestOverlay) requestOverlay.addEventListener('click', closeRequestDrawer);
         });
 
+        
         // ============================================
         // WebSocket 연결
         // ============================================
