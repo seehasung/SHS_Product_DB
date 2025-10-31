@@ -2438,10 +2438,16 @@ document.addEventListener('DOMContentLoaded', function() {
             return badges[status] || badges['new'];
         }
 
-        // ============================================
+// ============================================
         // 배지 업데이트 (개선 버전)
         // ============================================
         async function updateNotificationBadge() {
+            // ⭐ 드로어가 열려있으면 배지 업데이트 안 함
+            if (isDrawerOpen || isRequestDrawerOpen) {
+                console.log('⏸️ 드로어 열림 - 배지 업데이트 생략');
+                return;
+            }
+            
             try {
                 const response = await fetch('/tasks/notifications/unread');
                 const notifications = await response.json();
