@@ -1365,10 +1365,16 @@ document.addEventListener('DOMContentLoaded', function() {
         // WebSocket 연결
         // ============================================
         function connectTaskWebSocket() {
-            if (!currentUserId) return;
+            if (!currentUserId) {
+                console.warn('⚠️ currentUserId가 없어 WebSocket 연결 불가');
+                return;
+            }
 
             const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-            taskWebSocket = new WebSocket(`${protocol}//${window.location.host}/ws/${currentUserId}`);
+            const wsUrl = `${protocol}//${window.location.host}/ws/${currentUserId}`;
+            console.log('🔌 WebSocket 연결 시도:', wsUrl);
+            
+            taskWebSocket = new WebSocket(wsUrl);
 
             taskWebSocket.onopen = () => {
                 console.log('✅ 업무 알림 WebSocket 연결됨');
@@ -1382,18 +1388,28 @@ document.addEventListener('DOMContentLoaded', function() {
             };
 
             taskWebSocket.onmessage = (event) => {
-                const data = JSON.parse(event.data);
-                console.log('📨 알림 수신:', data);
+                try {
+                    // ⭐ "pong" 메시지는 무시
+                    if (event.data === 'pong') {
+                        console.log('🏓 pong 수신');
+                        return;
+                    }
+                    
+                    const data = JSON.parse(event.data);
+                    console.log('📨 WebSocket 알림 수신:', data);
 
-                // ⭐ 토스트 알림 표시
-                showToastNotification(data);
+                    // ⭐ 토스트 알림 표시
+                    showToastNotification(data);
 
-                // 배지 업데이트
-                updateNotificationBadge();
+                    // 배지 업데이트
+                    updateNotificationBadge();
 
-                // 드로어가 열려있으면 알림 목록 새로고침
-                if (isDrawerOpen) {
-                    loadNotifications();
+                    // 드로어가 열려있으면 알림 목록 새로고침
+                    if (isDrawerOpen) {
+                        loadNotifications();
+                    }
+                } catch (error) {
+                    console.error('❌ WebSocket 메시지 처리 오류:', error, 'Raw data:', event.data);
                 }
             };
 
@@ -1403,7 +1419,7 @@ document.addEventListener('DOMContentLoaded', function() {
             };
 
             taskWebSocket.onerror = (error) => {
-                console.error('WebSocket 오류:', error);
+                console.error('❌ WebSocket 오류:', error);
             };
         }
 
