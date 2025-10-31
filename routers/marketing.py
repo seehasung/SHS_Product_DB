@@ -318,6 +318,10 @@ async def marketing_cafe(request: Request, db: Session = Depends(get_db)):
     # ✅ 15. 템플릿 렌더링
     return templates.TemplateResponse("marketing_cafe.html", {
         "request": request,
+        "username": username,  # ⭐ 추가!
+        "is_admin": is_admin,  # ⭐ 추가!
+        "can_manage_marketing": can_manage_marketing,  # ⭐ 추가!
+        "can_manage_products": can_manage_products,  # ⭐ 추가!
         "cafes": cafes,
         "accounts": accounts,
         "marketing_products": marketing_products,
@@ -2103,7 +2107,7 @@ async def update_marketing_post(
         
         db.commit()
     
-    redirect_url = f"/marketing/product/posts/{mp_id}" if mp_id else "/marketing/cafe?tab=products"
+    redirect_url = f"//product/posts/{mp_id}" if mp_id else "/marketing/cafe?tab=products"
     return RedirectResponse(url=redirect_url, status_code=303)
 
 @router.post("/post/delete/{post_id}", response_class=RedirectResponse)
