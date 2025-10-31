@@ -120,8 +120,17 @@ async def marketing_cafe(request: Request, db: Session = Depends(get_db)):
     completed_count = 0
     daily_quota = 0
     
+    is_admin = False
+    can_manage_marketing = False
+    can_manage_products = False
+    
     if current_user:
         daily_quota = current_user.daily_quota or 0
+    
+        
+        is_admin = current_user.is_admin or False
+        can_manage_marketing = current_user.can_manage_marketing or False
+        can_manage_products = current_user.can_manage_products or False    
         
         today_schedules_query = db.query(PostSchedule).options(
             joinedload(PostSchedule.account),
