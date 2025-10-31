@@ -74,6 +74,10 @@ async def task_list(request: Request, db: Session = Depends(get_db)):
     current_user = db.query(User).filter(User.username == username).first()
     is_admin = request.session.get("is_admin", False)
     
+    # ⭐ 권한 설정 추가
+    can_manage_products = current_user.can_manage_products or is_admin
+    can_manage_marketing = current_user.can_manage_marketing or is_admin
+    
     # 담당자로서 받은 업무 조회 (관계 데이터 미리 로드)
     tasks_query = db.query(TaskAssignment).options(
         joinedload(TaskAssignment.creator),
@@ -98,10 +102,11 @@ async def task_list(request: Request, db: Session = Depends(get_db)):
         "request": request,
         "username": username,
         "is_admin": is_admin,
+        "can_manage_products": can_manage_products,  # ⭐ 추가
+        "can_manage_marketing": can_manage_marketing,  # ⭐ 추가
         "tasks": tasks,
         "unread_count": unread_count,
-        "current_user_id": current_user.id  # ⭐ 추가
-
+        "current_user_id": current_user.id
     })
 
 
@@ -115,6 +120,11 @@ async def task_dashboard(request: Request, db: Session = Depends(get_db)):
     is_admin = request.session.get("is_admin", False)
     if not is_admin:
         return RedirectResponse("/tasks", status_code=302)
+    
+    # ⭐ 사용자 조회 및 권한 설정 추가
+    current_user = db.query(User).filter(User.username == username).first()
+    can_manage_products = current_user.can_manage_products or is_admin if current_user else is_admin
+    can_manage_marketing = current_user.can_manage_marketing or is_admin if current_user else is_admin
     
     # 전체 통계
     today = datetime.now().date()
@@ -182,6 +192,8 @@ async def task_dashboard(request: Request, db: Session = Depends(get_db)):
         "request": request,
         "username": username,
         "is_admin": is_admin,
+        "can_manage_products": can_manage_products,  # ⭐ 추가
+        "can_manage_marketing": can_manage_marketing,  # ⭐ 추가
         "stats": {
             'total': total_tasks,
             'new': new_tasks,
@@ -208,6 +220,10 @@ async def create_task_page(request: Request, db: Session = Depends(get_db)):
     current_user = db.query(User).filter(User.username == username).first()
     is_admin = request.session.get("is_admin", False)
     
+    # ⭐ 권한 설정 추가
+    can_manage_products = current_user.can_manage_products or is_admin
+    can_manage_marketing = current_user.can_manage_marketing or is_admin
+    
     # 담당자 목록 (대표는 제외하고, 지시자 본인도 제외)
     if is_admin:
         # 대표는 모든 직원에게 지시 가능
@@ -223,6 +239,8 @@ async def create_task_page(request: Request, db: Session = Depends(get_db)):
         "request": request,
         "username": username,
         "is_admin": is_admin,
+        "can_manage_products": can_manage_products,  # ⭐ 추가
+        "can_manage_marketing": can_manage_marketing,  # ⭐ 추가
         "assignees": assignees
     })
 
@@ -359,6 +377,10 @@ async def task_detail(task_id: int, request: Request, db: Session = Depends(get_
     current_user = db.query(User).filter(User.username == username).first()
     is_admin = request.session.get("is_admin", False)
     
+    # ⭐ 권한 설정 추가
+    can_manage_products = current_user.can_manage_products or is_admin
+    can_manage_marketing = current_user.can_manage_marketing or is_admin
+    
     task = db.query(TaskAssignment).options(
         joinedload(TaskAssignment.creator),
         joinedload(TaskAssignment.assignee),
@@ -383,10 +405,11 @@ async def task_detail(task_id: int, request: Request, db: Session = Depends(get_
         "request": request,
         "username": username,
         "is_admin": is_admin,
+        "can_manage_products": can_manage_products,  # ⭐ 추가
+        "can_manage_marketing": can_manage_marketing,  # ⭐ 추가
         "task": task,
         "current_user_id": current_user.id
     })
-
 
 # ============================================
 # 상태 변경

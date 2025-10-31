@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Request, Form
+from fastapi import APIRouter, Request, Form, Depends
 from sqlalchemy.exc import IntegrityError
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
@@ -12,21 +12,34 @@ from database import SessionLocal, User, Product
 router = APIRouter()
 templates = Jinja2Templates(directory="templates")
 
-# ✅ 사용자 목록 보기 (검색 포함)
+# ============================================
+# Helper Functions
+# ============================================
+
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+# ============================================
+# User Management (Admin Only)
+# ============================================
+
+# ✅ 사용자 목록 보기 (검색 포함) - 이미 username 있음
 @router.get("/users", response_class=HTMLResponse)
-def admin_users(request: Request, search: str = ""):
+def admin_users(request: Request, search: str = "", db: Session = Depends(get_db)):
     username = request.session.get("user")
     if not username:
         return RedirectResponse("/login", status_code=302)
 
-    db: Session = SessionLocal()
     current_user = db.query(User).filter(User.username == username).first()
     if not current_user or not current_user.is_admin:
-        db.close()
         return RedirectResponse("/", status_code=302)
 
     users = db.query(User).filter(User.username.contains(search)).all() if search else db.query(User).all()
-    db.close()
+    
     return templates.TemplateResponse("admin_users_bootstrap.html", {
         "request": request,
         "users": users,
@@ -36,42 +49,54 @@ def admin_users(request: Request, search: str = ""):
 
 # ✅ 사용자 이름 수정
 @router.post("/users/update")
-def update_user(user_id: int = Form(...), new_username: str = Form(...)):
-    db: Session = SessionLocal()
+def update_user(user_id: int = Form(...), new_username: str = Form(...), db: Session = Depends(get_db)):
     user = db.query(User).filter(User.id == user_id).first()
     if user:
         user.username = new_username
         db.commit()
-    db.close()
     return RedirectResponse("/admin/users", status_code=302)
 
 # ✅ 관리자 권한 토글
 @router.post("/users/toggle-admin")
-def toggle_admin(user_id: int = Form(...)):
-    db: Session = SessionLocal()
+def toggle_admin(user_id: int = Form(...), db: Session = Depends(get_db)):
     user = db.query(User).filter(User.id == user_id).first()
     if user:
         user.is_admin = not user.is_admin
         db.commit()
-    db.close()
     return RedirectResponse("/admin/users", status_code=302)
 
 # ✅ 사용자 삭제
 @router.post("/users/delete")
-def delete_user(user_id: int = Form(...)):
-    db: Session = SessionLocal()
+def delete_user(user_id: int = Form(...), db: Session = Depends(get_db)):
     user = db.query(User).filter(User.id == user_id).first()
     if user and user.username != 'admin':
         db.delete(user)
         db.commit()
-    db.close()
     return RedirectResponse("/admin/users", status_code=302)
 
-# ✅ 상품 목록 보기 (JSON 직렬화 문제 해결)
+# ============================================
+# Product Management
+# ============================================
+
+# ✅ 상품 목록 보기 (수정됨 - username 추가)
 @router.get("/products", response_class=HTMLResponse)
-def product_list(request: Request):
+def product_list(request: Request, db: Session = Depends(get_db)):
     """상품 목록 페이지"""
-    db = SessionLocal()
+    
+    # ⭐ 세션 확인
+    username = request.session.get("user")
+    if not username:
+        return RedirectResponse("/login", status_code=303)
+    
+    # ⭐ 사용자 조회
+    current_user = db.query(User).filter(User.username == username).first()
+    if not current_user:
+        return RedirectResponse("/login", status_code=303)
+    
+    # ⭐ 권한 설정
+    is_admin = current_user.role == "admin"
+    can_manage_products = current_user.can_manage_products or is_admin
+    can_manage_marketing = current_user.can_manage_marketing or is_admin
     
     # Accept 헤더 확인 - JSON 요청인지 확인
     accept_header = request.headers.get('accept', '')
@@ -106,12 +131,10 @@ def product_list(request: Request):
                 'coupang_link': product.coupang_link or '',
                 'naver_link': product.naver_link or '',
                 'taobao_link': product.taobao_link or '',
-                'thumbnail': product.thumbnail or '',  # thumbnail 사용!
+                'thumbnail': product.thumbnail or '',
                 'details': product.details or ''
             }
             products_list.append(product_dict)
-        
-        db.close()
         
         # JSON 요청인 경우 JSON 응답
         if 'application/json' in accept_header:
@@ -127,12 +150,15 @@ def product_list(request: Request):
         # HTML 응답
         return templates.TemplateResponse("admin_products.html", {
             "request": request,
+            "username": username,  # ⭐ 추가
+            "is_admin": is_admin,  # ⭐ 추가
+            "can_manage_products": can_manage_products,  # ⭐ 추가
+            "can_manage_marketing": can_manage_marketing,  # ⭐ 추가
             "products": products_list
         })
         
     except Exception as e:
         print(f"오류: {e}")
-        db.close()
         if 'application/json' in accept_header:
             return JSONResponse({"products": [], "error": str(e)})
         return templates.TemplateResponse("error.html", {
@@ -140,18 +166,38 @@ def product_list(request: Request):
             "error": str(e)
         })
 
-# ✅ 상품 등록 폼 (/products/add 라우트 추가 - index.html에서 사용)
+# ✅ 상품 등록 폼 (수정됨 - username 추가)
 @router.get("/products/add", response_class=HTMLResponse)
-def product_add_form(request: Request):
+def product_add_form(request: Request, db: Session = Depends(get_db)):
+    
+    # ⭐ 세션 확인
+    username = request.session.get("user")
+    if not username:
+        return RedirectResponse("/login", status_code=303)
+    
+    # ⭐ 사용자 조회
+    current_user = db.query(User).filter(User.username == username).first()
+    if not current_user:
+        return RedirectResponse("/login", status_code=303)
+    
+    # ⭐ 권한 설정
+    is_admin = current_user.role == "admin"
+    can_manage_products = current_user.can_manage_products or is_admin
+    can_manage_marketing = current_user.can_manage_marketing or is_admin
+    
     return templates.TemplateResponse("product_form.html", {
         "request": request,
+        "username": username,  # ⭐ 추가
+        "is_admin": is_admin,  # ⭐ 추가
+        "can_manage_products": can_manage_products,  # ⭐ 추가
+        "can_manage_marketing": can_manage_marketing,  # ⭐ 추가
         "product": None,
         "coupang_options": [],
         "taobao_options": [],
-        "naver_options": []  # 네이버 옵션 추가
+        "naver_options": []
     })
 
-# ✅ 상품 등록 처리 (/products/add POST)
+# ✅ 상품 등록 처리
 @router.post("/products/add")
 def product_add(
     request: Request,
@@ -163,15 +209,16 @@ def product_add(
     customs_cost: int = Form(0),
     coupang_link: Optional[str] = Form(""),
     taobao_link: Optional[str] = Form(""),
-    naver_link: Optional[str] = Form(""),  # 네이버 링크 추가
+    naver_link: Optional[str] = Form(""),
     coupang_option_names: Optional[List[str]] = Form([]),
     coupang_option_prices: Optional[List[int]] = Form([]),
     taobao_option_names: Optional[List[str]] = Form([]),
     taobao_option_prices: Optional[List[int]] = Form([]),
-    naver_option_names: Optional[List[str]] = Form([]),  # 네이버 옵션 추가
-    naver_option_prices: Optional[List[int]] = Form([]),  # 네이버 옵션 추가
+    naver_option_names: Optional[List[str]] = Form([]),
+    naver_option_prices: Optional[List[int]] = Form([]),
     thumbnail: Optional[str] = Form(""),
-    details: Optional[str] = Form("")
+    details: Optional[str] = Form(""),
+    db: Session = Depends(get_db)
 ):
     coupang_options = json.dumps([
         {"name": n, "price": p} for n, p in zip(coupang_option_names, coupang_option_prices)
@@ -182,8 +229,6 @@ def product_add(
     naver_options = json.dumps([
         {"name": n, "price": p} for n, p in zip(naver_option_names, naver_option_prices)
     ])
-
-    db = SessionLocal()
     
     try:
         new_product = Product(
@@ -201,7 +246,7 @@ def product_add(
             details=details
         )
         
-        # 네이버 필드 (컬럼이 있는 경우만)
+        # 네이버 필드
         if hasattr(Product, 'naver_link'):
             new_product.naver_link = naver_link
         if hasattr(Product, 'naver_options'):
@@ -209,11 +254,9 @@ def product_add(
         
         db.add(new_product)
         db.commit()
-        db.close()
         return RedirectResponse("/products?success=create", status_code=302)
     except IntegrityError:
         db.rollback()
-        db.close()
         form_data = {
             "product_code": product_code, "name": name, "price": price,
             "kd_paid": (kd_paid == "on"), "customs_paid": (customs_paid == "on"),
@@ -222,8 +265,20 @@ def product_add(
             "naver_link": naver_link,
             "thumbnail": thumbnail, "details": details
         }
+        
+        # 세션에서 username 가져오기
+        username = request.session.get("user")
+        current_user = db.query(User).filter(User.username == username).first()
+        is_admin = current_user.role == "admin" if current_user else False
+        can_manage_products = (current_user.can_manage_products or is_admin) if current_user else False
+        can_manage_marketing = (current_user.can_manage_marketing or is_admin) if current_user else False
+        
         return templates.TemplateResponse("product_form.html", {
             "request": request,
+            "username": username,
+            "is_admin": is_admin,
+            "can_manage_products": can_manage_products,
+            "can_manage_marketing": can_manage_marketing,
             "error": "이미 사용 중인 상품 ID입니다.",
             "product": form_data,
             "coupang_options": json.loads(coupang_options or "[]"),
@@ -231,15 +286,35 @@ def product_add(
             "naver_options": json.loads(naver_options or "[]")
         })
 
-# ✅ 상품 등록 폼 (기존 /products/create 유지)
+# ✅ 상품 등록 폼 (기존 /products/create 유지) (수정됨 - username 추가)
 @router.get("/products/create", response_class=HTMLResponse)
-def product_create_form(request: Request):
+def product_create_form(request: Request, db: Session = Depends(get_db)):
+    
+    # ⭐ 세션 확인
+    username = request.session.get("user")
+    if not username:
+        return RedirectResponse("/login", status_code=303)
+    
+    # ⭐ 사용자 조회
+    current_user = db.query(User).filter(User.username == username).first()
+    if not current_user:
+        return RedirectResponse("/login", status_code=303)
+    
+    # ⭐ 권한 설정
+    is_admin = current_user.role == "admin"
+    can_manage_products = current_user.can_manage_products or is_admin
+    can_manage_marketing = current_user.can_manage_marketing or is_admin
+    
     return templates.TemplateResponse("product_form.html", {
         "request": request,
+        "username": username,  # ⭐ 추가
+        "is_admin": is_admin,  # ⭐ 추가
+        "can_manage_products": can_manage_products,  # ⭐ 추가
+        "can_manage_marketing": can_manage_marketing,  # ⭐ 추가
         "product": None,
         "coupang_options": [],
         "taobao_options": [],
-        "naver_options": []  # 네이버 옵션 추가
+        "naver_options": []
     })
     
 # ✅ 상품 등록 처리 (기존 /products/create 유지)
@@ -254,15 +329,16 @@ def product_create(
     customs_cost: int = Form(0),
     coupang_link: Optional[str] = Form(""),
     taobao_link: Optional[str] = Form(""),
-    naver_link: Optional[str] = Form(""),  # 네이버 링크 추가
+    naver_link: Optional[str] = Form(""),
     coupang_option_names: Optional[List[str]] = Form([]),
     coupang_option_prices: Optional[List[int]] = Form([]),
     taobao_option_names: Optional[List[str]] = Form([]),
     taobao_option_prices: Optional[List[int]] = Form([]),
-    naver_option_names: Optional[List[str]] = Form([]),  # 네이버 옵션 추가
-    naver_option_prices: Optional[List[int]] = Form([]),  # 네이버 옵션 추가
+    naver_option_names: Optional[List[str]] = Form([]),
+    naver_option_prices: Optional[List[int]] = Form([]),
     thumbnail: Optional[str] = Form(""),
-    details: Optional[str] = Form("")
+    details: Optional[str] = Form(""),
+    db: Session = Depends(get_db)
 ):
     coupang_options = json.dumps([
         {"name": n, "price": p} for n, p in zip(coupang_option_names, coupang_option_prices)
@@ -273,8 +349,6 @@ def product_create(
     naver_options = json.dumps([
         {"name": n, "price": p} for n, p in zip(naver_option_names, naver_option_prices)
     ])
-
-    db = SessionLocal()
     
     try:
         new_product = Product(
@@ -292,7 +366,7 @@ def product_create(
             details=details
         )
         
-        # 네이버 필드 (컬럼이 있는 경우만)
+        # 네이버 필드
         if hasattr(Product, 'naver_link'):
             new_product.naver_link = naver_link
         if hasattr(Product, 'naver_options'):
@@ -300,11 +374,9 @@ def product_create(
         
         db.add(new_product)
         db.commit()
-        db.close()
         return RedirectResponse("/products?success=create", status_code=302)
     except IntegrityError:
         db.rollback()
-        db.close()
         form_data = {
             "product_code": product_code, "name": name, "price": price,
             "kd_paid": (kd_paid == "on"), "customs_paid": (customs_paid == "on"),
@@ -313,8 +385,20 @@ def product_create(
             "naver_link": naver_link,
             "thumbnail": thumbnail, "details": details
         }
+        
+        # 세션에서 username 가져오기
+        username = request.session.get("user")
+        current_user = db.query(User).filter(User.username == username).first()
+        is_admin = current_user.role == "admin" if current_user else False
+        can_manage_products = (current_user.can_manage_products or is_admin) if current_user else False
+        can_manage_marketing = (current_user.can_manage_marketing or is_admin) if current_user else False
+        
         return templates.TemplateResponse("product_form.html", {
             "request": request,
+            "username": username,
+            "is_admin": is_admin,
+            "can_manage_products": can_manage_products,
+            "can_manage_marketing": can_manage_marketing,
             "error": "이미 사용 중인 상품 ID입니다.",
             "product": form_data,
             "coupang_options": json.loads(coupang_options or "[]"),
@@ -322,43 +406,32 @@ def product_create(
             "naver_options": json.loads(naver_options or "[]")
         })
 
-# ✅ 상품 상세 보기
-@router.get("/products/{product_id}", response_class=HTMLResponse)
-def product_detail(request: Request, product_id: int):
-    db = SessionLocal()
-    product = db.query(Product).filter(Product.id == product_id).first()
-    db.close()
-    if not product:
-        return RedirectResponse("/products", status_code=302)
-    
-    # 네이버 옵션 파싱
-    naver_options = []
-    if hasattr(product, 'naver_options') and product.naver_options:
-        try:
-            naver_options = json.loads(product.naver_options)
-        except:
-            naver_options = []
-    
-    return templates.TemplateResponse("product_detail.html", {
-        "request": request,
-        "product": product,
-        "coupang_options": json.loads(product.coupang_options or "[]"),
-        "taobao_options": json.loads(product.taobao_options or "[]"),
-        "naver_options": naver_options  # 네이버 옵션 추가
-    })
-
-# ✅ 상품 수정 폼
+# ✅ 상품 수정 폼 (수정됨 - username 추가)
 @router.get("/products/edit/{product_id}", response_class=HTMLResponse)
 def edit_product_form(
     request: Request, 
     product_id: int,
     return_page: str = Query("1"),
     return_keyword: str = Query(""),
-    return_per_page: str = Query("20")
+    return_per_page: str = Query("20"),
+    db: Session = Depends(get_db)
 ):
-    db = SessionLocal()
+    # ⭐ 세션 확인
+    username = request.session.get("user")
+    if not username:
+        return RedirectResponse("/login", status_code=303)
+    
+    # ⭐ 사용자 조회
+    current_user = db.query(User).filter(User.username == username).first()
+    if not current_user:
+        return RedirectResponse("/login", status_code=303)
+    
+    # ⭐ 권한 설정
+    is_admin = current_user.role == "admin"
+    can_manage_products = current_user.can_manage_products or is_admin
+    can_manage_marketing = current_user.can_manage_marketing or is_admin
+    
     product = db.query(Product).filter(Product.id == product_id).first()
-    db.close()
     
     # 네이버 옵션 파싱
     naver_options = []
@@ -370,6 +443,10 @@ def edit_product_form(
     
     return templates.TemplateResponse("product_form.html", {
         "request": request,
+        "username": username,  # ⭐ 추가
+        "is_admin": is_admin,  # ⭐ 추가
+        "can_manage_products": can_manage_products,  # ⭐ 추가
+        "can_manage_marketing": can_manage_marketing,  # ⭐ 추가
         "product": product,
         "coupang_options": json.loads(product.coupang_options or "[]"),
         "taobao_options": json.loads(product.taobao_options or "[]"),
@@ -379,7 +456,7 @@ def edit_product_form(
         "return_per_page": return_per_page
     })
 
-# ✅ 상품 수정 처리 (수정됨 - return 파라미터 처리)
+# ✅ 상품 수정 처리
 @router.post("/products/edit/{product_id}")
 def edit_product(
     request: Request,
@@ -401,9 +478,10 @@ def edit_product(
     naver_option_prices: Optional[List[int]] = Form([]),
     thumbnail: Optional[str] = Form(""),
     details: Optional[str] = Form(""),
-    return_page: str = Form("1"),  # 추가
-    return_keyword: str = Form(""),  # 추가
-    return_per_page: str = Form("20")  # 추가
+    return_page: str = Form("1"),
+    return_keyword: str = Form(""),
+    return_per_page: str = Form("20"),
+    db: Session = Depends(get_db)
 ):
     coupang_options = json.dumps([
         {"name": n, "price": p} for n, p in zip(coupang_option_names, coupang_option_prices)
@@ -415,7 +493,6 @@ def edit_product(
         {"name": n, "price": p} for n, p in zip(naver_option_names, naver_option_prices)
     ])
 
-    db = SessionLocal()
     product = db.query(Product).filter(Product.id == product_id).first()
     
     try:
@@ -439,9 +516,8 @@ def edit_product(
                 product.naver_options = naver_options
             
             db.commit()
-        db.close()
         
-        # 리다이렉트 URL 구성 (수정됨)
+        # 리다이렉트 URL 구성
         redirect_url = "/products?"
         params = []
         if return_page != "1":
@@ -460,7 +536,6 @@ def edit_product(
         
     except IntegrityError:
         db.rollback()
-        db.close()
         form_data_from_product = product.__dict__
         form_data_from_product.update({
              "product_code": product_code, "name": name, "price": price,
@@ -470,8 +545,20 @@ def edit_product(
             "naver_link": naver_link,
             "thumbnail": thumbnail, "details": details
         })
+        
+        # 세션에서 username 가져오기
+        username = request.session.get("user")
+        current_user = db.query(User).filter(User.username == username).first()
+        is_admin = current_user.role == "admin" if current_user else False
+        can_manage_products = (current_user.can_manage_products or is_admin) if current_user else False
+        can_manage_marketing = (current_user.can_manage_marketing or is_admin) if current_user else False
+        
         return templates.TemplateResponse("product_form.html", {
             "request": request,
+            "username": username,
+            "is_admin": is_admin,
+            "can_manage_products": can_manage_products,
+            "can_manage_marketing": can_manage_marketing,
             "error": "이미 사용 중인 상품 ID입니다.",
             "product": form_data_from_product,
             "coupang_options": json.loads(coupang_options or "[]"),
@@ -482,22 +569,21 @@ def edit_product(
             "return_per_page": return_per_page
         })
         
-# ✅ 상품 삭제 (수정됨 - return 파라미터 처리)
+# ✅ 상품 삭제
 @router.post("/products/delete")
 def product_delete(
     product_id: int = Form(...),
-    return_page: str = Form("1"),  # 추가
-    return_keyword: str = Form(""),  # 추가
-    return_per_page: str = Form("20")  # 추가
+    return_page: str = Form("1"),
+    return_keyword: str = Form(""),
+    return_per_page: str = Form("20"),
+    db: Session = Depends(get_db)
 ):
-    db = SessionLocal()
     product = db.query(Product).filter(Product.id == product_id).first()
     if product:
         db.delete(product)
         db.commit()
-    db.close()
     
-    # 리다이렉트 URL 구성 (수정됨)
+    # 리다이렉트 URL 구성
     redirect_url = "/products?"
     params = []
     if return_page != "1":
@@ -514,18 +600,32 @@ def product_delete(
         
     return RedirectResponse(redirect_url, status_code=302)
 
-# ✅ 상품 상세 보기 (수정됨 - return 파라미터 추가)
+# ✅ 상품 상세 보기 (수정됨 - username 추가, 중복 제거)
 @router.get("/products/{product_id}", response_class=HTMLResponse)
 def product_detail(
     request: Request, 
     product_id: int,
     return_page: str = Query("1"),
     return_keyword: str = Query(""),
-    return_per_page: str = Query("20")
+    return_per_page: str = Query("20"),
+    db: Session = Depends(get_db)
 ):
-    db = SessionLocal()
+    # ⭐ 세션 확인
+    username = request.session.get("user")
+    if not username:
+        return RedirectResponse("/login", status_code=303)
+    
+    # ⭐ 사용자 조회
+    current_user = db.query(User).filter(User.username == username).first()
+    if not current_user:
+        return RedirectResponse("/login", status_code=303)
+    
+    # ⭐ 권한 설정
+    is_admin = current_user.role == "admin"
+    can_manage_products = current_user.can_manage_products or is_admin
+    can_manage_marketing = current_user.can_manage_marketing or is_admin
+    
     product = db.query(Product).filter(Product.id == product_id).first()
-    db.close()
     if not product:
         return RedirectResponse("/products", status_code=302)
     
@@ -539,6 +639,10 @@ def product_detail(
     
     return templates.TemplateResponse("product_detail.html", {
         "request": request,
+        "username": username,  # ⭐ 추가
+        "is_admin": is_admin,  # ⭐ 추가
+        "can_manage_products": can_manage_products,  # ⭐ 추가
+        "can_manage_marketing": can_manage_marketing,  # ⭐ 추가
         "product": product,
         "coupang_options": json.loads(product.coupang_options or "[]"),
         "taobao_options": json.loads(product.taobao_options or "[]"),
@@ -547,22 +651,79 @@ def product_detail(
         "return_keyword": return_keyword,
         "return_per_page": return_per_page
     })
+
+# ✅ 상품 상세 페이지 라우트 (수정됨 - username 추가)
+@router.get("/product/{product_id}")
+def product_page(request: Request, product_id: int, db: Session = Depends(get_db)):
     
+    # ⭐ 세션 확인
+    username = request.session.get("user")
+    if not username:
+        return RedirectResponse("/login", status_code=303)
+    
+    # ⭐ 사용자 조회
+    current_user = db.query(User).filter(User.username == username).first()
+    if not current_user:
+        return RedirectResponse("/login", status_code=303)
+    
+    # ⭐ 권한 설정
+    is_admin = current_user.role == "admin"
+    can_manage_products = current_user.can_manage_products or is_admin
+    can_manage_marketing = current_user.can_manage_marketing or is_admin
+    
+    product = db.query(Product).filter(Product.id == product_id).first()
+    
+    if not product:
+        return RedirectResponse("/products", status_code=302)
+    
+    # JSON 옵션 파싱
+    try:
+        coupang_options = json.loads(product.coupang_options) if product.coupang_options else []
+    except:
+        coupang_options = []
+    
+    try:
+        taobao_options = json.loads(product.taobao_options) if product.taobao_options else []
+    except:
+        taobao_options = []
+    
+    # 네이버 옵션 파싱
+    naver_options = []
+    if hasattr(product, 'naver_options') and product.naver_options:
+        try:
+            naver_options = json.loads(product.naver_options)
+        except:
+            naver_options = []
+    
+    return templates.TemplateResponse("product_page.html", {
+        "request": request,
+        "username": username,  # ⭐ 추가
+        "is_admin": is_admin,  # ⭐ 추가
+        "can_manage_products": can_manage_products,  # ⭐ 추가
+        "can_manage_marketing": can_manage_marketing,  # ⭐ 추가
+        "product": product,
+        "coupang_options": coupang_options,
+        "taobao_options": taobao_options,
+        "naver_options": naver_options,
+    })
+
+# ============================================
+# API Endpoints (JSON responses)
+# ============================================
+
 # ✅ 상품 검색 API (자동완성)
 @router.get("/search")
-def search_products(q: str = Query("", description="검색어")):
+def search_products(q: str = Query("", description="검색어"), db: Session = Depends(get_db)):
     """상품 검색 API - 자동완성에 사용"""
     
     if not q or len(q.strip()) < 1:
         return JSONResponse(content=[])
     
-    db = SessionLocal()
     try:
         # 검색어를 소문자로 변환
         search_term = q.strip().lower()
         
         # 상품명 또는 상품코드로 검색
-        # SQLite용 쿼리 (ILIKE 대신 LIKE 사용)
         products = db.query(Product).filter(
             db.or_(
                 Product.name.contains(search_term),
@@ -586,52 +747,10 @@ def search_products(q: str = Query("", description="검색어")):
     except Exception as e:
         print(f"검색 오류: {e}")
         return JSONResponse(content=[], status_code=500)
-    finally:
-        db.close()
-
-# ✅ 상품 상세 페이지 라우트 (네이버 옵션 추가)
-@router.get("/product/{product_id}")
-def product_page(request: Request, product_id: int):
-    db = SessionLocal()
-    product = db.query(Product).filter(Product.id == product_id).first()
-    
-    if not product:
-        db.close()
-        return RedirectResponse("/products", status_code=302)
-    
-    # JSON 옵션 파싱
-    try:
-        coupang_options = json.loads(product.coupang_options) if product.coupang_options else []
-    except:
-        coupang_options = []
-    
-    try:
-        taobao_options = json.loads(product.taobao_options) if product.taobao_options else []
-    except:
-        taobao_options = []
-    
-    # 네이버 옵션 파싱
-    naver_options = []
-    if hasattr(product, 'naver_options') and product.naver_options:
-        try:
-            naver_options = json.loads(product.naver_options)
-        except:
-            naver_options = []
-    
-    db.close()
-    
-    return templates.TemplateResponse("product_page.html", {
-        "request": request,
-        "product": product,
-        "coupang_options": coupang_options,
-        "taobao_options": taobao_options,
-        "naver_options": naver_options,  # 네이버 옵션 추가
-    })
 
 # ✅ 경동 상태 업데이트 API
 @router.post("/products/update-kd/{product_id}")
-def update_kd_status(product_id: int, kd_paid: bool = Form(...)):
-    db = SessionLocal()
+def update_kd_status(product_id: int, kd_paid: bool = Form(...), db: Session = Depends(get_db)):
     try:
         product = db.query(Product).filter(Product.id == product_id).first()
         if product:
@@ -642,13 +761,10 @@ def update_kd_status(product_id: int, kd_paid: bool = Form(...)):
     except Exception as e:
         db.rollback()
         return JSONResponse({"success": False, "error": str(e)}, status_code=500)
-    finally:
-        db.close()
 
 # ✅ 관세 상태 업데이트 API
 @router.post("/products/update-customs/{product_id}")
-def update_customs_status(product_id: int, customs_paid: bool = Form(...)):
-    db = SessionLocal()
+def update_customs_status(product_id: int, customs_paid: bool = Form(...), db: Session = Depends(get_db)):
     try:
         product = db.query(Product).filter(Product.id == product_id).first()
         if product:
@@ -659,14 +775,11 @@ def update_customs_status(product_id: int, customs_paid: bool = Form(...)):
     except Exception as e:
         db.rollback()
         return JSONResponse({"success": False, "error": str(e)}, status_code=500)
-    finally:
-        db.close()
-        
 
+# ✅ 전체 상품 목록 API
 @router.get("/products/api/all")
-def get_all_products_api():
+def get_all_products_api(db: Session = Depends(get_db)):
     """전체 상품 목록 API"""
-    db = SessionLocal()
     try:
         products = db.query(Product).all()
         
@@ -683,7 +796,7 @@ def get_all_products_api():
                 'coupang_link': product.coupang_link or '',
                 'naver_link': product.naver_link or '',
                 'taobao_link': product.taobao_link or '',
-                'thumbnail': product.thumbnail or '',  # 이 부분 중요!
+                'thumbnail': product.thumbnail or '',
                 'details': product.details or ''
             }
             products_list.append(product_dict)
@@ -692,14 +805,11 @@ def get_all_products_api():
         
     except Exception as e:
         return {"products": [], "error": str(e)}
-    finally:
-        db.close()
 
-# 상품 검색 API
+# ✅ 상품 검색 API
 @router.get("/products/api/search")
-def search_products_api(q: str = ""):
+def search_products_api(q: str = "", db: Session = Depends(get_db)):
     """상품 검색 API"""
-    db = SessionLocal()
     try:
         if not q:
             return {"products": []}
@@ -720,7 +830,7 @@ def search_products_api(q: str = ""):
                 'product_code': product.product_code or '',
                 'name': product.name or '',
                 'price': product.price or 0,
-                'thumbnail': product.thumbnail or '',  # thumbnail 사용
+                'thumbnail': product.thumbnail or '',
             }
             products_list.append(product_dict)
         
@@ -728,5 +838,3 @@ def search_products_api(q: str = ""):
         
     except Exception as e:
         return {"products": [], "error": str(e)}
-    finally:
-        db.close()

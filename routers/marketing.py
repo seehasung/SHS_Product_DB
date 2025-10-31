@@ -1316,25 +1316,37 @@ async def delete_reference(ref_id: int, db: Session = Depends(get_db)):
 
 @router.get("/reference/{ref_id}", response_class=HTMLResponse)
 async def get_reference_detail(request: Request, ref_id: int, db: Session = Depends(get_db)):
+    
+    # ⭐ 세션 확인
+    username = request.session.get("user")
+    if not username:
+        return RedirectResponse("/login", status_code=303)
+    
+    # ⭐ 사용자 조회
+    current_user = db.query(User).filter(User.username == username).first()
+    if not current_user:
+        return RedirectResponse("/login", status_code=303)
+    
+    # ⭐ 권한 설정
+    is_admin = current_user.role == "admin"
+    can_manage_products = current_user.can_manage_products or is_admin
+    can_manage_marketing = current_user.can_manage_marketing or is_admin
+    
     # Reference 조회 (product 관계 포함)
     reference = db.query(Reference).options(
         joinedload(Reference.last_modified_by)
     ).filter(Reference.id == ref_id).first()
     
-    # product 가져오기 (Reference에 product/marketing_product 관계가 있으면)
+    # product 가져오기
     product = None
     try:
         if reference:
-            # Reference에 product 관계가 있는 경우
             if hasattr(reference, 'product'):
                 product = reference.product
-            # Reference에 marketing_product 관계가 있는 경우
             elif hasattr(reference, 'marketing_product') and reference.marketing_product:
                 product = reference.marketing_product.product if hasattr(reference.marketing_product, 'product') else None
-            # Reference에 product_id 필드가 있는 경우
             elif hasattr(reference, 'product_id') and reference.product_id:
                 product = db.query(Product).filter(Product.id == reference.product_id).first()
-            # Reference에 marketing_product_id 필드가 있는 경우
             elif hasattr(reference, 'marketing_product_id') and reference.marketing_product_id:
                 mp = db.query(MarketingProduct).options(
                     joinedload(MarketingProduct.product)
@@ -1361,9 +1373,13 @@ async def get_reference_detail(request: Request, ref_id: int, db: Session = Depe
             
     return templates.TemplateResponse("reference_detail.html", {
         "request": request,
+        "username": username,  # ⭐ 추가
+        "is_admin": is_admin,  # ⭐ 추가
+        "can_manage_products": can_manage_products,  # ⭐ 추가
+        "can_manage_marketing": can_manage_marketing,  # ⭐ 추가
         "reference": reference,
         "comments": top_level_comments,
-        "product": product  # ✅ product 추가!
+        "product": product
     })
 
 @router.post("/reference/update/{ref_id}", response_class=RedirectResponse)
@@ -1447,6 +1463,22 @@ async def get_product_keywords(
     dups: int = Query(None)
 ):
     """키워드 관리 페이지"""
+    
+    # ⭐ 세션 확인
+    username = request.session.get("user")
+    if not username:
+        return RedirectResponse("/login", status_code=303)
+    
+    # ⭐ 사용자 조회
+    current_user = db.query(User).filter(User.username == username).first()
+    if not current_user:
+        return RedirectResponse("/login", status_code=303)
+    
+    # ⭐ 권한 설정
+    is_admin = current_user.role == "admin"
+    can_manage_products = current_user.can_manage_products or is_admin
+    can_manage_marketing = current_user.can_manage_marketing or is_admin
+    
     marketing_product = db.query(MarketingProduct).filter(MarketingProduct.id == mp_id).first()
     
     keywords_list = []
@@ -1460,7 +1492,11 @@ async def get_product_keywords(
     total_keywords_count = len(keywords_list)
 
     return templates.TemplateResponse("marketing_product_keywords.html", {
-        "request": request, 
+        "request": request,
+        "username": username,  # ⭐ 추가
+        "is_admin": is_admin,  # ⭐ 추가
+        "can_manage_products": can_manage_products,  # ⭐ 추가
+        "can_manage_marketing": can_manage_marketing,  # ⭐ 추가
         "marketing_product": marketing_product,
         "keywords_list": keywords_list, 
         "keywords_text": keywords_text,
@@ -1695,14 +1731,36 @@ async def delete_target_cafe(cafe_id: int, db: Session = Depends(get_db)):
     return RedirectResponse(url="/marketing/cafe?tab=cafes", status_code=303)
 
 # --- Marketing Product Management (기존 유지) ---
+# --- Marketing Product Management (수정됨) ---
 @router.get("/product-selection", response_class=HTMLResponse)
 async def select_marketing_product(request: Request, db: Session = Depends(get_db)):
+    
+    # ⭐ 세션 확인
+    username = request.session.get("user")
+    if not username:
+        return RedirectResponse("/login", status_code=303)
+    
+    # ⭐ 사용자 조회
+    current_user = db.query(User).filter(User.username == username).first()
+    if not current_user:
+        return RedirectResponse("/login", status_code=303)
+    
+    # ⭐ 권한 설정
+    is_admin = current_user.role == "admin"
+    can_manage_products = current_user.can_manage_products or is_admin
+    can_manage_marketing = current_user.can_manage_marketing or is_admin
+    
     existing_ids = [mp.product_id for mp in db.query(MarketingProduct.product_id).all()]
     available_products_raw = db.query(Product).filter(Product.id.notin_(existing_ids)).all()
     # 상품 코드 순으로 정렬 (1-1, 1-2, 10-1 순서)
     available_products = sorted(available_products_raw, key=lambda p: sort_product_code(p.product_code))
+    
     return templates.TemplateResponse("marketing_product_selection.html", {
         "request": request,
+        "username": username,  # ⭐ 추가
+        "is_admin": is_admin,  # ⭐ 추가
+        "can_manage_products": can_manage_products,  # ⭐ 추가
+        "can_manage_marketing": can_manage_marketing,  # ⭐ 추가
         "products": available_products
     })
 
@@ -1716,6 +1774,7 @@ async def add_marketing_product(product_id: int, db: Session = Depends(get_db)):
     return RedirectResponse(url="/marketing/cafe?tab=products", status_code=303)
 
 # --- '글 관리' 라우트 (기존 유지) ---
+# --- '글 관리' 라우트 (수정됨) ---
 @router.get("/product/posts/{mp_id}", response_class=HTMLResponse)
 async def get_product_posts(
     request: Request, 
@@ -1723,10 +1782,25 @@ async def get_product_posts(
     db: Session = Depends(get_db),
     page: int = Query(1, ge=1),
     keyword_search: str = Query(""),
-    status_filter: str = Query("all"),  # ✅ 상태 필터 추가
+    status_filter: str = Query("all"),
     error: str = Query(None)
 ):
     PAGE_SIZE = 10
+    
+    # ⭐ 세션 확인
+    username = request.session.get("user")
+    if not username:
+        return RedirectResponse("/login", status_code=303)
+    
+    # ⭐ 사용자 조회
+    current_user = db.query(User).filter(User.username == username).first()
+    if not current_user:
+        return RedirectResponse("/login", status_code=303)
+    
+    # ⭐ 권한 설정
+    is_admin = current_user.role == "admin"
+    can_manage_products = current_user.can_manage_products or is_admin
+    can_manage_marketing = current_user.can_manage_marketing or is_admin
     
     marketing_product = db.query(MarketingProduct).options(
         joinedload(MarketingProduct.product)
@@ -1757,7 +1831,6 @@ async def get_product_posts(
     offset = (page - 1) * PAGE_SIZE
     keywords_for_page = filtered_keywords[offset : offset + PAGE_SIZE]
 
-    # ✅ 상태 필터에 따라 쿼리 수정
     posts_query = db.query(MarketingPost).options(
         joinedload(MarketingPost.worker),
         joinedload(MarketingPost.account),
@@ -1768,9 +1841,7 @@ async def get_product_posts(
         MarketingPost.keyword_text.in_(keywords_for_page)
     )
     
-    # ✅ 상태 필터 적용
     if status_filter != 'all':
-        # schedules를 통해 status 필터링
         posts_query = posts_query.join(
             PostSchedule, 
             MarketingPost.id == PostSchedule.marketing_post_id
@@ -1790,7 +1861,6 @@ async def get_product_posts(
             joinedload(MarketingPost.schedules)
         ).filter(MarketingPost.marketing_product_id == mp_id)
         
-        # ✅ other_posts도 필터 적용
         if status_filter != 'all':
             db_posts_for_product_query = db_posts_for_product_query.join(
                 PostSchedule,
@@ -1804,20 +1874,16 @@ async def get_product_posts(
             if p.keyword_text not in keywords_list and p.keyword_text not in all_post_keywords:
                 other_posts.append(p)
 
-    # 전체 통계 계산 (PostSchedule의 status 기반)
     all_posts = db.query(MarketingPost).options(
         joinedload(MarketingPost.schedules)
     ).filter(
         MarketingPost.marketing_product_id == mp_id
     ).all()
     
-    # PostSchedule의 status 기반으로 통계 계산
     def get_post_status(post):
-        """Post의 연결된 schedule의 status를 반환"""
         if post.schedules:
-            # 가장 최근 schedule의 status 사용
             return post.schedules[0].status
-        return 'pending'  # schedule이 없으면 pending
+        return 'pending'
     
     post_stats = {
         'total': len(all_posts),
@@ -1844,7 +1910,6 @@ async def get_product_posts(
     all_references = db.query(Reference).options(joinedload(Reference.comments)).order_by(Reference.ref_type, Reference.title).all()
     references_by_type = {"대안": [], "정보": [], "기타": []}
     
-    # JavaScript에서 사용할 수 있도록 references를 딕셔너리로 변환
     references_json = []
     for ref in all_references:
         ref_type_str = ref.ref_type or "기타"
@@ -1853,7 +1918,6 @@ async def get_product_posts(
         else:
             references_by_type["기타"].append(ref)
         
-        # 댓글 변환
         comments_list = []
         for comment in ref.comments:
             comments_list.append({
@@ -1863,7 +1927,6 @@ async def get_product_posts(
                 "parent_id": comment.parent_id
             })
         
-        # 레퍼런스 변환
         references_json.append({
             "id": ref.id,
             "title": ref.title,
@@ -1876,13 +1939,12 @@ async def get_product_posts(
     membership_map = {}
     for membership in all_memberships:
         if membership.status == 'active':
-            account_key = str(membership.account_id)  # 문자열로 변환
+            account_key = str(membership.account_id)
             if account_key not in membership_map:
                 membership_map[account_key] = []
             if membership.cafe:
                 membership_map[account_key].append({"id": membership.cafe.id, "name": membership.cafe.name})
     
-    # today_stats 추가 (HTML 템플릿에서 사용 중)
     today_stats = {
         'total': 0,
         'pending': 0,
@@ -1890,12 +1952,15 @@ async def get_product_posts(
         'completed': 0
     }
     
-    # selected_date 추가 (HTML 템플릿에서 사용될 수 있음)
     from datetime import date
     selected_date = date.today()
     
     return templates.TemplateResponse("marketing_product_posts.html", {
         "request": request,
+        "username": username,  # ⭐ 추가
+        "is_admin": is_admin,  # ⭐ 추가
+        "can_manage_products": can_manage_products,  # ⭐ 추가
+        "can_manage_marketing": can_manage_marketing,  # ⭐ 추가
         "marketing_product": marketing_product,
         "posts_by_keyword": posts_by_keyword,
         "keywords_list": keywords_list,
@@ -1913,8 +1978,7 @@ async def get_product_posts(
         "post_stats": post_stats,
         "today_stats": today_stats,
         "selected_date": selected_date,
-        "status_filter": status_filter  # ✅ 템플릿에 전달
-
+        "status_filter": status_filter
     })
 
 @router.post("/post/add", response_class=RedirectResponse)
@@ -2063,22 +2127,108 @@ async def delete_marketing_post(post_id: int, db: Session = Depends(get_db)):
     redirect_url = f"/marketing/product/posts/{mp_id}" if mp_id else "/marketing/cafe?tab=products"
     return RedirectResponse(url=redirect_url, status_code=303)
 
-# --- Other Marketing Pages (기존 유지) ---
+# --- Other Marketing Pages (수정됨) ---
 @router.get("/blog", response_class=HTMLResponse)
-async def marketing_blog(request: Request):
-    return templates.TemplateResponse("marketing_blog.html", {"request": request})
+async def marketing_blog(request: Request, db: Session = Depends(get_db)):
+    
+    # ⭐ 세션 확인
+    username = request.session.get("user")
+    if not username:
+        return RedirectResponse("/login", status_code=303)
+    
+    # ⭐ 사용자 조회
+    current_user = db.query(User).filter(User.username == username).first()
+    if not current_user:
+        return RedirectResponse("/login", status_code=303)
+    
+    # ⭐ 권한 설정
+    is_admin = current_user.role == "admin"
+    can_manage_products = current_user.can_manage_products or is_admin
+    can_manage_marketing = current_user.can_manage_marketing or is_admin
+    
+    return templates.TemplateResponse("marketing_blog.html", {
+        "request": request,
+        "username": username,  # ⭐ 추가
+        "is_admin": is_admin,  # ⭐ 추가
+        "can_manage_products": can_manage_products,  # ⭐ 추가
+        "can_manage_marketing": can_manage_marketing  # ⭐ 추가
+    })
 
 @router.get("/homepage", response_class=HTMLResponse)
-async def marketing_homepage(request: Request):
-    return templates.TemplateResponse("marketing_homepage.html", {"request": request})
+async def marketing_homepage(request: Request, db: Session = Depends(get_db)):
+    
+    # ⭐ 세션 확인
+    username = request.session.get("user")
+    if not username:
+        return RedirectResponse("/login", status_code=303)
+    
+    # ⭐ 사용자 조회
+    current_user = db.query(User).filter(User.username == username).first()
+    if not current_user:
+        return RedirectResponse("/login", status_code=303)
+    
+    # ⭐ 권한 설정
+    is_admin = current_user.role == "admin"
+    can_manage_products = current_user.can_manage_products or is_admin
+    can_manage_marketing = current_user.can_manage_marketing or is_admin
+    
+    return templates.TemplateResponse("marketing_homepage.html", {
+        "request": request,
+        "username": username,  # ⭐ 추가
+        "is_admin": is_admin,  # ⭐ 추가
+        "can_manage_products": can_manage_products,  # ⭐ 추가
+        "can_manage_marketing": can_manage_marketing  # ⭐ 추가
+    })
 
 @router.get("/kin", response_class=HTMLResponse)
-async def marketing_kin(request: Request):
-    return templates.TemplateResponse("marketing_kin.html", {"request": request})
+async def marketing_kin(request: Request, db: Session = Depends(get_db)):
+    
+    # ⭐ 세션 확인
+    username = request.session.get("user")
+    if not username:
+        return RedirectResponse("/login", status_code=303)
+    
+    # ⭐ 사용자 조회
+    current_user = db.query(User).filter(User.username == username).first()
+    if not current_user:
+        return RedirectResponse("/login", status_code=303)
+    
+    # ⭐ 권한 설정
+    is_admin = current_user.role == "admin"
+    can_manage_products = current_user.can_manage_products or is_admin
+    can_manage_marketing = current_user.can_manage_marketing or is_admin
+    
+    return templates.TemplateResponse("marketing_kin.html", {
+        "request": request,
+        "username": username,  # ⭐ 추가
+        "is_admin": is_admin,  # ⭐ 추가
+        "can_manage_products": can_manage_products,  # ⭐ 추가
+        "can_manage_marketing": can_manage_marketing  # ⭐ 추가
+    })
 
 @router.get("/marketing/schedules/create", response_class=HTMLResponse)
-async def create_schedule(request: Request):
+async def create_schedule(request: Request, db: Session = Depends(get_db)):
     """스케줄 생성 페이지"""
+    
+    # ⭐ 세션 확인
+    username = request.session.get("user")
+    if not username:
+        return RedirectResponse("/login", status_code=303)
+    
+    # ⭐ 사용자 조회
+    current_user = db.query(User).filter(User.username == username).first()
+    if not current_user:
+        return RedirectResponse("/login", status_code=303)
+    
+    # ⭐ 권한 설정
+    is_admin = current_user.role == "admin"
+    can_manage_products = current_user.can_manage_products or is_admin
+    can_manage_marketing = current_user.can_manage_marketing or is_admin
+    
     return templates.TemplateResponse("create_schedule.html", {
-        "request": request
+        "request": request,
+        "username": username,  # ⭐ 추가
+        "is_admin": is_admin,  # ⭐ 추가
+        "can_manage_products": can_manage_products,  # ⭐ 추가
+        "can_manage_marketing": can_manage_marketing  # ⭐ 추가
     })

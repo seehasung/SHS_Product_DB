@@ -706,6 +706,15 @@
         </footer>
         {% endif %}
     </div>
+
+    {% if username %}  ← username 변수가 있어야 아이콘 표시
+        <div id="taskNotificationFloat" style="display: none;">
+            <button id="taskNotificationBtn">...</button>
+        </div>
+        <div id="taskRequestFloat" style="display: none;">
+            <button id="taskRequestBtn">...</button>
+        </div>
+    {% endif %}
     
     <!-- 로딩 스피너 -->
     <div class="loading-spinner">
