@@ -78,7 +78,14 @@ def login(request: Request, username: str = Form(...), password: str = Form(...)
 @router.get("/register", response_class=HTMLResponse)
 def register_page(request: Request):
     """회원가입 페이지 표시"""
-    return templates.TemplateResponse("register.html", {"request": request})
+    # ⭐ username 등 추가 (로그인 전이므로 None이나 빈 값)
+    return templates.TemplateResponse("register.html", {
+        "request": request,
+        "username": None,  # ⭐ 추가
+        "is_admin": False,  # ⭐ 추가
+        "can_manage_products": False,  # ⭐ 추가
+        "can_manage_marketing": False  # ⭐ 추가
+    })
 
 @router.post("/register", response_class=HTMLResponse)
 def register(request: Request, username: str = Form(...), password: str = Form(...)):
@@ -91,6 +98,10 @@ def register(request: Request, username: str = Form(...), password: str = Form(.
         db.close()
         return templates.TemplateResponse("register.html", {
             "request": request,
+            "username": None,  # ⭐ 추가
+            "is_admin": False,  # ⭐ 추가
+            "can_manage_products": False,  # ⭐ 추가
+            "can_manage_marketing": False,  # ⭐ 추가
             "error": "이미 존재하는 아이디입니다."
         })
     
@@ -119,9 +130,22 @@ def logout(request: Request):
 @router.get("/change-password", response_class=HTMLResponse)
 def change_password_page(request: Request):
     """비밀번호 변경 페이지"""
-    if not request.session.get("user"):
+    username = request.session.get("user")
+    if not username:
         return RedirectResponse("/login", status_code=303)
-    return templates.TemplateResponse("change_password.html", {"request": request})
+    
+    # ⭐ 세션에서 권한 정보 가져오기
+    is_admin = request.session.get("is_admin", False)
+    can_manage_products = request.session.get("can_manage_products", False)
+    can_manage_marketing = request.session.get("can_manage_marketing", False)
+    
+    return templates.TemplateResponse("change_password.html", {
+        "request": request,
+        "username": username,  # ⭐ 추가
+        "is_admin": is_admin,  # ⭐ 추가
+        "can_manage_products": can_manage_products,  # ⭐ 추가
+        "can_manage_marketing": can_manage_marketing  # ⭐ 추가
+    })
 
 @router.post("/change-password", response_class=HTMLResponse)
 def change_password(
@@ -134,6 +158,11 @@ def change_password(
     if not username:
         return RedirectResponse("/login", status_code=303)
     
+    # ⭐ 세션에서 권한 정보 가져오기
+    is_admin = request.session.get("is_admin", False)
+    can_manage_products = request.session.get("can_manage_products", False)
+    can_manage_marketing = request.session.get("can_manage_marketing", False)
+    
     db = SessionLocal()
     user = db.query(User).filter(User.username == username).first()
     
@@ -141,6 +170,10 @@ def change_password(
         db.close()
         return templates.TemplateResponse("change_password.html", {
             "request": request,
+            "username": username,  # ⭐ 추가
+            "is_admin": is_admin,  # ⭐ 추가
+            "can_manage_products": can_manage_products,  # ⭐ 추가
+            "can_manage_marketing": can_manage_marketing,  # ⭐ 추가
             "error": "현재 비밀번호가 올바르지 않습니다."
         })
     
@@ -151,9 +184,12 @@ def change_password(
     
     return templates.TemplateResponse("change_password.html", {
         "request": request,
+        "username": username,  # ⭐ 추가
+        "is_admin": is_admin,  # ⭐ 추가
+        "can_manage_products": can_manage_products,  # ⭐ 추가
+        "can_manage_marketing": can_manage_marketing,  # ⭐ 추가
         "success": True
     })
-
 # ========== 새로 추가: 비밀번호 찾기 기능 ==========
 
 def generate_temp_password(length=12):

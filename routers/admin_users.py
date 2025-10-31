@@ -1,3 +1,5 @@
+#admin_users.py
+
 from fastapi import APIRouter, Request, Form, Depends
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
@@ -180,6 +182,11 @@ async def view_logs(
     if not current_user or not current_user.is_admin:
         return RedirectResponse("/", status_code=302)
     
+    # ⭐ 권한 변수 추가
+    is_admin = current_user.is_admin
+    can_manage_products = current_user.can_manage_products or is_admin
+    can_manage_marketing = current_user.can_manage_marketing or is_admin
+    
     # 로그 조회 (최신 순)
     from sqlalchemy.orm import joinedload
     logs_query = db.query(LoginLog).options(joinedload(LoginLog.user))
@@ -212,6 +219,9 @@ async def view_logs(
     return templates.TemplateResponse("view_logs.html", {
         "request": request,
         "username": username,
+        "is_admin": is_admin,  # ⭐ 추가
+        "can_manage_products": can_manage_products,  # ⭐ 추가
+        "can_manage_marketing": can_manage_marketing,  # ⭐ 추가
         "logs": logs,
         "user_filter": user_filter,
         "stats": stats
