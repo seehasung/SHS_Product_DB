@@ -94,7 +94,7 @@ def product_list(request: Request, db: Session = Depends(get_db)):
         return RedirectResponse("/login", status_code=303)
     
     # ⭐ 권한 설정
-    is_admin = current_user.role == "admin"
+    is_admin = current_user.is_admin  # ✅ 수정!
     can_manage_products = current_user.can_manage_products or is_admin
     can_manage_marketing = current_user.can_manage_marketing or is_admin
     
@@ -150,10 +150,10 @@ def product_list(request: Request, db: Session = Depends(get_db)):
         # HTML 응답
         return templates.TemplateResponse("admin_products.html", {
             "request": request,
-            "username": username,  # ⭐ 추가
-            "is_admin": is_admin,  # ⭐ 추가
-            "can_manage_products": can_manage_products,  # ⭐ 추가
-            "can_manage_marketing": can_manage_marketing,  # ⭐ 추가
+            "username": username,
+            "is_admin": is_admin,
+            "can_manage_products": can_manage_products,
+            "can_manage_marketing": can_manage_marketing,
             "products": products_list
         })
         
@@ -181,7 +181,7 @@ def product_add_form(request: Request, db: Session = Depends(get_db)):
         return RedirectResponse("/login", status_code=303)
     
     # ⭐ 권한 설정
-    is_admin = current_user.role == "admin"
+    is_admin = current_user.is_admin
     can_manage_products = current_user.can_manage_products or is_admin
     can_manage_marketing = current_user.can_manage_marketing or is_admin
     
@@ -269,7 +269,7 @@ def product_add(
         # 세션에서 username 가져오기
         username = request.session.get("user")
         current_user = db.query(User).filter(User.username == username).first()
-        is_admin = current_user.role == "admin" if current_user else False
+        is_admin = current_user.is_admin if current_user else False
         can_manage_products = (current_user.can_manage_products or is_admin) if current_user else False
         can_manage_marketing = (current_user.can_manage_marketing or is_admin) if current_user else False
         
@@ -301,7 +301,7 @@ def product_create_form(request: Request, db: Session = Depends(get_db)):
         return RedirectResponse("/login", status_code=303)
     
     # ⭐ 권한 설정
-    is_admin = current_user.role == "admin"
+    is_admin = current_user.is_admin
     can_manage_products = current_user.can_manage_products or is_admin
     can_manage_marketing = current_user.can_manage_marketing or is_admin
     
@@ -389,7 +389,7 @@ def product_create(
         # 세션에서 username 가져오기
         username = request.session.get("user")
         current_user = db.query(User).filter(User.username == username).first()
-        is_admin = current_user.role == "admin" if current_user else False
+        is_admin = current_user.is_admin if current_user else False
         can_manage_products = (current_user.can_manage_products or is_admin) if current_user else False
         can_manage_marketing = (current_user.can_manage_marketing or is_admin) if current_user else False
         
@@ -427,7 +427,7 @@ def edit_product_form(
         return RedirectResponse("/login", status_code=303)
     
     # ⭐ 권한 설정
-    is_admin = current_user.role == "admin"
+    is_admin = current_user.is_admin
     can_manage_products = current_user.can_manage_products or is_admin
     can_manage_marketing = current_user.can_manage_marketing or is_admin
     
@@ -549,7 +549,7 @@ def edit_product(
         # 세션에서 username 가져오기
         username = request.session.get("user")
         current_user = db.query(User).filter(User.username == username).first()
-        is_admin = current_user.role == "admin" if current_user else False
+        is_admin = current_user.is_admin if current_user else False
         can_manage_products = (current_user.can_manage_products or is_admin) if current_user else False
         can_manage_marketing = (current_user.can_manage_marketing or is_admin) if current_user else False
         
@@ -621,7 +621,7 @@ def product_detail(
         return RedirectResponse("/login", status_code=303)
     
     # ⭐ 권한 설정
-    is_admin = current_user.role == "admin"
+    is_admin = current_user.is_admin
     can_manage_products = current_user.can_manage_products or is_admin
     can_manage_marketing = current_user.can_manage_marketing or is_admin
     
@@ -667,7 +667,7 @@ def product_page(request: Request, product_id: int, db: Session = Depends(get_db
         return RedirectResponse("/login", status_code=303)
     
     # ⭐ 권한 설정
-    is_admin = current_user.role == "admin"
+    is_admin = current_user.is_admin
     can_manage_products = current_user.can_manage_products or is_admin
     can_manage_marketing = current_user.can_manage_marketing or is_admin
     
