@@ -164,6 +164,7 @@ def read_root(request: Request):
                 # 내가 받은 업무 통계
                 task_stats['total'] = db.query(TaskAssignment).filter(
                     TaskAssignment.assignee_id == current_user.id
+                    TaskAssignment.status != 'cancelled'  # ⭐ 추가!
                 ).count()
                 
                 task_stats['new'] = db.query(TaskAssignment).filter(
