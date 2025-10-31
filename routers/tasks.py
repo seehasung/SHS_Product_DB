@@ -600,7 +600,7 @@ def get_unread_notifications(request: Request, db: Session = Depends(get_db)):
     ).join(
         TaskAssignment, TaskNotification.task_id == TaskAssignment.id
     ).filter(
-        TaskAssignment.status != 'completed'  # 완료된 업무는 제외
+        TaskAssignment.status.not_in(['completed', 'cancelled'])  # ⭐ 취소된 업무도 제외
     ).order_by(
         TaskNotification.created_at.desc()
     ).all()
@@ -1094,10 +1094,11 @@ def get_my_created_tasks(request: Request, db: Session = Depends(get_db)):
         joinedload(TaskAssignment.assignee)
     ).filter(
         TaskAssignment.creator_id == current_user.id,
-        TaskAssignment.status != 'completed'  # 완료된 업무 제외
+        TaskAssignment.status.not_in(['completed', 'cancelled'])  # ⭐ 취소된 업무도 제외
     ).order_by(
         TaskAssignment.created_at.desc()
     ).all()
+    
     
     result = []
     for task in tasks:

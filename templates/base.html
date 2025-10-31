@@ -1406,12 +1406,15 @@
             isDrawerOpen = true;
             const drawer = document.getElementById('taskNotificationDrawer');
             const overlay = document.getElementById('taskNotificationOverlay');
+            const badgeContainer = document.getElementById('taskNotificationBadgeContainer');  // ⭐ 추가
             
             drawer.style.right = '0';
+            overlay.style.display = 'block';
             
-            setTimeout(() => {
-                overlay.style.opacity = '1';
-            }, 10);
+            // ⭐ 드로어 열릴 때 배지 숨김
+            if (badgeContainer) {
+                badgeContainer.style.display = 'none';
+            }
             
             loadNotifications();
         }
@@ -1422,11 +1425,12 @@
             const overlay = document.getElementById('taskNotificationOverlay');
             
             drawer.style.right = window.innerWidth <= 768 ? '-100%' : '-480px';
-            overlay.style.opacity = '0';
+            overlay.style.display = 'none';
             
+            // ⭐ 드로어 닫힐 때 배지 다시 업데이트 (자동으로 표시됨)
             setTimeout(() => {
-                overlay.style.display = 'none';
-            }, 300);
+                updateNotificationBadge();
+            }, 400);
         }
 
         // ============================================
@@ -1446,12 +1450,15 @@
             isRequestDrawerOpen = true;
             const drawer = document.getElementById('taskRequestDrawer');
             const overlay = document.getElementById('taskRequestOverlay');
+            const badgeContainer = document.getElementById('taskNotificationBadgeContainer');  // ⭐ 추가
             
             drawer.style.right = '0';
+            overlay.style.display = 'block';
             
-            setTimeout(() => {
-                overlay.style.opacity = '1';
-            }, 10);
+            // ⭐ 드로어 열릴 때 배지 숨김
+            if (badgeContainer) {
+                badgeContainer.style.display = 'none';
+            }
             
             // 업무 지시 내용 로드
             loadTaskRequestContent();
@@ -1463,13 +1470,14 @@
             const overlay = document.getElementById('taskRequestOverlay');
             
             drawer.style.right = window.innerWidth <= 768 ? '-100%' : '-520px';
-            overlay.style.opacity = '0';
+            overlay.style.display = 'none';
             
+            // ⭐ 드로어 닫힐 때 배지 다시 업데이트 (자동으로 표시됨)
             setTimeout(() => {
-                overlay.style.display = 'none';
-            }, 300);
+                updateNotificationBadge();
+            }, 400);
         }
-
+        
         // ============================================
         // 업무 지시 내용 로드
         // ============================================
@@ -2374,14 +2382,14 @@
         }
 
         // ============================================
-        // 배지 업데이트
+        // 배지 업데이트 (개선 버전)
         // ============================================
         async function updateNotificationBadge() {
             try {
                 const response = await fetch('/tasks/notifications/unread');
                 const notifications = await response.json();
                 
-                // 상태별 카운트
+                // 상태별 카운트 (알림 데이터에서 직접 가져옴)
                 const statusCounts = {
                     new: 0,
                     confirmed: 0,
@@ -2389,21 +2397,13 @@
                     on_hold: 0
                 };
                 
-                // 각 알림의 업무 상태를 확인하여 카운트
-                for (const notif of notifications) {
-                    // 업무 상태 가져오기
-                    try {
-                        const taskResponse = await fetch(`/tasks/api/${notif.task_id}/status`);
-                        const taskData = await taskResponse.json();
-                        const status = taskData.status;
-                        
-                        if (statusCounts.hasOwnProperty(status)) {
-                            statusCounts[status]++;
-                        }
-                    } catch (error) {
-                        console.error('업무 상태 조회 오류:', error);
+                // ⭐ 개별 API 호출 없이 알림 데이터의 status 직접 사용
+                notifications.forEach(notif => {
+                    const status = notif.status;  // 알림에 이미 status 포함되어 있음
+                    if (statusCounts.hasOwnProperty(status)) {
+                        statusCounts[status]++;
                     }
-                }
+                });
                 
                 // 배지 컨테이너
                 const container = document.getElementById('taskNotificationBadgeContainer');
