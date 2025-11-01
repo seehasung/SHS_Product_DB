@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+<!DOCTYPE html>
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
@@ -6,111 +6,382 @@
     <title>업무 지시 생성</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <style>
+        /* ========================================
+           🎨 전역 스타일 (index.html과 동일)
+           ======================================== */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        /* 애니메이션 */
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(40px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        /* ========================================
+           🎨 네비게이션 바
+           ======================================== */
+        .modern-navbar {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+            padding: 16px 0;
+        }
+        
+        .navbar-brand {
+            font-weight: 800;
+            font-size: 1.3rem;
+            background: linear-gradient(135deg, #4A90E2 0%, #5BA3F5 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        /* ========================================
+           🎨 컨테이너
+           ======================================== */
+        .main-container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 30px 20px;
+        }
+        
+        /* ========================================
+           🎨 모던 카드
+           ======================================== */
+        .modern-card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
+            animation: fadeInUp 0.8s ease-out;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .modern-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 6px;
+            background: linear-gradient(90deg, #4A90E2 0%, #5BA3F5 100%);
+            border-radius: 20px 20px 0 0;
+        }
+        
+        .card-title-modern {
+            font-size: 1.8rem;
+            font-weight: 800;
+            color: #2d3436;
+            margin-bottom: 30px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .card-title-modern i {
+            color: #4A90E2;
+        }
+        
+        /* ========================================
+           🎨 폼 스타일
+           ======================================== */
+        .form-label {
+            font-weight: 700;
+            color: #2d3436;
+            margin-bottom: 8px;
+            font-size: 0.95rem;
+        }
+        
+        .form-control, .form-select {
+            border-radius: 12px;
+            border: 2px solid rgba(74, 144, 226, 0.2);
+            padding: 12px 16px;
+            transition: all 0.3s;
+            font-size: 0.95rem;
+        }
+        
+        .form-control:focus, .form-select:focus {
+            border-color: #4A90E2;
+            box-shadow: 0 0 0 0.2rem rgba(74, 144, 226, 0.15);
+        }
+        
+        textarea.form-control {
+            resize: vertical;
+        }
+        
+        .form-text {
+            font-size: 0.85rem;
+            color: #636e72;
+            margin-top: 6px;
+        }
+        
+        /* ========================================
+           🎨 선택 박스 (담당자)
+           ======================================== */
+        select[multiple] {
+            min-height: 200px;
+        }
+        
+        select[multiple] option {
+            padding: 10px;
+            border-radius: 8px;
+            margin-bottom: 4px;
+        }
+        
+        select[multiple] option:checked {
+            background: linear-gradient(135deg, #4A90E2 0%, #5BA3F5 100%);
+            color: white;
+        }
+        
+        /* ========================================
+           🎨 알림 박스
+           ======================================== */
+        .alert-info {
+            background: rgba(74, 144, 226, 0.1);
+            border: 2px solid rgba(74, 144, 226, 0.3);
+            border-radius: 12px;
+            color: #2d3436;
+            font-weight: 600;
+            padding: 12px 16px;
+        }
+        
+        /* ========================================
+           🎨 버튼 스타일
+           ======================================== */
+        .btn-modern {
+            border-radius: 14px;
+            padding: 14px 28px;
+            font-weight: 700;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            border: none;
+            font-size: 1rem;
+        }
+        
+        .btn-modern-primary {
+            background: linear-gradient(135deg, #4A90E2 0%, #5BA3F5 100%);
+            color: white;
+            box-shadow: 0 4px 16px rgba(74, 144, 226, 0.35);
+        }
+        
+        .btn-modern-primary:hover {
+            color: white;
+            transform: translateY(-3px);
+            box-shadow: 0 8px 24px rgba(74, 144, 226, 0.45);
+        }
+        
+        .btn-modern-secondary {
+            background: rgba(108, 117, 125, 0.1);
+            color: #6c757d;
+            border: 2px solid rgba(108, 117, 125, 0.3);
+        }
+        
+        .btn-modern-secondary:hover {
+            background: rgba(108, 117, 125, 0.2);
+            color: #6c757d;
+            transform: translateY(-3px);
+        }
+        
+        .btn-modern-outline {
+            background: rgba(255, 255, 255, 0.5);
+            color: #4A90E2;
+            border: 2px solid rgba(74, 144, 226, 0.3);
+            backdrop-filter: blur(10px);
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.05);
+        }
+        
+        .btn-modern-outline:hover {
+            background: rgba(74, 144, 226, 0.1);
+            color: #4A90E2;
+            border-color: #4A90E2;
+            transform: translateY(-3px);
+            box-shadow: 0 6px 20px rgba(74, 144, 226, 0.2);
+        }
+        
+        /* ========================================
+           🎨 섹션 구분선
+           ======================================== */
+        .form-section {
+            margin-bottom: 28px;
+            padding-bottom: 24px;
+            border-bottom: 2px solid rgba(74, 144, 226, 0.1);
+        }
+        
+        .form-section:last-of-type {
+            border-bottom: none;
+            margin-bottom: 0;
+            padding-bottom: 0;
+        }
+        
+        /* ========================================
+           🎨 필수 표시
+           ======================================== */
+        .text-danger {
+            color: #dc3545 !important;
+            font-weight: 700;
+        }
+        
+        /* ========================================
+           🎨 아이콘 스타일
+           ======================================== */
+        .form-label i {
+            color: #4A90E2;
+            margin-right: 6px;
+        }
+        
+        /* ========================================
+           🎨 반응형
+           ======================================== */
+        @media (max-width: 768px) {
+            .modern-card {
+                padding: 24px;
+            }
+            
+            .card-title-modern {
+                font-size: 1.5rem;
+            }
+        }
+    </style>
 </head>
 <body>
-    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+    <!-- 네비게이션 바 -->
+    <nav class="modern-navbar">
         <div class="container-fluid">
-            <a class="navbar-brand" href="/">업무 관리 시스템</a>
-            <div class="d-flex">
-                <a href="/tasks" class="btn btn-outline-light btn-sm">
-                    <i class="bi bi-arrow-left"></i> 목록으로
+            <div class="d-flex justify-content-between align-items-center">
+                <a class="navbar-brand" href="/">
+                    <i class="bi bi-list-task"></i> 업무 관리 시스템
                 </a>
+                <div>
+                    <a href="/tasks" class="btn-modern btn-modern-outline btn-sm">
+                        <i class="bi bi-arrow-left"></i> 목록으로
+                    </a>
+                </div>
             </div>
         </div>
     </nav>
 
-    <div class="container mt-5">
-        <div class="row justify-content-center">
-            <div class="col-md-8">
-                <div class="card">
-                    <div class="card-header bg-primary text-white">
-                        <h4 class="mb-0"><i class="bi bi-plus-circle"></i> 새 업무 지시 생성</h4>
+    <!-- 메인 컨테이너 -->
+    <div class="main-container">
+        <div class="modern-card">
+            <h4 class="card-title-modern">
+                <i class="bi bi-plus-circle"></i> 새 업무 지시 생성
+            </h4>
+
+            <form action="/tasks/create" method="POST" enctype="multipart/form-data">
+                <!-- 담당자 선택 -->
+                <div class="form-section">
+                    <label for="assignees" class="form-label">
+                        <i class="bi bi-people"></i> 담당자 선택 <span class="text-danger">*</span>
+                    </label>
+                    <select class="form-select" id="assigneeSelect" size="5" multiple required>
+                        {% for user in assignees %}
+                        <option value="{{ user.id }}">{{ user.username }}</option>
+                        {% endfor %}
+                    </select>
+                    <input type="hidden" name="assignee_ids" id="assigneeIds" required>
+                    <div class="form-text">
+                        <i class="bi bi-info-circle"></i> Ctrl(또는 Cmd) + 클릭으로 여러 명 선택 가능 (일괄 지시)
                     </div>
-                    <div class="card-body">
-                        <form action="/tasks/create" method="POST" enctype="multipart/form-data">
-                            <!-- 담당자 선택 -->
-                            <div class="mb-3">
-                                <label for="assignees" class="form-label fw-bold">
-                                    담당자 선택 <span class="text-danger">*</span>
-                                </label>
-                                <select class="form-select" id="assigneeSelect" size="5" multiple required>
-                                    {% for user in assignees %}
-                                    <option value="{{ user.id }}">{{ user.username }}</option>
-                                    {% endfor %}
-                                </select>
-                                <input type="hidden" name="assignee_ids" id="assigneeIds" required>
-                                <small class="form-text text-muted">
-                                    Ctrl(또는 Cmd) + 클릭으로 여러 명 선택 가능 (일괄 지시)
-                                </small>
-                                <div class="mt-2" id="selectedUsers"></div>
-                            </div>
+                    <div class="mt-2" id="selectedUsers"></div>
+                </div>
 
-                            <!-- 제목 -->
-                            <div class="mb-3">
-                                <label for="title" class="form-label fw-bold">
-                                    업무 제목 <span class="text-danger">*</span>
-                                </label>
-                                <input type="text" class="form-control" id="title" name="title" 
-                                       placeholder="업무 제목을 입력하세요" required>
-                            </div>
+                <!-- 제목 -->
+                <div class="form-section">
+                    <label for="title" class="form-label">
+                        <i class="bi bi-card-heading"></i> 업무 제목 <span class="text-danger">*</span>
+                    </label>
+                    <input type="text" class="form-control" id="title" name="title" 
+                           placeholder="업무 제목을 입력하세요" required>
+                </div>
 
-                            <!-- 내용 -->
-                            <div class="mb-3">
-                                <label for="content" class="form-label fw-bold">
-                                    업무 내용 <span class="text-danger">*</span>
-                                </label>
-                                <textarea class="form-control" id="content" name="content" rows="6" 
-                                          placeholder="업무 내용을 상세히 작성하세요" required></textarea>
-                            </div>
+                <!-- 내용 -->
+                <div class="form-section">
+                    <label for="content" class="form-label">
+                        <i class="bi bi-file-text"></i> 업무 내용 <span class="text-danger">*</span>
+                    </label>
+                    <textarea class="form-control" id="content" name="content" rows="6" 
+                              placeholder="업무 내용을 상세히 작성하세요" required></textarea>
+                </div>
 
-                            <!-- 우선순위 -->
-                            <div class="mb-3">
-                                <label for="priority" class="form-label fw-bold">우선순위</label>
-                                <select class="form-select" id="priority" name="priority">
-                                    <option value="normal" selected>🔵 보통</option>
-                                    <option value="important">🟠 중요</option>
-                                    <option value="urgent">🔴 긴급</option>
-                                </select>
-                            </div>
+                <!-- 우선순위 -->
+                <div class="form-section">
+                    <label for="priority" class="form-label">
+                        <i class="bi bi-flag"></i> 우선순위
+                    </label>
+                    <select class="form-select" id="priority" name="priority">
+                        <option value="normal" selected>🔵 보통</option>
+                        <option value="important">🟠 중요</option>
+                        <option value="urgent">🔴 긴급</option>
+                    </select>
+                </div>
 
-                            <!-- 마감 시한 -->
-                            <div class="mb-3">
-                                <label for="deadline_type" class="form-label fw-bold">마감 시한</label>
-                                <select class="form-select" id="deadlineType" name="deadline_type">
-                                    <option value="">마감 없음</option>
-                                    <option value="2hours">2시간 내</option>
-                                    <option value="today">오늘 중 (18시)</option>
-                                    <option value="this_week">이번 주 금요일</option>
-                                    <option value="custom">직접 입력</option>
-                                </select>
-                            </div>
+                <!-- 마감 시한 -->
+                <div class="form-section">
+                    <label for="deadline_type" class="form-label">
+                        <i class="bi bi-clock"></i> 마감 시한
+                    </label>
+                    <select class="form-select" id="deadlineType" name="deadline_type">
+                        <option value="">마감 없음</option>
+                        <option value="2hours">2시간 내</option>
+                        <option value="today">오늘 중 (18시)</option>
+                        <option value="this_week">이번 주 금요일</option>
+                        <option value="custom">직접 입력</option>
+                    </select>
+                </div>
 
-                            <!-- 직접 입력 마감 시간 -->
-                            <div class="mb-3" id="customDeadlineDiv" style="display: none;">
-                                <label for="custom_deadline" class="form-label fw-bold">마감 일시</label>
-                                <input type="datetime-local" class="form-control" id="custom_deadline" name="custom_deadline">
-                            </div>
+                <!-- 직접 입력 마감 시간 -->
+                <div class="form-section" id="customDeadlineDiv" style="display: none;">
+                    <label for="custom_deadline" class="form-label">
+                        <i class="bi bi-calendar-event"></i> 마감 일시
+                    </label>
+                    <input type="datetime-local" class="form-control" id="custom_deadline" name="custom_deadline">
+                </div>
 
-                            <!-- 파일 첨부 -->
-                            <div class="mb-3">
-                                <label for="files" class="form-label fw-bold">파일 첨부</label>
-                                <input type="file" class="form-control" id="files" name="files" multiple>
-                                <small class="form-text text-muted">
-                                    여러 파일 선택 가능 (참고 자료, 문서 등)
-                                </small>
-                            </div>
-
-                            <!-- 버튼 -->
-                            <div class="d-grid gap-2">
-                                <button type="submit" class="btn btn-primary btn-lg">
-                                    <i class="bi bi-send"></i> 업무 지시하기
-                                </button>
-                                <a href="/tasks" class="btn btn-secondary">취소</a>
-                            </div>
-                        </form>
+                <!-- 파일 첨부 -->
+                <div class="form-section">
+                    <label for="files" class="form-label">
+                        <i class="bi bi-paperclip"></i> 파일 첨부
+                    </label>
+                    <input type="file" class="form-control" id="files" name="files" multiple>
+                    <div class="form-text">
+                        <i class="bi bi-info-circle"></i> 여러 파일 선택 가능 (참고 자료, 문서 등)
                     </div>
                 </div>
-            </div>
+
+                <!-- 버튼 -->
+                <div class="d-grid gap-3 mt-4">
+                    <button type="submit" class="btn-modern btn-modern-primary">
+                        <i class="bi bi-send"></i> 업무 지시하기
+                    </button>
+                    <a href="/tasks" class="btn-modern btn-modern-secondary">
+                        <i class="bi bi-x-lg"></i> 취소
+                    </a>
+                </div>
+            </form>
         </div>
     </div>
 
@@ -128,7 +399,9 @@
 
             // 선택된 사용자 표시
             selectedUsers.innerHTML = selected.length > 0 
-                ? `<div class="alert alert-info">선택: ${selected.map(opt => opt.text).join(', ')}</div>`
+                ? `<div class="alert alert-info">
+                       <i class="bi bi-check-circle"></i> 선택된 담당자: <strong>${selected.map(opt => opt.text).join(', ')}</strong>
+                   </div>`
                 : '';
         });
 

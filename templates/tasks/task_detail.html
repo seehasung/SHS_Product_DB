@@ -7,22 +7,298 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
     <style>
+        /* ========================================
+           🎨 전역 스타일 (index.html과 동일)
+           ======================================== */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        /* 애니메이션 */
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(40px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        /* ========================================
+           🎨 네비게이션 바
+           ======================================== */
+        .modern-navbar {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+            padding: 16px 0;
+        }
+        
+        .navbar-brand {
+            font-weight: 800;
+            font-size: 1.3rem;
+            background: linear-gradient(135deg, #4A90E2 0%, #5BA3F5 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        /* ========================================
+           🎨 컨테이너
+           ======================================== */
+        .main-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 30px 20px;
+        }
+        
+        /* ========================================
+           🎨 모던 카드 스타일
+           ======================================== */
+        .modern-card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 20px;
+            padding: 30px;
+            margin-bottom: 24px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
+            animation: fadeInUp 0.8s ease-out backwards;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .modern-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 6px;
+            background: var(--card-gradient);
+            border-radius: 20px 20px 0 0;
+        }
+        
+        .modern-card.primary { --card-gradient: linear-gradient(90deg, #4A90E2 0%, #5BA3F5 100%); }
+        .modern-card.success { --card-gradient: linear-gradient(90deg, #28a745 0%, #51cf66 100%); }
+        .modern-card.warning { --card-gradient: linear-gradient(90deg, #ffc107 0%, #ffd43b 100%); }
+        .modern-card.danger { --card-gradient: linear-gradient(90deg, #dc3545 0%, #ff6b6b 100%); }
+        .modern-card.info { --card-gradient: linear-gradient(90deg, #17a2b8 0%, #3bc9db 100%); }
+        .modern-card.secondary { --card-gradient: linear-gradient(90deg, #6c757d 0%, #868e96 100%); }
+        
+        .card-title-modern {
+            font-size: 1.5rem;
+            font-weight: 800;
+            color: #2d3436;
+            margin-bottom: 20px;
+        }
+        
+        /* ========================================
+           🎨 배지 스타일
+           ======================================== */
+        .badge {
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+        
+        .badge.bg-danger {
+            background: linear-gradient(135deg, #dc3545 0%, #ff6b6b 100%) !important;
+        }
+        
+        .badge.bg-info {
+            background: linear-gradient(135deg, #17a2b8 0%, #3bc9db 100%) !important;
+        }
+        
+        .badge.bg-warning {
+            background: linear-gradient(135deg, #ffc107 0%, #ffd43b 100%) !important;
+            color: #000 !important;
+        }
+        
+        .badge.bg-success {
+            background: linear-gradient(135deg, #28a745 0%, #51cf66 100%) !important;
+        }
+        
+        .badge.bg-secondary {
+            background: linear-gradient(135deg, #6c757d 0%, #868e96 100%) !important;
+        }
+        
+        .badge.bg-primary {
+            background: linear-gradient(135deg, #4A90E2 0%, #5BA3F5 100%) !important;
+        }
+        
+        .badge.bg-dark {
+            background: linear-gradient(135deg, #343a40 0%, #495057 100%) !important;
+        }
+        
+        /* ========================================
+           🎨 버튼 스타일 (index.html과 동일)
+           ======================================== */
+        .btn-modern {
+            border-radius: 14px;
+            padding: 10px 22px;
+            font-weight: 600;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            border: none;
+            font-size: 0.95rem;
+        }
+        
+        .btn-modern-primary {
+            background: linear-gradient(135deg, #4A90E2 0%, #5BA3F5 100%);
+            color: white;
+            box-shadow: 0 4px 16px rgba(74, 144, 226, 0.35);
+        }
+        
+        .btn-modern-primary:hover {
+            color: white;
+            transform: translateY(-3px);
+            box-shadow: 0 8px 24px rgba(74, 144, 226, 0.45);
+        }
+        
+        .btn-modern-outline {
+            background: rgba(255, 255, 255, 0.5);
+            color: #4A90E2;
+            border: 2px solid rgba(74, 144, 226, 0.3);
+            backdrop-filter: blur(10px);
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.05);
+        }
+        
+        .btn-modern-outline:hover {
+            background: rgba(74, 144, 226, 0.1);
+            color: #4A90E2;
+            border-color: #4A90E2;
+            transform: translateY(-3px);
+            box-shadow: 0 6px 20px rgba(74, 144, 226, 0.2);
+        }
+        
+        .btn-modern-danger {
+            background: linear-gradient(135deg, #dc3545 0%, #ff6b6b 100%);
+            color: white;
+            box-shadow: 0 4px 16px rgba(220, 53, 69, 0.35);
+        }
+        
+        .btn-modern-danger:hover {
+            color: white;
+            transform: translateY(-3px);
+            box-shadow: 0 8px 24px rgba(220, 53, 69, 0.45);
+        }
+        
+        .btn-modern-success {
+            background: linear-gradient(135deg, #28a745 0%, #51cf66 100%);
+            color: white;
+            box-shadow: 0 4px 16px rgba(40, 167, 69, 0.35);
+        }
+        
+        .btn-modern-success:hover {
+            color: white;
+            transform: translateY(-3px);
+            box-shadow: 0 8px 24px rgba(40, 167, 69, 0.45);
+        }
+        
+        .btn-modern-warning {
+            background: linear-gradient(135deg, #ffc107 0%, #ffd43b 100%);
+            color: #000;
+            box-shadow: 0 4px 16px rgba(255, 193, 7, 0.35);
+        }
+        
+        .btn-modern-warning:hover {
+            color: #000;
+            transform: translateY(-3px);
+            box-shadow: 0 8px 24px rgba(255, 193, 7, 0.45);
+        }
+        
+        /* ========================================
+           🎨 댓글 스타일
+           ======================================== */
         .comment-item {
-            border-left: 3px solid #0d6efd;
-            padding-left: 15px;
-            margin-bottom: 15px;
+            background: rgba(74, 144, 226, 0.05);
+            border-left: 4px solid #4A90E2;
+            padding: 16px;
+            border-radius: 12px;
+            margin-bottom: 16px;
+            transition: all 0.3s;
         }
+        
+        .comment-item:hover {
+            background: rgba(74, 144, 226, 0.08);
+            transform: translateX(4px);
+        }
+        
+        .comment-author {
+            font-weight: 700;
+            color: #2d3436;
+        }
+        
+        .comment-date {
+            font-size: 0.85rem;
+            color: #636e72;
+        }
+        
+        .comment-content {
+            color: #2d3436;
+            line-height: 1.6;
+            margin-top: 10px;
+        }
+        
+        /* ========================================
+           🎨 파일 아이템
+           ======================================== */
         .file-item {
-            padding: 10px;
-            background: #f8f9fa;
-            border-radius: 5px;
+            background: rgba(74, 144, 226, 0.08);
+            border: 1px solid rgba(74, 144, 226, 0.2);
+            border-radius: 12px;
+            padding: 12px 16px;
             margin-bottom: 10px;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 10px;
         }
+        
+        .file-item:hover {
+            background: rgba(74, 144, 226, 0.12);
+            transform: translateX(4px);
+        }
+        
+        .file-item i {
+            font-size: 1.3rem;
+            color: #4A90E2;
+        }
+        
+        .file-item a {
+            color: #2d3436;
+            text-decoration: none;
+            font-weight: 600;
+        }
+        
+        .file-item a:hover {
+            color: #4A90E2;
+        }
+        
+        /* ========================================
+           🎨 타임라인 스타일
+           ======================================== */
         .timeline-item {
             position: relative;
             padding-left: 30px;
             margin-bottom: 20px;
         }
+        
         .timeline-item::before {
             content: '';
             position: absolute;
@@ -31,201 +307,319 @@
             width: 12px;
             height: 12px;
             border-radius: 50%;
-            background: #0d6efd;
+            background: linear-gradient(135deg, #4A90E2 0%, #5BA3F5 100%);
+            box-shadow: 0 2px 8px rgba(74, 144, 226, 0.4);
+        }
+        
+        .timeline-item strong {
+            color: #636e72;
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        /* ========================================
+           🎨 알림 박스
+           ======================================== */
+        .alert-modern {
+            border: none;
+            border-radius: 16px;
+            padding: 20px;
+            border-left: 5px solid;
+        }
+        
+        .alert-modern.alert-success {
+            background: rgba(40, 167, 69, 0.1);
+            border-left-color: #28a745;
+        }
+        
+        .alert-modern.alert-warning {
+            background: rgba(255, 193, 7, 0.1);
+            border-left-color: #ffc107;
+        }
+        
+        .alert-modern.alert-dark {
+            background: rgba(52, 58, 64, 0.1);
+            border-left-color: #343a40;
+        }
+        
+        /* ========================================
+           🎨 컨텐츠 박스
+           ======================================== */
+        .content-box {
+            background: rgba(74, 144, 226, 0.05);
+            border-radius: 16px;
+            padding: 20px;
+            line-height: 1.8;
+            color: #2d3436;
+        }
+        
+        /* ========================================
+           🎨 섹션 타이틀
+           ======================================== */
+        .section-title {
+            font-size: 1.2rem;
+            font-weight: 700;
+            color: #2d3436;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .section-title i {
+            color: #4A90E2;
+        }
+        
+        /* ========================================
+           🎨 폼 스타일
+           ======================================== */
+        .form-control, .form-select {
+            border-radius: 12px;
+            border: 2px solid rgba(74, 144, 226, 0.2);
+            padding: 10px 16px;
+            transition: all 0.3s;
+        }
+        
+        .form-control:focus, .form-select:focus {
+            border-color: #4A90E2;
+            box-shadow: 0 0 0 0.2rem rgba(74, 144, 226, 0.15);
+        }
+        
+        .form-label {
+            font-weight: 600;
+            color: #2d3436;
+            margin-bottom: 8px;
+        }
+        
+        /* ========================================
+           🎨 Sticky 사이드바
+           ======================================== */
+        .sticky-sidebar {
+            position: sticky;
+            top: 100px;
+        }
+        
+        /* ========================================
+           🎨 반응형
+           ======================================== */
+        @media (max-width: 768px) {
+            .modern-card {
+                padding: 20px;
+            }
+            
+            .sticky-sidebar {
+                position: static;
+            }
         }
     </style>
 </head>
 <body>
-    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+    <!-- 네비게이션 바 -->
+    <nav class="modern-navbar">
         <div class="container-fluid">
-            <a class="navbar-brand" href="/">업무 관리 시스템</a>
-            <div class="d-flex">
-                <a href="/tasks" class="btn btn-outline-light btn-sm">
-                    <i class="bi bi-arrow-left"></i> 목록으로
+            <div class="d-flex justify-content-between align-items-center">
+                <a class="navbar-brand" href="/">
+                    <i class="bi bi-list-task"></i> 업무 관리 시스템
                 </a>
+                <div>
+                    <a href="/tasks" class="btn-modern btn-modern-outline btn-sm">
+                        <i class="bi bi-arrow-left"></i> 목록으로
+                    </a>
+                </div>
             </div>
         </div>
     </nav>
 
-    <div class="container mt-4">
+    <!-- 메인 컨테이너 -->
+    <div class="main-container">
         <div class="row">
             <!-- 메인 콘텐츠 -->
-            <div class="col-md-8">
+            <div class="col-lg-8">
                 <!-- 업무 정보 카드 -->
-                <div class="card mb-4">
-                    <div class="card-header bg-primary text-white">
-                        <h4 class="mb-0">
-                            {% if not task.is_read %}
-                            <span class="badge bg-danger me-2">NEW</span>
-                            {% endif %}
-                            {{ task.title }}
-                        </h4>
-                    </div>
-                    <div class="card-body">
-                        <!-- 상태 및 우선순위 -->
-                        <div class="mb-3">
-                            {% if task.status == 'new' %}
-                            <span class="badge bg-danger fs-6">새 지시</span>
-                            {% elif task.status == 'confirmed' %}
-                            <span class="badge bg-info fs-6">확인함</span>
-                            {% elif task.status == 'in_progress' %}
-                            <span class="badge bg-warning fs-6">진행중</span>
-                            {% elif task.status == 'completed' %}
-                            <span class="badge bg-success fs-6">완료</span>
-                            {% elif task.status == 'on_hold' %}
-                            <span class="badge bg-secondary fs-6">보류</span>
-                            {% elif task.status == 'cancelled' %}
-                            <span class="badge bg-dark fs-6">취소됨</span>
-                            {% endif %}
+                <div class="modern-card primary">
+                    <h4 class="card-title-modern">
+                        {% if not task.is_read %}
+                        <span class="badge bg-danger me-2">NEW</span>
+                        {% endif %}
+                        {{ task.title }}
+                    </h4>
 
-                            {% if task.priority == 'urgent' %}
-                            <span class="badge bg-danger fs-6">🔴 긴급</span>
-                            {% elif task.priority == 'important' %}
-                            <span class="badge bg-warning fs-6">🟠 중요</span>
-                            {% else %}
-                            <span class="badge bg-primary fs-6">🔵 보통</span>
-                            {% endif %}
-
-                            {% if task.is_batch %}
-                            <span class="badge bg-info fs-6">일괄 지시</span>
-                            {% endif %}
-                        </div>
-
-                        <!-- 업무 내용 -->
-                        <div class="mb-4">
-                            <h5>업무 내용</h5>
-                            <div class="p-3 bg-light rounded">
-                                {{ task.content | replace('\n', '<br>') | safe }}
-                            </div>
-                        </div>
-
-                        <!-- 첨부 파일 -->
-                        {% if task.files %}
-                        <div class="mb-4">
-                            <h5>첨부 파일 ({{ task.files | length }})</h5>
-                            {% for file in task.files %}
-                            {% if not file.comment_id %}
-                            <div class="file-item">
-                                <i class="bi bi-file-earmark"></i>
-                                <a href="/{{ file.filepath }}" target="_blank">{{ file.filename }}</a>
-                                <small class="text-muted">
-                                    ({{ (file.filesize / 1024) | round(2) }} KB)
-                                </small>
-                            </div>
-                            {% endif %}
-                            {% endfor %}
-                        </div>
+                    <!-- 상태 및 우선순위 -->
+                    <div class="mb-4">
+                        {% if task.status == 'new' %}
+                        <span class="badge bg-danger fs-6">새 지시</span>
+                        {% elif task.status == 'confirmed' %}
+                        <span class="badge bg-info fs-6">확인함</span>
+                        {% elif task.status == 'in_progress' %}
+                        <span class="badge bg-warning fs-6">진행중</span>
+                        {% elif task.status == 'completed' %}
+                        <span class="badge bg-success fs-6">완료</span>
+                        {% elif task.status == 'on_hold' %}
+                        <span class="badge bg-secondary fs-6">보류</span>
+                        {% elif task.status == 'cancelled' %}
+                        <span class="badge bg-dark fs-6">취소됨</span>
                         {% endif %}
 
-                        <!-- 완료 정보 (완료 상태일 때만) -->
-                        {% if task.status == 'completed' and task.completion_note %}
-                        <div class="mb-4">
-                            <h5>처리 결과</h5>
-                            <div class="alert alert-success">
-                                <strong>완료 일시:</strong> {{ task.completed_at.strftime('%Y-%m-%d %H:%M') }}<br>
-                                <strong>처리 내용:</strong><br>
-                                {{ task.completion_note | replace('\n', '<br>') | safe }}
-                            </div>
-                        </div>
+                        {% if task.priority == 'urgent' %}
+                        <span class="badge bg-danger fs-6">🔴 긴급</span>
+                        {% elif task.priority == 'important' %}
+                        <span class="badge bg-warning fs-6">🟠 중요</span>
+                        {% else %}
+                        <span class="badge bg-primary fs-6">🔵 보통</span>
                         {% endif %}
 
-                        <!-- 보류 정보 -->
-                        {% if task.status == 'on_hold' and task.hold_reason %}
-                        <div class="mb-4">
-                            <h5>보류 사유</h5>
-                            <div class="alert alert-warning">
-                                <strong>보류 사유:</strong> {{ task.hold_reason }}<br>
-                                {% if task.hold_resume_date %}
-                                <strong>재개 예정:</strong> {{ task.hold_resume_date.strftime('%Y-%m-%d') }}
-                                {% endif %}
-                            </div>
-                        </div>
-                        {% endif %}
-
-                        <!-- 취소 정보 -->
-                        {% if task.status == 'cancelled' and task.cancel_reason %}
-                        <div class="mb-4">
-                            <h5>취소 사유</h5>
-                            <div class="alert alert-dark">
-                                {{ task.cancel_reason }}
-                            </div>
-                        </div>
+                        {% if task.is_batch %}
+                        <span class="badge bg-info fs-6">일괄 지시</span>
                         {% endif %}
                     </div>
+
+                    <!-- 업무 내용 -->
+                    <div class="mb-4">
+                        <h5 class="section-title">
+                            <i class="bi bi-file-text"></i> 업무 내용
+                        </h5>
+                        <div class="content-box">
+                            {{ task.content | replace('\n', '<br>') | safe }}
+                        </div>
+                    </div>
+
+                    <!-- 첨부 파일 -->
+                    {% if task.files %}
+                    <div class="mb-4">
+                        <h5 class="section-title">
+                            <i class="bi bi-paperclip"></i> 첨부 파일 ({{ task.files | length }})
+                        </h5>
+                        {% for file in task.files %}
+                        {% if not file.comment_id %}
+                        <div class="file-item">
+                            <i class="bi bi-file-earmark"></i>
+                            <a href="/{{ file.filepath }}" target="_blank">{{ file.filename }}</a>
+                            <small class="text-muted">
+                                ({{ (file.filesize / 1024) | round(2) }} KB)
+                            </small>
+                        </div>
+                        {% endif %}
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+
+                    <!-- 완료 정보 -->
+                    {% if task.status == 'completed' and task.completion_note %}
+                    <div class="mb-4">
+                        <h5 class="section-title">
+                            <i class="bi bi-check-circle"></i> 처리 결과
+                        </h5>
+                        <div class="alert-modern alert-success">
+                            <strong>완료 일시:</strong> {{ task.completed_at.strftime('%Y-%m-%d %H:%M') }}<br>
+                            <strong>처리 내용:</strong><br>
+                            {{ task.completion_note | replace('\n', '<br>') | safe }}
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <!-- 보류 정보 -->
+                    {% if task.status == 'on_hold' and task.hold_reason %}
+                    <div class="mb-4">
+                        <h5 class="section-title">
+                            <i class="bi bi-pause-circle"></i> 보류 사유
+                        </h5>
+                        <div class="alert-modern alert-warning">
+                            <strong>보류 사유:</strong> {{ task.hold_reason }}<br>
+                            {% if task.hold_resume_date %}
+                            <strong>재개 예정:</strong> {{ task.hold_resume_date.strftime('%Y-%m-%d') }}
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <!-- 취소 정보 -->
+                    {% if task.status == 'cancelled' and task.cancel_reason %}
+                    <div class="mb-4">
+                        <h5 class="section-title">
+                            <i class="bi bi-x-circle"></i> 취소 사유
+                        </h5>
+                        <div class="alert-modern alert-dark">
+                            {{ task.cancel_reason }}
+                        </div>
+                    </div>
+                    {% endif %}
                 </div>
 
-                <!-- 상태 변경 (담당자만) -->
+                <!-- 상태 변경 카드 -->
                 {% if task.assignee_id == current_user_id and task.status not in ['completed', 'cancelled'] %}
-                <div class="card mb-4">
-                    <div class="card-header bg-warning">
-                        <h5 class="mb-0">상태 변경</h5>
-                    </div>
-                    <div class="card-body">
-                        <form action="/tasks/{{ task.id }}/status" method="POST">
-                            <div class="mb-3">
-                                <label for="status" class="form-label fw-bold">상태 선택</label>
-                                <select class="form-select" id="statusSelect" name="status" required>
-                                    {% if task.status == 'new' %}
-                                    <option value="confirmed">확인함 (읽었지만 미착수)</option>
-                                    <option value="in_progress">진행중 (작업 시작)</option>
-                                    {% elif task.status == 'confirmed' %}
-                                    <option value="in_progress">진행중 (작업 시작)</option>
-                                    {% elif task.status == 'in_progress' %}
-                                    <option value="completed">완료</option>
-                                    <option value="on_hold">보류</option>
-                                    {% elif task.status == 'on_hold' %}
-                                    <option value="in_progress">진행중 (재개)</option>
-                                    {% endif %}
-                                </select>
-                            </div>
+                <div class="modern-card warning">
+                    <h5 class="card-title-modern">
+                        <i class="bi bi-arrow-repeat"></i> 상태 변경
+                    </h5>
+                    <form action="/tasks/{{ task.id }}/status" method="POST">
+                        <div class="mb-3">
+                            <label for="status" class="form-label">상태 선택</label>
+                            <select class="form-select" id="statusSelect" name="status" required>
+                                {% if task.status == 'new' %}
+                                <option value="confirmed">확인함 (읽었지만 미착수)</option>
+                                <option value="in_progress">진행중 (작업 시작)</option>
+                                {% elif task.status == 'confirmed' %}
+                                <option value="in_progress">진행중 (작업 시작)</option>
+                                {% elif task.status == 'in_progress' %}
+                                <option value="completed">완료</option>
+                                <option value="on_hold">보류</option>
+                                {% elif task.status == 'on_hold' %}
+                                <option value="in_progress">진행중 (재개)</option>
+                                {% endif %}
+                            </select>
+                        </div>
 
-                            <!-- 진행중 선택 시 -->
-                            <div class="mb-3" id="estimatedTimeDiv" style="display: none;">
-                                <label for="estimated_time" class="form-label fw-bold">예상 완료 시간</label>
-                                <input type="datetime-local" class="form-control" id="estimated_time" name="estimated_time">
-                            </div>
+                        <!-- 진행중 선택 시 -->
+                        <div class="mb-3" id="estimatedTimeDiv" style="display: none;">
+                            <label for="estimated_time" class="form-label">예상 완료 시간</label>
+                            <input type="datetime-local" class="form-control" id="estimated_time" name="estimated_time">
+                        </div>
 
-                            <!-- 완료 선택 시 -->
-                            <div class="mb-3" id="completionNoteDiv" style="display: none;">
-                                <label for="completion_note" class="form-label fw-bold">처리 결과 <span class="text-danger">*</span></label>
-                                <textarea class="form-control" id="completion_note" name="completion_note" rows="4" 
-                                          placeholder="어떻게 처리했는지 상세히 작성해주세요"></textarea>
-                            </div>
+                        <!-- 완료 선택 시 -->
+                        <div class="mb-3" id="completionNoteDiv" style="display: none;">
+                            <label for="completion_note" class="form-label">처리 결과 <span class="text-danger">*</span></label>
+                            <textarea class="form-control" id="completion_note" name="completion_note" rows="4" 
+                                      placeholder="어떻게 처리했는지 상세히 작성해주세요"></textarea>
+                        </div>
 
-                            <!-- 보류 선택 시 -->
-                            <div class="mb-3" id="holdReasonDiv" style="display: none;">
-                                <label for="hold_reason" class="form-label fw-bold">보류 사유 <span class="text-danger">*</span></label>
-                                <textarea class="form-control" id="hold_reason" name="hold_reason" rows="3" 
-                                          placeholder="왜 보류하는지 사유를 작성해주세요"></textarea>
-                                <label for="hold_resume_date" class="form-label fw-bold mt-2">재개 예정일</label>
-                                <input type="date" class="form-control" id="hold_resume_date" name="hold_resume_date">
-                            </div>
+                        <!-- 보류 선택 시 -->
+                        <div class="mb-3" id="holdReasonDiv" style="display: none;">
+                            <label for="hold_reason" class="form-label">보류 사유 <span class="text-danger">*</span></label>
+                            <textarea class="form-control" id="hold_reason" name="hold_reason" rows="3" 
+                                      placeholder="왜 보류하는지 사유를 작성해주세요"></textarea>
+                            <label for="hold_resume_date" class="form-label mt-2">재개 예정일</label>
+                            <input type="date" class="form-control" id="hold_resume_date" name="hold_resume_date">
+                        </div>
 
-                            <button type="submit" class="btn btn-primary">
-                                <i class="bi bi-check-circle"></i> 상태 변경
-                            </button>
-                        </form>
-                    </div>
+                        <button type="submit" class="btn-modern btn-modern-primary">
+                            <i class="bi bi-check-circle"></i> 상태 변경
+                        </button>
+                    </form>
                 </div>
                 {% endif %}
 
                 <!-- 댓글 섹션 -->
-                <div class="card mb-4">
-                    <div class="card-header bg-info text-white">
-                        <h5 class="mb-0">댓글 ({{ task.comments | length }})</h5>
-                    </div>
-                    <div class="card-body">
-                        <!-- 기존 댓글 목록 -->
-                        {% if task.comments %}
-                            {% for comment in task.comments %}
-                            <div class="comment-item">
-                                <div class="d-flex justify-content-between">
-                                    <strong>{{ comment.user.username if comment.user else '삭제된 사용자' }}</strong>
-                                    <small class="text-muted">{{ comment.created_at.strftime('%Y-%m-%d %H:%M') }}</small>
-                                </div>
-                                <p class="mt-2 mb-2">{{ comment.content | replace('\n', '<br>') | safe }}</p>
-                                
-                                <!-- 댓글 첨부파일 -->
+                <div class="modern-card info">
+                    <h5 class="card-title-modern">
+                        <i class="bi bi-chat-dots"></i> 댓글 ({{ task.comments | length }})
+                    </h5>
+
+                    <!-- 기존 댓글 목록 -->
+                    {% if task.comments %}
+                        {% for comment in task.comments %}
+                        <div class="comment-item">
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <span class="comment-author">{{ comment.user.username if comment.user else '삭제된 사용자' }}</span>
+                                <span class="comment-date">{{ comment.created_at.strftime('%Y-%m-%d %H:%M') }}</span>
+                            </div>
+                            <div class="comment-content">
+                                {{ comment.content | replace('\n', '<br>') | safe }}
+                            </div>
+                            
+                            <!-- 댓글 첨부파일 -->
+                            {% if comment.files %}
+                            <div class="mt-2">
                                 {% for file in comment.files %}
                                 <div class="file-item">
                                     <i class="bi bi-file-earmark"></i>
@@ -233,88 +627,103 @@
                                 </div>
                                 {% endfor %}
                             </div>
-                            {% endfor %}
-                        {% else %}
-                            <p class="text-muted">아직 댓글이 없습니다.</p>
-                        {% endif %}
+                            {% endif %}
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <p class="text-muted text-center py-4">
+                            <i class="bi bi-chat-left-dots"></i><br>
+                            아직 댓글이 없습니다.
+                        </p>
+                    {% endif %}
 
-                        <!-- 새 댓글 작성 -->
-                        {% if task.status not in ['cancelled'] %}
-                        <hr>
-                        <h6>댓글 작성</h6>
-                        <form action="/tasks/{{ task.id }}/comment" method="POST" enctype="multipart/form-data">
-                            <div class="mb-3">
-                                <textarea class="form-control" name="content" rows="3" 
-                                          placeholder="질문이나 진행상황을 남겨주세요" required></textarea>
-                            </div>
-                            <div class="mb-3">
-                                <label class="form-label">파일 첨부</label>
-                                <input type="file" class="form-control" name="files" multiple>
-                            </div>
-                            <button type="submit" class="btn btn-primary">
-                                <i class="bi bi-chat"></i> 댓글 작성
-                            </button>
-                        </form>
-                        {% endif %}
-                    </div>
+                    <!-- 새 댓글 작성 -->
+                    {% if task.status not in ['cancelled'] %}
+                    <hr class="my-4">
+                    <h6 class="section-title">
+                        <i class="bi bi-pencil-square"></i> 댓글 작성
+                    </h6>
+                    <form action="/tasks/{{ task.id }}/comment" method="POST" enctype="multipart/form-data">
+                        <div class="mb-3">
+                            <textarea class="form-control" name="content" rows="3" 
+                                      placeholder="질문이나 진행상황을 남겨주세요" required></textarea>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">파일 첨부</label>
+                            <input type="file" class="form-control" name="files" multiple>
+                        </div>
+                        <button type="submit" class="btn-modern btn-modern-primary">
+                            <i class="bi bi-chat"></i> 댓글 작성
+                        </button>
+                    </form>
+                    {% endif %}
                 </div>
             </div>
 
-            <!-- 사이드바 (정보) -->
-            <div class="col-md-4">
-                <div class="card mb-3">
-                    <div class="card-header bg-secondary text-white">
-                        <h5 class="mb-0">업무 정보</h5>
-                    </div>
-                    <div class="card-body">
+            <!-- 사이드바 -->
+            <div class="col-lg-4">
+                <div class="sticky-sidebar">
+                    <!-- 업무 정보 카드 -->
+                    <div class="modern-card secondary">
+                        <h5 class="card-title-modern">
+                            <i class="bi bi-info-circle"></i> 업무 정보
+                        </h5>
                         <div class="timeline-item">
                             <strong>지시자</strong><br>
-                            {{ task.creator.username if task.creator else '삭제된 사용자' }}
+                            <span style="font-size: 1.1rem; font-weight: 600; color: #2d3436;">
+                                {{ task.creator.username if task.creator else '삭제된 사용자' }}
+                            </span>
                         </div>
                         <div class="timeline-item">
                             <strong>담당자</strong><br>
-                            {{ task.assignee.username if task.assignee else '삭제된 사용자' }}
+                            <span style="font-size: 1.1rem; font-weight: 600; color: #2d3436;">
+                                {{ task.assignee.username if task.assignee else '삭제된 사용자' }}
+                            </span>
                         </div>
                         <div class="timeline-item">
                             <strong>생성일시</strong><br>
-                            {{ task.created_at.strftime('%Y-%m-%d %H:%M') }}
+                            <span style="font-size: 1rem; color: #2d3436;">
+                                {{ task.created_at.strftime('%Y-%m-%d %H:%M') }}
+                            </span>
                         </div>
                         {% if task.deadline %}
                         <div class="timeline-item">
                             <strong>마감시한</strong><br>
-                            <span class="text-danger">{{ task.deadline.strftime('%Y-%m-%d %H:%M') }}</span>
+                            <span class="text-danger" style="font-size: 1rem; font-weight: 600;">
+                                {{ task.deadline.strftime('%Y-%m-%d %H:%M') }}
+                            </span>
                         </div>
                         {% endif %}
                         {% if task.completed_at %}
                         <div class="timeline-item">
                             <strong>완료일시</strong><br>
-                            {{ task.completed_at.strftime('%Y-%m-%d %H:%M') }}
+                            <span style="font-size: 1rem; color: #28a745; font-weight: 600;">
+                                {{ task.completed_at.strftime('%Y-%m-%d %H:%M') }}
+                            </span>
                         </div>
                         {% endif %}
                     </div>
-                </div>
 
-                <!-- 취소 버튼 (지시자 또는 관리자만) -->
-                {% if (task.creator_id == current_user_id or is_admin) and task.status not in ['completed', 'cancelled'] %}
-                <div class="card mb-3 border-danger">
-                    <div class="card-header bg-danger text-white">
-                        <h5 class="mb-0">업무 취소</h5>
-                    </div>
-                    <div class="card-body">
+                    <!-- 취소 카드 -->
+                    {% if (task.creator_id == current_user_id or is_admin) and task.status not in ['completed', 'cancelled'] %}
+                    <div class="modern-card danger">
+                        <h5 class="card-title-modern text-danger">
+                            <i class="bi bi-exclamation-triangle"></i> 업무 취소
+                        </h5>
                         <form action="/tasks/{{ task.id }}/cancel" method="POST" 
                               onsubmit="return confirm('정말 이 업무를 취소하시겠습니까?')">
                             <div class="mb-3">
-                                <label for="cancel_reason" class="form-label fw-bold">취소 사유</label>
+                                <label for="cancel_reason" class="form-label">취소 사유</label>
                                 <textarea class="form-control" name="cancel_reason" rows="3" 
                                           placeholder="취소 사유를 입력하세요" required></textarea>
                             </div>
-                            <button type="submit" class="btn btn-danger w-100">
+                            <button type="submit" class="btn-modern btn-modern-danger w-100">
                                 <i class="bi bi-x-circle"></i> 업무 취소
                             </button>
                         </form>
                     </div>
+                    {% endif %}
                 </div>
-                {% endif %}
             </div>
         </div>
     </div>

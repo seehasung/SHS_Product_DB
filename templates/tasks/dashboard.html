@@ -8,167 +8,493 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <style>
+        /* ========================================
+           🎨 전역 스타일 (index.html과 동일)
+           ======================================== */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        /* 애니메이션 */
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(40px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        /* ========================================
+           🎨 네비게이션 바
+           ======================================== */
+        .modern-navbar {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+            padding: 16px 0;
+        }
+        
+        .navbar-brand {
+            font-weight: 800;
+            font-size: 1.3rem;
+            background: linear-gradient(135deg, #4A90E2 0%, #5BA3F5 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        /* ========================================
+           🎨 컨테이너
+           ======================================== */
+        .main-container {
+            max-width: 1600px;
+            margin: 0 auto;
+            padding: 30px 20px;
+        }
+        
+        /* ========================================
+           🎨 페이지 헤더
+           ======================================== */
+        .page-header {
+            background: linear-gradient(135deg, #4A90E2 0%, #5BA3F5 100%);
+            color: white;
+            border-radius: 20px;
+            padding: 30px 40px;
+            margin-bottom: 30px;
+            box-shadow: 0 12px 40px rgba(74, 144, 226, 0.3);
+            animation: fadeInUp 0.6s ease-out;
+        }
+        
+        .page-header h1 {
+            font-size: 2rem;
+            font-weight: 800;
+            margin-bottom: 8px;
+        }
+        
+        .page-header small {
+            opacity: 0.9;
+        }
+        
+        /* ========================================
+           🎨 통계 카드 (index.html과 유사)
+           ======================================== */
         .stat-card {
-            transition: transform 0.2s;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 16px;
+            padding: 16px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+            animation: fadeInUp 0.8s ease-out backwards;
+            text-align: center;
         }
+        
+        .stat-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: var(--stat-gradient);
+            border-radius: 16px 16px 0 0;
+        }
+        
         .stat-card:hover {
-            transform: translateY(-5px);
+            transform: translateY(-8px) scale(1.02);
+            box-shadow: 0 16px 48px rgba(0, 0, 0, 0.15);
         }
+        
+        .stat-card:nth-child(1) { animation-delay: 0.1s; --stat-gradient: linear-gradient(90deg, #4A90E2 0%, #5BA3F5 100%); }
+        .stat-card:nth-child(2) { animation-delay: 0.2s; --stat-gradient: linear-gradient(90deg, #dc3545 0%, #ff6b6b 100%); }
+        .stat-card:nth-child(3) { animation-delay: 0.3s; --stat-gradient: linear-gradient(90deg, #ffc107 0%, #ffd43b 100%); }
+        .stat-card:nth-child(4) { animation-delay: 0.4s; --stat-gradient: linear-gradient(90deg, #28a745 0%, #51cf66 100%); }
+        .stat-card:nth-child(5) { animation-delay: 0.5s; --stat-gradient: linear-gradient(90deg, #fd7e14 0%, #ffa94d 100%); }
+        .stat-card:nth-child(6) { animation-delay: 0.6s; --stat-gradient: linear-gradient(90deg, #e17055 0%, #fab1a0 100%); }
+        
+        .stat-label {
+            color: #636e72;
+            font-size: 0.85rem;
+            font-weight: 600;
+            margin-bottom: 6px;
+        }
+        
         .stat-number {
-            font-size: 2.5rem;
-            font-weight: bold;
+            font-size: 1.8rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, #2d3436 0%, #636e72 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        /* ========================================
+           🎨 모던 카드
+           ======================================== */
+        .modern-card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 20px;
+            padding: 24px;
+            margin-bottom: 24px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
+            animation: fadeInUp 0.8s ease-out backwards;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .modern-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 6px;
+            background: var(--card-gradient);
+            border-radius: 20px 20px 0 0;
+        }
+        
+        .modern-card.primary { --card-gradient: linear-gradient(90deg, #4A90E2 0%, #5BA3F5 100%); }
+        .modern-card.warning { --card-gradient: linear-gradient(90deg, #ffc107 0%, #ffd43b 100%); }
+        .modern-card.info { --card-gradient: linear-gradient(90deg, #17a2b8 0%, #3bc9db 100%); }
+        
+        .card-title-modern {
+            font-size: 1.3rem;
+            font-weight: 800;
+            color: #2d3436;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .card-title-modern i {
+            color: #4A90E2;
+        }
+        
+        /* ========================================
+           🎨 배지 스타일
+           ======================================== */
+        .badge {
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+        
+        .badge.bg-danger {
+            background: linear-gradient(135deg, #dc3545 0%, #ff6b6b 100%) !important;
+        }
+        
+        .badge.bg-info {
+            background: linear-gradient(135deg, #17a2b8 0%, #3bc9db 100%) !important;
+        }
+        
+        .badge.bg-warning {
+            background: linear-gradient(135deg, #ffc107 0%, #ffd43b 100%) !important;
+            color: #000 !important;
+        }
+        
+        .badge.bg-success {
+            background: linear-gradient(135deg, #28a745 0%, #51cf66 100%) !important;
+        }
+        
+        .badge.bg-secondary {
+            background: linear-gradient(135deg, #6c757d 0%, #868e96 100%) !important;
+        }
+        
+        .badge.bg-primary {
+            background: linear-gradient(135deg, #4A90E2 0%, #5BA3F5 100%) !important;
+        }
+        
+        /* ========================================
+           🎨 버튼 스타일
+           ======================================== */
+        .btn-modern {
+            border-radius: 14px;
+            padding: 10px 22px;
+            font-weight: 600;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            border: none;
+            font-size: 0.95rem;
+        }
+        
+        .btn-modern-primary {
+            background: linear-gradient(135deg, #4A90E2 0%, #5BA3F5 100%);
+            color: white;
+            box-shadow: 0 4px 16px rgba(74, 144, 226, 0.35);
+        }
+        
+        .btn-modern-primary:hover {
+            color: white;
+            transform: translateY(-3px);
+            box-shadow: 0 8px 24px rgba(74, 144, 226, 0.45);
+        }
+        
+        .btn-modern-outline {
+            background: rgba(255, 255, 255, 0.5);
+            color: #4A90E2;
+            border: 2px solid rgba(74, 144, 226, 0.3);
+            backdrop-filter: blur(10px);
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.05);
+        }
+        
+        .btn-modern-outline:hover {
+            background: rgba(74, 144, 226, 0.1);
+            color: #4A90E2;
+            border-color: #4A90E2;
+            transform: translateY(-3px);
+            box-shadow: 0 6px 20px rgba(74, 144, 226, 0.2);
+        }
+        
+        /* ========================================
+           🎨 테이블 스타일
+           ======================================== */
+        .table-responsive {
+            border-radius: 12px;
+            overflow: hidden;
+        }
+        
+        .table {
+            margin-bottom: 0;
+        }
+        
+        .table thead th {
+            background: linear-gradient(135deg, rgba(74, 144, 226, 0.1) 0%, rgba(91, 163, 245, 0.1) 100%);
+            font-weight: 700;
+            color: #2d3436;
+            border: none;
+            padding: 12px;
+        }
+        
+        .table tbody tr {
+            transition: all 0.2s;
+        }
+        
+        .table tbody tr:hover {
+            background: rgba(74, 144, 226, 0.05);
+            transform: scale(1.01);
+        }
+        
+        .table tbody td {
+            padding: 12px;
+            vertical-align: middle;
+            border-color: rgba(0, 0, 0, 0.05);
+        }
+        
+        .table tbody td a {
+            color: #2d3436;
+            text-decoration: none;
+            font-weight: 600;
+        }
+        
+        .table tbody td a:hover {
+            color: #4A90E2;
+        }
+        
+        /* ========================================
+           🎨 프로그레스 바
+           ======================================== */
+        .progress {
+            background: rgba(74, 144, 226, 0.1);
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        
+        .progress-bar {
+            font-weight: 600;
+            font-size: 0.85rem;
+        }
+        
+        /* ========================================
+           🎨 차트 컨테이너
+           ======================================== */
+        .chart-container {
+            position: relative;
+            height: 300px;
+        }
+        
+        /* ========================================
+           🎨 반응형
+           ======================================== */
+        @media (max-width: 768px) {
+            .page-header {
+                padding: 24px;
+            }
+            
+            .modern-card {
+                padding: 20px;
+            }
+            
+            .stat-card {
+                margin-bottom: 16px;
+            }
         }
     </style>
 </head>
 <body>
-    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+    <!-- 네비게이션 바 -->
+    <nav class="modern-navbar">
         <div class="container-fluid">
-            <a class="navbar-brand" href="/">업무 관리 시스템</a>
-            <div class="d-flex">
-                <a href="/tasks/create" class="btn btn-primary btn-sm me-2">
-                    <i class="bi bi-plus-lg"></i> 새 업무
+            <div class="d-flex justify-content-between align-items-center">
+                <a class="navbar-brand" href="/">
+                    <i class="bi bi-list-task"></i> 업무 관리 시스템
                 </a>
-                <a href="/tasks" class="btn btn-outline-light btn-sm me-2">
-                    <i class="bi bi-list"></i> 목록
-                </a>
-                <a href="/" class="btn btn-outline-light btn-sm">
-                    <i class="bi bi-house"></i> 홈
-                </a>
+                <div class="d-flex gap-2">
+                    <a href="/tasks/create" class="btn-modern btn-modern-primary btn-sm">
+                        <i class="bi bi-plus-lg"></i> 새 업무
+                    </a>
+                    <a href="/tasks" class="btn-modern btn-modern-outline btn-sm">
+                        <i class="bi bi-list"></i> 목록
+                    </a>
+                    <a href="/" class="btn-modern btn-modern-outline btn-sm">
+                        <i class="bi bi-house"></i> 홈
+                    </a>
+                </div>
             </div>
         </div>
     </nav>
 
-    <div class="container-fluid mt-4">
-        <h2 class="mb-4">
-            <i class="bi bi-graph-up"></i> 업무 관리 대시보드
-            <small class="text-muted">(관리자 전용)</small>
-        </h2>
+    <!-- 메인 컨테이너 -->
+    <div class="main-container">
+        <!-- 페이지 헤더 -->
+        <div class="page-header">
+            <h1>
+                <i class="bi bi-graph-up"></i> 업무 관리 대시보드
+            </h1>
+            <small>(관리자 전용)</small>
+        </div>
 
-        <!-- 통계 카드 -->
+        <!-- 통계 카드 그리드 -->
         <div class="row mb-4">
-            <div class="col-md-2">
-                <div class="card stat-card text-center">
-                    <div class="card-body">
-                        <h6 class="text-muted">전체 업무</h6>
-                        <div class="stat-number text-primary">{{ stats.total }}</div>
-                    </div>
+            <div class="col-lg-2 col-md-4 col-sm-6 mb-3">
+                <div class="stat-card">
+                    <div class="stat-label">전체 업무</div>
+                    <div class="stat-number">{{ stats.total }}</div>
                 </div>
             </div>
-            <div class="col-md-2">
-                <div class="card stat-card text-center">
-                    <div class="card-body">
-                        <h6 class="text-muted">새 지시</h6>
-                        <div class="stat-number text-danger">{{ stats.new }}</div>
-                    </div>
+            <div class="col-lg-2 col-md-4 col-sm-6 mb-3">
+                <div class="stat-card">
+                    <div class="stat-label">새 지시</div>
+                    <div class="stat-number text-danger">{{ stats.new }}</div>
                 </div>
             </div>
-            <div class="col-md-2">
-                <div class="card stat-card text-center">
-                    <div class="card-body">
-                        <h6 class="text-muted">진행중</h6>
-                        <div class="stat-number text-warning">{{ stats.in_progress }}</div>
-                    </div>
+            <div class="col-lg-2 col-md-4 col-sm-6 mb-3">
+                <div class="stat-card">
+                    <div class="stat-label">진행중</div>
+                    <div class="stat-number text-warning">{{ stats.in_progress }}</div>
                 </div>
             </div>
-            <div class="col-md-2">
-                <div class="card stat-card text-center">
-                    <div class="card-body">
-                        <h6 class="text-muted">완료</h6>
-                        <div class="stat-number text-success">{{ stats.completed }}</div>
-                    </div>
+            <div class="col-lg-2 col-md-4 col-sm-6 mb-3">
+                <div class="stat-card">
+                    <div class="stat-label">완료</div>
+                    <div class="stat-number text-success">{{ stats.completed }}</div>
                 </div>
             </div>
-            <div class="col-md-2">
-                <div class="card stat-card text-center border-warning">
-                    <div class="card-body">
-                        <h6 class="text-muted">오늘 마감</h6>
-                        <div class="stat-number text-warning">{{ stats.today_deadline }}</div>
-                    </div>
+            <div class="col-lg-2 col-md-4 col-sm-6 mb-3">
+                <div class="stat-card">
+                    <div class="stat-label">오늘 마감</div>
+                    <div class="stat-number" style="color: #fd7e14;">{{ stats.today_deadline }}</div>
                 </div>
             </div>
-            <div class="col-md-2">
-                <div class="card stat-card text-center border-danger">
-                    <div class="card-body">
-                        <h6 class="text-muted">지연중</h6>
-                        <div class="stat-number text-danger">{{ stats.delayed }}</div>
-                    </div>
+            <div class="col-lg-2 col-md-4 col-sm-6 mb-3">
+                <div class="stat-card">
+                    <div class="stat-label">지연중</div>
+                    <div class="stat-number text-danger">{{ stats.delayed }}</div>
                 </div>
             </div>
         </div>
 
-        <!-- 직원별 통계 -->
+        <!-- 직원별 통계 & 차트 -->
         <div class="row mb-4">
-            <div class="col-md-8">
-                <div class="card">
-                    <div class="card-header bg-primary text-white">
-                        <h5 class="mb-0">직원별 통계 (최근 3개월)</h5>
-                    </div>
-                    <div class="card-body">
-                        <div class="table-responsive">
-                            <table class="table table-hover">
-                                <thead>
-                                    <tr>
-                                        <th>직원명</th>
-                                        <th>총 업무</th>
-                                        <th>완료</th>
-                                        <th>지연</th>
-                                        <th>완료율</th>
-                                        <th>진행률</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {% for stat in user_stats %}
-                                    <tr>
-                                        <td><strong>{{ stat.username }}</strong></td>
-                                        <td>{{ stat.total }}</td>
-                                        <td><span class="badge bg-success">{{ stat.completed }}</span></td>
-                                        <td>
-                                            {% if stat.delayed > 0 %}
-                                            <span class="badge bg-danger">{{ stat.delayed }}</span>
-                                            {% else %}
-                                            <span class="badge bg-secondary">0</span>
-                                            {% endif %}
-                                        </td>
-                                        <td>
-                                            {% if stat.completion_rate >= 80 %}
-                                            <span class="badge bg-success">{{ stat.completion_rate }}%</span>
-                                            {% elif stat.completion_rate >= 60 %}
-                                            <span class="badge bg-warning">{{ stat.completion_rate }}%</span>
-                                            {% else %}
-                                            <span class="badge bg-danger">{{ stat.completion_rate }}%</span>
-                                            {% endif %}
-                                        </td>
-                                        <td>
-                                            <div class="progress" style="height: 20px;">
-                                                <div class="progress-bar 
-                                                    {% if stat.completion_rate >= 80 %}bg-success
-                                                    {% elif stat.completion_rate >= 60 %}bg-warning
-                                                    {% else %}bg-danger{% endif %}" 
-                                                    role="progressbar" 
-                                                    style="width: {{ stat.completion_rate }}%"
-                                                    aria-valuenow="{{ stat.completion_rate }}" 
-                                                    aria-valuemin="0" 
-                                                    aria-valuemax="100">
-                                                    {{ stat.completion_rate }}%
-                                                </div>
+            <div class="col-lg-8 mb-4">
+                <div class="modern-card primary">
+                    <h5 class="card-title-modern">
+                        <i class="bi bi-people"></i> 직원별 통계 (최근 3개월)
+                    </h5>
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>직원명</th>
+                                    <th>총 업무</th>
+                                    <th>완료</th>
+                                    <th>지연</th>
+                                    <th>완료율</th>
+                                    <th>진행률</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for stat in user_stats %}
+                                <tr>
+                                    <td><strong>{{ stat.username }}</strong></td>
+                                    <td>{{ stat.total }}</td>
+                                    <td><span class="badge bg-success">{{ stat.completed }}</span></td>
+                                    <td>
+                                        {% if stat.delayed > 0 %}
+                                        <span class="badge bg-danger">{{ stat.delayed }}</span>
+                                        {% else %}
+                                        <span class="badge bg-secondary">0</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if stat.completion_rate >= 80 %}
+                                        <span class="badge bg-success">{{ stat.completion_rate }}%</span>
+                                        {% elif stat.completion_rate >= 60 %}
+                                        <span class="badge bg-warning">{{ stat.completion_rate }}%</span>
+                                        {% else %}
+                                        <span class="badge bg-danger">{{ stat.completion_rate }}%</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <div class="progress" style="height: 20px;">
+                                            <div class="progress-bar 
+                                                {% if stat.completion_rate >= 80 %}bg-success
+                                                {% elif stat.completion_rate >= 60 %}bg-warning
+                                                {% else %}bg-danger{% endif %}" 
+                                                role="progressbar" 
+                                                style="width: {{ stat.completion_rate }}%"
+                                                aria-valuenow="{{ stat.completion_rate }}" 
+                                                aria-valuemin="0" 
+                                                aria-valuemax="100">
+                                                {{ stat.completion_rate }}%
                                             </div>
-                                        </td>
-                                    </tr>
-                                    {% endfor %}
-                                </tbody>
-                            </table>
-                        </div>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
                     </div>
                 </div>
             </div>
 
             <!-- 차트 -->
-            <div class="col-md-4">
-                <div class="card">
-                    <div class="card-header bg-info text-white">
-                        <h5 class="mb-0">상태별 분포</h5>
-                    </div>
-                    <div class="card-body">
+            <div class="col-lg-4 mb-4">
+                <div class="modern-card info">
+                    <h5 class="card-title-modern">
+                        <i class="bi bi-pie-chart"></i> 상태별 분포
+                    </h5>
+                    <div class="chart-container">
                         <canvas id="statusChart"></canvas>
                     </div>
                 </div>
@@ -178,67 +504,65 @@
         <!-- 미처리 업무 목록 -->
         <div class="row">
             <div class="col-12">
-                <div class="card">
-                    <div class="card-header bg-warning">
-                        <h5 class="mb-0">미처리 업무 목록 (최신순 20개)</h5>
-                    </div>
-                    <div class="card-body">
-                        <div class="table-responsive">
-                            <table class="table table-striped table-hover">
-                                <thead>
-                                    <tr>
-                                        <th>제목</th>
-                                        <th>담당자</th>
-                                        <th>상태</th>
-                                        <th>우선순위</th>
-                                        <th>마감시한</th>
-                                        <th>생성일</th>
-                                        <th>작업</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {% for task in pending_tasks %}
-                                    <tr>
-                                        <td>
-                                            <a href="/tasks/{{ task.id }}">{{ task.title }}</a>
-                                        </td>
-                                        <td>{{ task.assignee.username if task.assignee else '-' }}</td>
-                                        <td>
-                                            {% if task.status == 'new' %}
-                                            <span class="badge bg-danger">새 지시</span>
-                                            {% elif task.status == 'confirmed' %}
-                                            <span class="badge bg-info">확인함</span>
-                                            {% elif task.status == 'in_progress' %}
-                                            <span class="badge bg-warning">진행중</span>
-                                            {% endif %}
-                                        </td>
-                                        <td>
-                                            {% if task.priority == 'urgent' %}
-                                            <span class="badge bg-danger">긴급</span>
-                                            {% elif task.priority == 'important' %}
-                                            <span class="badge bg-warning">중요</span>
-                                            {% else %}
-                                            <span class="badge bg-primary">보통</span>
-                                            {% endif %}
-                                        </td>
-                                        <td>
-                                            {% if task.deadline %}
-                                            {{ task.deadline.strftime('%m/%d %H:%M') }}
-                                            {% else %}
-                                            -
-                                            {% endif %}
-                                        </td>
-                                        <td>{{ task.created_at.strftime('%m/%d %H:%M') }}</td>
-                                        <td>
-                                            <a href="/tasks/{{ task.id }}" class="btn btn-sm btn-outline-primary">
-                                                상세보기
-                                            </a>
-                                        </td>
-                                    </tr>
-                                    {% endfor %}
-                                </tbody>
-                            </table>
-                        </div>
+                <div class="modern-card warning">
+                    <h5 class="card-title-modern">
+                        <i class="bi bi-exclamation-triangle"></i> 미처리 업무 목록 (최신순 20개)
+                    </h5>
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>제목</th>
+                                    <th>담당자</th>
+                                    <th>상태</th>
+                                    <th>우선순위</th>
+                                    <th>마감시한</th>
+                                    <th>생성일</th>
+                                    <th>작업</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for task in pending_tasks %}
+                                <tr>
+                                    <td>
+                                        <a href="/tasks/{{ task.id }}">{{ task.title }}</a>
+                                    </td>
+                                    <td>{{ task.assignee.username if task.assignee else '-' }}</td>
+                                    <td>
+                                        {% if task.status == 'new' %}
+                                        <span class="badge bg-danger">새 지시</span>
+                                        {% elif task.status == 'confirmed' %}
+                                        <span class="badge bg-info">확인함</span>
+                                        {% elif task.status == 'in_progress' %}
+                                        <span class="badge bg-warning">진행중</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if task.priority == 'urgent' %}
+                                        <span class="badge bg-danger">🔴 긴급</span>
+                                        {% elif task.priority == 'important' %}
+                                        <span class="badge bg-warning">🟠 중요</span>
+                                        {% else %}
+                                        <span class="badge bg-primary">🔵 보통</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if task.deadline %}
+                                        {{ task.deadline.strftime('%m/%d %H:%M') }}
+                                        {% else %}
+                                        -
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ task.created_at.strftime('%m/%d %H:%M') }}</td>
+                                    <td>
+                                        <a href="/tasks/{{ task.id }}" class="btn-modern btn-modern-primary btn-sm">
+                                            <i class="bi bi-eye"></i> 상세
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
                     </div>
                 </div>
             </div>
@@ -256,7 +580,7 @@
                 datasets: [{
                     data: [
                         {{ stats.new }},
-                        {{ stats.new }},  // confirmed는 따로 없어서 임시로 new 사용
+                        {{ stats.new }},
                         {{ stats.in_progress }},
                         {{ stats.completed }}
                     ],
@@ -265,14 +589,23 @@
                         '#17a2b8',
                         '#ffc107',
                         '#28a745'
-                    ]
+                    ],
+                    borderWidth: 0
                 }]
             },
             options: {
                 responsive: true,
+                maintainAspectRatio: false,
                 plugins: {
                     legend: {
-                        position: 'bottom'
+                        position: 'bottom',
+                        labels: {
+                            padding: 15,
+                            font: {
+                                size: 12,
+                                weight: '600'
+                            }
+                        }
                     }
                 }
             }

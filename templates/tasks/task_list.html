@@ -7,224 +7,545 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
     <style>
-        .task-card {
-            border-left: 4px solid #6c757d;
-            transition: all 0.3s;
+        /* ========================================
+           🎨 전역 스타일 (index.html과 동일)
+           ======================================== */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
         }
-        .task-card:hover {
-            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
         }
-        .task-card.urgent {
-            border-left-color: #dc3545;
+        
+        /* 애니메이션 */
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(40px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
         }
-        .task-card.important {
-            border-left-color: #fd7e14;
+        
+        /* ========================================
+           🎨 네비게이션 바
+           ======================================== */
+        .modern-navbar {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+            padding: 16px 0;
         }
-        .task-card.normal {
-            border-left-color: #0d6efd;
+        
+        .navbar-brand {
+            font-weight: 800;
+            font-size: 1.3rem;
+            background: linear-gradient(135deg, #4A90E2 0%, #5BA3F5 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
         }
-        .status-badge {
-            font-size: 0.85rem;
-            padding: 0.35rem 0.65rem;
+        
+        /* ========================================
+           🎨 컨테이너
+           ======================================== */
+        .main-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 30px 20px;
         }
-        .notification-badge {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            z-index: 1050;
+        
+        /* ========================================
+           🎨 헤더 섹션
+           ======================================== */
+        .page-header {
+            background: linear-gradient(135deg, #4A90E2 0%, #5BA3F5 100%);
+            color: white;
+            border-radius: 20px;
+            padding: 30px 40px;
+            margin-bottom: 30px;
+            box-shadow: 0 12px 40px rgba(74, 144, 226, 0.3);
+            animation: fadeInUp 0.6s ease-out;
         }
-        .sidebar {
+        
+        .page-header h1 {
+            font-size: 2rem;
+            font-weight: 800;
+            margin-bottom: 8px;
+        }
+        
+        .page-header p {
+            opacity: 0.9;
+            margin-bottom: 0;
+        }
+        
+        /* ========================================
+           🎨 사이드바 필터 (모던 카드)
+           ======================================== */
+        .filter-card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 20px;
+            padding: 24px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
             position: sticky;
-            top: 20px;
+            top: 100px;
+            animation: fadeInUp 0.8s ease-out;
+        }
+        
+        .filter-title {
+            font-size: 1.3rem;
+            font-weight: 800;
+            margin-bottom: 20px;
+            background: linear-gradient(135deg, #4A90E2 0%, #5BA3F5 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .filter-section {
+            margin-bottom: 24px;
+        }
+        
+        .filter-section-title {
+            font-size: 0.9rem;
+            font-weight: 700;
+            color: #636e72;
+            margin-bottom: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .form-check {
+            margin-bottom: 10px;
+        }
+        
+        .form-check-input:checked {
+            background-color: #4A90E2;
+            border-color: #4A90E2;
+        }
+        
+        .form-check-label {
+            cursor: pointer;
+            font-size: 0.95rem;
+        }
+        
+        /* ========================================
+           🎨 업무 카드 (index.html 스타일)
+           ======================================== */
+        .task-card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 20px;
+            padding: 24px;
+            margin-bottom: 20px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+            animation: fadeInUp 0.8s ease-out backwards;
+        }
+        
+        .task-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 6px;
+            background: var(--task-gradient);
+            border-radius: 20px 20px 0 0;
+        }
+        
+        .task-card.urgent {
+            --task-gradient: linear-gradient(90deg, #dc3545 0%, #ff6b6b 100%);
+        }
+        
+        .task-card.important {
+            --task-gradient: linear-gradient(90deg, #fd7e14 0%, #ffa94d 100%);
+        }
+        
+        .task-card.normal {
+            --task-gradient: linear-gradient(90deg, #4A90E2 0%, #5BA3F5 100%);
+        }
+        
+        .task-card:hover {
+            transform: translateY(-8px) scale(1.01);
+            box-shadow: 0 16px 48px rgba(0, 0, 0, 0.15);
+        }
+        
+        .task-title {
+            font-size: 1.2rem;
+            font-weight: 700;
+            color: #2d3436;
+            margin-bottom: 12px;
+        }
+        
+        .task-title a {
+            color: inherit;
+            text-decoration: none;
+            transition: color 0.3s;
+        }
+        
+        .task-title a:hover {
+            color: #4A90E2;
+        }
+        
+        .task-content {
+            color: #636e72;
+            margin-bottom: 16px;
+            line-height: 1.6;
+        }
+        
+        .task-meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            align-items: center;
+        }
+        
+        /* ========================================
+           🎨 배지 스타일
+           ======================================== */
+        .badge {
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+        
+        .badge.bg-danger {
+            background: linear-gradient(135deg, #dc3545 0%, #ff6b6b 100%) !important;
+        }
+        
+        .badge.bg-info {
+            background: linear-gradient(135deg, #17a2b8 0%, #3bc9db 100%) !important;
+        }
+        
+        .badge.bg-warning {
+            background: linear-gradient(135deg, #ffc107 0%, #ffd43b 100%) !important;
+            color: #000 !important;
+        }
+        
+        .badge.bg-success {
+            background: linear-gradient(135deg, #28a745 0%, #51cf66 100%) !important;
+        }
+        
+        .badge.bg-secondary {
+            background: linear-gradient(135deg, #6c757d 0%, #868e96 100%) !important;
+        }
+        
+        .badge.bg-primary {
+            background: linear-gradient(135deg, #4A90E2 0%, #5BA3F5 100%) !important;
+        }
+        
+        /* ========================================
+           🎨 버튼 스타일 (index.html과 동일)
+           ======================================== */
+        .btn-modern {
+            border-radius: 14px;
+            padding: 10px 22px;
+            font-weight: 600;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            border: none;
+            font-size: 0.95rem;
+        }
+        
+        .btn-modern-primary {
+            background: linear-gradient(135deg, #4A90E2 0%, #5BA3F5 100%);
+            color: white;
+            box-shadow: 0 4px 16px rgba(74, 144, 226, 0.35);
+        }
+        
+        .btn-modern-primary:hover {
+            color: white;
+            transform: translateY(-3px);
+            box-shadow: 0 8px 24px rgba(74, 144, 226, 0.45);
+        }
+        
+        .btn-modern-outline {
+            background: rgba(255, 255, 255, 0.5);
+            color: #4A90E2;
+            border: 2px solid rgba(74, 144, 226, 0.3);
+            backdrop-filter: blur(10px);
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.05);
+        }
+        
+        .btn-modern-outline:hover {
+            background: rgba(74, 144, 226, 0.1);
+            color: #4A90E2;
+            border-color: #4A90E2;
+            transform: translateY(-3px);
+            box-shadow: 0 6px 20px rgba(74, 144, 226, 0.2);
+        }
+        
+        .btn-modern-success {
+            background: linear-gradient(135deg, #28a745 0%, #51cf66 100%);
+            color: white;
+            box-shadow: 0 4px 16px rgba(40, 167, 69, 0.35);
+        }
+        
+        .btn-modern-success:hover {
+            color: white;
+            transform: translateY(-3px);
+            box-shadow: 0 8px 24px rgba(40, 167, 69, 0.45);
+        }
+        
+        /* ========================================
+           🎨 빈 상태
+           ======================================== */
+        .empty-state {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 20px;
+            padding: 60px 40px;
+            text-align: center;
+            animation: fadeInUp 0.8s ease-out;
+        }
+        
+        .empty-state i {
+            font-size: 4rem;
+            color: #4A90E2;
+            margin-bottom: 20px;
+            opacity: 0.5;
+        }
+        
+        .empty-state h4 {
+            color: #2d3436;
+            font-weight: 700;
+            margin-bottom: 12px;
+        }
+        
+        .empty-state p {
+            color: #636e72;
+        }
+        
+        /* ========================================
+           🎨 Toast 컨테이너
+           ======================================== */
+        .toast-container {
+            z-index: 9999;
+        }
+        
+        .toast {
+            background: rgba(255, 255, 255, 0.98);
+            border-radius: 16px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+        }
+        
+        /* ========================================
+           🎨 반응형
+           ======================================== */
+        @media (max-width: 768px) {
+            .page-header {
+                padding: 24px;
+            }
+            
+            .filter-card {
+                position: static;
+                margin-bottom: 20px;
+            }
+            
+            .task-card {
+                padding: 20px;
+            }
         }
     </style>
 </head>
 <body>
-    <!-- 상단 네비게이션 -->
-    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+    <!-- 네비게이션 바 -->
+    <nav class="modern-navbar">
         <div class="container-fluid">
-            <a class="navbar-brand" href="/">업무 관리 시스템</a>
-            <div class="d-flex align-items-center">
-                <span class="text-white me-3">{{ username }}님</span>
-                {% if is_admin %}
-                <a href="/tasks/dashboard" class="btn btn-outline-light btn-sm me-2">
-                    <i class="bi bi-graph-up"></i> 대시보드
+            <div class="d-flex justify-content-between align-items-center">
+                <a class="navbar-brand" href="/">
+                    <i class="bi bi-list-task"></i> 업무 관리 시스템
                 </a>
-                {% endif %}
-                <a href="/tasks/create" class="btn btn-primary btn-sm me-2">
-                    <i class="bi bi-plus-lg"></i> 새 업무 지시
-                </a>
-                <a href="/" class="btn btn-outline-light btn-sm">
-                    <i class="bi bi-house"></i> 홈
-                </a>
+                <div class="d-flex align-items-center gap-2">
+                    <span class="text-muted me-2">{{ username }}님</span>
+                    {% if is_admin %}
+                    <a href="/tasks/dashboard" class="btn-modern btn-modern-outline btn-sm">
+                        <i class="bi bi-graph-up"></i> 대시보드
+                    </a>
+                    {% endif %}
+                    <a href="/tasks/create" class="btn-modern btn-modern-primary btn-sm">
+                        <i class="bi bi-plus-lg"></i> 새 업무
+                    </a>
+                    <a href="/" class="btn-modern btn-modern-outline btn-sm">
+                        <i class="bi bi-house"></i> 홈
+                    </a>
+                </div>
             </div>
         </div>
     </nav>
 
-    <!-- 알림 배지 -->
-    <div class="notification-badge">
-        <div class="position-relative">
-            <button class="btn btn-primary btn-lg" id="notificationBtn">
-                <i class="bi bi-bell-fill"></i>
-                {% if unread_count > 0 %}
-                <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
-                    {{ unread_count }}
-                </span>
-                {% endif %}
-            </button>
+    <!-- 메인 컨테이너 -->
+    <div class="main-container">
+        <!-- 페이지 헤더 -->
+        <div class="page-header">
+            <h1><i class="bi bi-clipboard-check"></i> 내 업무 목록</h1>
+            <p>할당된 업무를 확인하고 관리하세요</p>
         </div>
-    </div>
 
-    <div class="container-fluid mt-4">
         <div class="row">
-            <!-- 사이드바 (필터) -->
-            <div class="col-md-3">
-                <div class="sidebar">
-                    <div class="card">
-                        <div class="card-header bg-primary text-white">
-                            <h5 class="mb-0">필터</h5>
+            <!-- 사이드바 필터 -->
+            <div class="col-lg-3 mb-4">
+                <div class="filter-card">
+                    <div class="filter-title">
+                        <i class="bi bi-funnel"></i> 필터
+                    </div>
+                    
+                    <!-- 상태 필터 -->
+                    <div class="filter-section">
+                        <div class="filter-section-title">상태</div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="filterNew" checked>
+                            <label class="form-check-label" for="filterNew">
+                                <span class="badge bg-danger">새 지시</span>
+                            </label>
                         </div>
-                        <div class="card-body">
-                            <div class="mb-3">
-                                <label class="form-label fw-bold">상태</label>
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" id="filterNew" checked>
-                                    <label class="form-check-label" for="filterNew">
-                                        <span class="badge bg-danger">새 지시</span>
-                                    </label>
-                                </div>
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" id="filterConfirmed" checked>
-                                    <label class="form-check-label" for="filterConfirmed">
-                                        <span class="badge bg-info">확인함</span>
-                                    </label>
-                                </div>
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" id="filterInProgress" checked>
-                                    <label class="form-check-label" for="filterInProgress">
-                                        <span class="badge bg-warning">진행중</span>
-                                    </label>
-                                </div>
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" id="filterCompleted">
-                                    <label class="form-check-label" for="filterCompleted">
-                                        <span class="badge bg-success">완료</span>
-                                    </label>
-                                </div>
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" id="filterOnHold">
-                                    <label class="form-check-label" for="filterOnHold">
-                                        <span class="badge bg-secondary">보류</span>
-                                    </label>
-                                </div>
-                            </div>
-                            <div class="mb-3">
-                                <label class="form-label fw-bold">우선순위</label>
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" id="filterUrgent" checked>
-                                    <label class="form-check-label" for="filterUrgent">
-                                        🔴 긴급
-                                    </label>
-                                </div>
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" id="filterImportant" checked>
-                                    <label class="form-check-label" for="filterImportant">
-                                        🟠 중요
-                                    </label>
-                                </div>
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" id="filterNormal" checked>
-                                    <label class="form-check-label" for="filterNormal">
-                                        🔵 보통
-                                    </label>
-                                </div>
-                            </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="filterConfirmed" checked>
+                            <label class="form-check-label" for="filterConfirmed">
+                                <span class="badge bg-info">확인함</span>
+                            </label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="filterInProgress" checked>
+                            <label class="form-check-label" for="filterInProgress">
+                                <span class="badge bg-warning">진행중</span>
+                            </label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="filterCompleted">
+                            <label class="form-check-label" for="filterCompleted">
+                                <span class="badge bg-success">완료</span>
+                            </label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="filterOnHold">
+                            <label class="form-check-label" for="filterOnHold">
+                                <span class="badge bg-secondary">보류</span>
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <!-- 우선순위 필터 -->
+                    <div class="filter-section">
+                        <div class="filter-section-title">우선순위</div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="filterUrgent" checked>
+                            <label class="form-check-label" for="filterUrgent">
+                                🔴 긴급
+                            </label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="filterImportant" checked>
+                            <label class="form-check-label" for="filterImportant">
+                                🟠 중요
+                            </label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="filterNormal" checked>
+                            <label class="form-check-label" for="filterNormal">
+                                🔵 보통
+                            </label>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <!-- 메인 콘텐츠 -->
-            <div class="col-md-9">
-                <h2 class="mb-4">내 업무 목록</h2>
-                
-                <!-- 업무 카드들 -->
+            <!-- 업무 카드 목록 -->
+            <div class="col-lg-9">
                 {% if tasks %}
                     {% for task in tasks %}
-                    <div class="card task-card {{ task.priority }} mb-3" 
+                    <div class="task-card {{ task.priority }}" 
                          data-status="{{ task.status }}" 
                          data-priority="{{ task.priority }}">
-                        <div class="card-body">
-                            <div class="d-flex justify-content-between align-items-start">
-                                <div class="flex-grow-1">
-                                    <h5 class="card-title">
-                                        {% if not task.is_read %}
-                                        <span class="badge bg-danger me-2">NEW</span>
-                                        {% endif %}
-                                        <a href="/tasks/{{ task.id }}" class="text-decoration-none">
-                                            {{ task.title }}
-                                        </a>
-                                    </h5>
-                                    <p class="card-text text-muted">
-                                        {{ task.content[:100] }}{% if task.content|length > 100 %}...{% endif %}
-                                    </p>
-                                    <div class="d-flex flex-wrap gap-2 align-items-center">
-                                        <!-- 상태 배지 -->
-                                        {% if task.status == 'new' %}
-                                        <span class="badge bg-danger status-badge">새 지시</span>
-                                        {% elif task.status == 'confirmed' %}
-                                        <span class="badge bg-info status-badge">확인함</span>
-                                        {% elif task.status == 'in_progress' %}
-                                        <span class="badge bg-warning status-badge">진행중</span>
-                                        {% elif task.status == 'completed' %}
-                                        <span class="badge bg-success status-badge">완료</span>
-                                        {% elif task.status == 'on_hold' %}
-                                        <span class="badge bg-secondary status-badge">보류</span>
-                                        {% elif task.status == 'cancelled' %}
-                                        <span class="badge bg-dark status-badge">취소됨</span>
-                                        {% endif %}
-
-                                        <!-- 우선순위 -->
-                                        {% if task.priority == 'urgent' %}
-                                        <span class="badge bg-danger">🔴 긴급</span>
-                                        {% elif task.priority == 'important' %}
-                                        <span class="badge bg-warning">🟠 중요</span>
-                                        {% else %}
-                                        <span class="badge bg-primary">🔵 보통</span>
-                                        {% endif %}
-
-                                        <!-- 지시자 -->
-                                        <small class="text-muted">
-                                            <i class="bi bi-person"></i> {{ task.creator.username if task.creator else '삭제된 사용자' }}
-                                        </small>
-
-                                        <!-- 마감시간 -->
-                                        {% if task.deadline %}
-                                        <small class="text-muted">
-                                            <i class="bi bi-clock"></i> 
-                                            {{ task.deadline.strftime('%m/%d %H:%M') }}
-                                        </small>
-                                        {% endif %}
-
-                                        <!-- 생성시간 -->
-                                        <small class="text-muted">
-                                            <i class="bi bi-calendar"></i> 
-                                            {{ task.created_at.strftime('%m/%d %H:%M') }}
-                                        </small>
-                                    </div>
-                                </div>
-                                <div>
-                                    <a href="/tasks/{{ task.id }}" class="btn btn-outline-primary btn-sm">
-                                        상세보기
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div class="flex-grow-1">
+                                <h5 class="task-title">
+                                    {% if not task.is_read %}
+                                    <span class="badge bg-danger me-2">NEW</span>
+                                    {% endif %}
+                                    <a href="/tasks/{{ task.id }}">
+                                        {{ task.title }}
                                     </a>
+                                </h5>
+                                <p class="task-content">
+                                    {{ task.content[:100] }}{% if task.content|length > 100 %}...{% endif %}
+                                </p>
+                                <div class="task-meta">
+                                    <!-- 상태 배지 -->
+                                    {% if task.status == 'new' %}
+                                    <span class="badge bg-danger">새 지시</span>
+                                    {% elif task.status == 'confirmed' %}
+                                    <span class="badge bg-info">확인함</span>
+                                    {% elif task.status == 'in_progress' %}
+                                    <span class="badge bg-warning">진행중</span>
+                                    {% elif task.status == 'completed' %}
+                                    <span class="badge bg-success">완료</span>
+                                    {% elif task.status == 'on_hold' %}
+                                    <span class="badge bg-secondary">보류</span>
+                                    {% elif task.status == 'cancelled' %}
+                                    <span class="badge bg-dark">취소됨</span>
+                                    {% endif %}
+
+                                    <!-- 우선순위 -->
+                                    {% if task.priority == 'urgent' %}
+                                    <span class="badge bg-danger">🔴 긴급</span>
+                                    {% elif task.priority == 'important' %}
+                                    <span class="badge bg-warning">🟠 중요</span>
+                                    {% else %}
+                                    <span class="badge bg-primary">🔵 보통</span>
+                                    {% endif %}
+
+                                    <!-- 지시자 -->
+                                    <small class="text-muted">
+                                        <i class="bi bi-person"></i> {{ task.creator.username if task.creator else '삭제된 사용자' }}
+                                    </small>
+
+                                    <!-- 마감시간 -->
+                                    {% if task.deadline %}
+                                    <small class="text-muted">
+                                        <i class="bi bi-clock"></i> 
+                                        {{ task.deadline.strftime('%m/%d %H:%M') }}
+                                    </small>
+                                    {% endif %}
+
+                                    <!-- 생성시간 -->
+                                    <small class="text-muted">
+                                        <i class="bi bi-calendar"></i> 
+                                        {{ task.created_at.strftime('%m/%d %H:%M') }}
+                                    </small>
                                 </div>
+                            </div>
+                            <div>
+                                <a href="/tasks/{{ task.id }}" class="btn-modern btn-modern-primary btn-sm">
+                                    <i class="bi bi-eye"></i> 상세보기
+                                </a>
                             </div>
                         </div>
                     </div>
                     {% endfor %}
                 {% else %}
-                    <div class="alert alert-info">
-                        <i class="bi bi-info-circle"></i> 현재 할당된 업무가 없습니다.
+                    <div class="empty-state">
+                        <i class="bi bi-inbox"></i>
+                        <h4>할당된 업무가 없습니다</h4>
+                        <p>현재 처리할 업무가 없습니다. 새로운 업무가 할당되면 여기에 표시됩니다.</p>
                     </div>
                 {% endif %}
             </div>
@@ -233,7 +554,9 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
+        // ============================================
         // 필터 기능
+        // ============================================
         const filterCheckboxes = document.querySelectorAll('input[type="checkbox"][id^="filter"]');
         const taskCards = document.querySelectorAll('.task-card');
 
@@ -271,53 +594,18 @@
             });
         }
 
-        // 알림 버튼 클릭
-        document.getElementById('notificationBtn').addEventListener('click', async () => {
-            const response = await fetch('/tasks/notifications/unread');
-            const notifications = await response.json();
-            
-            if (notifications.length > 0) {
-                alert(`읽지 않은 알림 ${notifications.length}개가 있습니다.`);
-                // TODO: 알림 모달 표시
-            } else {
-                alert('새 알림이 없습니다.');
-            }
-        });
-
-        // 2초마다 알림 배지 업데이트
-        setInterval(async () => {
-            const response = await fetch('/tasks/notifications/unread');
-            const notifications = await response.json();
-            const badge = document.querySelector('.notification-badge .badge');
-            
-            if (notifications.length > 0) {
-                if (!badge) {
-                    const newBadge = document.createElement('span');
-                    newBadge.className = 'position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger';
-                    newBadge.textContent = notifications.length;
-                    document.querySelector('.notification-badge .position-relative').appendChild(newBadge);
-                } else {
-                    badge.textContent = notifications.length;
-                }
-            } else if (badge) {
-                badge.remove();
-            }
-        }, 2000);
-
-                // ============================================
-        // ⭐ WebSocket 연결 (실시간 알림용) - 여기부터 추가!
+        // ============================================
+        // ⭐ WebSocket 연결 (실시간 알림용)
         // ============================================
         const userId = {{ current_user_id }};
         let ws = null;
         
         function connectWebSocket() {
-            // WebSocket 프로토콜 결정 (http -> ws, https -> wss)
             const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
             ws = new WebSocket(`${protocol}//${window.location.host}/ws/${userId}`);
             
             ws.onopen = () => {
                 console.log('✅ WebSocket 연결됨');
-                // Keep-alive ping (30초마다)
                 setInterval(() => {
                     if (ws.readyState === WebSocket.OPEN) {
                         ws.send('ping');
@@ -328,17 +616,11 @@
             ws.onmessage = (event) => {
                 const data = JSON.parse(event.data);
                 console.log('📨 알림 수신:', data);
-                
-                // 알림 표시
                 showNotification(data);
-                
-                // 알림 배지 업데이트
-                updateNotificationBadge();
             };
             
             ws.onclose = () => {
                 console.log('❌ WebSocket 연결 해제');
-                // 3초 후 재연결 시도
                 setTimeout(connectWebSocket, 3000);
             };
             
@@ -348,17 +630,14 @@
         }
         
         function showNotification(data) {
-            // Toast 컨테이너 생성 (없으면)
             const toastContainer = document.getElementById('toastContainer') || createToastContainer();
             
-            // Toast 알림 생성
             const toast = document.createElement('div');
             toast.className = 'toast';
             toast.setAttribute('role', 'alert');
             toast.setAttribute('aria-live', 'assertive');
             toast.setAttribute('aria-atomic', 'true');
             
-            // 우선순위에 따라 색상 변경
             let headerColor = 'bg-primary';
             if (data.priority === 'urgent') {
                 headerColor = 'bg-danger';
@@ -382,7 +661,6 @@
             const bsToast = new bootstrap.Toast(toast);
             bsToast.show();
             
-            // 10초 후 자동 제거
             setTimeout(() => toast.remove(), 10000);
         }
         
@@ -395,32 +673,8 @@
             return container;
         }
         
-        async function updateNotificationBadge() {
-            try {
-                const response = await fetch('/tasks/notifications/unread');
-                const notifications = await response.json();
-                const badge = document.querySelector('.notification-badge .badge');
-                
-                if (notifications.length > 0) {
-                    if (!badge) {
-                        const newBadge = document.createElement('span');
-                        newBadge.className = 'position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger';
-                        newBadge.textContent = notifications.length;
-                        document.querySelector('.notification-badge .position-relative').appendChild(newBadge);
-                    } else {
-                        badge.textContent = notifications.length;
-                    }
-                } else if (badge) {
-                    badge.remove();
-                }
-            } catch (error) {
-                console.error('알림 배지 업데이트 오류:', error);
-            }
-        }
-        
         // 페이지 로드 시 WebSocket 연결
         connectWebSocket();
-
     </script>
 </body>
 </html>
