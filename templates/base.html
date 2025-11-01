@@ -2609,7 +2609,7 @@
         }
 
         // ============================================
-        // 토스트 알림 표시 (개선 버전)
+        // 토스트 알림 표시 (완전판)
         // ============================================
         function showToastNotification(data) {
             console.log('🍞 토스트 알림 표시:', data);
@@ -2620,8 +2620,8 @@
                 console.error('❌ 토스트 컨테이너를 찾을 수 없습니다');
                 return;
             }
-
-            // 상태별 색상 및 아이콘
+            
+            // ⭐⭐⭐ 상태별 색상 및 아이콘 (반드시 함수 내부에 정의!)
             const statusConfig = {
                 'new': {
                     color: '#eb3349',
@@ -2667,27 +2667,55 @@
                 }
             };
             
+            const type = data.type || 'new_task';
+            const status = data.status || 'new';
+            let config = statusConfig[status] || statusConfig['new'];
+            
+            if (type === 'new_comment') {
+                config = statusConfig['comment'];
+            }
+            
+            console.log('✅ config 설정 완료:', config);
+            
             const toast = document.createElement('div');
             toast.className = 'task-toast';
             toast.style.borderLeft = `6px solid ${config.color}`;
             
-            // ⭐ 클릭 이벤트: assignee인지 creator인지 판단
-            toast.onclick = () => {
+            // ⭐ 클릭 이벤트
+            toast.onclick = async () => {
                 if (data.task_id) {
-                    const isMyAssignedTask = Number(data.assignee_id) === Number(currentUserId);
-                    const isMyCreatedTask = Number(data.creator_id) === Number(currentUserId);
+                    const assigneeId = data.assignee_id;
+                    const creatorId = data.creator_id;
+                    
+                    let finalAssigneeId = assigneeId;
+                    let finalCreatorId = creatorId;
+                    
+                    if (assigneeId === undefined || creatorId === undefined) {
+                        try {
+                            const response = await fetch(`/tasks/api/${data.task_id}/detail`);
+                            const taskDetail = await response.json();
+                            finalAssigneeId = taskDetail.assignee_id;
+                            finalCreatorId = taskDetail.creator_id;
+                        } catch (error) {
+                            console.error('업무 상세 조회 실패:', error);
+                            removeToast(toast);
+                            return;
+                        }
+                    }
+                    
+                    const isMyAssignedTask = Number(finalAssigneeId) === Number(currentUserId);
+                    const isMyCreatedTask = Number(finalCreatorId) === Number(currentUserId);
                     
                     console.log('🎯 토스트 클릭:', {
                         taskId: data.task_id,
-                        assignee_id: data.assignee_id,
-                        creator_id: data.creator_id,
+                        assignee_id: finalAssigneeId,
+                        creator_id: finalCreatorId,
                         currentUserId: currentUserId,
                         isMyAssignedTask: isMyAssignedTask,
                         isMyCreatedTask: isMyCreatedTask
                     });
                     
                     if (isMyAssignedTask && !isMyCreatedTask) {
-                        // ⭐ 내가 받은 업무 → 업무 알림 팝업
                         console.log('➡️ 업무 알림 팝업 열기');
                         if (!isDrawerOpen) {
                             openDrawer();
@@ -2703,7 +2731,6 @@
                             }
                         }, 300);
                     } else if (isMyCreatedTask && !isMyAssignedTask) {
-                        // ⭐ 내가 지시한 업무 → 업무 지시 관리 팝업
                         console.log('➡️ 업무 지시 관리 팝업 열기');
                         if (!isRequestDrawerOpen) {
                             openRequestDrawer();
@@ -2719,7 +2746,6 @@
                             }
                         }, 300);
                     } else if (isMyCreatedTask && isMyAssignedTask) {
-                        // ⭐ 둘 다인 경우 (자기 자신에게 지시) → 업무 알림 팝업 우선
                         console.log('➡️ 자기 지시 업무 - 업무 알림 팝업 열기');
                         if (!isDrawerOpen) {
                             openDrawer();
@@ -2743,7 +2769,6 @@
             let content = '';
             
             if (type === 'new_comment') {
-                // 댓글인 경우
                 const commentText = data.comment_content || '';
                 const commentPreview = commentText.length > 80 
                     ? commentText.substring(0, 80).split('\n').slice(0, 2).join('\n') + '...'
@@ -2786,7 +2811,6 @@
                     </div>
                 `;
             } else {
-                // 일반 업무 알림
                 content = `
                     <div style="display: flex; gap: 20px;">
                         <div style="
@@ -2804,7 +2828,7 @@
                         </div>
                         <div style="flex: 1; padding-top: 4px;">
                             <div style="font-weight: 700; color: #2d3436; margin-bottom: 8px; font-size: 1.1rem; line-height: 1.4;">
-                                ${config.icon} ${data.title || '새 알림'}
+                                ${config.icon} ${data.title || data.message || '새 알림'}
                             </div>
                             <div style="font-size: 0.9rem; color: #636e72; margin-bottom: 6px;">
                                 <span>👤 ${data.creator_name || '지시자'}</span>
@@ -2832,7 +2856,6 @@
             
             console.log('✅ 토스트 추가됨');
             
-            // 20초 후 자동 제거
             setTimeout(() => {
                 removeToast(toast);
             }, 20000);
