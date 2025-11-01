@@ -714,47 +714,51 @@
             <!-- 통계 카드 (마케팅 권한 있을 때만) -->
             {% if can_manage_marketing or is_admin %}
             <div class="stats-grid">
-                <div class="stat-card" style="--stat-gradient: linear-gradient(90deg, #4A90E2 0%, #5BA3F5 100%);">
-                    <div class="stat-icon" style="background: linear-gradient(135deg, #4A90E2 0%, #5BA3F5 100%); color: white;">
-                        <i class="bi bi-calendar-check"></i>
+                <!-- 카드 1: 오늘의 대기중 (노란색) -->
+                <div class="stat-card" style="--stat-gradient: linear-gradient(90deg, #fdcb6e 0%, #ffeaa7 100%);">
+                    <div class="stat-icon" style="background: linear-gradient(135deg, #fdcb6e 0%, #ffeaa7 100%); color: white;">
+                        <i class="bi bi-hourglass-split"></i>
                     </div>
-                    <div class="stat-value">{{ today_stats.total | default(0) }}</div>
-                    <div class="stat-label">오늘의 작업</div>
-                    <div class="stat-change positive">
-                        <i class="bi bi-arrow-up"></i> {{ today_stats.percentage | default(0) }}% 진행
+                    <div class="stat-value">{{ today_stats.today_pending | default(0) }}</div>
+                    <div class="stat-label">오늘의 대기중</div>
+                    <div class="stat-change" style="background: rgba(253, 203, 110, 0.1); color: #fdcb6e;">
+                        <i class="bi bi-clock"></i> 오늘 할당
                     </div>
                 </div>
                 
+                <!-- 카드 2: 오늘의 완료 (초록색) -->
                 <div class="stat-card" style="--stat-gradient: linear-gradient(90deg, #00b894 0%, #55efc4 100%);">
                     <div class="stat-icon" style="background: linear-gradient(135deg, #00b894 0%, #55efc4 100%); color: white;">
                         <i class="bi bi-check-circle"></i>
                     </div>
-                    <div class="stat-value">{{ today_stats.completed | default(0) }}</div>
-                    <div class="stat-label">완료된 작업</div>
+                    <div class="stat-value">{{ today_stats.today_completed | default(0) }}</div>
+                    <div class="stat-label">오늘의 완료</div>
                     <div class="stat-change positive">
-                        <i class="bi bi-arrow-up"></i> {{ (today_stats.completed / today_stats.total * 100) if today_stats.total else 0 }}% 완료
+                        <i class="bi bi-arrow-up"></i> 오늘 완료
                     </div>
                 </div>
                 
-                <div class="stat-card" style="--stat-gradient: linear-gradient(90deg, #fdcb6e 0%, #ffeaa7 100%);">
-                    <div class="stat-icon" style="background: linear-gradient(135deg, #fdcb6e 0%, #ffeaa7 100%); color: white;">
-                        <i class="bi bi-pencil-square"></i>
-                    </div>
-                    <div class="stat-value">{{ total_posts | default(0) }}</div>
-                    <div class="stat-label">총 게시글</div>
-                    <div class="stat-change positive">
-                        <i class="bi bi-arrow-up"></i> {{ new_posts_today | default(0) }}개 추가
-                    </div>
-                </div>
-                
+                <!-- 카드 3: 지금까지 대기중 (주황색) -->
                 <div class="stat-card" style="--stat-gradient: linear-gradient(90deg, #e17055 0%, #fab1a0 100%);">
                     <div class="stat-icon" style="background: linear-gradient(135deg, #e17055 0%, #fab1a0 100%); color: white;">
-                        <i class="bi bi-people"></i>
+                        <i class="bi bi-clipboard"></i>
                     </div>
-                    <div class="stat-value">{{ active_workers | default(0) }}</div>
-                    <div class="stat-label">활성 작업자</div>
-                    <div class="stat-change">
-                        <i class="bi bi-dash"></i> 변동 없음
+                    <div class="stat-value">{{ today_stats.all_pending | default(0) }}</div>
+                    <div class="stat-label">지금까지 대기중</div>
+                    <div class="stat-change" style="background: rgba(225, 112, 85, 0.1); color: #e17055;">
+                        <i class="bi bi-list-ul"></i> 전체 기간
+                    </div>
+                </div>
+                
+                <!-- 카드 4: 지금까지 진행중 (파란색) -->
+                <div class="stat-card" style="--stat-gradient: linear-gradient(90deg, #4A90E2 0%, #5BA3F5 100%);">
+                    <div class="stat-icon" style="background: linear-gradient(135deg, #4A90E2 0%, #5BA3F5 100%); color: white;">
+                        <i class="bi bi-arrow-repeat"></i>
+                    </div>
+                    <div class="stat-value">{{ today_stats.all_in_progress | default(0) }}</div>
+                    <div class="stat-label">지금까지 진행중</div>
+                    <div class="stat-change" style="background: rgba(74, 144, 226, 0.1); color: #4A90E2;">
+                        <i class="bi bi-gear"></i> 작업 중
                     </div>
                 </div>
             </div>

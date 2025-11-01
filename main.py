@@ -70,20 +70,8 @@ def read_root(request: Request):
     
     # --- 마케팅 통계 데이터 추가 (마케팅 권한이 있을 때만) ---
     today_stats = {}
-    total_posts = 0
-    new_posts_today = 0
-    active_workers = 0
     today_schedules = []
-    
-    # ⭐ 업무 지시 통계 추가
-    task_stats = {
-        'total': 0,
-        'new': 0,
-        'in_progress': 0,
-        'completed_today': 0
-    }
-    my_pending_tasks = []
-    
+
     if username and (can_manage_marketing or is_admin):
         db = SessionLocal()
         try:
@@ -92,9 +80,10 @@ def read_root(request: Request):
             # 현재 로그인한 사용자 정보 가져오기
             current_user = db.query(User).filter(User.username == username).first()
             
-            # ✅ 오늘의 스케줄 통계 (관계 데이터 미리 로드)
+            # ✅ 오늘의 스케줄 조회 (관계 데이터 미리 로드)
             if current_user:
                 if is_admin:
+                    # 관리자: 모든 작업자의 스케줄
                     today_schedules = db.query(PostSchedule).options(
                         joinedload(PostSchedule.worker),
                         joinedload(PostSchedule.account),
@@ -103,7 +92,26 @@ def read_root(request: Request):
                     ).filter(
                         PostSchedule.scheduled_date == today
                     ).limit(10).all()
+                    
+                    # 관리자: 전체 통계
+                    today_stats = {
+                        'today_pending': db.query(PostSchedule).filter(
+                            PostSchedule.scheduled_date == today,
+                            PostSchedule.status == 'pending'
+                        ).count(),
+                        'today_completed': db.query(PostSchedule).filter(
+                            PostSchedule.scheduled_date == today,
+                            PostSchedule.status == 'completed'
+                        ).count(),
+                        'all_pending': db.query(PostSchedule).filter(
+                            PostSchedule.status == 'pending'
+                        ).count(),
+                        'all_in_progress': db.query(PostSchedule).filter(
+                            PostSchedule.status == 'in_progress'
+                        ).count()
+                    }
                 else:
+                    # 일반 작업자: 본인 스케줄만
                     today_schedules = db.query(PostSchedule).options(
                         joinedload(PostSchedule.worker),
                         joinedload(PostSchedule.account),
@@ -113,87 +121,89 @@ def read_root(request: Request):
                         PostSchedule.scheduled_date == today,
                         PostSchedule.worker_id == current_user.id
                     ).all()
+                    
+                    # 일반 작업자: 본인 통계만
+                    today_stats = {
+                        'today_pending': db.query(PostSchedule).filter(
+                            PostSchedule.scheduled_date == today,
+                            PostSchedule.worker_id == current_user.id,
+                            PostSchedule.status == 'pending'
+                        ).count(),
+                        'today_completed': db.query(PostSchedule).filter(
+                            PostSchedule.scheduled_date == today,
+                            PostSchedule.worker_id == current_user.id,
+                            PostSchedule.status == 'completed'
+                        ).count(),
+                        'all_pending': db.query(PostSchedule).filter(
+                            PostSchedule.worker_id == current_user.id,
+                            PostSchedule.status == 'pending'
+                        ).count(),
+                        'all_in_progress': db.query(PostSchedule).filter(
+                            PostSchedule.worker_id == current_user.id,
+                            PostSchedule.status == 'in_progress'
+                        ).count()
+                    }
             else:
                 today_schedules = []
-            
-            today_stats = {
-                'total': len(today_schedules),
-                'completed': sum(1 for s in today_schedules if s.status == 'completed'),
-                'in_progress': sum(1 for s in today_schedules if s.status == 'in_progress'),
-                'pending': sum(1 for s in today_schedules if s.status == 'pending')
-            }
-            
-            if today_stats['total'] > 0:
-                today_stats['percentage'] = round((today_stats['completed'] / today_stats['total']) * 100, 1)
-            else:
-                today_stats['percentage'] = 0
-            
-            total_posts = db.query(MarketingPost).filter(
-                MarketingPost.is_live == True
-            ).count()
-            
-            try:
-                new_posts_today = db.query(MarketingPost).filter(
-                    func.date(MarketingPost.created_at) == today,
-                    MarketingPost.is_live == True
-                ).count()
-            except:
-                new_posts_today = 0
-            
-            active_workers = db.query(User).filter(
-                or_(User.can_manage_marketing == True, User.is_admin == True)
-            ).count()
-            
+                today_stats = {
+                    'today_pending': 0,
+                    'today_completed': 0,
+                    'all_pending': 0,
+                    'all_in_progress': 0
+                }
+                
         except Exception as e:
             print(f"통계 데이터 로드 중 오류: {e}")
-            today_stats = {'total': 0, 'completed': 0, 'in_progress': 0, 'pending': 0, 'percentage': 0}
-            total_posts = 0
-            new_posts_today = 0
-            active_workers = 0
+            today_stats = {
+                'today_pending': 0,
+                'today_completed': 0,
+                'all_pending': 0,
+                'all_in_progress': 0
+            }
             today_schedules = []
         finally:
             db.close()
-    
-    # ⭐ 업무 지시 통계 (로그인한 모든 사용자)
-    if username:
-        from database import TaskAssignment  # 여기서 import
-        db = SessionLocal()
-        try:
-            current_user = db.query(User).filter(User.username == username).first()
-            if current_user:
-                # 내가 받은 업무 통계
-                task_stats['total'] = db.query(TaskAssignment).filter(
-                    TaskAssignment.assignee_id == current_user.id,
-                    TaskAssignment.status != 'cancelled'  # ⭐ 추가!
-                ).count()
-                
-                task_stats['new'] = db.query(TaskAssignment).filter(
-                    TaskAssignment.assignee_id == current_user.id,
-                    TaskAssignment.status == 'new'
-                ).count()
-                
-                task_stats['in_progress'] = db.query(TaskAssignment).filter(
-                    TaskAssignment.assignee_id == current_user.id,
-                    TaskAssignment.status == 'in_progress'
-                ).count()
-                
-                task_stats['completed_today'] = db.query(TaskAssignment).filter(
-                    TaskAssignment.assignee_id == current_user.id,
-                    TaskAssignment.status == 'completed',
-                    func.date(TaskAssignment.completed_at) == datetime.now().date()
-                ).count()
-                
-                # 미완료 업무 목록 (최대 5개)
-                my_pending_tasks = db.query(TaskAssignment).options(
-                    joinedload(TaskAssignment.creator)
-                ).filter(
-                    TaskAssignment.assignee_id == current_user.id,
-                    TaskAssignment.status.in_(['new', 'confirmed', 'in_progress'])
-                ).order_by(TaskAssignment.deadline.asc()).limit(5).all()
-        except Exception as e:
-            print(f"업무 통계 로드 중 오류: {e}")
-        finally:
-            db.close()
+        
+        # ⭐ 업무 지시 통계 (로그인한 모든 사용자)
+        if username:
+            from database import TaskAssignment  # 여기서 import
+            db = SessionLocal()
+            try:
+                current_user = db.query(User).filter(User.username == username).first()
+                if current_user:
+                    # 내가 받은 업무 통계
+                    task_stats['total'] = db.query(TaskAssignment).filter(
+                        TaskAssignment.assignee_id == current_user.id,
+                        TaskAssignment.status != 'cancelled'  # ⭐ 추가!
+                    ).count()
+                    
+                    task_stats['new'] = db.query(TaskAssignment).filter(
+                        TaskAssignment.assignee_id == current_user.id,
+                        TaskAssignment.status == 'new'
+                    ).count()
+                    
+                    task_stats['in_progress'] = db.query(TaskAssignment).filter(
+                        TaskAssignment.assignee_id == current_user.id,
+                        TaskAssignment.status == 'in_progress'
+                    ).count()
+                    
+                    task_stats['completed_today'] = db.query(TaskAssignment).filter(
+                        TaskAssignment.assignee_id == current_user.id,
+                        TaskAssignment.status == 'completed',
+                        func.date(TaskAssignment.completed_at) == datetime.now().date()
+                    ).count()
+                    
+                    # 미완료 업무 목록 (최대 5개)
+                    my_pending_tasks = db.query(TaskAssignment).options(
+                        joinedload(TaskAssignment.creator)
+                    ).filter(
+                        TaskAssignment.assignee_id == current_user.id,
+                        TaskAssignment.status.in_(['new', 'confirmed', 'in_progress'])
+                    ).order_by(TaskAssignment.deadline.asc()).limit(5).all()
+            except Exception as e:
+                print(f"업무 통계 로드 중 오류: {e}")
+            finally:
+                db.close()
 
     return templates.TemplateResponse("index.html", {
         "request": request,
@@ -203,9 +213,6 @@ def read_root(request: Request):
         "can_manage_marketing": can_manage_marketing,
         "today": date.today().isoformat(),
         "today_stats": today_stats,
-        "total_posts": total_posts,
-        "new_posts_today": new_posts_today,
-        "active_workers": active_workers,
         "today_schedules": today_schedules,
         # ⭐ 업무 지시 데이터 추가
         "task_stats": task_stats,
