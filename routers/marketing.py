@@ -543,9 +543,11 @@ async def get_schedules(
     
     references_by_type = {}
     for ref in all_references:
-        if ref.ref_type not in references_by_type:
-            references_by_type[ref.ref_type] = []
-        references_by_type[ref.ref_type].append(ref)
+        ref_type = ref.ref_type or "기타"
+        if ref_type not in references_by_type:
+            references_by_type[ref_type] = []
+        references_by_type[ref_type].append(ref)
+
     
     return templates.TemplateResponse("marketing_schedules.html", {
         "request": request,
