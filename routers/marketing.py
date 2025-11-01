@@ -247,16 +247,26 @@ async def marketing_cafe(request: Request, db: Session = Depends(get_db)):
         worker_quotas[worker.id] = worker.daily_quota or 6
     
     # ✅ 11. 전체 통계 (selected_date 기준)
-    all_today_schedules = db.query(PostSchedule).filter(
-        PostSchedule.scheduled_date == selected_date
-    ).all()
-    
+    if current_user:
+        # 관리자는 전체 통계, 일반 작업자는 본인 통계만
+        if is_admin:
+            # 관리자: 전체 작업자 통계
+            all_today_schedules = db.query(PostSchedule).filter(
+                PostSchedule.scheduled_date == selected_date
+            ).all()
+        else:
+            # 일반 작업자: 본인 통계만 (이미 조회한 today_schedules 활용)
+            all_today_schedules = today_schedules
+    else:
+        all_today_schedules = []
+
     today_stats = {
         'total': len(all_today_schedules),
         'completed': sum(1 for s in all_today_schedules if s.status == 'completed'),
         'in_progress': sum(1 for s in all_today_schedules if s.status == 'in_progress'),
         'pending': sum(1 for s in all_today_schedules if s.status == 'pending')
     }
+
     
     # ✅ 12. 계정-카페 매핑 (membership_map)
     all_memberships_map = db.query(CafeMembership).options(
