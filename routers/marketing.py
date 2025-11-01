@@ -317,7 +317,11 @@ async def marketing_cafe(request: Request, db: Session = Depends(get_db)):
         }
         references_json.append(ref_dict)
 
-    references_by_type = {}
+    references_by_type = {
+    '대안': [],   # ✅ 항상 존재
+    '정보': [],   # ✅ 항상 존재
+    '기타': []    # ✅ 항상 존재
+    }
     for ref in all_references:
         ref_type = ref.ref_type or "기타"
         if ref_type not in references_by_type:

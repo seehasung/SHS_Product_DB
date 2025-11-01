@@ -17,14 +17,15 @@ async def send_pending_notifications():
     try:
         now = get_kst_now()
         
-        # 퇴근 1시간 전인지 확인 (18시 기준 - 17시부터)
-        work_end_time = now.replace(hour=18, minute=0, second=0, microsecond=0)
+        # ⭐ 퇴근 1시간 전인지 확인 (17시 기준 - 16시부터)
+        work_end_time = now.replace(hour=17, minute=0, second=0, microsecond=0)
         one_hour_before_end = work_end_time - timedelta(hours=1)
         is_near_work_end = now >= one_hour_before_end and now < work_end_time
         
-        # 미완료 업무 조회 (new, confirmed, in_progress)
+        # ⭐ 미완료 업무 조회 (취소/완료 제외)
         pending_tasks = db.query(TaskAssignment).filter(
-            TaskAssignment.status.in_(['new', 'confirmed', 'in_progress'])
+            TaskAssignment.status.in_(['new', 'confirmed', 'in_progress']),
+            TaskAssignment.status.not_in(['completed', 'cancelled'])  # ⭐ 명시적 제외
         ).all()
         
         for task in pending_tasks:
@@ -40,7 +41,7 @@ async def send_pending_notifications():
                 should_notify = True
                 notification_message = f"🔴 긴급 업무: {task.title}"
             
-            # 퇴근 1시간 전부터는 15분마다 알림
+            # ⭐ 퇴근 1시간 전부터는 알림 (16:00 ~ 17:00)
             elif is_near_work_end:
                 should_notify = True
                 notification_message = f"⏰ 퇴근 전 미완료: {task.title}"
@@ -65,8 +66,14 @@ async def send_pending_notifications():
                 await manager.send_personal_message({
                     'type': 'task_notification',
                     'task_id': task.id,
+                    'title': task.title,  # ⭐ 추가
                     'message': notification_message,
                     'priority': task.priority,
+                    'status': task.status,  # ⭐ 추가
+                    'creator_id': task.creator_id,  # ⭐ 추가
+                    'creator_name': task.creator.username if task.creator else "알 수 없음",
+                    'assignee_id': task.assignee_id,  # ⭐ 추가
+                    'assignee_name': task.assignee.username if task.assignee else "알 수 없음",
                     'timestamp': get_kst_now().isoformat()
                 }, task.assignee_id)
         
@@ -106,7 +113,7 @@ async def cleanup_old_notifications():
 def start_scheduler():
     """스케줄러 시작"""
     
-    # 반복 알림: 30분마다 실행
+    # ⭐ 반복 알림: 30분마다 실행 (중복 제거)
     scheduler.add_job(
         send_pending_notifications,
         trigger=IntervalTrigger(minutes=30),
@@ -115,15 +122,7 @@ def start_scheduler():
         replace_existing=True
     )
     
-    # 퇴근 1시간 전부터는 15분마다 실행 (17:00 ~ 18:00)
-    scheduler.add_job(
-        send_pending_notifications,
-        trigger=IntervalTrigger(minutes=15),
-        id='urgent_notifications',
-        name='긴급 알림',
-        replace_existing=True,
-        # 17시~18시 사이에만 실행되도록 조건 추가 (위 함수에서 처리)
-    )
+    # ⭐ 중복 스케줄 제거 (위에서 모두 처리)
     
     # 오래된 알림 정리: 매일 자정에 실행
     scheduler.add_job(
@@ -137,7 +136,7 @@ def start_scheduler():
     )
     
     scheduler.start()
-    print("✅ 스케줄러 시작됨")
+    print("✅ 스케줄러 시작됨 (30분 간격, 퇴근 시간 17:00)")
 
 
 def stop_scheduler():
