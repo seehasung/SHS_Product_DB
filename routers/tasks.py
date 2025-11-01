@@ -353,13 +353,24 @@ async def create_task(
     
     db.commit()
     
+    # ⭐ WebSocket 알림 전송 (assignee_id와 creator_id 포함)
     for assignee_id in assignee_id_list:
         try:
+            # 담당자 이름 조회
+            assignee = db.query(User).filter(User.id == assignee_id).first()
+            assignee_name = assignee.username if assignee else "알 수 없음"
+            
             await manager.send_personal_message({
                 'type': 'new_task',
                 'task_id': new_task.id,
+                'title': title,  # ⭐ 추가
                 'message': f"새 업무가 할당되었습니다: {title}",
                 'priority': priority,
+                'status': 'new',  # ⭐ 추가
+                'creator_id': current_user.id,  # ⭐ 추가
+                'creator_name': current_user.username,  # ⭐ 추가
+                'assignee_id': assignee_id,  # ⭐ 추가
+                'assignee_name': assignee_name,  # ⭐ 추가
                 'timestamp': get_kst_now().isoformat()
             }, assignee_id)
         except Exception as e:
@@ -654,6 +665,8 @@ def get_unread_notifications(request: Request, db: Session = Depends(get_db)):
         
         # 지시자 이름
         creator_name = task.creator.username if task.creator else "알 수 없음"
+        # ⭐ 담당자 이름 추가
+        assignee_name = task.assignee.username if task.assignee else "알 수 없음"
         
         result.append({
             "id": notif.id,
@@ -665,10 +678,14 @@ def get_unread_notifications(request: Request, db: Session = Depends(get_db)):
             "priority": task.priority,
             "status": task.status,
             "title": task.title,
-            "creator_name": creator_name
+            "creator_name": creator_name,
+            "creator_id": task.creator_id,      # ⭐ 추가
+            "assignee_id": task.assignee_id,    # ⭐ 추가
+            "assignee_name": assignee_name      # ⭐ 추가
         })
     
     return result
+
 
 @router.post("/notifications/{notif_id}/read", response_class=JSONResponse)
 async def mark_notification_read(
@@ -964,13 +981,22 @@ async def add_comment_api(
     db.commit()
     
     # WebSocket 알림
+    # ⭐ WebSocket 알림 (댓글)
     if recipient_id:
         try:
             await manager.send_personal_message({
                 'type': 'new_comment',
                 'task_id': task.id,
+                'title': task.title,  # ⭐ 추가
                 'message': f"새 댓글이 달렸습니다: {task.title}",
-                'priority': task.priority,  # ⭐ 우선순위 추가
+                'priority': task.priority,
+                'status': task.status,  # ⭐ 추가
+                'creator_id': task.creator_id,  # ⭐ 추가
+                'creator_name': task.creator.username if task.creator else "알 수 없음",  # ⭐ 추가
+                'assignee_id': task.assignee_id,  # ⭐ 추가
+                'assignee_name': task.assignee.username if task.assignee else "알 수 없음",  # ⭐ 추가
+                'comment_author': current_user.username,  # ⭐ 추가
+                'comment_content': content,  # ⭐ 추가
                 'timestamp': get_kst_now().isoformat()
             }, recipient_id)
         except Exception as e:
@@ -1043,8 +1069,14 @@ async def update_task_status_api(
             await manager.send_personal_message({
                 'type': 'status_change',
                 'task_id': task.id,
+                'title': task.title,  # ⭐ 추가
                 'message': f"업무 상태가 변경되었습니다: {task.title}",
-                'priority': task.priority,  # ⭐ 우선순위 추가
+                'priority': task.priority,
+                'status': status,  # ⭐ 추가
+                'creator_id': task.creator_id,  # ⭐ 추가
+                'creator_name': task.creator.username if task.creator else "알 수 없음",  # ⭐ 추가
+                'assignee_id': task.assignee_id,  # ⭐ 추가
+                'assignee_name': task.assignee.username if task.assignee else "알 수 없음",  # ⭐ 추가
                 'timestamp': get_kst_now().isoformat()
             }, task.creator_id)
         except Exception as e:
