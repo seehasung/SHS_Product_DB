@@ -814,7 +814,7 @@
             {% endif %}
 
             <!-- 퀵 액션 (권한에 따라 표시) -->
-            {% comment %} {% if can_manage_marketing or can_manage_products or is_admin or username %}
+            {% if can_manage_marketing or can_manage_products or is_admin or username %}
             <div class="quick-actions">
                 <div class="quick-actions-title">⚡ 빠른 작업</div>
                 <div class="quick-action-buttons">
@@ -856,7 +856,7 @@
                     {% endif %}
                 </div>
             </div>
-            {% endif %} {% endcomment %}
+            {% endif %}
 
             <!-- ⭐ 내 업무 미리보기 (오늘 작업 목록 위에 추가) -->
             {% if username and my_pending_tasks %}
