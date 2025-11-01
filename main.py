@@ -71,7 +71,16 @@ def read_root(request: Request):
     # --- 마케팅 통계 데이터 추가 (마케팅 권한이 있을 때만) ---
     today_stats = {}
     today_schedules = []
-
+    
+    # ⭐ 업무 지시 통계 초기화
+    task_stats = {
+        'total': 0,
+        'new': 0,
+        'in_progress': 0,
+        'completed_today': 0
+    }
+    my_pending_tasks = []
+    
     if username and (can_manage_marketing or is_admin):
         db = SessionLocal()
         try:
@@ -163,47 +172,47 @@ def read_root(request: Request):
             today_schedules = []
         finally:
             db.close()
-        
-        # ⭐ 업무 지시 통계 (로그인한 모든 사용자)
-        if username:
-            from database import TaskAssignment  # 여기서 import
-            db = SessionLocal()
-            try:
-                current_user = db.query(User).filter(User.username == username).first()
-                if current_user:
-                    # 내가 받은 업무 통계
-                    task_stats['total'] = db.query(TaskAssignment).filter(
-                        TaskAssignment.assignee_id == current_user.id,
-                        TaskAssignment.status != 'cancelled'  # ⭐ 추가!
-                    ).count()
-                    
-                    task_stats['new'] = db.query(TaskAssignment).filter(
-                        TaskAssignment.assignee_id == current_user.id,
-                        TaskAssignment.status == 'new'
-                    ).count()
-                    
-                    task_stats['in_progress'] = db.query(TaskAssignment).filter(
-                        TaskAssignment.assignee_id == current_user.id,
-                        TaskAssignment.status == 'in_progress'
-                    ).count()
-                    
-                    task_stats['completed_today'] = db.query(TaskAssignment).filter(
-                        TaskAssignment.assignee_id == current_user.id,
-                        TaskAssignment.status == 'completed',
-                        func.date(TaskAssignment.completed_at) == datetime.now().date()
-                    ).count()
-                    
-                    # 미완료 업무 목록 (최대 5개)
-                    my_pending_tasks = db.query(TaskAssignment).options(
-                        joinedload(TaskAssignment.creator)
-                    ).filter(
-                        TaskAssignment.assignee_id == current_user.id,
-                        TaskAssignment.status.in_(['new', 'confirmed', 'in_progress'])
-                    ).order_by(TaskAssignment.deadline.asc()).limit(5).all()
-            except Exception as e:
-                print(f"업무 통계 로드 중 오류: {e}")
-            finally:
-                db.close()
+    
+    # ⭐ 업무 지시 통계 (로그인한 모든 사용자)
+    if username:
+        from database import TaskAssignment  # 여기서 import
+        db = SessionLocal()
+        try:
+            current_user = db.query(User).filter(User.username == username).first()
+            if current_user:
+                # 내가 받은 업무 통계
+                task_stats['total'] = db.query(TaskAssignment).filter(
+                    TaskAssignment.assignee_id == current_user.id,
+                    TaskAssignment.status != 'cancelled'
+                ).count()
+                
+                task_stats['new'] = db.query(TaskAssignment).filter(
+                    TaskAssignment.assignee_id == current_user.id,
+                    TaskAssignment.status == 'new'
+                ).count()
+                
+                task_stats['in_progress'] = db.query(TaskAssignment).filter(
+                    TaskAssignment.assignee_id == current_user.id,
+                    TaskAssignment.status == 'in_progress'
+                ).count()
+                
+                task_stats['completed_today'] = db.query(TaskAssignment).filter(
+                    TaskAssignment.assignee_id == current_user.id,
+                    TaskAssignment.status == 'completed',
+                    func.date(TaskAssignment.completed_at) == datetime.now().date()
+                ).count()
+                
+                # 미완료 업무 목록 (최대 5개)
+                my_pending_tasks = db.query(TaskAssignment).options(
+                    joinedload(TaskAssignment.creator)
+                ).filter(
+                    TaskAssignment.assignee_id == current_user.id,
+                    TaskAssignment.status.in_(['new', 'confirmed', 'in_progress'])
+                ).order_by(TaskAssignment.deadline.asc()).limit(5).all()
+        except Exception as e:
+            print(f"업무 통계 로드 중 오류: {e}")
+        finally:
+            db.close()
 
     return templates.TemplateResponse("index.html", {
         "request": request,
