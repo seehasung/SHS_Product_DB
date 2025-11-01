@@ -2307,8 +2307,19 @@
             event.preventDefault();
             
             const form = event.target;
-            const formData = new FormData(form);
-            formData.append('status', 'completed');
+            const formData = new FormData();
+            
+            // ⭐ 필드명을 'content'로 통일
+            const completionContent = form.querySelector('[name="completion_content"]').value;
+            formData.append('content', completionContent);  // ⭐ content로 변경
+            
+            // ⭐ 파일도 'files'로 통일
+            const fileInput = form.querySelector('[name="completion_files"]');
+            if (fileInput && fileInput.files) {
+                for (let i = 0; i < fileInput.files.length; i++) {
+                    formData.append('files', fileInput.files[i]);  // ⭐ files로 변경
+                }
+            }
             
             try {
                 // 댓글로 완료 내용 등록
@@ -2350,7 +2361,7 @@
                 showToast('완료 처리 중 오류가 발생했습니다', 'error');
             }
         }
-
+        
         // ============================================
         // 보류 제출
         // ============================================
@@ -2358,8 +2369,21 @@
             event.preventDefault();
             
             const form = event.target;
-            const formData = new FormData(form);
-            formData.append('status', 'on_hold');
+            const formData = new FormData();
+            
+            // ⭐ 필드명을 'content'로 통일
+            const holdReason = form.querySelector('[name="hold_reason"]').value;
+            const holdResumeDate = form.querySelector('[name="hold_resume_date"]').value;
+            
+            formData.append('content', holdReason);  // ⭐ content로 변경
+            
+            // ⭐ 파일도 'files'로 통일
+            const fileInput = form.querySelector('[name="hold_files"]');
+            if (fileInput && fileInput.files) {
+                for (let i = 0; i < fileInput.files.length; i++) {
+                    formData.append('files', fileInput.files[i]);  // ⭐ files로 변경
+                }
+            }
             
             try {
                 // 댓글로 보류 사유 등록
@@ -2376,8 +2400,8 @@
                 // ⭐ 상태 변경 (보류 사유 + 재개 예정일 포함)
                 const statusFormData = new URLSearchParams();
                 statusFormData.append('status', 'on_hold');
-                statusFormData.append('hold_reason', form.querySelector('[name="hold_reason"]').value);
-                statusFormData.append('hold_resume_date', form.querySelector('[name="hold_resume_date"]').value); // ⭐ 추가
+                statusFormData.append('hold_reason', holdReason);
+                statusFormData.append('hold_resume_date', holdResumeDate);  // ⭐ 추가
                 
                 const statusResponse = await fetch(`/tasks/api/${taskId}/status`, {
                     method: 'POST',
@@ -2403,6 +2427,7 @@
                 showToast('보류 처리 중 오류가 발생했습니다', 'error');
             }
         }
+
 
         // ============================================
         // 댓글 작성
