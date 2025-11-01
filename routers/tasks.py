@@ -1200,3 +1200,196 @@ def get_assignee_list(request: Request, db: Session = Depends(get_db)):
         })
     
     return result
+
+# ============================================
+# 완료 처리 전용 API
+# ============================================
+@router.post("/api/{task_id}/complete")
+async def complete_task_api(
+    task_id: int,
+    request: Request,
+    completion_note: str = Form(...),
+    files: List[UploadFile] = File(None),
+    db: Session = Depends(get_db)
+):
+    """업무 완료 처리 (내용 + 첨부파일)"""
+    username = request.session.get("user")
+    if not username:
+        raise HTTPException(status_code=401, detail="로그인이 필요합니다")
+    
+    current_user = db.query(User).filter(User.username == username).first()
+    task = db.query(TaskAssignment).filter(TaskAssignment.id == task_id).first()
+    
+    if not task or task.assignee_id != current_user.id:
+        raise HTTPException(status_code=403, detail="권한이 없습니다")
+    
+    # 상태 변경
+    task.status = 'completed'
+    task.completion_note = completion_note
+    task.completed_at = get_kst_now()
+    task.updated_at = get_kst_now()
+    
+    # 첨부파일 처리
+    uploaded_files = []
+    if files:
+        for file in files:
+            if file.filename:
+                file_ext = os.path.splitext(file.filename)[1]
+                unique_filename = f"{uuid.uuid4()}{file_ext}"
+                filepath = os.path.join(UPLOAD_DIR, unique_filename)
+                
+                with open(filepath, "wb") as f:
+                    f.write(await file.read())
+                
+                # ⭐ 완료 관련 파일은 comment_id 없이 저장
+                task_file = TaskFile(
+                    task_id=task_id,
+                    filename=file.filename,
+                    filepath=filepath,
+                    filesize=os.path.getsize(filepath),
+                    uploaded_by=current_user.id
+                )
+                db.add(task_file)
+                db.flush()
+                
+                uploaded_files.append({
+                    "id": task_file.id,
+                    "filename": task_file.filename,
+                    "filepath": task_file.filepath
+                })
+    
+    # 지시자에게 알림 (1개만)
+    if task.creator_id:
+        notification = TaskNotification(
+            task_id=task.id,
+            user_id=task.creator_id,
+            notification_type='status_change',
+            message=f"업무 완료: {task.title}",
+            auto_delete_at=get_kst_now() + timedelta(days=90)
+        )
+        db.add(notification)
+    
+    db.commit()
+    
+    # WebSocket 알림 (1개만)
+    if task.creator_id:
+        try:
+            await manager.send_personal_message({
+                'type': 'status_change',
+                'task_id': task.id,
+                'title': task.title,
+                'message': f"업무가 완료되었습니다: {task.title}",
+                'priority': task.priority,
+                'status': 'completed',
+                'creator_id': task.creator_id,
+                'creator_name': task.creator.username if task.creator else "알 수 없음",
+                'assignee_id': task.assignee_id,
+                'assignee_name': task.assignee.username if task.assignee else "알 수 없음",
+                'timestamp': get_kst_now().isoformat()
+            }, task.creator_id)
+        except Exception as e:
+            print(f"WebSocket 전송 오류: {e}")
+    
+    return {
+        "success": True,
+        "message": "업무가 완료 처리되었습니다",
+        "files": uploaded_files
+    }
+
+
+# ============================================
+# 보류 처리 전용 API
+# ============================================
+@router.post("/api/{task_id}/hold")
+async def hold_task_api(
+    task_id: int,
+    request: Request,
+    hold_reason: str = Form(...),
+    hold_resume_date: str = Form(...),
+    files: List[UploadFile] = File(None),
+    db: Session = Depends(get_db)
+):
+    """업무 보류 처리 (사유 + 재개일 + 첨부파일)"""
+    username = request.session.get("user")
+    if not username:
+        raise HTTPException(status_code=401, detail="로그인이 필요합니다")
+    
+    current_user = db.query(User).filter(User.username == username).first()
+    task = db.query(TaskAssignment).filter(TaskAssignment.id == task_id).first()
+    
+    if not task or task.assignee_id != current_user.id:
+        raise HTTPException(status_code=403, detail="권한이 없습니다")
+    
+    # 상태 변경
+    task.status = 'on_hold'
+    task.hold_reason = hold_reason
+    if hold_resume_date:
+        task.hold_resume_date = datetime.fromisoformat(hold_resume_date).date()
+    task.updated_at = get_kst_now()
+    
+    # 첨부파일 처리
+    uploaded_files = []
+    if files:
+        for file in files:
+            if file.filename:
+                file_ext = os.path.splitext(file.filename)[1]
+                unique_filename = f"{uuid.uuid4()}{file_ext}"
+                filepath = os.path.join(UPLOAD_DIR, unique_filename)
+                
+                with open(filepath, "wb") as f:
+                    f.write(await file.read())
+                
+                # ⭐ 보류 관련 파일은 comment_id 없이 저장
+                task_file = TaskFile(
+                    task_id=task_id,
+                    filename=file.filename,
+                    filepath=filepath,
+                    filesize=os.path.getsize(filepath),
+                    uploaded_by=current_user.id
+                )
+                db.add(task_file)
+                db.flush()
+                
+                uploaded_files.append({
+                    "id": task_file.id,
+                    "filename": task_file.filename,
+                    "filepath": task_file.filepath
+                })
+    
+    # 지시자에게 알림 (1개만)
+    if task.creator_id:
+        notification = TaskNotification(
+            task_id=task.id,
+            user_id=task.creator_id,
+            notification_type='status_change',
+            message=f"업무 보류: {task.title}",
+            auto_delete_at=get_kst_now() + timedelta(days=90)
+        )
+        db.add(notification)
+    
+    db.commit()
+    
+    # WebSocket 알림 (1개만)
+    if task.creator_id:
+        try:
+            await manager.send_personal_message({
+                'type': 'status_change',
+                'task_id': task.id,
+                'title': task.title,
+                'message': f"업무가 보류되었습니다: {task.title}",
+                'priority': task.priority,
+                'status': 'on_hold',
+                'creator_id': task.creator_id,
+                'creator_name': task.creator.username if task.creator else "알 수 없음",
+                'assignee_id': task.assignee_id,
+                'assignee_name': task.assignee.username if task.assignee else "알 수 없음",
+                'timestamp': get_kst_now().isoformat()
+            }, task.creator_id)
+        except Exception as e:
+            print(f"WebSocket 전송 오류: {e}")
+    
+    return {
+        "success": True,
+        "message": "업무가 보류 처리되었습니다",
+        "files": uploaded_files
+    }

@@ -1074,16 +1074,6 @@
             background: linear-gradient(135deg, rgba(74, 144, 226, 0.08) 0%, rgba(91, 163, 245, 0.08) 100%);
         }
 
-        .task-notification-item.urgent {
-            border-left-color: #eb3349;
-            border-left-width: 5px;
-        }
-
-        .task-notification-item.important {
-            border-left-color: #ffc107;
-            border-left-width: 5px;
-        }
-
         .task-notification-title {
             font-weight: 700;
             color: #2d3436;
@@ -1607,23 +1597,35 @@
                                     <input type="text" name="title" class="form-control" required style="border-radius: 12px;">
                                 </div>
                                 <div class="mb-3">
-                                    <label class="form-label" style="font-weight: 600;">담당자 선택 *</label>
-                                    <select name="assignee_ids" class="form-select" required style="border-radius: 12px;">
-                                        <option value="">선택하세요</option>
-                                        ${users.map(user => `<option value="${user.id}">${user.username}</option>`).join('')}
-                                    </select>
-                                </div>
-                                <div class="mb-3">
-                                    <label class="form-label" style="font-weight: 600;">우선순위</label>
-                                    <select name="priority" class="form-select" style="border-radius: 12px;">
-                                        <option value="normal">보통</option>
-                                        <option value="important">중요</option>
-                                        <option value="urgent">긴급</option>
-                                    </select>
+                                    <label class="form-label" style="font-weight: 600;">담당자 선택 * (여러 명 선택 가능)</label>
+                                    <div style="max-height: 200px; overflow-y: auto; border: 2px solid rgba(0, 0, 0, 0.1); border-radius: 12px; padding: 12px; background: rgba(255, 255, 255, 0.9);">
+                                        ${users.map(user => `
+                                            <div class="form-check" style="margin-bottom: 8px;">
+                                                <input class="form-check-input" type="checkbox" name="assignee_ids" value="${user.id}" id="assignee-${user.id}">
+                                                <label class="form-check-label" for="assignee-${user.id}" style="font-weight: 500;">
+                                                    ${user.username}
+                                                </label>
+                                            </div>
+                                        `).join('')}
+                                    </div>
                                 </div>
                                 <div class="mb-3">
                                     <label class="form-label" style="font-weight: 600;">마감시한</label>
-                                    <input type="datetime-local" name="custom_deadline" class="form-control" style="border-radius: 12px;">
+                                    <div style="display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap;">
+                                        <button type="button" onclick="setQuickDeadline('today')" class="btn btn-sm btn-outline-primary" style="border-radius: 10px;">
+                                            <i class="bi bi-calendar-day"></i> 오늘
+                                        </button>
+                                        <button type="button" onclick="setQuickDeadline('tomorrow')" class="btn btn-sm btn-outline-primary" style="border-radius: 10px;">
+                                            <i class="bi bi-calendar-plus"></i> 내일
+                                        </button>
+                                        <button type="button" onclick="setQuickDeadline('dayAfterTomorrow')" class="btn btn-sm btn-outline-primary" style="border-radius: 10px;">
+                                            <i class="bi bi-calendar2-plus"></i> 모레
+                                        </button>
+                                        <button type="button" onclick="setQuickDeadline('thisWeek')" class="btn btn-sm btn-outline-primary" style="border-radius: 10px;">
+                                            <i class="bi bi-calendar-week"></i> 이번주
+                                        </button>
+                                    </div>
+                                    <input type="datetime-local" id="customDeadline" name="custom_deadline" class="form-control" style="border-radius: 12px;">
                                 </div>
                                 <div class="mb-3">
                                     <label class="form-label" style="font-weight: 600;">내용 *</label>
@@ -1660,7 +1662,9 @@
                         <div id="myTasksList">
                             ${tasks.length > 0 ? tasks.map(task => `
                                 <div class="task-request-item" data-assignee-id="${task.assignee_id}" data-task-id="${task.id}">
-                                    <div class="task-notification-item ${task.priority === 'urgent' ? 'urgent' : task.priority === 'important' ? 'important' : ''}" 
+                                    <div class="task-notification-item" 
+                                        data-status="${task.status}"
+                                        style="border-left: 5px solid ${getStatusColor(task.status)};"
                                         onclick="toggleRequestAccordion(${task.id})">
                                         <div class="task-notification-title">
                                             ${getStatusBadge(task.status)}
@@ -1729,7 +1733,30 @@
             event.preventDefault();
             
             const form = event.target;
-            const formData = new FormData(form);
+            const formData = new FormData();
+            
+            // ⭐ 체크박스에서 선택된 담당자들 수집
+            const selectedAssignees = Array.from(form.querySelectorAll('input[name="assignee_ids"]:checked'))
+                .map(checkbox => checkbox.value);
+            
+            if (selectedAssignees.length === 0) {
+                showToast('담당자를 최소 1명 이상 선택해주세요', 'error');
+                return;
+            }
+            
+            // ⭐ 쉼표로 구분된 문자열로 변환
+            formData.append('assignee_ids', selectedAssignees.join(','));
+            formData.append('title', form.querySelector('[name="title"]').value);
+            formData.append('content', form.querySelector('[name="content"]').value);
+            formData.append('custom_deadline', form.querySelector('[name="custom_deadline"]').value || '');
+            
+            // 파일 추가
+            const fileInput = form.querySelector('[name="files"]');
+            if (fileInput && fileInput.files) {
+                for (let i = 0; i < fileInput.files.length; i++) {
+                    formData.append('files', fileInput.files[i]);
+                }
+            }
             
             try {
                 const response = await fetch('/tasks/create', {
@@ -1900,6 +1927,39 @@
                                 </div>
                             </form>
                         </div>
+
+                        ${task.status !== 'cancelled' && task.status !== 'completed' ? `
+                            <div class="mb-3">
+                                <button onclick="showCancelForm(${taskId})" class="btn btn-danger w-100" style="
+                                    border-radius: 12px;
+                                    padding: 12px;
+                                    font-weight: 600;
+                                    background: linear-gradient(135deg, #eb3349 0%, #f45c43 100%);
+                                ">
+                                    <i class="bi bi-x-circle-fill"></i> 업무 취소
+                                </button>
+                                
+                                <!-- 취소 사유 입력 폼 (숨김) -->
+                                <div id="cancel-form-${taskId}" style="display: none; margin-top: 16px; padding: 20px; background: linear-gradient(135deg, rgba(235, 51, 73, 0.05) 0%, rgba(244, 92, 67, 0.05) 100%); border-radius: 16px; border: 2px solid #eb3349; box-shadow: 0 4px 16px rgba(235, 51, 73, 0.15);">
+                                    <h6 style="font-weight: 700; color: #eb3349; margin-bottom: 16px;">
+                                        <i class="bi bi-x-circle-fill"></i> 취소 사유 입력
+                                    </h6>
+                                    <form id="cancel-submit-form-${taskId}" onsubmit="submitCancel(event, ${taskId})">
+                                        <div class="mb-3">
+                                            <label class="form-label" style="font-weight: 600; color: #2d3436;">취소 사유 *</label>
+                                            <textarea name="cancel_reason" class="form-control" rows="4" placeholder="취소 사유를 입력하세요..." 
+                                                    style="border-radius: 12px; resize: none;" required></textarea>
+                                        </div>
+                                        <div class="d-flex gap-2">
+                                            <button type="button" onclick="hideCancelForm(${taskId})" class="btn btn-secondary flex-fill" style="border-radius: 12px;">취소</button>
+                                            <button type="submit" class="btn btn-danger flex-fill" style="border-radius: 12px; background: linear-gradient(135deg, #eb3349 0%, #f45c43 100%);">
+                                                <i class="bi bi-x-circle-fill"></i> 취소 확정
+                                            </button>
+                                        </div>
+                                    </form>
+                                </div>
+                            </div>
+                            ` : ''}
                     </div>
                 `;
                 
@@ -1984,9 +2044,11 @@
                     
                     html += `
                         <div class="task-notification-wrapper" id="notif-${notif.id}">
-                            <div class="task-notification-item ${!notif.is_read ? 'unread' : ''} ${priorityClass}" 
+                            <div class="task-notification-item ${!notif.is_read ? 'unread' : ''}" 
                                 data-task-id="${notif.task_id}"
                                 data-notif-id="${notif.id}"
+                                data-status="${notif.status}"
+                                style="border-left: 5px solid ${getStatusColor(notif.status)};"
                                 onclick="toggleAccordion(${notif.task_id}, ${notif.id})">
                                 <div class="task-notification-title">
                                     ${statusBadge}
@@ -2216,6 +2278,20 @@
                                     </div>
                                     <div class="mb-3">
                                         <label class="form-label" style="font-weight: 600; color: #2d3436;">재개 예정일 *</label>
+                                        <div style="display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap;">
+                                            <button type="button" onclick="setQuickResumeDate(${taskId}, 1)" class="btn btn-sm btn-outline-secondary" style="border-radius: 10px;">
+                                                <i class="bi bi-calendar"></i> 1일 후
+                                            </button>
+                                            <button type="button" onclick="setQuickResumeDate(${taskId}, 2)" class="btn btn-sm btn-outline-secondary" style="border-radius: 10px;">
+                                                <i class="bi bi-calendar"></i> 2일 후
+                                            </button>
+                                            <button type="button" onclick="setQuickResumeDate(${taskId}, 3)" class="btn btn-sm btn-outline-secondary" style="border-radius: 10px;">
+                                                <i class="bi bi-calendar"></i> 3일 후
+                                            </button>
+                                            <button type="button" onclick="setQuickResumeDate(${taskId}, 5)" class="btn btn-sm btn-outline-secondary" style="border-radius: 10px;">
+                                                <i class="bi bi-calendar"></i> 5일 후
+                                            </button>
+                                        </div>
                                         <input type="datetime-local" name="hold_resume_date" class="form-control" 
                                             style="border-radius: 12px;" required>
                                     </div>
@@ -2301,7 +2377,7 @@
         }
 
         // ============================================
-        // 완료 제출
+        // 완료 제출 (전용 API 사용)
         // ============================================
         async function submitCompletion(event, taskId) {
             event.preventDefault();
@@ -2309,43 +2385,26 @@
             const form = event.target;
             const formData = new FormData();
             
-            // ⭐ 필드명을 'content'로 통일
+            // 완료 내용 추가
             const completionContent = form.querySelector('[name="completion_content"]').value;
-            formData.append('content', completionContent);  // ⭐ content로 변경
+            formData.append('completion_note', completionContent);
             
-            // ⭐ 파일도 'files'로 통일
+            // 파일 추가
             const fileInput = form.querySelector('[name="completion_files"]');
             if (fileInput && fileInput.files) {
                 for (let i = 0; i < fileInput.files.length; i++) {
-                    formData.append('files', fileInput.files[i]);  // ⭐ files로 변경
+                    formData.append('files', fileInput.files[i]);
                 }
             }
             
             try {
-                // 댓글로 완료 내용 등록
-                const commentResponse = await fetch(`/tasks/api/${taskId}/comment`, {
+                // ⭐ 완료 전용 API 호출
+                const response = await fetch(`/tasks/api/${taskId}/complete`, {
                     method: 'POST',
                     body: formData
                 });
                 
-                if (!commentResponse.ok) {
-                    showToast('완료 내용 등록에 실패했습니다', 'error');
-                    return;
-                }
-                
-                // 상태 변경
-                const statusFormData = new URLSearchParams();
-                statusFormData.append('status', 'completed');
-                
-                const statusResponse = await fetch(`/tasks/api/${taskId}/status`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/x-www-form-urlencoded',
-                    },
-                    body: statusFormData
-                });
-                
-                const result = await statusResponse.json();
+                const result = await response.json();
                 
                 if (result.success) {
                     await loadTaskDetail(taskId, null);
@@ -2354,16 +2413,16 @@
                     showToast('업무가 완료 처리되었습니다', 'success');
                     hideCompletionForm(taskId);
                 } else {
-                    showToast('상태 변경에 실패했습니다', 'error');
+                    showToast('완료 처리에 실패했습니다', 'error');
                 }
             } catch (error) {
                 console.error('완료 처리 오류:', error);
                 showToast('완료 처리 중 오류가 발생했습니다', 'error');
             }
         }
-        
+                
         // ============================================
-        // 보류 제출
+        // 보류 제출 (전용 API 사용)
         // ============================================
         async function submitHold(event, taskId) {
             event.preventDefault();
@@ -2371,47 +2430,29 @@
             const form = event.target;
             const formData = new FormData();
             
-            // ⭐ 필드명을 'content'로 통일
+            // 보류 사유와 재개일 추가
             const holdReason = form.querySelector('[name="hold_reason"]').value;
             const holdResumeDate = form.querySelector('[name="hold_resume_date"]').value;
             
-            formData.append('content', holdReason);  // ⭐ content로 변경
+            formData.append('hold_reason', holdReason);
+            formData.append('hold_resume_date', holdResumeDate);
             
-            // ⭐ 파일도 'files'로 통일
+            // 파일 추가
             const fileInput = form.querySelector('[name="hold_files"]');
             if (fileInput && fileInput.files) {
                 for (let i = 0; i < fileInput.files.length; i++) {
-                    formData.append('files', fileInput.files[i]);  // ⭐ files로 변경
+                    formData.append('files', fileInput.files[i]);
                 }
             }
             
             try {
-                // 댓글로 보류 사유 등록
-                const commentResponse = await fetch(`/tasks/api/${taskId}/comment`, {
+                // ⭐ 보류 전용 API 호출
+                const response = await fetch(`/tasks/api/${taskId}/hold`, {
                     method: 'POST',
                     body: formData
                 });
                 
-                if (!commentResponse.ok) {
-                    showToast('보류 사유 등록에 실패했습니다', 'error');
-                    return;
-                }
-                
-                // ⭐ 상태 변경 (보류 사유 + 재개 예정일 포함)
-                const statusFormData = new URLSearchParams();
-                statusFormData.append('status', 'on_hold');
-                statusFormData.append('hold_reason', holdReason);
-                statusFormData.append('hold_resume_date', holdResumeDate);  // ⭐ 추가
-                
-                const statusResponse = await fetch(`/tasks/api/${taskId}/status`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/x-www-form-urlencoded',
-                    },
-                    body: statusFormData
-                });
-                
-                const result = await statusResponse.json();
+                const result = await response.json();
                 
                 if (result.success) {
                     await loadTaskDetail(taskId, null);
@@ -2420,14 +2461,13 @@
                     showToast('업무가 보류 처리되었습니다', 'success');
                     hideHoldForm(taskId);
                 } else {
-                    showToast('상태 변경에 실패했습니다', 'error');
+                    showToast('보류 처리에 실패했습니다', 'error');
                 }
             } catch (error) {
                 console.error('보류 처리 오류:', error);
                 showToast('보류 처리 중 오류가 발생했습니다', 'error');
             }
         }
-
 
         // ============================================
         // 댓글 작성
@@ -2939,6 +2979,132 @@
             if (seconds < 86400) return `${Math.floor(seconds / 3600)}시간 전`;
             return `${Math.floor(seconds / 86400)}일 전`;
         }
+
+        // ============================================
+        // 빠른 마감일 선택
+        // ============================================
+        function setQuickDeadline(type) {
+            const input = document.getElementById('customDeadline');
+            const now = new Date();
+            let targetDate = new Date();
+            
+            switch(type) {
+                case 'today':
+                    targetDate.setHours(17, 0, 0, 0);
+                    break;
+                case 'tomorrow':
+                    targetDate.setDate(now.getDate() + 1);
+                    targetDate.setHours(17, 0, 0, 0);
+                    break;
+                case 'dayAfterTomorrow':
+                    targetDate.setDate(now.getDate() + 2);
+                    targetDate.setHours(17, 0, 0, 0);
+                    break;
+                case 'thisWeek':
+                    // 이번주 금요일
+                    const daysUntilFriday = (5 - now.getDay() + 7) % 7 || 7;
+                    targetDate.setDate(now.getDate() + daysUntilFriday);
+                    targetDate.setHours(17, 0, 0, 0);
+                    break;
+            }
+            
+            // datetime-local 형식으로 변환
+            const year = targetDate.getFullYear();
+            const month = String(targetDate.getMonth() + 1).padStart(2, '0');
+            const day = String(targetDate.getDate()).padStart(2, '0');
+            const hours = String(targetDate.getHours()).padStart(2, '0');
+            const minutes = String(targetDate.getMinutes()).padStart(2, '0');
+            
+            input.value = `${year}-${month}-${day}T${hours}:${minutes}`;
+        }
+
+        // ============================================
+        // 빠른 재개일 선택
+        // ============================================
+        function setQuickResumeDate(taskId, days) {
+            const input = document.querySelector(`#hold-submit-form-${taskId} [name="hold_resume_date"]`);
+            const targetDate = new Date();
+            targetDate.setDate(targetDate.getDate() + days);
+            targetDate.setHours(17, 0, 0, 0);
+            
+            const year = targetDate.getFullYear();
+            const month = String(targetDate.getMonth() + 1).padStart(2, '0');
+            const day = String(targetDate.getDate()).padStart(2, '0');
+            const hours = String(targetDate.getHours()).padStart(2, '0');
+            const minutes = String(targetDate.getMinutes()).padStart(2, '0');
+            
+            input.value = `${year}-${month}-${day}T${hours}:${minutes}`;
+        }
+        
+        // ============================================
+        // 취소 폼 표시/숨김
+        // ============================================
+        function showCancelForm(taskId) {
+            const form = document.getElementById(`cancel-form-${taskId}`);
+            
+            if (form.style.display === 'none' || form.style.display === '') {
+                form.style.display = 'block';
+                form.style.animation = 'slideDown 0.3s ease-out';
+            } else {
+                form.style.display = 'none';
+            }
+        }
+
+        function hideCancelForm(taskId) {
+            const form = document.getElementById(`cancel-form-${taskId}`);
+            form.style.display = 'none';
+        }
+
+        // ============================================
+        // 취소 제출
+        // ============================================
+        async function submitCancel(event, taskId) {
+            event.preventDefault();
+            
+            const form = event.target;
+            const cancelReason = form.querySelector('[name="cancel_reason"]').value;
+            
+            try {
+                const formData = new URLSearchParams();
+                formData.append('cancel_reason', cancelReason);
+                
+                const response = await fetch(`/tasks/${taskId}/cancel`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body: formData
+                });
+                
+                if (response.ok) {
+                    showToast('업무가 취소되었습니다', 'success');
+                    hideCancelForm(taskId);
+                    loadTaskRequestContent();
+                } else {
+                    showToast('업무 취소에 실패했습니다', 'error');
+                }
+            } catch (error) {
+                console.error('업무 취소 오류:', error);
+                showToast('업무 취소 중 오류가 발생했습니다', 'error');
+            }
+        }
+
+        // ============================================
+        // 상태별 색상 반환
+        // ============================================
+        function getStatusColor(status) {
+            const colors = {
+                'new': '#eb3349',
+                'confirmed': '#4facfe',
+                'in_progress': '#fdcb6e',
+                'on_hold': '#636e72',
+                'completed': '#00b894',
+                'cancelled': '#2d3436'
+            };
+            return colors[status] || '#4A90E2';
+        }
+
+
     </script>
 
 </body>
