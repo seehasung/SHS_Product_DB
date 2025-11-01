@@ -984,8 +984,8 @@
     <div id="taskNotificationDrawer" style="
         position: fixed;
         top: 0;
-        right: -480px;
-        width: 480px;
+        right: -520px;  
+        width: 520px; 
         height: 100vh;
         background: rgba(255, 255, 255, 0.98);
         backdrop-filter: blur(20px);
@@ -1312,8 +1312,6 @@
     <!-- JavaScript -->
     <!-- ⭐⭐⭐ base.html의 <script> 태그 안의 JavaScript 전체를 이것으로 교체 ⭐⭐⭐ -->
 
-<!-- ⭐⭐⭐ base.html의 <script> 태그 안의 JavaScript 전체를 이것으로 교체 ⭐⭐⭐ -->
-
     <script>
         // ============================================
         // 전역 변수
@@ -1414,9 +1412,6 @@
                     if (isDrawerOpen) {
                         loadNotifications();
                     }
-                    if (isRequestDrawerOpen) {
-                        loadTaskRequestContent();
-                    }
                 } catch (error) {
                     console.error('❌ WebSocket 메시지 처리 오류:', error, 'Raw data:', event.data);
                 }
@@ -1444,6 +1439,11 @@
         }
 
         function openDrawer() {
+            // ⭐ 업무 지시 관리 팝업이 열려있으면 닫기
+            if (isRequestDrawerOpen) {
+                closeRequestDrawer();
+            }
+            
             isDrawerOpen = true;
             const drawer = document.getElementById('taskNotificationDrawer');
             const overlay = document.getElementById('taskNotificationOverlay');
@@ -1460,12 +1460,34 @@
             loadNotifications();
         }
 
+        function openRequestDrawer() {
+            // ⭐ 업무 알림 팝업이 열려있으면 닫기
+            if (isDrawerOpen) {
+                closeDrawer();
+            }
+            
+            isRequestDrawerOpen = true;
+            const drawer = document.getElementById('taskRequestDrawer');
+            const overlay = document.getElementById('taskRequestOverlay');
+            const badgeContainer = document.getElementById('taskNotificationBadgeContainer');
+            
+            if (badgeContainer) {
+                badgeContainer.style.display = 'none';
+                console.log('✅ 드로어 열림 - 배지 숨김');
+            }
+
+            drawer.style.right = '0';
+            overlay.style.display = 'block';
+            
+            loadTaskRequestContent();
+        }
+
         function closeDrawer() {
             isDrawerOpen = false;
             const drawer = document.getElementById('taskNotificationDrawer');
             const overlay = document.getElementById('taskNotificationOverlay');
             
-            drawer.style.right = window.innerWidth <= 768 ? '-100%' : '-480px';
+            drawer.style.right = window.innerWidth <= 768 ? '-100%' : '-520px';  
             overlay.style.display = 'none';
             
             setTimeout(() => {
@@ -1584,22 +1606,13 @@
                                     <label class="form-label" style="font-weight: 600;">제목 *</label>
                                     <input type="text" name="title" class="form-control" required style="border-radius: 12px;">
                                 </div>
-                                
-                                <!-- ⭐ 담당자 다중 선택 (체크박스) -->
                                 <div class="mb-3">
-                                    <label class="form-label" style="font-weight: 600;">담당자 선택 * (여러 명 선택 가능)</label>
-                                    <div id="assigneeCheckboxes" style="max-height: 200px; overflow-y: auto; padding: 12px; background: #f8f9fa; border-radius: 12px; border: 1px solid #dee2e6;">
-                                        ${users.map(user => `
-                                            <div class="form-check" style="margin-bottom: 8px;">
-                                                <input class="form-check-input assignee-checkbox" type="checkbox" value="${user.id}" id="assignee-${user.id}">
-                                                <label class="form-check-label" for="assignee-${user.id}" style="cursor: pointer;">
-                                                    ${user.username}
-                                                </label>
-                                            </div>
-                                        `).join('')}
-                                    </div>
+                                    <label class="form-label" style="font-weight: 600;">담당자 선택 *</label>
+                                    <select name="assignee_ids" class="form-select" required style="border-radius: 12px;">
+                                        <option value="">선택하세요</option>
+                                        ${users.map(user => `<option value="${user.id}">${user.username}</option>`).join('')}
+                                    </select>
                                 </div>
-                                
                                 <div class="mb-3">
                                     <label class="form-label" style="font-weight: 600;">우선순위</label>
                                     <select name="priority" class="form-select" style="border-radius: 12px;">
@@ -1608,24 +1621,10 @@
                                         <option value="urgent">긴급</option>
                                     </select>
                                 </div>
-                                
-                                <!-- ⭐ 마감시한 개선 -->
                                 <div class="mb-3">
                                     <label class="form-label" style="font-weight: 600;">마감시한</label>
-                                    <div style="display: flex; gap: 8px; margin-bottom: 10px;">
-                                        <button type="button" onclick="setDeadlineToday()" class="btn btn-sm btn-outline-primary" style="border-radius: 10px;">
-                                            <i class="bi bi-calendar-day"></i> 오늘
-                                        </button>
-                                        <button type="button" onclick="setDeadlineTomorrow()" class="btn btn-sm btn-outline-primary" style="border-radius: 10px;">
-                                            <i class="bi bi-calendar-plus"></i> 내일
-                                        </button>
-                                        <button type="button" onclick="setDeadlineThisWeek()" class="btn btn-sm btn-outline-primary" style="border-radius: 10px;">
-                                            <i class="bi bi-calendar-week"></i> 이번주
-                                        </button>
-                                    </div>
-                                    <input type="datetime-local" id="customDeadlineInput" name="custom_deadline" class="form-control" style="border-radius: 12px;">
+                                    <input type="datetime-local" name="custom_deadline" class="form-control" style="border-radius: 12px;">
                                 </div>
-                                
                                 <div class="mb-3">
                                     <label class="form-label" style="font-weight: 600;">내용 *</label>
                                     <textarea name="content" class="form-control" rows="4" required style="border-radius: 12px; resize: none;"></textarea>
@@ -1716,47 +1715,6 @@
             }
         }
 
-        // ============================================
-        // 마감시한 빠른 설정
-        // ============================================
-        function setDeadlineToday() {
-            const input = document.getElementById('customDeadlineInput');
-            const today = new Date();
-            today.setHours(17, 0, 0, 0);
-            input.value = formatDateTimeLocal(today);
-        }
-
-        function setDeadlineTomorrow() {
-            const input = document.getElementById('customDeadlineInput');
-            const tomorrow = new Date();
-            tomorrow.setDate(tomorrow.getDate() + 1);
-            tomorrow.setHours(17, 0, 0, 0);
-            input.value = formatDateTimeLocal(tomorrow);
-        }
-
-        function setDeadlineThisWeek() {
-            const input = document.getElementById('customDeadlineInput');
-            const today = new Date();
-            const dayOfWeek = today.getDay(); // 0(일) ~ 6(토)
-            const friday = new Date(today);
-            
-            // 금요일까지 남은 일수 계산
-            const daysUntilFriday = (5 - dayOfWeek + 7) % 7 || 7; // 오늘이 금요일이면 다음주 금요일
-            friday.setDate(today.getDate() + daysUntilFriday);
-            friday.setHours(17, 0, 0, 0);
-            
-            input.value = formatDateTimeLocal(friday);
-        }
-
-        function formatDateTimeLocal(date) {
-            const year = date.getFullYear();
-            const month = String(date.getMonth() + 1).padStart(2, '0');
-            const day = String(date.getDate()).padStart(2, '0');
-            const hours = String(date.getHours()).padStart(2, '0');
-            const minutes = String(date.getMinutes()).padStart(2, '0');
-            return `${year}-${month}-${day}T${hours}:${minutes}`;
-        }
-
         function toggleNewTaskForm() {
             const form = document.getElementById('newTaskForm');
             if (form.style.display === 'none' || form.style.display === '') {
@@ -1773,21 +1731,6 @@
             const form = event.target;
             const formData = new FormData(form);
             
-            // ⭐ 체크박스에서 선택된 담당자들 수집
-            const selectedAssignees = Array.from(document.querySelectorAll('.assignee-checkbox:checked'))
-                .map(cb => cb.value);
-            
-            if (selectedAssignees.length === 0) {
-                showToast('담당자를 최소 1명 이상 선택해주세요', 'error');
-                return;
-            }
-            
-            // FormData에서 기존 assignee_ids 제거하고 새로 추가
-            formData.delete('assignee_ids');
-            selectedAssignees.forEach(id => {
-                formData.append('assignee_ids', id);
-            });
-            
             try {
                 const response = await fetch('/tasks/create', {
                     method: 'POST',
@@ -1797,8 +1740,6 @@
                 if (response.ok) {
                     showToast('업무가 지시되었습니다', 'success');
                     form.reset();
-                    // 체크박스 초기화
-                    document.querySelectorAll('.assignee-checkbox').forEach(cb => cb.checked = false);
                     toggleNewTaskForm();
                     loadTaskRequestContent();
                 } else {
@@ -1854,7 +1795,7 @@
                 const task = await response.json();
                 
                 let html = `
-                    <div style="padding: 20px; background: rgba(255, 255, 255, 0.98); border-radius: 0 0 20px 20px; border: 2px solid #e1e8ed; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12); margin-top: 12px;">
+                    <div style="padding: 20px; background: rgba(255, 255, 255, 0.98); border-radius: 0 0 20px 20px;">
                         <div class="mb-4">
                             <h6 style="font-weight: 700; color: #2d3436; margin-bottom: 12px;">
                                 <i class="bi bi-file-text"></i> 업무 내용
@@ -1959,33 +1900,6 @@
                                 </div>
                             </form>
                         </div>
-                        
-                        <!-- ⭐ 업무 취소 버튼 -->
-                        <div class="mb-3">
-                            <button onclick="showCancelForm(${taskId})" class="btn btn-danger w-100" style="border-radius: 12px; padding: 12px; font-weight: 700;">
-                                <i class="bi bi-x-circle-fill"></i> 업무 취소
-                            </button>
-                            
-                            <!-- 취소 사유 입력 폼 (숨김) -->
-                            <div id="cancel-form-${taskId}" style="display: none; margin-top: 16px; padding: 20px; background: linear-gradient(135deg, rgba(235, 51, 73, 0.05) 0%, rgba(244, 92, 67, 0.05) 100%); border-radius: 16px; border: 2px solid #eb3349; box-shadow: 0 4px 16px rgba(235, 51, 73, 0.15);">
-                                <h6 style="font-weight: 700; color: #eb3349; margin-bottom: 16px;">
-                                    <i class="bi bi-x-circle-fill"></i> 취소 사유 입력
-                                </h6>
-                                <form id="cancel-submit-form-${taskId}" onsubmit="submitCancel(event, ${taskId})">
-                                    <div class="mb-3">
-                                        <label class="form-label" style="font-weight: 600; color: #2d3436;">취소 사유 *</label>
-                                        <textarea name="cancel_reason" class="form-control" rows="4" placeholder="업무 취소 사유를 입력하세요..." 
-                                                style="border-radius: 12px; resize: none;" required></textarea>
-                                    </div>
-                                    <div class="d-flex gap-2">
-                                        <button type="button" onclick="hideCancelForm(${taskId})" class="btn btn-secondary flex-fill" style="border-radius: 12px;">취소</button>
-                                        <button type="submit" class="btn btn-danger flex-fill" style="border-radius: 12px; background: linear-gradient(135deg, #eb3349 0%, #f45c43 100%);">
-                                            <i class="bi bi-x-circle-fill"></i> 업무 삭제
-                                        </button>
-                                    </div>
-                                </form>
-                            </div>
-                        </div>
                     </div>
                 `;
                 
@@ -1998,69 +1912,6 @@
                         <i class="bi bi-exclamation-triangle"></i> 정보를 불러오는데 실패했습니다.
                     </div>
                 `;
-            }
-        }
-
-        // ============================================
-        // 업무 취소 폼 표시/숨김
-        // ============================================
-        function showCancelForm(taskId) {
-            const form = document.getElementById(`cancel-form-${taskId}`);
-            
-            if (form.style.display === 'none' || form.style.display === '') {
-                form.style.display = 'block';
-                form.style.animation = 'slideDown 0.3s ease-out';
-            } else {
-                form.style.display = 'none';
-            }
-        }
-
-        function hideCancelForm(taskId) {
-            const form = document.getElementById(`cancel-form-${taskId}`);
-            form.style.display = 'none';
-        }
-
-        // ============================================
-        // 업무 취소 제출
-        // ============================================
-        async function submitCancel(event, taskId) {
-            event.preventDefault();
-            
-            const form = event.target;
-            const reason = form.querySelector('[name="cancel_reason"]').value;
-            
-            if (!confirm('정말 이 업무를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.')) {
-                return;
-            }
-            
-            try {
-                const response = await fetch(`/tasks/api/${taskId}/delete`, {
-                    method: 'DELETE',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({ reason: reason })
-                });
-                
-                const result = await response.json();
-                
-                if (result.success) {
-                    showToast('업무가 삭제되었습니다', 'success');
-                    
-                    // 목록에서 해당 업무 제거
-                    const taskItem = document.querySelector(`[data-task-id="${taskId}"]`);
-                    if (taskItem) {
-                        taskItem.remove();
-                    }
-                    
-                    // 드로어 새로고침
-                    loadTaskRequestContent();
-                } else {
-                    showToast(result.message || '업무 삭제에 실패했습니다', 'error');
-                }
-            } catch (error) {
-                console.error('업무 취소 오류:', error);
-                showToast('업무 삭제 중 오류가 발생했습니다', 'error');
             }
         }
 
@@ -2092,15 +1943,26 @@
         }
 
         // ============================================
-        // 알림 목록 로드 (내가 받은 업무만)
+        // 알림 목록 로드
         // ============================================
         async function loadNotifications() {
             try {
                 const response = await fetch('/tasks/notifications/unread');
                 const allNotifications = await response.json();
                 
-                // ⭐ 내가 assignee인 것만 필터링
-                const notifications = allNotifications.filter(notif => notif.assignee_id === currentUserId);
+                console.log('📋 전체 알림 개수:', allNotifications.length);
+                console.log('🔑 현재 사용자 ID:', currentUserId, '(타입:', typeof currentUserId, ')');
+                
+                // ⭐ 내가 assignee인 것만 필터링 (요청 받은 업무만)
+                const notifications = allNotifications.filter(notif => {
+                    const isMatch = Number(notif.assignee_id) === Number(currentUserId);
+                    if (!isMatch) {
+                        console.log(`❌ 필터링됨 - 업무 ${notif.id}: assignee_id=${notif.assignee_id}`);
+                    }
+                    return isMatch;
+                });
+                
+                console.log('✅ 필터링 후 알림 (받은 업무):', notifications.length, '개');
 
                 const listContainer = document.getElementById('taskNotificationList');
                 
@@ -2344,13 +2206,18 @@
                             <!-- 보류 입력 폼 (숨김) -->
                             <div id="hold-form-${taskId}" style="display: none; margin-top: 16px; padding: 20px; background: linear-gradient(135deg, rgba(99, 110, 114, 0.05) 0%, rgba(178, 190, 195, 0.05) 100%); border-radius: 16px; border: 2px solid #636e72; box-shadow: 0 4px 16px rgba(99, 110, 114, 0.15);">
                                 <h6 style="font-weight: 700; color: #636e72; margin-bottom: 16px;">
-                                    <i class="bi bi-pause-circle"></i> 보류 사유 입력
+                                    <i class="bi bi-pause-circle"></i> 보류 정보 입력
                                 </h6>
                                 <form id="hold-submit-form-${taskId}" onsubmit="submitHold(event, ${taskId})">
                                     <div class="mb-3">
                                         <label class="form-label" style="font-weight: 600; color: #2d3436;">보류 사유 *</label>
                                         <textarea name="hold_reason" class="form-control" rows="4" placeholder="보류 사유를 상세히 입력하세요..." 
                                                 style="border-radius: 12px; resize: none;" required></textarea>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label" style="font-weight: 600; color: #2d3436;">재개 예정일 *</label>
+                                        <input type="datetime-local" name="hold_resume_date" class="form-control" 
+                                            style="border-radius: 12px;" required>
                                     </div>
                                     <div class="mb-3">
                                         <label class="form-label" style="font-weight: 600; color: #2d3436;">첨부파일</label>
@@ -2444,6 +2311,7 @@
             formData.append('status', 'completed');
             
             try {
+                // 댓글로 완료 내용 등록
                 const commentResponse = await fetch(`/tasks/api/${taskId}/comment`, {
                     method: 'POST',
                     body: formData
@@ -2454,6 +2322,7 @@
                     return;
                 }
                 
+                // 상태 변경
                 const statusFormData = new URLSearchParams();
                 statusFormData.append('status', 'completed');
                 
@@ -2493,6 +2362,7 @@
             formData.append('status', 'on_hold');
             
             try {
+                // 댓글로 보류 사유 등록
                 const commentResponse = await fetch(`/tasks/api/${taskId}/comment`, {
                     method: 'POST',
                     body: formData
@@ -2503,9 +2373,11 @@
                     return;
                 }
                 
+                // ⭐ 상태 변경 (보류 사유 + 재개 예정일 포함)
                 const statusFormData = new URLSearchParams();
                 statusFormData.append('status', 'on_hold');
                 statusFormData.append('hold_reason', form.querySelector('[name="hold_reason"]').value);
+                statusFormData.append('hold_resume_date', form.querySelector('[name="hold_resume_date"]').value); // ⭐ 추가
                 
                 const statusResponse = await fetch(`/tasks/api/${taskId}/status`, {
                     method: 'POST',
@@ -2666,8 +2538,10 @@
                 const response = await fetch('/tasks/notifications/unread');
                 const allNotifications = await response.json();
                 
-                // ⭐ 내가 assignee인 것만 필터링
-                const notifications = allNotifications.filter(notif => notif.assignee_id === currentUserId);
+                // ⭐ 내가 assignee인 것만 필터링 (요청 받은 업무만)
+                const notifications = allNotifications.filter(notif => 
+                    Number(notif.assignee_id) === Number(currentUserId)
+                );
                 
                 const statusCounts = {
                     new: 0,
@@ -2735,7 +2609,7 @@
         }
 
         // ============================================
-        // 토스트 알림 표시 (개선 버전 - 알림 분리)
+        // 토스트 알림 표시 (개선 버전)
         // ============================================
         function showToastNotification(data) {
             console.log('🍞 토스트 알림 표시:', data);
@@ -2746,7 +2620,7 @@
                 console.error('❌ 토스트 컨테이너를 찾을 수 없습니다');
                 return;
             }
-            
+
             // 상태별 색상 및 아이콘
             const statusConfig = {
                 'new': {
@@ -2793,26 +2667,44 @@
                 }
             };
             
-            const type = data.type || 'new_task';
-            const status = data.status || 'new';
-            let config = statusConfig[status] || statusConfig['new'];
-            
-            if (type === 'new_comment') {
-                config = statusConfig['comment'];
-            }
-            
             const toast = document.createElement('div');
             toast.className = 'task-toast';
             toast.style.borderLeft = `6px solid ${config.color}`;
             
-            // ⭐ 클릭 이벤트: 내가 creator면 ➕ 팝업, assignee면 🔔 팝업
+            // ⭐ 클릭 이벤트: assignee인지 creator인지 판단
             toast.onclick = () => {
                 if (data.task_id) {
-                    const isMyCreatedTask = data.creator_id === currentUserId;
-                    const isMyAssignedTask = data.assignee_id === currentUserId;
+                    const isMyAssignedTask = Number(data.assignee_id) === Number(currentUserId);
+                    const isMyCreatedTask = Number(data.creator_id) === Number(currentUserId);
                     
-                    if (isMyCreatedTask && !isMyAssignedTask) {
-                        // 내가 지시한 업무 → 업무 지시 관리 팝업
+                    console.log('🎯 토스트 클릭:', {
+                        taskId: data.task_id,
+                        assignee_id: data.assignee_id,
+                        creator_id: data.creator_id,
+                        currentUserId: currentUserId,
+                        isMyAssignedTask: isMyAssignedTask,
+                        isMyCreatedTask: isMyCreatedTask
+                    });
+                    
+                    if (isMyAssignedTask && !isMyCreatedTask) {
+                        // ⭐ 내가 받은 업무 → 업무 알림 팝업
+                        console.log('➡️ 업무 알림 팝업 열기');
+                        if (!isDrawerOpen) {
+                            openDrawer();
+                        }
+                        
+                        setTimeout(() => {
+                            const notifElement = document.querySelector(`[data-task-id="${data.task_id}"]`);
+                            if (notifElement) {
+                                notifElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                setTimeout(() => {
+                                    toggleAccordion(data.task_id, data.notif_id || null);
+                                }, 500);
+                            }
+                        }, 300);
+                    } else if (isMyCreatedTask && !isMyAssignedTask) {
+                        // ⭐ 내가 지시한 업무 → 업무 지시 관리 팝업
+                        console.log('➡️ 업무 지시 관리 팝업 열기');
                         if (!isRequestDrawerOpen) {
                             openRequestDrawer();
                         }
@@ -2826,8 +2718,9 @@
                                 }, 500);
                             }
                         }, 300);
-                    } else {
-                        // 내가 받은 업무 → 업무 알림 팝업
+                    } else if (isMyCreatedTask && isMyAssignedTask) {
+                        // ⭐ 둘 다인 경우 (자기 자신에게 지시) → 업무 알림 팝업 우선
+                        console.log('➡️ 자기 지시 업무 - 업무 알림 팝업 열기');
                         if (!isDrawerOpen) {
                             openDrawer();
                         }
@@ -2850,6 +2743,7 @@
             let content = '';
             
             if (type === 'new_comment') {
+                // 댓글인 경우
                 const commentText = data.comment_content || '';
                 const commentPreview = commentText.length > 80 
                     ? commentText.substring(0, 80).split('\n').slice(0, 2).join('\n') + '...'
@@ -2892,6 +2786,7 @@
                     </div>
                 `;
             } else {
+                // 일반 업무 알림
                 content = `
                     <div style="display: flex; gap: 20px;">
                         <div style="
@@ -2937,6 +2832,7 @@
             
             console.log('✅ 토스트 추가됨');
             
+            // 20초 후 자동 제거
             setTimeout(() => {
                 removeToast(toast);
             }, 20000);
@@ -2951,6 +2847,38 @@
                     toast.remove();
                 }
             }, 300);
+        }
+
+        // ============================================
+        // 유틸리티 함수
+        // ============================================
+        function goToTask(taskId, notifId) {
+            if (notifId) {
+                markAsRead(notifId);
+            }
+            window.location.href = `/tasks/${taskId}`;
+        }
+
+        async function markAsRead(notifId) {
+            try {
+                await fetch(`/tasks/notifications/${notifId}/read`, {
+                    method: 'POST'
+                });
+                loadNotifications();
+                updateNotificationBadge();
+            } catch (error) {
+                console.error('읽음 처리 오류:', error);
+            }
+        }
+
+        function getNotificationIcon(type) {
+            const icons = {
+                'new_task': '<span style="color: #4A90E2;"><i class="bi bi-clipboard-plus"></i> 새 업무</span>',
+                'comment': '<span style="color: #00b894;"><i class="bi bi-chat-dots"></i> 댓글</span>',
+                'deadline_warning': '<span style="color: #ffc107;"><i class="bi bi-clock"></i> 마감임박</span>',
+                'status_change': '<span style="color: #6c5ce7;"><i class="bi bi-arrow-repeat"></i> 상태변경</span>'
+            };
+            return icons[type] || '<i class="bi bi-bell"></i>';
         }
 
         function formatTimeAgo(dateString) {
