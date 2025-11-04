@@ -12,7 +12,7 @@ from pathlib import Path
 
 # 기존 database.py에서 import
 from database import (
-    get_db, User, MarketingProduct,
+    get_db, User, MarketingProduct, Product,
     BlogWorker, BlogAccount, BlogProductKeyword, BlogPost, BlogPostImage,
     BlogKeywordProgress, BlogWorkTask, BlogPostSchedule
 )
@@ -307,13 +307,22 @@ def get_blog_products(request: Request, db: Session = Depends(get_db)):
     
     result = []
     for mp in marketing_products:
-        # ⭐ product_id로 Product 조회
+        # product_id로 Product 조회
         product = None
         if hasattr(mp, 'product_id') and mp.product_id:
             product = db.query(Product).filter(Product.id == mp.product_id).first()
         
-        # MarketingProduct의 기본 키워드
-        base_keywords = mp.keywords if isinstance(mp.keywords, list) else []
+        # MarketingProduct의 기본 키워드 처리
+        if isinstance(mp.keywords, str):
+            try:
+                import json
+                base_keywords = json.loads(mp.keywords)
+            except:
+                base_keywords = []
+        elif isinstance(mp.keywords, list):
+            base_keywords = mp.keywords
+        else:
+            base_keywords = []
         
         # 블로그용 키워드 설정 조회
         blog_keywords = db.query(BlogProductKeyword).filter(
