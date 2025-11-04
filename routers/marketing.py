@@ -2132,8 +2132,9 @@ async def update_marketing_post(
         
         db.commit()
     
-    redirect_url = f"/marketing/product/posts/{mp_id}" if mp_id else "/marketing/cafe?tab=products"
-    return RedirectResponse(url=redirect_url, status_code=303)
+    # ✅ 이전 페이지(Referer)로 돌아가기
+    referer = request.headers.get('referer', '/marketing/cafe?tab=status')
+    return RedirectResponse(url=referer, status_code=303)
 
 @router.post("/post/delete/{post_id}", response_class=RedirectResponse)
 async def delete_marketing_post(post_id: int, db: Session = Depends(get_db)):
@@ -2153,8 +2154,9 @@ async def delete_marketing_post(post_id: int, db: Session = Depends(get_db)):
         db.delete(post)
         db.commit()
     
-    redirect_url = f"/marketing/product/posts/{mp_id}" if mp_id else "/marketing/cafe?tab=products"
-    return RedirectResponse(url=redirect_url, status_code=303)
+    # ✅ 이전 페이지(Referer)로 돌아가기
+    referer = request.headers.get('referer', '/marketing/cafe?tab=status')
+    return RedirectResponse(url=referer, status_code=303)
 
 # --- Other Marketing Pages (수정됨) ---
 @router.get("/blog", response_class=HTMLResponse)

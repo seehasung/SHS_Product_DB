@@ -1153,9 +1153,10 @@
                                 <td class="text-center">
                                     <div class="action-buttons">
                                         <button class="btn btn-sm {{ 'btn-success' if schedule.status == 'completed' else 'btn-outline-info' }}" 
-                                                onclick="editScheduleAndStart({{ schedule.id }}, '{{ schedule.status }}')"
+                                        onclick="editScheduleAndStart({{ schedule.id }}, '{{ schedule.status }}')"
+                                                {{ 'disabled' if schedule.status == 'completed' }}
                                                 data-bs-toggle="tooltip" 
-                                                title="{{ '완료됨 (수정만 가능)' if schedule.status == 'completed' else '수정' }}">
+                                                title="{{ '완료된 글은 수정할 수 없습니다' if schedule.status == 'completed' else '수정 (대기중 시 가능)' }}">
                                             <i class="bi bi-pencil"></i>
                                         </button>
                                         <button class="btn btn-sm btn-outline-warning"
