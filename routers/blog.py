@@ -16,7 +16,6 @@ from database import (
     BlogWorker, BlogAccount, BlogProductKeyword, BlogPost, BlogPostImage,
     BlogKeywordProgress, BlogWorkTask, BlogPostSchedule
 )
-from routers.auth import get_current_user 
 
 router = APIRouter()
 
@@ -25,11 +24,43 @@ router = APIRouter()
 # ============================================
 
 
+# ✅ get_current_user 함수를 blog.py에 정의
+def get_current_user(request: Request, db: Session):
+    """현재 로그인한 사용자 가져오기"""
+    # 세션에서 username 가져오기
+    username = request.session.get('username')
+    
+    if not username:
+        raise HTTPException(status_code=401, detail="로그인이 필요합니다")
+    
+    user = db.query(User).filter(User.username == username).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="사용자를 찾을 수 없습니다")
+    
+    return user
+
+
 def check_blog_access(user: User, db: Session):
     """블로그 접근 권한 체크"""
     # 전체 관리자는 항상 접근 가능
     if user.is_admin:
-        return True, None
+        # 블로그 작업자 프로필 자동 생성
+        blog_worker = db.query(BlogWorker).filter(
+            BlogWorker.user_id == user.id
+        ).first()
+        
+        if not blog_worker:
+            blog_worker = BlogWorker(
+                user_id=user.id,
+                status='active',
+                daily_quota=0,
+                is_blog_manager=True
+            )
+            db.add(blog_worker)
+            db.commit()
+            db.refresh(blog_worker)
+        
+        return True, blog_worker
     
     # 마케팅 권한 체크
     if not user.can_manage_marketing:
@@ -46,7 +77,6 @@ def check_blog_access(user: User, db: Session):
     
     return True, blog_worker
 
-
 def is_blog_manager(user: User, db: Session):
     """블로그 관리자 여부 체크"""
     if user.is_admin:
@@ -57,7 +87,6 @@ def is_blog_manager(user: User, db: Session):
     ).first()
     
     return blog_worker and blog_worker.is_blog_manager
-
 
 def count_keyword_occurrences(text: str, keyword: str):
     """텍스트에서 키워드 출현 횟수 세기"""
