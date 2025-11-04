@@ -2132,7 +2132,7 @@ async def update_marketing_post(
         
         db.commit()
     
-    redirect_url = f"//product/posts/{mp_id}" if mp_id else "/marketing/cafe?tab=products"
+    redirect_url = f"/marketing/product/posts/{mp_id}" if mp_id else "/marketing/cafe?tab=products"
     return RedirectResponse(url=redirect_url, status_code=303)
 
 @router.post("/post/delete/{post_id}", response_class=RedirectResponse)

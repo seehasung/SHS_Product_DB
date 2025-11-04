@@ -1334,13 +1334,11 @@
                         connectTaskWebSocket();
                         loadNotifications();
                         updateNotificationBadge();
-                        setInterval(updateNotificationBadge, 2000);
                     })
                     .catch(error => {
                         console.error('❌ 사용자 ID 가져오기 오류:', error);
                         loadNotifications();
                         updateNotificationBadge();
-                        setInterval(updateNotificationBadge, 2000);
                     });
             }
 
