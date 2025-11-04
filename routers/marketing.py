@@ -2079,6 +2079,7 @@ async def add_marketing_post(
 
 @router.post("/post/update/{post_id}", response_class=RedirectResponse)
 async def update_marketing_post(
+    request: Request,  # ✅ 이 줄 추가!
     post_id: int,
     account_id: int = Form(...),
     cafe_id: int = Form(...),
