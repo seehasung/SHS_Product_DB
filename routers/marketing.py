@@ -2110,27 +2110,40 @@ async def update_marketing_post(
         post.post_url = post_url if is_registration_complete else None
         post.is_live = is_live
         
+ 
         # Option C: URL 입력 시 자동 완료
         # MarketingPost는 is_registration_complete만 사용
         if post_url and post_url.strip():
             post.is_registration_complete = True
-        
+
         # 연결된 PostSchedule 동기화
         schedule = db.query(PostSchedule).filter(
             PostSchedule.marketing_post_id == post_id
         ).first()
-        
+
         if schedule:
             schedule.account_id = account_id
             schedule.cafe_id = cafe_id
             schedule.worker_id = worker_id
             
-            # URL 입력 시 스케줄도 완료로 변경
-            if post_url and post_url.strip():
+            # ✅ 생존 여부에 따른 상태 변경
+            if not is_live:
+                # 생존 여부 OFF → 삭제됨
+                schedule.status = "deleted"
+                schedule.is_completed = False
+                schedule.completed_at = None
+            elif post_url and post_url.strip():
+                # URL 있음 → 완료
                 schedule.status = "completed"
                 schedule.is_completed = True
                 schedule.completed_at = datetime.utcnow()
-        
+            else:
+                # 생존 여부 ON, URL 없음 → 대기중
+                if schedule.status == "deleted":
+                    schedule.status = "pending"
+                    schedule.is_completed = False
+                    schedule.completed_at = None
+
         db.commit()
     
     # ✅ 이전 페이지(Referer)로 돌아가기

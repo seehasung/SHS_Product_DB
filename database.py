@@ -176,7 +176,7 @@ class MarketingPost(Base):
     is_registration_complete = Column(Boolean, default=False)
     post_url = Column(String, nullable=True)
     keyword_text = Column(String, index=True)
-    is_live = Column(Boolean, default=True)
+    is_live = Column(Boolean, default=False)
     marketing_product_id = Column(Integer, ForeignKey("marketing_products.id", ondelete="CASCADE"))
     worker_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     account_id = Column(Integer, ForeignKey("marketing_accounts.id", ondelete="SET NULL"), nullable=True)
