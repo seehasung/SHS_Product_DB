@@ -302,16 +302,22 @@ def get_blog_products(request: Request, db: Session = Depends(get_db)):
     if not has_access:
         raise HTTPException(status_code=403)
     
-    products = db.query(MarketingProduct).order_by(MarketingProduct.id).all()
+    # MarketingProduct 조회
+    marketing_products = db.query(MarketingProduct).order_by(MarketingProduct.id).all()
     
     result = []
-    for product in products:
+    for mp in marketing_products:
+        # ⭐ product_id로 Product 조회
+        product = None
+        if hasattr(mp, 'product_id') and mp.product_id:
+            product = db.query(Product).filter(Product.id == mp.product_id).first()
+        
         # MarketingProduct의 기본 키워드
-        base_keywords = product.keywords if isinstance(product.keywords, list) else []
+        base_keywords = mp.keywords if isinstance(mp.keywords, list) else []
         
         # 블로그용 키워드 설정 조회
         blog_keywords = db.query(BlogProductKeyword).filter(
-            BlogProductKeyword.marketing_product_id == product.id
+            BlogProductKeyword.marketing_product_id == mp.id
         ).order_by(BlogProductKeyword.order_index).all()
         
         keywords_info = []
@@ -324,9 +330,9 @@ def get_blog_products(request: Request, db: Session = Depends(get_db)):
             })
         
         result.append({
-            "id": product.id,
-            "product_code": product.product_code,
-            "name": product.name,
+            "id": mp.id,
+            "product_code": product.product_code if product else f"MP-{mp.id}",
+            "name": product.name if product else f"마케팅 상품 #{mp.id}",
             "base_keywords": base_keywords,
             "blog_keywords": keywords_info
         })
