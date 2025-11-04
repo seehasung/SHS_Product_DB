@@ -16,22 +16,13 @@ from database import (
     BlogWorker, BlogAccount, BlogProductKeyword, BlogPost, BlogPostImage,
     BlogKeywordProgress, BlogWorkTask, BlogPostSchedule
 )
+from routers.auth import get_current_user 
 
 router = APIRouter()
 
 # ============================================
 # 유틸리티 함수
 # ============================================
-
-def get_current_user(request: Request, db: Session):
-    """현재 로그인한 사용자 가져오기"""
-    username = request.session.get('username')
-    if not username:
-        raise HTTPException(status_code=401, detail="로그인이 필요합니다")
-    user = db.query(User).filter(User.username == username).first()
-    if not user:
-        raise HTTPException(status_code=404, detail="사용자를 찾을 수 없습니다")
-    return user
 
 
 def check_blog_access(user: User, db: Session):
