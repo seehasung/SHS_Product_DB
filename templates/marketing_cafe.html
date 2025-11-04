@@ -1258,12 +1258,20 @@
                     <table class="table table-bordered table-hover text-center align-middle">
                         <thead class="table-dark">
                             <tr>
-                                <th>계정 아이디</th><th>신규 글</th><th>수정 글</th><th>상태</th><th>저장</th><th>삭제</th>
+                                <th width="25%">계정 아이디</th>
+                                <th width="12%">신규 글</th>
+                                <th width="12%">수정 글</th>
+                                <th width="25%">상태</th>
+                                <th width="13%">저장</th>
+                                <th width="13%">삭제</th>
                             </tr>
                         </thead>
                         <tbody>
                             {% for membership in memberships %}
-                            <tr>
+                            <tr class="{% if membership.status == 'active' %}membership-active
+                                    {% elif membership.status == 'suspended' %}membership-suspended
+                                    {% elif membership.status == 'graduated' %}membership-graduated
+                                    {% endif %}">
                             <form action="/marketing/membership/update/{{ membership.id }}" method="post">
                                 <td>{{ membership.account.account_id }}</td>
                                 <td><input type="number" name="new_post_count" class="form-control form-control-sm" value="{{ membership.new_post_count }}"></td>
@@ -1286,6 +1294,34 @@
                             {% endfor %}
                         </tbody>
                     </table>
+
+                    <style>
+                    /* 상태별 행 배경색 (은은하게) */
+                    .membership-active {
+                        background-color: rgba(200, 255, 200, 0.3) !important; /* 연한 초록색 */
+                    }
+
+                    .membership-suspended {
+                        background-color: rgba(255, 200, 200, 0.3) !important; /* 연한 빨간색 */
+                    }
+
+                    .membership-graduated {
+                        background-color: rgba(200, 200, 200, 0.3) !important; /* 연한 회색 */
+                    }
+
+                    /* hover 시에도 배경색 유지 */
+                    .table-hover .membership-active:hover {
+                        background-color: rgba(200, 255, 200, 0.5) !important;
+                    }
+
+                    .table-hover .membership-suspended:hover {
+                        background-color: rgba(255, 200, 200, 0.5) !important;
+                    }
+
+                    .table-hover .membership-graduated:hover {
+                        background-color: rgba(200, 200, 200, 0.5) !important;
+                    }
+                    </style>
                     {% else %}
                     <div class="p-5 text-center bg-light border rounded">← 왼쪽에서 카페를 선택하여 연동된 계정 목록을 확인하세요.</div>
                     {% endif %}
