@@ -26,35 +26,22 @@ router = APIRouter()
 
 def get_current_user(request: Request, db: Session):
     """현재 로그인한 사용자 가져오기"""
-    # 🔍 디버깅: 세션 전체 출력
-    print("=" * 80)
-    print("🔍 [BLOG DEBUG] 세션 전체 내용:", dict(request.session))
-    print("🔍 [BLOG DEBUG] 세션 키들:", list(request.session.keys()))
-    print("=" * 80)
+    # 세션에서 사용자명 가져오기 (키: 'user')
+    username = request.session.get('user')
     
-    # 방법 1: username으로 시도
-    username = request.session.get('username')
-    print(f"🔍 [BLOG DEBUG] username: {username}")
+    if not username:
+        # 디버깅 정보 (나중에 삭제 가능)
+        print(f"❌ [BLOG] 세션에 'user' 키 없음. 세션 내용: {dict(request.session)}")
+        raise HTTPException(status_code=401, detail="로그인이 필요합니다")
     
-    if username:
-        user = db.query(User).filter(User.username == username).first()
-        if user:
-            print(f"✅ [BLOG DEBUG] username으로 사용자 찾음: {user.username}")
-            return user
+    # 사용자 조회
+    user = db.query(User).filter(User.username == username).first()
+    if not user:
+        print(f"❌ [BLOG] 사용자 '{username}' DB에 없음")
+        raise HTTPException(status_code=404, detail="사용자를 찾을 수 없습니다")
     
-    # 방법 2: user_id로 시도
-    user_id = request.session.get('user_id')
-    print(f"🔍 [BLOG DEBUG] user_id: {user_id}")
-    
-    if user_id:
-        user = db.query(User).filter(User.id == user_id).first()
-        if user:
-            print(f"✅ [BLOG DEBUG] user_id로 사용자 찾음: {user.username}")
-            return user
-    
-    # 둘 다 실패
-    print("❌ [BLOG DEBUG] 세션에 사용자 정보 없음!")
-    raise HTTPException(status_code=401, detail="로그인이 필요합니다")
+    print(f"✅ [BLOG] 사용자 인증 성공: {user.username} (ID: {user.id})")
+    return user
 
 
 def check_blog_access(user: User, db: Session):
