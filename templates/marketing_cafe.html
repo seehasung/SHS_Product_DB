@@ -1160,12 +1160,12 @@
                                             <i class="bi bi-pencil"></i>
                                         </button>
                                         <button class="btn btn-sm btn-outline-warning"
-                                                onclick="changeStatus({{ schedule.id }}, 'pending')"
+                                                onclick="changeMarketingStatus({{ schedule.id }}, 'pending')"
                                                 data-bs-toggle="tooltip" title="대기중">
                                             <i class="bi bi-pause-circle"></i>
                                         </button>
                                         <button class="btn btn-sm btn-outline-secondary"
-                                                onclick="changeStatus({{ schedule.id }}, 'skipped')"
+                                                onclick="changeMarketingStatus({{ schedule.id }}, 'skipped')"
                                                 data-bs-toggle="tooltip" title="건너뛰기">
                                             <i class="bi bi-skip-forward"></i>
                                         </button>
@@ -1858,7 +1858,7 @@ function toggleComplete(scheduleId, checkbox) {
 // 🔄 상태 변경
 // ========================================
 
-function changeStatus(scheduleId, newStatus) {
+function changeMarketingStatus(scheduleId, newStatus) {  // ✅ 이름 변경!
     const statusNames = {
         'pending': '대기중',
         'in_progress': '진행중',
