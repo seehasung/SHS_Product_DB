@@ -607,6 +607,13 @@ class BlogPostSchedule(Base):
     marketing_product = relationship("MarketingProduct", foreign_keys=[marketing_product_id])
     blog_post = relationship("BlogPost", foreign_keys=[blog_post_id])
 
+def get_db():
+    """데이터베이스 세션 의존성"""
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
 
 
 # __all__ 리스트 업데이트
@@ -615,5 +622,7 @@ __all__ = [
     "MarketingProduct", "Reference", "PostLog", "Comment", "MarketingPost",
     "WorkTask", "PostSchedule", "AccountCafeUsage", "PostingRound", "LoginLog",
     "TaskAssignment", "TaskComment", "TaskFile", "TaskNotification",
-    "SessionLocal", "Base", "engine"
+    "SessionLocal", "Base", "engine",
+    "get_db"  # ⭐ 이것도 추가!
+
 ]
