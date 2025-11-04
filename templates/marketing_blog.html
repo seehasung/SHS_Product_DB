@@ -1,9 +1,965 @@
 {% extends "base.html" %}
 {% block title %}마케팅 - 블로그{% endblock %}
+
 {% block content %}
-<div class="container mt-4">
-    <h1>📝 블로그 작업 관리</h1>
-    <a href="/" class="btn btn-secondary mt-3">← 홈으로</a>
-    <!-- TODO: 향후 여기에 블로그 작업 목록 테이블 등이 추가될 예정입니다. -->
+<div class="container-fluid mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>📝 블로그 작업 관리</h1>
+        <a href="/" class="btn btn-secondary">← 홈으로</a>
+    </div>
+
+    <!-- 탭 네비게이션 -->
+    <ul class="nav nav-tabs" id="blogTabs" role="tablist">
+        <li class="nav-item">
+            <a class="nav-link active" id="dashboard-tab" data-bs-toggle="tab" href="#dashboard" role="tab">
+                📊 전체 현황
+            </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" id="products-tab" data-bs-toggle="tab" href="#products" role="tab">
+                📦 상품 관리
+            </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" id="posts-tab" data-bs-toggle="tab" href="#posts" role="tab">
+                ✍️ 글 관리
+            </a>
+        </li>
+        {% if is_manager %}
+        <li class="nav-item">
+            <a class="nav-link" id="accounts-tab" data-bs-toggle="tab" href="#accounts" role="tab">
+                👤 계정 관리
+            </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" id="workers-tab" data-bs-toggle="tab" href="#workers" role="tab">
+                👥 작업자 관리
+            </a>
+        </li>
+        {% endif %}
+    </ul>
+
+    <!-- 탭 콘텐츠 -->
+    <div class="tab-content mt-3" id="blogTabContent">
+        
+        <!-- ==================== 탭 1: 전체 현황 ==================== -->
+        <div class="tab-pane fade show active" id="dashboard" role="tabpanel">
+            <div class="row mb-4">
+                <!-- 통계 카드 -->
+                <div class="col-md-3">
+                    <div class="card text-center">
+                        <div class="card-body">
+                            <h5 class="card-title">오늘의 작업</h5>
+                            <h2 id="todayProgress">0%</h2>
+                            <p id="todayTasks">0/0 완료</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card text-center">
+                        <div class="card-body">
+                            <h5 class="card-title">전체 글 수</h5>
+                            <h2 id="totalPosts">0</h2>
+                            <p>총 작성 글</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card text-center">
+                        <div class="card-body">
+                            <h5 class="card-title">오늘 작성</h5>
+                            <h2 id="todayPosts">0</h2>
+                            <p>오늘 추가</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card text-center">
+                        <div class="card-body">
+                            <h5 class="card-title">활성 작업자</h5>
+                            <h2 id="activeWorkers">0</h2>
+                            <p>현재 활동 중</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 스케줄 관리 버튼 (관리자 전용) -->
+            {% if is_manager %}
+            <div class="mb-3">
+                <button class="btn btn-primary" onclick="assignDailyTasks()">
+                    📅 오늘 작업 자동 배정
+                </button>
+            </div>
+            {% endif %}
+
+            <!-- 작업 목록 -->
+            <div class="card">
+                <div class="card-header">
+                    <h5>오늘의 작업 목록</h5>
+                </div>
+                <div class="card-body">
+                    <table class="table table-hover" id="tasksTable">
+                        <thead>
+                            <tr>
+                                <th>날짜</th>
+                                <th>상품명</th>
+                                <th>키워드</th>
+                                <th>작업자</th>
+                                <th>계정</th>
+                                <th>상태</th>
+                                <th>관리</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tasksTableBody">
+                            <tr>
+                                <td colspan="7" class="text-center">로딩 중...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== 탭 2: 상품 관리 ==================== -->
+        <div class="tab-pane fade" id="products" role="tabpanel">
+            {% if is_manager %}
+            <div class="alert alert-info">
+                <strong>💡 안내:</strong> 각 상품의 키워드를 블로그에서 사용할지 ON/OFF 할 수 있습니다.
+            </div>
+            {% endif %}
+
+            <div id="productsContainer">
+                <p class="text-center">로딩 중...</p>
+            </div>
+        </div>
+
+        <!-- ==================== 탭 3: 글 관리 ==================== -->
+        <div class="tab-pane fade" id="posts" role="tabpanel">
+            <div class="mb-3">
+                <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createPostModal">
+                    ➕ 글 작성
+                </button>
+            </div>
+
+            <table class="table table-hover" id="postsTable">
+                <thead>
+                    <tr>
+                        <th>날짜</th>
+                        <th>제목</th>
+                        <th>키워드</th>
+                        <th>통계</th>
+                        <th>이미지</th>
+                        <th>작업자</th>
+                        <th>계정</th>
+                        <th>관리</th>
+                    </tr>
+                </thead>
+                <tbody id="postsTableBody">
+                    <tr>
+                        <td colspan="8" class="text-center">로딩 중...</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- ==================== 탭 4: 계정 관리 (관리자 전용) ==================== -->
+        {% if is_manager %}
+        <div class="tab-pane fade" id="accounts" role="tabpanel">
+            <div class="mb-3">
+                <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addAccountModal">
+                    ➕ 계정 추가
+                </button>
+            </div>
+
+            <table class="table table-hover" id="accountsTable">
+                <thead>
+                    <tr>
+                        <th>계정 ID</th>
+                        <th>블로그 URL</th>
+                        <th>IP 주소</th>
+                        <th>카테고리</th>
+                        <th>배정된 작업자</th>
+                        <th>순서</th>
+                        <th>상태</th>
+                        <th>관리</th>
+                    </tr>
+                </thead>
+                <tbody id="accountsTableBody">
+                    <tr>
+                        <td colspan="8" class="text-center">로딩 중...</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- ==================== 탭 5: 작업자 관리 (관리자 전용) ==================== -->
+        <div class="tab-pane fade" id="workers" role="tabpanel">
+            <div class="mb-3">
+                <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addWorkerModal">
+                    ➕ 작업자 추가
+                </button>
+            </div>
+
+            <table class="table table-hover" id="workersTable">
+                <thead>
+                    <tr>
+                        <th>작업자명</th>
+                        <th>블로그 계정</th>
+                        <th>현재 상품</th>
+                        <th>진행률</th>
+                        <th>일일 작업량</th>
+                        <th>상태</th>
+                        <th>블로그 관리자</th>
+                        <th>관리</th>
+                    </tr>
+                </thead>
+                <tbody id="workersTableBody">
+                    <tr>
+                        <td colspan="8" class="text-center">로딩 중...</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+
+    </div>
 </div>
+
+<!-- ==================== 모달: 글 작성 ==================== -->
+<div class="modal fade" id="createPostModal" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">✍️ 블로그 글 작성</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="createPostForm" enctype="multipart/form-data">
+                    <input type="hidden" id="taskId" name="task_id">
+                    
+                    <div class="mb-3">
+                        <label class="form-label">작업 선택</label>
+                        <select class="form-select" id="taskSelect" required>
+                            <option value="">작업을 선택하세요</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">제목</label>
+                        <input type="text" class="form-control" id="postTitle" name="title" required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">본문</label>
+                        <textarea class="form-control" id="postBody" name="body" rows="10" required></textarea>
+                        <small class="text-muted">
+                            현재 글자 수: <span id="charCount">0</span>자
+                        </small>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">블로그 URL (선택)</label>
+                        <input type="text" class="form-control" id="postUrl" name="post_url" 
+                               placeholder="https://blog.naver.com/...">
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">이미지 첨부 (다중 선택 가능)</label>
+                        <input type="file" class="form-control" id="postImages" name="images" 
+                               multiple accept="image/*">
+                    </div>
+
+                    <!-- 이미지 미리보기 -->
+                    <div class="mb-3" id="imagePreviewContainer" style="display: none;">
+                        <label class="form-label">첨부된 이미지 (<span id="imageCount">0</span>개)</label>
+                        <div class="d-flex flex-wrap gap-2" id="imagePreview"></div>
+                    </div>
+
+                    <!-- 키워드 출현 횟수 -->
+                    <div class="alert alert-info" id="keywordAlert" style="display: none;">
+                        🎯 타겟 키워드: <strong id="targetKeyword"></strong><br>
+                        키워드 출현 횟수: <span id="keywordCount" class="badge bg-primary">0</span>회
+                        <small class="text-muted">(권장: 3~5회)</small>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">취소</button>
+                <button type="button" class="btn btn-primary" onclick="submitPost()">작성 완료</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ==================== 모달: 계정 추가 ==================== -->
+{% if is_manager %}
+<div class="modal fade" id="addAccountModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">계정 추가</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="addAccountForm">
+                    <div class="mb-3">
+                        <label class="form-label">계정 ID</label>
+                        <input type="text" class="form-control" name="account_id" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">비밀번호</label>
+                        <input type="password" class="form-control" name="account_pw" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">블로그 URL</label>
+                        <input type="text" class="form-control" name="blog_url">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">IP 주소</label>
+                        <input type="text" class="form-control" name="ip_address">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">카테고리</label>
+                        <input type="text" class="form-control" name="category">
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">취소</button>
+                <button type="button" class="btn btn-primary" onclick="submitAccount()">추가</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ==================== 모달: 작업자 추가 ==================== -->
+<div class="modal fade" id="addWorkerModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">작업자 추가</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="addWorkerForm">
+                    <div class="mb-3">
+                        <label class="form-label">사이트 회원 선택</label>
+                        <select class="form-select" name="user_id" id="userSelect" required>
+                            <option value="">선택하세요</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">시작 상품 선택</label>
+                        <select class="form-select" name="product_id" id="productSelect" required>
+                            <option value="">선택하세요</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">일일 작업량</label>
+                        <input type="number" class="form-control" name="daily_quota" value="3" min="1" required>
+                        <small class="text-muted">계정당 최대 3개씩 배정됩니다</small>
+                    </div>
+                    <div class="mb-3 form-check">
+                        <input type="checkbox" class="form-check-input" name="is_blog_manager" id="isBlogManager">
+                        <label class="form-check-label" for="isBlogManager">
+                            블로그 관리자로 지정
+                        </label>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn-secondary" data-bs-dismiss="modal">취소</button>
+                <button type="button" class="btn btn-primary" onclick="submitWorker()">추가</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- ==================== JavaScript ==================== -->
+<script>
+// ==================== 페이지 로드 시 초기화 ====================
+document.addEventListener('DOMContentLoaded', function() {
+    loadDashboard();
+    loadProducts();
+    loadPosts();
+    
+    {% if is_manager %}
+    loadAccounts();
+    loadWorkers();
+    loadAvailableUsers();
+    loadProductsForSelect();
+    {% endif %}
+
+    // 탭 전환 시 데이터 새로고침
+    document.querySelectorAll('[data-bs-toggle="tab"]').forEach(tab => {
+        tab.addEventListener('shown.bs.tab', function(e) {
+            const target = e.target.getAttribute('href');
+            if (target === '#dashboard') loadDashboard();
+            else if (target === '#products') loadProducts();
+            else if (target === '#posts') loadPosts();
+            else if (target === '#accounts') loadAccounts();
+            else if (target === '#workers') loadWorkers();
+        });
+    });
+
+    // 글 작성 모달 - 이미지 미리보기
+    document.getElementById('postImages').addEventListener('change', function(e) {
+        const files = e.target.files;
+        const preview = document.getElementById('imagePreview');
+        const container = document.getElementById('imagePreviewContainer');
+        const count = document.getElementById('imageCount');
+        
+        preview.innerHTML = '';
+        count.textContent = files.length;
+        
+        if (files.length > 0) {
+            container.style.display = 'block';
+            
+            Array.from(files).forEach((file, i) => {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const div = document.createElement('div');
+                    div.className = 'position-relative';
+                    div.innerHTML = `
+                        <img src="${e.target.result}" class="img-thumbnail" 
+                             style="width: 100px; height: 100px; object-fit: cover;">
+                        <button type="button" class="btn btn-sm btn-danger position-absolute top-0 end-0"
+                                onclick="removeImage(${i})">×</button>
+                    `;
+                    preview.appendChild(div);
+                };
+                reader.readAsDataURL(file);
+            });
+        } else {
+            container.style.display = 'none';
+        }
+    });
+
+    // 글 작성 - 실시간 글자 수 & 키워드 카운트
+    const titleInput = document.getElementById('postTitle');
+    const bodyInput = document.getElementById('postBody');
+    
+    function updateStats() {
+        const title = titleInput.value;
+        const body = bodyInput.value;
+        const charCount = body.length;
+        const keyword = document.getElementById('targetKeyword').textContent;
+        
+        document.getElementById('charCount').textContent = charCount;
+        
+        if (keyword) {
+            const combined = title + ' ' + body;
+            const count = (combined.toLowerCase().match(new RegExp(keyword.toLowerCase(), 'g')) || []).length;
+            document.getElementById('keywordCount').textContent = count;
+        }
+    }
+    
+    titleInput.addEventListener('input', updateStats);
+    bodyInput.addEventListener('input', updateStats);
+
+    // 작업 선택 시 키워드 표시
+    document.getElementById('taskSelect').addEventListener('change', function() {
+        const option = this.options[this.selectedIndex];
+        if (option.value) {
+            const keyword = option.dataset.keyword;
+            document.getElementById('taskId').value = option.value;
+            document.getElementById('targetKeyword').textContent = keyword;
+            document.getElementById('keywordAlert').style.display = 'block';
+            updateStats();
+        } else {
+            document.getElementById('keywordAlert').style.display = 'none';
+        }
+    });
+});
+
+// ==================== 전체 현황 ====================
+function loadDashboard() {
+    fetch('/blog/api/dashboard')
+        .then(r => r.json())
+        .then(data => {
+            document.getElementById('todayProgress').textContent = data.progress + '%';
+            document.getElementById('todayTasks').textContent = `${data.completed_tasks}/${data.total_tasks} 완료`;
+            document.getElementById('totalPosts').textContent = data.total_posts;
+            document.getElementById('todayPosts').textContent = data.today_posts;
+            document.getElementById('activeWorkers').textContent = data.active_workers;
+        });
+    
+    loadTodayTasks();
+}
+
+function loadTodayTasks() {
+    fetch('/blog/api/tasks/today')
+        .then(r => r.json())
+        .then(tasks => {
+            const tbody = document.getElementById('tasksTableBody');
+            if (tasks.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" class="text-center">오늘 배정된 작업이 없습니다</td></tr>';
+                return;
+            }
+            
+            tbody.innerHTML = tasks.map(task => `
+                <tr>
+                    <td>${new Date().toISOString().split('T')[0]}</td>
+                    <td>${task.product_name}</td>
+                    <td><span class="badge bg-info">${task.keyword}</span></td>
+                    <td>${task.worker_name}</td>
+                    <td>${task.account_id}</td>
+                    <td>
+                        ${task.status === 'completed' 
+                            ? '<span class="badge bg-success">완료</span>' 
+                            : '<span class="badge bg-warning">대기</span>'}
+                    </td>
+                    <td>
+                        ${task.status === 'pending' 
+                            ? `<button class="btn btn-sm btn-primary" onclick="openCreatePostModal(${task.id}, '${task.keyword}')">완료하기</button>`
+                            : `<a href="/blog/api/posts/${task.post_id}" class="btn btn-sm btn-info">보기</a>`}
+                    </td>
+                </tr>
+            `).join('');
+        });
+}
+
+function openCreatePostModal(taskId, keyword) {
+    // 모달 열기
+    const modal = new bootstrap.Modal(document.getElementById('createPostModal'));
+    
+    // 작업 목록 로드
+    fetch('/blog/api/tasks/today')
+        .then(r => r.json())
+        .then(tasks => {
+            const select = document.getElementById('taskSelect');
+            const pendingTasks = tasks.filter(t => t.status === 'pending');
+            
+            select.innerHTML = '<option value="">작업을 선택하세요</option>' +
+                pendingTasks.map(t => 
+                    `<option value="${t.id}" data-keyword="${t.keyword}" ${t.id === taskId ? 'selected' : ''}>
+                        ${t.product_name} - ${t.keyword}
+                    </option>`
+                ).join('');
+            
+            // 선택된 작업 설정
+            if (taskId) {
+                select.value = taskId;
+                select.dispatchEvent(new Event('change'));
+            }
+        });
+    
+    modal.show();
+}
+
+function assignDailyTasks() {
+    if (!confirm('오늘 작업을 자동으로 배정하시겠습니까?')) return;
+    
+    const formData = new FormData();
+    fetch('/blog/api/schedule/auto-assign', {
+        method: 'POST',
+        body: formData
+    })
+    .then(r => r.json())
+    .then(data => {
+        alert(data.message);
+        loadDashboard();
+    })
+    .catch(err => {
+        alert('오류: ' + err.message);
+    });
+}
+
+// ==================== 상품 관리 ====================
+function loadProducts() {
+    fetch('/blog/api/products')
+        .then(r => r.json())
+        .then(products => {
+            const container = document.getElementById('productsContainer');
+            
+            if (products.length === 0) {
+                container.innerHTML = '<p class="text-center">등록된 상품이 없습니다</p>';
+                return;
+            }
+            
+            container.innerHTML = products.map(product => {
+                const hasKeywords = product.blog_keywords.length > 0;
+                
+                return `
+                    <div class="card mb-3">
+                        <div class="card-header d-flex justify-content-between">
+                            <h5>${product.product_code} - ${product.name}</h5>
+                            {% if is_manager %}
+                            ${!hasKeywords ? 
+                                `<button class="btn btn-sm btn-primary" onclick="syncKeywords(${product.id})">
+                                    키워드 동기화
+                                </button>` : ''}
+                            {% endif %}
+                        </div>
+                        <div class="card-body">
+                            ${hasKeywords ? `
+                                <table class="table table-sm">
+                                    <thead>
+                                        <tr>
+                                            <th>순서</th>
+                                            <th>키워드</th>
+                                            <th>블로그 사용</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        ${product.blog_keywords.map((kw, i) => `
+                                            <tr>
+                                                <td>${i + 1}</td>
+                                                <td>${kw.text}</td>
+                                                <td>
+                                                    {% if is_manager %}
+                                                    <div class="form-check form-switch">
+                                                        <input class="form-check-input" type="checkbox" 
+                                                               ${kw.is_active ? 'checked' : ''}
+                                                               onchange="toggleKeyword(${kw.id})">
+                                                    </div>
+                                                    {% else %}
+                                                    ${kw.is_active ? '✅ ON' : '❌ OFF'}
+                                                    {% endif %}
+                                                </td>
+                                            </tr>
+                                        `).join('')}
+                                    </tbody>
+                                </table>
+                            ` : '<p class="text-muted">키워드를 동기화해주세요</p>'}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        });
+}
+
+function syncKeywords(productId) {
+    if (!confirm('기본 키워드를 블로그 키워드로 동기화하시겠습니까?')) return;
+    
+    fetch(`/blog/api/products/${productId}/sync-keywords`, {
+        method: 'POST'
+    })
+    .then(r => r.json())
+    .then(data => {
+        alert(data.message);
+        loadProducts();
+    });
+}
+
+function toggleKeyword(keywordId) {
+    fetch(`/blog/api/keywords/${keywordId}/toggle`, {
+        method: 'PUT'
+    })
+    .then(r => r.json())
+    .then(data => {
+        console.log('Toggled:', data.is_active);
+    });
+}
+
+// ==================== 글 관리 ====================
+function loadPosts() {
+    fetch('/blog/api/posts')
+        .then(r => r.json())
+        .then(posts => {
+            const tbody = document.getElementById('postsTableBody');
+            
+            if (posts.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="8" class="text-center">작성된 글이 없습니다</td></tr>';
+                return;
+            }
+            
+            tbody.innerHTML = posts.map(post => `
+                <tr>
+                    <td>${post.created_at}</td>
+                    <td>${post.title}</td>
+                    <td><span class="badge bg-info">${post.keyword}</span></td>
+                    <td>
+                        📝 ${post.char_count}자<br>
+                        🎯 키워드 ${post.keyword_count}회
+                    </td>
+                    <td>
+                        ${post.images.length > 0 ? `
+                            <div class="d-flex gap-1">
+                                ${post.images.slice(0, 2).map(img => `
+                                    <img src="/static/uploads/blog_images/${img.filename}" 
+                                         class="img-thumbnail" style="width: 40px; height: 40px;">
+                                `).join('')}
+                                ${post.images.length > 2 ? 
+                                    `<span class="badge bg-secondary">+${post.images.length - 2}</span>` : ''}
+                            </div>
+                        ` : '-'}
+                    </td>
+                    <td>${post.worker_name}</td>
+                    <td>${post.account_id}</td>
+                    <td>
+                        <button class="btn btn-sm btn-info" onclick="viewPost(${post.id})">보기</button>
+                        {% if is_manager %}
+                        <button class="btn btn-sm btn-danger" onclick="deletePost(${post.id})">삭제</button>
+                        {% endif %}
+                    </td>
+                </tr>
+            `).join('');
+        });
+}
+
+function submitPost() {
+    const form = document.getElementById('createPostForm');
+    const formData = new FormData(form);
+    
+    // 파일도 포함
+    const files = document.getElementById('postImages').files;
+    for (let file of files) {
+        formData.append('images', file);
+    }
+    
+    fetch('/blog/api/posts', {
+        method: 'POST',
+        body: formData
+    })
+    .then(r => r.json())
+    .then(data => {
+        alert(data.message);
+        bootstrap.Modal.getInstance(document.getElementById('createPostModal')).hide();
+        form.reset();
+        loadDashboard();
+        loadPosts();
+    })
+    .catch(err => {
+        alert('오류: ' + err.message);
+    });
+}
+
+function viewPost(postId) {
+    // TODO: 글 상세 보기 모달
+    alert('글 상세 보기 기능은 추후 구현 예정입니다.');
+}
+
+function deletePost(postId) {
+    if (!confirm('이 글을 삭제하시겠습니까?')) return;
+    
+    fetch(`/blog/api/posts/${postId}`, {
+        method: 'DELETE'
+    })
+    .then(r => r.json())
+    .then(data => {
+        alert(data.message);
+        loadPosts();
+    });
+}
+
+// ==================== 계정 관리 ====================
+{% if is_manager %}
+function loadAccounts() {
+    fetch('/blog/api/accounts')
+        .then(r => r.json())
+        .then(accounts => {
+            const tbody = document.getElementById('accountsTableBody');
+            
+            if (accounts.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="8" class="text-center">등록된 계정이 없습니다</td></tr>';
+                return;
+            }
+            
+            tbody.innerHTML = accounts.map(acc => `
+                <tr>
+                    <td>${acc.account_id}</td>
+                    <td>${acc.blog_url || '-'}</td>
+                    <td>${acc.ip_address || '-'}</td>
+                    <td>${acc.category || '-'}</td>
+                    <td>${acc.assigned_worker_name || '미배정'}</td>
+                    <td>${acc.assignment_order || '-'}</td>
+                    <td>
+                        <span class="badge bg-${acc.status === 'active' ? 'success' : 'secondary'}">
+                            ${acc.status}
+                        </span>
+                    </td>
+                    <td>
+                        <button class="btn btn-sm btn-warning" onclick="editAccount(${acc.id})">수정</button>
+                        ${!acc.assigned_worker_name ? 
+                            `<button class="btn btn-sm btn-danger" onclick="deleteAccount(${acc.id})">삭제</button>` 
+                            : ''}
+                    </td>
+                </tr>
+            `).join('');
+        });
+}
+
+function submitAccount() {
+    const form = document.getElementById('addAccountForm');
+    const formData = new FormData(form);
+    
+    fetch('/blog/api/accounts', {
+        method: 'POST',
+        body: formData
+    })
+    .then(r => r.json())
+    .then(data => {
+        alert(data.message);
+        bootstrap.Modal.getInstance(document.getElementById('addAccountModal')).hide();
+        form.reset();
+        loadAccounts();
+    })
+    .catch(err => {
+        alert('오류: ' + err.message);
+    });
+}
+
+function deleteAccount(accountId) {
+    if (!confirm('이 계정을 삭제하시겠습니까?')) return;
+    
+    fetch(`/blog/api/accounts/${accountId}`, {
+        method: 'DELETE'
+    })
+    .then(r => r.json())
+    .then(data => {
+        alert(data.message);
+        loadAccounts();
+    })
+    .catch(err => {
+        alert('오류: ' + err.message);
+    });
+}
+
+// ==================== 작업자 관리 ====================
+function loadWorkers() {
+    fetch('/blog/api/workers')
+        .then(r => r.json())
+        .then(workers => {
+            const tbody = document.getElementById('workersTableBody');
+            
+            if (workers.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="8" class="text-center">등록된 작업자가 없습니다</td></tr>';
+                return;
+            }
+            
+            tbody.innerHTML = workers.map(worker => `
+                <tr>
+                    <td>${worker.username}</td>
+                    <td>${worker.accounts.join(', ') || '미배정'}</td>
+                    <td>${worker.current_product || '-'}</td>
+                    <td>
+                        ${worker.progress} (${worker.progress_percent}%)
+                        <div class="progress" style="height: 5px;">
+                            <div class="progress-bar" style="width: ${worker.progress_percent}%"></div>
+                        </div>
+                    </td>
+                    <td>
+                        <input type="number" class="form-control form-control-sm" 
+                               value="${worker.daily_quota}" min="1" 
+                               onchange="updateQuota(${worker.id}, this.value)">
+                    </td>
+                    <td>
+                        <span class="badge bg-${worker.status === 'active' ? 'success' : 'secondary'}">
+                            ${worker.status}
+                        </span>
+                    </td>
+                    <td>${worker.is_blog_manager ? '✅' : '❌'}</td>
+                    <td>
+                        <button class="btn btn-sm btn-warning" 
+                                onclick="toggleWorkerStatus(${worker.id}, '${worker.status}')">
+                            ${worker.status === 'active' ? '중지' : '활성'}
+                        </button>
+                    </td>
+                </tr>
+            `).join('');
+        });
+}
+
+function loadAvailableUsers() {
+    fetch('/blog/api/available-users')
+        .then(r => r.json())
+        .then(users => {
+            const select = document.getElementById('userSelect');
+            select.innerHTML = '<option value="">선택하세요</option>' +
+                users.map(u => `<option value="${u.id}">${u.username}</option>`).join('');
+        });
+}
+
+function loadProductsForSelect() {
+    fetch('/blog/api/products')
+        .then(r => r.json())
+        .then(products => {
+            const select = document.getElementById('productSelect');
+            select.innerHTML = '<option value="">선택하세요</option>' +
+                products.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
+        });
+}
+
+function submitWorker() {
+    const form = document.getElementById('addWorkerForm');
+    const formData = new FormData(form);
+    
+    fetch('/blog/api/workers', {
+        method: 'POST',
+        body: formData
+    })
+    .then(r => r.json())
+    .then(data => {
+        alert(data.message);
+        bootstrap.Modal.getInstance(document.getElementById('addWorkerModal')).hide();
+        form.reset();
+        loadWorkers();
+        loadAvailableUsers();
+    })
+    .catch(err => {
+        alert('오류: ' + err.message);
+    });
+}
+
+function updateQuota(workerId, newQuota) {
+    const formData = new FormData();
+    formData.append('daily_quota', newQuota);
+    
+    fetch(`/blog/api/workers/${workerId}/quota`, {
+        method: 'PUT',
+        body: formData
+    })
+    .then(r => r.json())
+    .then(data => {
+        alert(data.message);
+        loadWorkers();
+    })
+    .catch(err => {
+        alert('오류: ' + err.message);
+    });
+}
+
+function toggleWorkerStatus(workerId, currentStatus) {
+    const newStatus = currentStatus === 'active' ? 'inactive' : 'active';
+    const formData = new FormData();
+    formData.append('status', newStatus);
+    
+    fetch(`/blog/api/workers/${workerId}/status`, {
+        method: 'PUT',
+        body: formData
+    })
+    .then(r => r.json())
+    .then(data => {
+        alert(data.message);
+        loadWorkers();
+    });
+}
+{% endif %}
+</script>
+
+<style>
+.card {
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.table th {
+    background-color: #f8f9fa;
+}
+
+.img-thumbnail {
+    object-fit: cover;
+}
+
+.badge {
+    font-size: 0.9em;
+}
+
+.progress {
+    margin-top: 5px;
+}
+</style>
+
 {% endblock %}
