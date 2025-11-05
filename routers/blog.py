@@ -98,10 +98,11 @@ def count_keyword_occurrences(text: str, keyword: str):
     return text.lower().count(keyword.lower())
 
 def count_chars_without_spaces(text: str):
-    """공백을 제외한 글자 수 세기"""
+    """공백과 특수문자를 제외한 순수 글자 수 세기 (한글, 영문, 숫자만)"""
     import re
-    # 모든 공백 문자(스페이스, 탭, 줄바꿈 등) 제거
-    return len(re.sub(r'\s', '', text))
+    # 한글, 영문, 숫자만 남기고 나머지 모두 제거
+    pure_text = re.sub(r'[^가-힣a-zA-Z0-9]', '', text)
+    return len(pure_text)
 
 
 def update_worker_accounts(worker: BlogWorker, db: Session):
