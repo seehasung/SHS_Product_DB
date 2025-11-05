@@ -858,64 +858,93 @@ function viewPost(postId) {
             return r.json();
         })
         .then(post => {
-            // 글 작성 모달을 수정 모드로 열기
+            // ⭐ 모달 먼저 열기
             const modal = new bootstrap.Modal(document.getElementById('createPostModal'));
-            
-            // 모달 제목 변경
-            document.querySelector('#createPostModal .modal-title').textContent = '✏️ 블로그 글 수정';
-            
-            // 폼 초기화
-            const form = document.getElementById('createPostForm');
-            form.reset();
-            
-            // 데이터 채우기
-            document.getElementById('taskId').value = post.task_id || '';
-            document.getElementById('postTitle').value = post.title;
-            document.getElementById('postBody').value = post.body;
-            document.getElementById('postUrl').value = post.post_url || '';
-            
-            // 작업 선택 비활성화 (이미 작성된 글이므로)
-            const taskSelect = document.getElementById('taskSelect');
-            taskSelect.innerHTML = `<option value="" selected>${post.product_name} - ${post.keyword}</option>`;
-            taskSelect.disabled = true;
-            
-            // 키워드 정보 표시
-            document.getElementById('targetKeyword').textContent = post.keyword;
-            document.getElementById('keywordAlert').style.display = 'block';
-            
-            // 글자 수 & 키워드 카운트 업데이트
-            document.getElementById('charCount').textContent = post.char_count;
-            document.getElementById('keywordCount').textContent = post.keyword_count;
-            
-            // 기존 이미지 표시
-            if (post.images && post.images.length > 0) {
-                const container = document.getElementById('imagePreviewContainer');
-                const preview = document.getElementById('imagePreview');
-                const count = document.getElementById('imageCount');
-                
-                container.style.display = 'block';
-                count.textContent = post.images.length;
-                
-                preview.innerHTML = post.images.map((img, i) => `
-                    <div class="position-relative">
-                        <img src="/static/uploads/blog_images/${img.filename}" 
-                             class="img-thumbnail" 
-                             style="width: 100px; height: 100px; object-fit: cover;">
-                        <span class="badge bg-secondary position-absolute top-0 start-0">기존</span>
-                    </div>
-                `).join('');
-            }
-            
-            // 수정 모드 플래그 설정
-            form.dataset.editMode = 'true';
-            form.dataset.postId = postId;
-            
-            // 제출 버튼 텍스트 변경
-            const submitBtn = document.querySelector('#createPostModal .modal-footer .btn-primary');
-            submitBtn.textContent = '수정 완료';
-            submitBtn.onclick = function() { submitPostEdit(postId); };
-            
             modal.show();
+            
+            // ⭐ 약간의 지연 후 요소 접근 (DOM이 완전히 준비될 때까지)
+            setTimeout(() => {
+                try {
+                    // 모달 제목 변경
+                    const modalTitle = document.querySelector('#createPostModal .modal-title');
+                    if (modalTitle) modalTitle.textContent = '✏️ 블로그 글 수정';
+                    
+                    // 폼 초기화
+                    const form = document.getElementById('createPostForm');
+                    if (form) {
+                        form.reset();
+                        
+                        // 데이터 채우기
+                        const taskIdElem = document.getElementById('taskId');
+                        const titleElem = document.getElementById('postTitle');
+                        const bodyElem = document.getElementById('postBody');
+                        const urlElem = document.getElementById('postUrl');
+                        
+                        if (taskIdElem) taskIdElem.value = post.task_id || '';
+                        if (titleElem) titleElem.value = post.title;
+                        if (bodyElem) bodyElem.value = post.body;
+                        if (urlElem) urlElem.value = post.post_url || '';
+                        
+                        // 작업 선택 비활성화
+                        const taskSelect = document.getElementById('taskSelect');
+                        if (taskSelect) {
+                            taskSelect.innerHTML = `<option value="" selected>${post.product_name} - ${post.keyword}</option>`;
+                            taskSelect.disabled = true;
+                        }
+                        
+                        // 키워드 정보 표시
+                        const targetKeyword = document.getElementById('targetKeyword');
+                        const keywordAlert = document.getElementById('keywordAlert');
+                        
+                        if (targetKeyword) targetKeyword.textContent = post.keyword;
+                        if (keywordAlert) keywordAlert.style.display = 'block';
+                        
+                        // 글자 수 & 키워드 카운트 업데이트
+                        const charCountElem = document.getElementById('charCount');
+                        const keywordCountElem = document.getElementById('keywordCount');
+                        
+                        if (charCountElem) charCountElem.textContent = post.char_count;
+                        if (keywordCountElem) keywordCountElem.textContent = post.keyword_count;
+                        
+                        // 기존 이미지 표시
+                        if (post.images && post.images.length > 0) {
+                            const container = document.getElementById('imagePreviewContainer');
+                            const preview = document.getElementById('imagePreview');
+                            const count = document.getElementById('imageCount');
+                            
+                            if (container && preview && count) {
+                                container.style.display = 'block';
+                                count.textContent = post.images.length;
+                                
+                                preview.innerHTML = post.images.map((img, i) => `
+                                    <div class="position-relative">
+                                        <img src="/static/uploads/blog_images/${img.filename}" 
+                                             class="img-thumbnail" 
+                                             style="width: 100px; height: 100px; object-fit: cover;">
+                                        <span class="badge bg-secondary position-absolute top-0 start-0">기존</span>
+                                    </div>
+                                `).join('');
+                            }
+                        }
+                        
+                        // 수정 모드 플래그 설정
+                        form.dataset.editMode = 'true';
+                        form.dataset.postId = postId;
+                    }
+                    
+                    // 제출 버튼 텍스트 변경
+                    const submitBtn = document.querySelector('#createPostModal .modal-footer .btn-primary');
+                    if (submitBtn) {
+                        submitBtn.textContent = '수정 완료';
+                        submitBtn.onclick = function() { submitPostEdit(postId); };
+                    }
+                    
+                } catch (error) {
+                    console.error('모달 설정 중 오류:', error);
+                    alert('모달을 여는 중 오류가 발생했습니다.');
+                }
+            }, 100); // 100ms 지연
+            
         })
         .catch(err => {
             console.error('Error:', err);
@@ -925,12 +954,20 @@ function viewPost(postId) {
 
 function submitPostEdit(postId) {
     const form = document.getElementById('createPostForm');
+    if (!form) {
+        alert('폼을 찾을 수 없습니다.');
+        return;
+    }
+    
     const formData = new FormData(form);
     
     // 새로 추가된 파일들
-    const files = document.getElementById('postImages').files;
-    for (let file of files) {
-        formData.append('images', file);
+    const filesInput = document.getElementById('postImages');
+    if (filesInput && filesInput.files) {
+        const files = filesInput.files;
+        for (let file of files) {
+            formData.append('images', file);
+        }
     }
     
     fetch(`/blog/api/posts/${postId}`, {
@@ -945,8 +982,11 @@ function submitPostEdit(postId) {
         alert('글이 수정되었습니다!');
         
         // 모달 닫기
-        const modal = bootstrap.Modal.getInstance(document.getElementById('createPostModal'));
-        modal.hide();
+        const modalElement = document.getElementById('createPostModal');
+        if (modalElement) {
+            const modal = bootstrap.Modal.getInstance(modalElement);
+            if (modal) modal.hide();
+        }
         
         // 폼 초기화
         form.reset();
@@ -954,21 +994,30 @@ function submitPostEdit(postId) {
         delete form.dataset.postId;
         
         // 모달 제목 원상복구
-        document.querySelector('#createPostModal .modal-title').textContent = '✍️ 블로그 글 작성';
+        const modalTitle = document.querySelector('#createPostModal .modal-title');
+        if (modalTitle) modalTitle.textContent = '✍️ 블로그 글 작성';
         
         // 제출 버튼 원상복구
         const submitBtn = document.querySelector('#createPostModal .modal-footer .btn-primary');
-        submitBtn.textContent = '작성 완료';
-        submitBtn.onclick = submitPost;
+        if (submitBtn) {
+            submitBtn.textContent = '작성 완료';
+            submitBtn.onclick = submitPost;
+        }
         
         // 작업 선택 활성화
-        document.getElementById('taskSelect').disabled = false;
+        const taskSelect = document.getElementById('taskSelect');
+        if (taskSelect) taskSelect.disabled = false;
+        
+        // 이미지 미리보기 숨기기
+        const imagePreviewContainer = document.getElementById('imagePreviewContainer');
+        if (imagePreviewContainer) imagePreviewContainer.style.display = 'none';
         
         // 목록 새로고침
         loadPosts();
         loadDashboard();
     })
     .catch(err => {
+        console.error('수정 오류:', err);
         alert('오류: ' + err.message);
     });
 }
