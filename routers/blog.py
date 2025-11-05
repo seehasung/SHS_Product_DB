@@ -818,17 +818,59 @@ def delete_blog_post(post_id: int, request: Request, db: Session = Depends(get_d
     if not post:
         raise HTTPException(status_code=404, detail="글을 찾을 수 없습니다")
     
-    # 이미지 파일 삭제
-    for image in post.images:
-        try:
-            os.remove(image.image_path)
-        except:
-            pass
-    
-    db.delete(post)
-    db.commit()
-    
-    return {"message": "글 삭제 완료"}
+    try:
+        # 1단계: BlogWorkTask에서 참조 제거
+        related_tasks = db.query(BlogWorkTask).filter(
+            BlogWorkTask.completed_post_id == post_id
+        ).all()
+        
+        print(f"🔍 [DELETE] 관련 작업 {len(related_tasks)}개 발견")
+        
+        for task in related_tasks:
+            print(f"   - 작업 ID {task.id}: completed_post_id 제거")
+            task.completed_post_id = None
+            task.status = 'pending'
+            task.completed_at = None
+            db.add(task)
+        
+        # 2단계: BlogKeywordProgress에서 참조 제거
+        related_progress = db.query(BlogKeywordProgress).filter(
+            BlogKeywordProgress.completed_post_id == post_id
+        ).all()
+        
+        print(f"🔍 [DELETE] 관련 진행상황 {len(related_progress)}개 발견")
+        
+        for progress in related_progress:
+            print(f"   - 진행상황 ID {progress.id}: completed_post_id 제거")
+            progress.completed_post_id = None
+            progress.is_completed = False
+            progress.completed_at = None
+            db.add(progress)
+        
+        # 먼저 참조를 제거한 상태로 커밋
+        db.commit()
+        print(f"✅ [DELETE] 참조 제거 완료")
+        
+        # 3단계: 이미지 파일 삭제
+        for image in post.images:
+            try:
+                if os.path.exists(image.image_path):
+                    os.remove(image.image_path)
+                    print(f"🗑️ [DELETE] 이미지 삭제: {image.image_filename}")
+            except Exception as e:
+                print(f"⚠️ [DELETE] 이미지 삭제 실패: {image.image_path} - {e}")
+        
+        # 4단계: 글 삭제
+        db.delete(post)
+        db.commit()
+        print(f"✅ [DELETE] 글 ID {post_id} 삭제 완료")
+        
+        return {"message": "글이 삭제되었습니다. 관련 작업은 다시 대기 상태가 되었습니다."}
+        
+    except Exception as e:
+        db.rollback()
+        print(f"❌ [DELETE] 오류 발생: {e}")
+        raise HTTPException(status_code=500, detail=f"삭제 중 오류 발생: {str(e)}")
 
 
 # ============================================
