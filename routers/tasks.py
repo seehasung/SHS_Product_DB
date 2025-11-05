@@ -67,12 +67,13 @@ def get_current_user_id(request: Request, db: Session = Depends(get_db)):
 @router.get("/", response_class=HTMLResponse)
 async def task_list(
     request: Request,
-    date_filter: str = Query(None),
+    start_date: str = Query(None),
+    end_date: str = Query(None),
     creator_filter: int = Query(None),
     assignee_filter: int = Query(None),
     db: Session = Depends(get_db)
 ):
-    """업무 목록 (필터링 기능 추가)"""
+    """업무 목록 (기간 필터링 기능)"""
     username = request.session.get("user")
     if not username:
         return RedirectResponse("/login", status_code=303)
@@ -93,11 +94,18 @@ async def task_list(
     if not is_admin:
         query = query.filter(TaskAssignment.assignee_id == current_user.id)
     
-    # 날짜 필터
-    if date_filter:
+    # 날짜 기간 필터
+    if start_date:
         try:
-            filter_date = datetime.strptime(date_filter, '%Y-%m-%d').date()
-            query = query.filter(func.date(TaskAssignment.created_at) == filter_date)
+            start = datetime.strptime(start_date, '%Y-%m-%d').date()
+            query = query.filter(func.date(TaskAssignment.created_at) >= start)
+        except:
+            pass
+    
+    if end_date:
+        try:
+            end = datetime.strptime(end_date, '%Y-%m-%d').date()
+            query = query.filter(func.date(TaskAssignment.created_at) <= end)
         except:
             pass
     
@@ -121,7 +129,7 @@ async def task_list(
             task.is_read = True
     db.commit()
     
-    return templates.TemplateResponse("tasks/task_list.html", {
+    return templates.TemplateResponse("task_list.html", {
         "request": request,
         "username": username,
         "is_admin": is_admin,
@@ -129,7 +137,8 @@ async def task_list(
         "current_user_id": current_user.id,
         "all_users": all_users,
         "creators": creators,
-        "date_filter": date_filter,
+        "start_date": start_date,
+        "end_date": end_date,
         "creator_filter": creator_filter,
         "assignee_filter": assignee_filter
     })
