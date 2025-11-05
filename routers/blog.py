@@ -278,7 +278,7 @@ def get_today_tasks(request: Request, db: Session = Depends(get_db)):
     
     result = []
     for task in tasks:
-        # ⭐ 상품명 조회 (Product 테이블에서)
+        # 상품명 조회 (Product 테이블에서)
         product_name = ""
         if task.marketing_product_id:
             marketing_product = db.query(MarketingProduct).filter(
@@ -318,7 +318,7 @@ def get_today_tasks(request: Request, db: Session = Depends(get_db)):
             "worker_name": worker_name,
             "account_id": account_id,
             "status": task.status,
-            "post_id": task.blog_post_id
+            "post_id": task.completed_post_id  # ⭐⭐⭐ 여기가 핵심!
         })
     
     return result
