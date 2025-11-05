@@ -166,16 +166,29 @@
             border-radius: 20px 20px 0 0;
         }
         
-        .task-card.urgent {
-            --task-gradient: linear-gradient(90deg, #dc3545 0%, #ff6b6b 100%);
+        /* 상태별 테두리 색상 (배지와 동일) */
+        .task-card.status-new {
+            --task-gradient: linear-gradient(90deg, #dc3545 0%, #ff6b6b 100%); /* 빨간색 - 새 지시 */
         }
-        
-        .task-card.important {
-            --task-gradient: linear-gradient(90deg, #fd7e14 0%, #ffa94d 100%);
+
+        .task-card.status-confirmed {
+            --task-gradient: linear-gradient(90deg, #17a2b8 0%, #3bc9db 100%); /* 하늘색 - 확인함 */
         }
-        
-        .task-card.normal {
-            --task-gradient: linear-gradient(90deg, #4A90E2 0%, #5BA3F5 100%);
+
+        .task-card.status-in_progress {
+            --task-gradient: linear-gradient(90deg, #ffc107 0%, #ffd43b 100%); /* 노란색 - 진행중 */
+        }
+
+        .task-card.status-completed {
+            --task-gradient: linear-gradient(90deg, #28a745 0%, #51cf66 100%); /* 초록색 - 완료 */
+        }
+
+        .task-card.status-on_hold {
+            --task-gradient: linear-gradient(90deg, #6c757d 0%, #868e96 100%); /* 회색 - 보류 */
+        }
+
+        .task-card.status-cancelled {
+            --task-gradient: linear-gradient(90deg, #343a40 0%, #495057 100%); /* 어두운 회색 - 취소됨 */
         }
         
         .task-card:hover {
@@ -551,9 +564,9 @@
             <div class="col-lg-9">
                 {% if tasks %}
                     {% for task in tasks %}
-                    <div class="task-card {{ task.priority }}" 
-                         data-status="{{ task.status }}" 
-                         data-priority="{{ task.priority }}">
+                    <div class="task-card status-{{ task.status }}" 
+                        data-status="{{ task.status }}" 
+                        data-priority="{{ task.priority }}">
                         <div class="d-flex justify-content-between align-items-start">
                             <div class="flex-grow-1">
                                 <h5 class="task-title">
