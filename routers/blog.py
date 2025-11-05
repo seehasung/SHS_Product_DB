@@ -360,7 +360,6 @@ def get_blog_products(request: Request, db: Session = Depends(get_db)):
     
     return result
 
-
 @router.post("/blog/api/products/{product_id}/sync-keywords")
 def sync_product_keywords(product_id: int, request: Request, db: Session = Depends(get_db)):
     """상품의 기본 키워드를 블로그 키워드로 동기화"""
@@ -373,25 +372,54 @@ def sync_product_keywords(product_id: int, request: Request, db: Session = Depen
     if not product:
         raise HTTPException(status_code=404, detail="상품을 찾을 수 없습니다")
     
+    # ⭐ keywords 파싱 (JSON 문자열일 수 있음)
+    if isinstance(product.keywords, str):
+        try:
+            import json
+            keywords = json.loads(product.keywords)
+        except:
+            print(f"⚠️ [SYNC] 상품 {product_id}: keywords 파싱 실패")
+            keywords = []
+    elif isinstance(product.keywords, list):
+        keywords = product.keywords
+    else:
+        print(f"⚠️ [SYNC] 상품 {product_id}: keywords가 없거나 형식이 이상함")
+        keywords = []
+    
+    # 디버깅 로그
+    print(f"🔍 [SYNC] 상품 {product_id}: 동기화할 키워드 수 = {len(keywords)}")
+    print(f"🔍 [SYNC] 키워드 목록: {keywords}")
+    
+    if len(keywords) == 0:
+        return {
+            "message": "동기화할 키워드가 없습니다. 먼저 상품에 키워드를 추가해주세요.",
+            "keyword_count": 0
+        }
+    
     # 기존 블로그 키워드 삭제
-    db.query(BlogProductKeyword).filter(
+    deleted_count = db.query(BlogProductKeyword).filter(
         BlogProductKeyword.marketing_product_id == product_id
     ).delete()
+    print(f"🗑️ [SYNC] 기존 키워드 {deleted_count}개 삭제")
     
     # 새로 생성
-    keywords = product.keywords if isinstance(product.keywords, list) else []
     for i, keyword in enumerate(keywords):
-        blog_keyword = BlogProductKeyword(
-            marketing_product_id=product_id,
-            keyword_text=keyword,
-            is_active=True,
-            order_index=i
-        )
-        db.add(blog_keyword)
+        if keyword and keyword.strip():  # 빈 문자열 제외
+            blog_keyword = BlogProductKeyword(
+                marketing_product_id=product_id,
+                keyword_text=keyword.strip(),
+                is_active=True,
+                order_index=i
+            )
+            db.add(blog_keyword)
+            print(f"➕ [SYNC] 키워드 추가: {keyword.strip()}")
     
     db.commit()
     
-    return {"message": "키워드 동기화 완료"}
+    return {
+        "message": f"키워드 동기화 완료 ({len(keywords)}개)",
+        "keyword_count": len(keywords)
+    }
 
 
 @router.put("/blog/api/keywords/{keyword_id}/toggle")

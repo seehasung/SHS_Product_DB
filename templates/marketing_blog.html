@@ -690,8 +690,17 @@ function syncKeywords(productId) {
     })
     .then(r => r.json())
     .then(data => {
-        alert(data.message);
+        // ⭐ keyword_count 표시
+        if (data.keyword_count === 0) {
+            alert('⚠️ ' + data.message);
+        } else {
+            alert('✅ ' + data.message);
+        }
         loadProducts();
+    })
+    .catch(error => {
+        console.error('동기화 오류:', error);
+        alert('동기화 중 오류가 발생했습니다.');
     });
 }
 
