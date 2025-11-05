@@ -482,8 +482,8 @@ async def create_blog_post(
     if not task:
         raise HTTPException(status_code=404, detail="작업을 찾을 수 없습니다")
     
-    # 권한 체크 (일반 작업자는 자신의 작업만)
-    if not is_blog_manager(user, db) and task.worker_id != blog_worker.id:
+    # ⭐ 권한 체크 (일반 작업자는 자신의 작업만)
+    if not check_is_blog_manager(user, db) and task.worker_id != blog_worker.id:  # ⭐ 수정!
         raise HTTPException(status_code=403, detail="권한이 없습니다")
     
     # 통계 계산
@@ -497,7 +497,7 @@ async def create_blog_post(
         keyword_text=task.keyword_text,
         post_url=post_url,
         char_count=char_count,
-        image_count=0,  # 이미지 저장 후 업데이트
+        image_count=0,
         keyword_count=keyword_count,
         marketing_product_id=task.marketing_product_id,
         worker_id=task.worker_id,
@@ -505,27 +505,23 @@ async def create_blog_post(
         is_registration_complete=True
     )
     db.add(blog_post)
-    db.flush()  # ID 생성
+    db.flush()
     
     # 이미지 저장
     if images:
-        # 이미지 저장 디렉토리
         upload_dir = Path("static/uploads/blog_images")
         upload_dir.mkdir(parents=True, exist_ok=True)
         
         for i, image in enumerate(images):
             if image.filename:
-                # 고유 파일명 생성
                 ext = os.path.splitext(image.filename)[1]
                 filename = f"{uuid.uuid4()}{ext}"
                 filepath = upload_dir / filename
                 
-                # 파일 저장
                 with open(filepath, "wb") as f:
                     content = await image.read()
                     f.write(content)
                 
-                # DB에 기록
                 blog_image = BlogPostImage(
                     blog_post_id=blog_post.id,
                     image_path=str(filepath),
@@ -534,7 +530,6 @@ async def create_blog_post(
                 )
                 db.add(blog_image)
         
-        # 이미지 개수 업데이트
         blog_post.image_count = len(images)
     
     # 작업 완료 처리
@@ -572,9 +567,9 @@ def get_blog_post(post_id: int, request: Request, db: Session = Depends(get_db))
     if not post:
         raise HTTPException(status_code=404, detail="글을 찾을 수 없습니다")
     
-    # 권한 체크
+    # ⭐ 권한 체크
     blog_worker = blog_worker_or_error if not user.is_admin else None
-    if not is_blog_manager(user, db) and blog_worker and post.worker_id != blog_worker.id:
+    if not check_is_blog_manager(user, db) and blog_worker and post.worker_id != blog_worker.id:  # ⭐ 수정!
         raise HTTPException(status_code=403, detail="권한이 없습니다")
     
     return {
@@ -829,7 +824,7 @@ def create_blog_worker(
     """블로그 작업자 추가"""
     admin_user = get_current_user(request, db)
     
-    if not is_blog_manager(admin_user, db):
+    if not check_is_blog_manager(admin_user, db):
         raise HTTPException(status_code=403, detail="관리자 권한이 필요합니다")
     
     # 사용자 존재 확인
