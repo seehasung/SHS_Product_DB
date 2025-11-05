@@ -122,10 +122,21 @@
         </div>
 
         <!-- ==================== 탭 2: 상품 관리 ==================== -->
+        <!-- 상품 관리 탭 -->
         <div class="tab-pane fade" id="products" role="tabpanel">
             {% if is_manager %}
-            <div class="alert alert-info">
-                <strong>💡 안내:</strong> 각 상품의 키워드를 블로그에서 사용할지 ON/OFF 할 수 있습니다.
+            <div class="alert alert-info d-flex justify-content-between align-items-center">
+                <div>
+                    <strong>💡 안내:</strong> 각 상품의 키워드를 블로그에서 사용할지 ON/OFF 할 수 있습니다.
+                </div>
+                <div>
+                    <button class="btn btn-sm btn-outline-primary me-1" onclick="expandAllProducts()">
+                        ▼ 전체 펼치기
+                    </button>
+                    <button class="btn btn-sm btn-outline-secondary" onclick="collapseAllProducts()">
+                        ▲ 전체 접기
+                    </button>
+                </div>
             </div>
             {% endif %}
 
@@ -632,50 +643,76 @@ function loadProducts() {
             
             container.innerHTML = products.map(product => {
                 const hasKeywords = product.blog_keywords.length > 0;
+                // ⭐ 활성화된 키워드만 카운트
+                const activeCount = product.blog_keywords.filter(kw => kw.is_active).length;
+                const totalCount = product.blog_keywords.length;
                 
                 return `
                     <div class="card mb-3">
-                        <div class="card-header d-flex justify-content-between">
-                            <h5>${product.product_code} - ${product.name}</h5>
-                            {% if is_manager %}
-                            ${!hasKeywords ? 
-                                `<button class="btn btn-sm btn-primary" onclick="syncKeywords(${product.id})">
-                                    키워드 동기화
-                                </button>` : ''}
-                            {% endif %}
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <div class="d-flex align-items-center gap-3">
+                                <h5 class="mb-0">${product.product_code} - ${product.name}</h5>
+                                ${hasKeywords ? `
+                                    <span class="badge bg-primary">
+                                        키워드: ${activeCount}/${totalCount}개
+                                    </span>
+                                ` : ''}
+                            </div>
+                            <div class="d-flex gap-2">
+                                {% if is_manager %}
+                                ${hasKeywords ? 
+                                    `<button class="btn btn-sm btn-outline-primary" 
+                                            data-bs-toggle="collapse" 
+                                            data-bs-target="#keywords-${product.id}"
+                                            aria-expanded="false">
+                                        <span class="when-collapsed">▼ 펼치기</span>
+                                        <span class="when-expanded">▲ 접기</span>
+                                    </button>` : 
+                                    `<button class="btn btn-sm btn-primary" onclick="syncKeywords(${product.id})">
+                                        키워드 동기화
+                                    </button>`}
+                                {% endif %}
+                            </div>
                         </div>
-                        <div class="card-body">
-                            ${hasKeywords ? `
-                                <table class="table table-sm">
-                                    <thead>
-                                        <tr>
-                                            <th>순서</th>
-                                            <th>키워드</th>
-                                            <th>블로그 사용</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        ${product.blog_keywords.map((kw, i) => `
+                        
+                        ${hasKeywords ? `
+                            <div class="collapse" id="keywords-${product.id}">
+                                <div class="card-body">
+                                    <table class="table table-sm table-hover">
+                                        <thead>
                                             <tr>
-                                                <td>${i + 1}</td>
-                                                <td>${kw.text}</td>
-                                                <td>
-                                                    {% if is_manager %}
-                                                    <div class="form-check form-switch">
-                                                        <input class="form-check-input" type="checkbox" 
-                                                               ${kw.is_active ? 'checked' : ''}
-                                                               onchange="toggleKeyword(${kw.id})">
-                                                    </div>
-                                                    {% else %}
-                                                    ${kw.is_active ? '✅ ON' : '❌ OFF'}
-                                                    {% endif %}
-                                                </td>
+                                                <th style="width: 60px;">순서</th>
+                                                <th>키워드</th>
+                                                <th style="width: 120px;">블로그 사용</th>
                                             </tr>
-                                        `).join('')}
-                                    </tbody>
-                                </table>
-                            ` : '<p class="text-muted">키워드를 동기화해주세요</p>'}
-                        </div>
+                                        </thead>
+                                        <tbody>
+                                            ${product.blog_keywords.map((kw, i) => `
+                                                <tr class="${!kw.is_active ? 'table-secondary' : ''}">
+                                                    <td>${i + 1}</td>
+                                                    <td>${kw.text}</td>
+                                                    <td>
+                                                        {% if is_manager %}
+                                                        <div class="form-check form-switch">
+                                                            <input class="form-check-input" type="checkbox" 
+                                                                   ${kw.is_active ? 'checked' : ''}
+                                                                   onchange="toggleKeyword(${kw.id})">
+                                                        </div>
+                                                        {% else %}
+                                                        ${kw.is_active ? '✅ ON' : '❌ OFF'}
+                                                        {% endif %}
+                                                    </td>
+                                                </tr>
+                                            `).join('')}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        ` : `
+                            <div class="card-body">
+                                <p class="text-muted mb-0">키워드를 동기화해주세요</p>
+                            </div>
+                        `}
                     </div>
                 `;
             }).join('');
@@ -1093,6 +1130,27 @@ async function deleteWorker(workerId, username) {
         alert('작업자 삭제 중 오류가 발생했습니다.');
     }
 }
+
+// 전체 펼치기
+function expandAllProducts() {
+    const collapses = document.querySelectorAll('[id^="keywords-"]');
+    collapses.forEach(collapse => {
+        const bsCollapse = new bootstrap.Collapse(collapse, {
+            show: true
+        });
+    });
+}
+
+// 전체 접기
+function collapseAllProducts() {
+    const collapses = document.querySelectorAll('[id^="keywords-"].show');
+    collapses.forEach(collapse => {
+        const bsCollapse = bootstrap.Collapse.getInstance(collapse);
+        if (bsCollapse) {
+            bsCollapse.hide();
+        }
+    });
+}
 {% endif %}
 </script>
 
@@ -1115,6 +1173,48 @@ async function deleteWorker(workerId, username) {
 
 .progress {
     margin-top: 5px;
+}
+
+/* 접기/펼치기 버튼 텍스트 제어 */
+.collapsed .when-expanded {
+    display: none;
+}
+
+.when-collapsed {
+    display: inline;
+}
+
+.collapsed .when-collapsed {
+    display: inline;
+}
+
+:not(.collapsed) .when-collapsed {
+    display: none;
+}
+
+:not(.collapsed) .when-expanded {
+    display: inline;
+}
+
+/* 비활성 키워드 스타일 */
+.table-secondary {
+    opacity: 0.6;
+}
+
+/* 카드 헤더 개선 */
+.card-header h5 {
+    margin: 0;
+}
+
+/* 배지 스타일 */
+.badge {
+    font-size: 0.85em;
+    padding: 0.35em 0.65em;
+}
+
+/* 테이블 행 호버 효과 */
+.table-hover tbody tr:hover {
+    background-color: rgba(0, 123, 255, 0.05);
 }
 </style>
 
