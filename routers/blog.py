@@ -757,6 +757,21 @@ def get_blog_workers(request: Request, db: Session = Depends(get_db)):
     
     result = []
     for worker in workers:
+        # ⭐ 안전하게 상품 이름 가져오기
+        current_product_name = None
+        if worker.current_product_id:
+            marketing_product = db.query(MarketingProduct).filter(
+                MarketingProduct.id == worker.current_product_id
+            ).first()
+            
+            if marketing_product and marketing_product.product_id:
+                product = db.query(Product).filter(
+                    Product.id == marketing_product.product_id
+                ).first()
+                current_product_name = product.name if product else f"상품 #{marketing_product.id}"
+            elif marketing_product:
+                current_product_name = f"마케팅상품 #{marketing_product.id}"
+        
         # 진행률 계산
         if worker.current_product_id:
             total_keywords = db.query(BlogProductKeyword).filter(
@@ -778,10 +793,10 @@ def get_blog_workers(request: Request, db: Session = Depends(get_db)):
         
         result.append({
             "id": worker.id,
-            "username": worker.user.username,
+            "username": worker.user.username,  # ⭐ relationship 있으면 이대로 사용 가능
             "user_id": worker.user_id,
-            "accounts": [acc.account_id for acc in worker.blog_accounts],
-            "current_product": worker.current_product.name if worker.current_product else None,
+            "accounts": [acc.account_id for acc in worker.blog_accounts],  # ⭐ relationship 있으면 이대로
+            "current_product": current_product_name,  # ⭐ 수정된 부분
             "progress": progress,
             "progress_percent": progress_percent,
             "daily_quota": worker.daily_quota,
