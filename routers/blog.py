@@ -260,7 +260,6 @@ def get_dashboard_stats(request: Request, db: Session = Depends(get_db)):
         "active_workers": active_workers
     }
 
-
 @router.get("/blog/api/tasks/today")
 def get_today_tasks(request: Request, db: Session = Depends(get_db)):
     """오늘의 작업 목록 조회"""
@@ -279,30 +278,22 @@ def get_today_tasks(request: Request, db: Session = Depends(get_db)):
     
     result = []
     for task in tasks:
-        # ⭐ 직접 DB에서 조회 (relationship 문제 회피)
+        # ⭐ 상품명 조회 (Product 테이블에서)
         product_name = ""
-        worker_name = ""
-        account_id = ""
-        
-        # 상품명 조회
         if task.marketing_product_id:
             marketing_product = db.query(MarketingProduct).filter(
                 MarketingProduct.id == task.marketing_product_id
             ).first()
             
-            if marketing_product:
-                # MarketingProduct의 name 필드 사용
-                product_name = marketing_product.name or ""
-                
-                # 또는 연결된 Product의 이름 사용
-                if marketing_product.product_id:
-                    product = db.query(Product).filter(
-                        Product.id == marketing_product.product_id
-                    ).first()
-                    if product:
-                        product_name = product.name or product_name
+            if marketing_product and marketing_product.product_id:
+                product = db.query(Product).filter(
+                    Product.id == marketing_product.product_id
+                ).first()
+                if product:
+                    product_name = product.name
         
         # 작업자명 조회
+        worker_name = ""
         if task.worker_id:
             worker_obj = db.query(BlogWorker).filter(
                 BlogWorker.id == task.worker_id
@@ -311,6 +302,7 @@ def get_today_tasks(request: Request, db: Session = Depends(get_db)):
                 worker_name = worker_obj.user.username
         
         # 계정 ID 조회
+        account_id = ""
         if task.blog_account_id:
             account = db.query(BlogAccount).filter(
                 BlogAccount.id == task.blog_account_id
@@ -511,14 +503,19 @@ def get_blog_posts(request: Request, db: Session = Depends(get_db)):
     
     result = []
     for post in posts:
-        # ⭐ 안전하게 조회
+        # ⭐ Product 테이블에서 이름 가져오기
         product_name = ""
         if post.marketing_product_id:
             marketing_product = db.query(MarketingProduct).filter(
                 MarketingProduct.id == post.marketing_product_id
             ).first()
-            if marketing_product:
-                product_name = marketing_product.name or ""
+            
+            if marketing_product and marketing_product.product_id:
+                product = db.query(Product).filter(
+                    Product.id == marketing_product.product_id
+                ).first()
+                if product:
+                    product_name = product.name
         
         worker_name = ""
         if post.worker_id:
@@ -665,10 +662,40 @@ def get_blog_post(post_id: int, request: Request, db: Session = Depends(get_db))
     if not post:
         raise HTTPException(status_code=404, detail="글을 찾을 수 없습니다")
     
-    # ⭐ 권한 체크
+    # 권한 체크
     blog_worker = blog_worker_or_error if not user.is_admin else None
-    if not check_is_blog_manager(user, db) and blog_worker and post.worker_id != blog_worker.id:  # ⭐ 수정!
+    if not check_is_blog_manager(user, db) and blog_worker and post.worker_id != blog_worker.id:
         raise HTTPException(status_code=403, detail="권한이 없습니다")
+    
+    # ⭐ Product 테이블에서 이름 가져오기
+    product_name = ""
+    if post.marketing_product_id:
+        marketing_product = db.query(MarketingProduct).filter(
+            MarketingProduct.id == post.marketing_product_id
+        ).first()
+        
+        if marketing_product and marketing_product.product_id:
+            product = db.query(Product).filter(
+                Product.id == marketing_product.product_id
+            ).first()
+            if product:
+                product_name = product.name
+    
+    worker_name = ""
+    if post.worker_id:
+        worker_obj = db.query(BlogWorker).filter(
+            BlogWorker.id == post.worker_id
+        ).first()
+        if worker_obj and worker_obj.user:
+            worker_name = worker_obj.user.username
+    
+    account_id = ""
+    if post.blog_account_id:
+        account = db.query(BlogAccount).filter(
+            BlogAccount.id == post.blog_account_id
+        ).first()
+        if account:
+            account_id = account.account_id
     
     return {
         "id": post.id,
@@ -680,12 +707,11 @@ def get_blog_post(post_id: int, request: Request, db: Session = Depends(get_db))
         "image_count": post.image_count,
         "keyword_count": post.keyword_count,
         "images": [{"path": img.image_path, "filename": img.image_filename} for img in post.images],
-        "product_name": post.marketing_product.name,
-        "worker_name": post.worker.user.username,
-        "account_id": post.blog_account.account_id,
+        "product_name": product_name,
+        "worker_name": worker_name,
+        "account_id": account_id,
         "created_at": post.created_at.strftime("%Y-%m-%d %H:%M")
     }
-
 
 @router.delete("/blog/api/posts/{post_id}")
 def delete_blog_post(post_id: int, request: Request, db: Session = Depends(get_db)):
