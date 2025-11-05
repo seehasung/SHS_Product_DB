@@ -67,10 +67,10 @@ def get_current_user_id(request: Request, db: Session = Depends(get_db)):
 @router.get("/", response_class=HTMLResponse)
 async def task_list(
     request: Request,
-    start_date: str = Query(None),
-    end_date: str = Query(None),
-    creator_filter: Optional[int] = Query(None),
-    assignee_filter: Optional[int] = Query(None),
+    start_date: str = Query(""),  # ✅ 기본값 빈 문자열
+    end_date: str = Query(""),    # ✅ 기본값 빈 문자열
+    creator_filter: str = Query(""),  # ✅ 기본값 빈 문자열
+    assignee_filter: str = Query(""),  # ✅ 기본값 빈 문자열
     db: Session = Depends(get_db)
 ):
     """업무 목록 (기간 필터링 기능)"""
@@ -84,11 +84,20 @@ async def task_list(
     
     is_admin = current_user.is_admin
     
-    # ✅ 빈 문자열을 None으로 변환
-    if creator_filter == 0 or (isinstance(creator_filter, str) and not creator_filter):
-        creator_filter = None
-    if assignee_filter == 0 or (isinstance(assignee_filter, str) and not assignee_filter):
-        assignee_filter = None
+    # ✅ 빈 문자열 처리
+    creator_id = None
+    if creator_filter and creator_filter.strip():
+        try:
+            creator_id = int(creator_filter)
+        except ValueError:
+            pass
+    
+    assignee_id = None
+    if assignee_filter and assignee_filter.strip():
+        try:
+            assignee_id = int(assignee_filter)
+        except ValueError:
+            pass
     
     # 기본 쿼리
     query = db.query(TaskAssignment).options(
@@ -96,21 +105,19 @@ async def task_list(
         joinedload(TaskAssignment.assignee)
     )
     
-    # ... 나머지 코드 동일 ...
-    
     # 관리자가 아니면 자기 업무만
     if not is_admin:
         query = query.filter(TaskAssignment.assignee_id == current_user.id)
     
     # 날짜 기간 필터
-    if start_date:
+    if start_date and start_date.strip():
         try:
             start = datetime.strptime(start_date, '%Y-%m-%d').date()
             query = query.filter(func.date(TaskAssignment.created_at) >= start)
         except:
             pass
     
-    if end_date:
+    if end_date and end_date.strip():
         try:
             end = datetime.strptime(end_date, '%Y-%m-%d').date()
             query = query.filter(func.date(TaskAssignment.created_at) <= end)
@@ -118,12 +125,12 @@ async def task_list(
             pass
     
     # 지시자 필터
-    if creator_filter:
-        query = query.filter(TaskAssignment.creator_id == creator_filter)
+    if creator_id:
+        query = query.filter(TaskAssignment.creator_id == creator_id)
     
     # 작업자 필터 (관리자만)
-    if assignee_filter and is_admin:
-        query = query.filter(TaskAssignment.assignee_id == assignee_filter)
+    if assignee_id and is_admin:
+        query = query.filter(TaskAssignment.assignee_id == assignee_id)
     
     tasks = query.order_by(TaskAssignment.created_at.desc()).all()
     
@@ -145,12 +152,12 @@ async def task_list(
         "current_user_id": current_user.id,
         "all_users": all_users,
         "creators": creators,
-        "start_date": start_date,
-        "end_date": end_date,
-        "creator_filter": creator_filter,
-        "assignee_filter": assignee_filter
+        "start_date": start_date if start_date else None,
+        "end_date": end_date if end_date else None,
+        "creator_filter": creator_id,
+        "assignee_filter": assignee_id
     })
-
+    
 
 @router.get("/dashboard", response_class=HTMLResponse)
 async def task_dashboard(request: Request, db: Session = Depends(get_db)):
