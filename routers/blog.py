@@ -81,7 +81,7 @@ def check_blog_access(user: User, db: Session):
     
     return True, blog_worker
 
-def is_blog_manager(user: User, db: Session):
+def check_is_blog_manager(user: User, db: Session):  # ⭐ 함수명 변경
     """블로그 관리자 여부 체크"""
     if user.is_admin:
         return True
@@ -165,7 +165,7 @@ def blog_main_page(request: Request, db: Session = Depends(get_db)):
         BlogWorker.user_id == user.id
     ).first()
     
-    is_manager = is_blog_manager(user, db)
+    is_manager = check_is_blog_manager(user, db)
     
     # ⭐⭐⭐ 여기에 추가! ⭐⭐⭐
     print("=" * 80)
@@ -201,7 +201,7 @@ def get_dashboard_stats(request: Request, db: Session = Depends(get_db)):
         raise HTTPException(status_code=403, detail=blog_worker_or_error)
     
     blog_worker = blog_worker_or_error if not user.is_admin else None
-    is_manager = is_blog_manager(user, db)
+    is_manager = check_is_blog_manager(user, db)
     
     today = date.today()
     
@@ -271,7 +271,7 @@ def get_today_tasks(request: Request, db: Session = Depends(get_db)):
         raise HTTPException(status_code=403, detail=blog_worker_or_error)
     
     blog_worker = blog_worker_or_error if not user.is_admin else None
-    is_manager = is_blog_manager(user, db)
+    is_manager = check_is_blog_manager(user, db)
     
     today = date.today()
     
@@ -366,7 +366,7 @@ def sync_product_keywords(product_id: int, request: Request, db: Session = Depen
     """상품의 기본 키워드를 블로그 키워드로 동기화"""
     user = get_current_user(request, db)
     
-    if not is_blog_manager(user, db):
+    if not check_is_blog_manager(user, db):
         raise HTTPException(status_code=403, detail="관리자 권한이 필요합니다")
     
     product = db.query(MarketingProduct).get(product_id)
@@ -399,7 +399,7 @@ def toggle_keyword_active(keyword_id: int, request: Request, db: Session = Depen
     """블로그 키워드 ON/OFF 토글"""
     user = get_current_user(request, db)
     
-    if not is_blog_manager(user, db):
+    if not check_is_blog_manager(user, db):
         raise HTTPException(status_code=403, detail="관리자 권한이 필요합니다")
     
     keyword = db.query(BlogProductKeyword).get(keyword_id)
@@ -426,7 +426,7 @@ def get_blog_posts(request: Request, db: Session = Depends(get_db)):
         raise HTTPException(status_code=403)
     
     blog_worker = blog_worker_or_error if not user.is_admin else None
-    is_manager = is_blog_manager(user, db)
+    is_manager = check_is_blog_manager(user, db)
     
     query = db.query(BlogPost)
     
@@ -599,7 +599,7 @@ def delete_blog_post(post_id: int, request: Request, db: Session = Depends(get_d
     """블로그 글 삭제"""
     user = get_current_user(request, db)
     
-    if not is_blog_manager(user, db):
+    if not check_is_blog_manager(user, db):
         raise HTTPException(status_code=403, detail="관리자 권한이 필요합니다")
     
     post = db.query(BlogPost).get(post_id)
@@ -628,7 +628,7 @@ def get_blog_accounts(request: Request, db: Session = Depends(get_db)):
     """블로그 계정 목록"""
     user = get_current_user(request, db)
     
-    if not is_blog_manager(user, db):
+    if not check_is_blog_manager(user, db):
         raise HTTPException(status_code=403, detail="관리자 권한이 필요합니다")
     
     accounts = db.query(BlogAccount).order_by(BlogAccount.id).all()
@@ -662,7 +662,7 @@ def create_blog_account(
     """블로그 계정 추가"""
     user = get_current_user(request, db)
     
-    if not is_blog_manager(user, db):
+    if not check_is_blog_manager(user, db):
         raise HTTPException(status_code=403, detail="관리자 권한이 필요합니다")
     
     # 중복 체크
@@ -701,7 +701,7 @@ def update_blog_account(
     """블로그 계정 수정"""
     user = get_current_user(request, db)
     
-    if not is_blog_manager(user, db):
+    if not check_is_blog_manager(user, db):
         raise HTTPException(status_code=403, detail="관리자 권한이 필요합니다")
     
     account = db.query(BlogAccount).get(account_id)
@@ -729,7 +729,7 @@ def delete_blog_account(account_id: int, request: Request, db: Session = Depends
     """블로그 계정 삭제"""
     user = get_current_user(request, db)
     
-    if not is_blog_manager(user, db):
+    if not check_is_blog_manager(user, db):
         raise HTTPException(status_code=403, detail="관리자 권한이 필요합니다")
     
     account = db.query(BlogAccount).get(account_id)
@@ -755,7 +755,7 @@ def get_blog_workers(request: Request, db: Session = Depends(get_db)):
     """블로그 작업자 목록"""
     user = get_current_user(request, db)
     
-    if not is_blog_manager(user, db):
+    if not check_is_blog_manager(user, db):
         raise HTTPException(status_code=403, detail="관리자 권한이 필요합니다")
     
     workers = db.query(BlogWorker).order_by(BlogWorker.id).all()
@@ -802,7 +802,7 @@ def get_available_users(request: Request, db: Session = Depends(get_db)):
     """블로그 작업자로 추가 가능한 사용자 목록"""
     user = get_current_user(request, db)
     
-    if not is_blog_manager(user, db):
+    if not check_is_blog_manager(user, db):
         raise HTTPException(status_code=403, detail="관리자 권한이 필요합니다")
     
     # 마케팅 권한이 있고, 아직 블로그 작업자가 아닌 사용자
@@ -878,7 +878,7 @@ def update_worker_quota(
     """작업자 할당량 변경"""
     user = get_current_user(request, db)
     
-    if not is_blog_manager(user, db):
+    if not check_is_blog_manager(user, db):
         raise HTTPException(status_code=403, detail="관리자 권한이 필요합니다")
     
     worker = db.query(BlogWorker).get(worker_id)
@@ -909,7 +909,7 @@ def update_worker_status(
     """작업자 상태 변경"""
     user = get_current_user(request, db)
     
-    if not is_blog_manager(user, db):
+    if not check_is_blog_manager(user, db):
         raise HTTPException(status_code=403, detail="관리자 권한이 필요합니다")
     
     worker = db.query(BlogWorker).get(worker_id)
@@ -932,7 +932,7 @@ def update_worker_product(
     """작업자 현재 상품 변경"""
     user = get_current_user(request, db)
     
-    if not is_blog_manager(user, db):
+    if not check_is_blog_manager(user, db):
         raise HTTPException(status_code=403, detail="관리자 권한이 필요합니다")
     
     worker = db.query(BlogWorker).get(worker_id)
@@ -958,7 +958,7 @@ def auto_assign_daily_tasks(
     """일일 작업 자동 배정"""
     user = get_current_user(request, db)
     
-    if not is_blog_manager(user, db):
+    if not check_is_blog_manager(user, db):
         raise HTTPException(status_code=403, detail="관리자 권한이 필요합니다")
     
     # 날짜 설정
