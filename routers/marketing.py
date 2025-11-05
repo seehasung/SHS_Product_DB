@@ -15,7 +15,7 @@ import math
 from database import (
     SessionLocal, TargetCafe, MarketingAccount, Product, MarketingProduct,
     CafeMembership, Reference, Comment, User, MarketingPost, WorkTask,
-    PostSchedule, AccountCafeUsage, PostingRound  # 새로 추가된 모델들
+    PostSchedule, AccountCafeUsage, PostingRound, BlogWorker  # 새로 추가된 모델들
 )
 
 
@@ -2175,6 +2175,7 @@ async def delete_marketing_post(post_id: int, db: Session = Depends(get_db)):
 # --- Other Marketing Pages (수정됨) ---
 @router.get("/blog", response_class=HTMLResponse)
 async def marketing_blog(request: Request, db: Session = Depends(get_db)):
+    from database import BlogWorker  # ⭐ 추가
     
     # ⭐ 세션 확인
     username = request.session.get("user")
@@ -2191,12 +2192,55 @@ async def marketing_blog(request: Request, db: Session = Depends(get_db)):
     can_manage_products = current_user.can_manage_products or is_admin
     can_manage_marketing = current_user.can_manage_marketing or is_admin
     
+    # ⭐⭐⭐ 블로그 관리자 권한 확인 (추가!) ⭐⭐⭐
+    is_manager = False
+    blog_worker = None
+    
+    if is_admin:
+        # 전체 관리자는 무조건 블로그 관리자
+        is_manager = True
+        
+        # 블로그 프로필 자동 생성
+        blog_worker = db.query(BlogWorker).filter(
+            BlogWorker.user_id == current_user.id
+        ).first()
+        
+        if not blog_worker:
+            blog_worker = BlogWorker(
+                user_id=current_user.id,
+                status='active',
+                daily_quota=0,
+                is_blog_manager=True
+            )
+            db.add(blog_worker)
+            db.commit()
+            db.refresh(blog_worker)
+    else:
+        # 일반 사용자는 blog_workers 테이블에서 확인
+        blog_worker = db.query(BlogWorker).filter(
+            BlogWorker.user_id == current_user.id
+        ).first()
+        
+        if blog_worker and blog_worker.is_blog_manager:
+            is_manager = True
+    
+    # ⭐ 디버깅 (나중에 삭제 가능)
+    print("=" * 80)
+    print(f"🔍 [MARKETING.PY /blog] 사용자: {username}")
+    print(f"🔍 [MARKETING.PY /blog] is_admin: {is_admin}")
+    print(f"🔍 [MARKETING.PY /blog] blog_worker: {blog_worker}")
+    print(f"🔍 [MARKETING.PY /blog] is_manager: {is_manager}")
+    print("=" * 80)
+    
     return templates.TemplateResponse("marketing_blog.html", {
         "request": request,
-        "username": username,  # ⭐ 추가
-        "is_admin": is_admin,  # ⭐ 추가
-        "can_manage_products": can_manage_products,  # ⭐ 추가
-        "can_manage_marketing": can_manage_marketing  # ⭐ 추가
+        "username": username,
+        "user": current_user,  # ⭐ 추가 (user 객체도 전달)
+        "is_admin": is_admin,
+        "can_manage_products": can_manage_products,
+        "can_manage_marketing": can_manage_marketing,
+        "is_manager": is_manager,  # ⭐⭐⭐ 이게 핵심!
+        "blog_worker": blog_worker  # ⭐ 추가
     })
 
 @router.get("/homepage", response_class=HTMLResponse)
