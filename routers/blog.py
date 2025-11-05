@@ -263,43 +263,73 @@ def get_dashboard_stats(request: Request, db: Session = Depends(get_db)):
 
 @router.get("/blog/api/tasks/today")
 def get_today_tasks(request: Request, db: Session = Depends(get_db)):
-    """오늘의 작업 목록"""
+    """오늘의 작업 목록 조회"""
     user = get_current_user(request, db)
-    has_access, blog_worker_or_error = check_blog_access(user, db)
-    
-    if not has_access:
-        raise HTTPException(status_code=403, detail=blog_worker_or_error)
-    
-    blog_worker = blog_worker_or_error if not user.is_admin else None
-    is_manager = check_is_blog_manager(user, db)
     
     today = date.today()
     
-    # 작업 목록 조회
-    query = db.query(BlogWorkTask).filter(
-        BlogWorkTask.task_date == today
-    )
+    # 관리자면 전체, 작업자면 본인 것만
+    query = db.query(BlogWorkTask).filter(BlogWorkTask.task_date == today)
     
-    # 일반 작업자는 자신의 작업만
-    if not is_manager and blog_worker:
-        query = query.filter(BlogWorkTask.worker_id == blog_worker.id)
+    worker = db.query(BlogWorker).filter(BlogWorker.user_id == user.id).first()
+    if worker and not worker.is_blog_manager:
+        query = query.filter(BlogWorkTask.worker_id == worker.id)
     
-    tasks = query.order_by(BlogWorkTask.id).all()
+    tasks = query.all()
     
     result = []
     for task in tasks:
+        # ⭐ 직접 DB에서 조회 (relationship 문제 회피)
+        product_name = ""
+        worker_name = ""
+        account_id = ""
+        
+        # 상품명 조회
+        if task.marketing_product_id:
+            marketing_product = db.query(MarketingProduct).filter(
+                MarketingProduct.id == task.marketing_product_id
+            ).first()
+            
+            if marketing_product:
+                # MarketingProduct의 name 필드 사용
+                product_name = marketing_product.name or ""
+                
+                # 또는 연결된 Product의 이름 사용
+                if marketing_product.product_id:
+                    product = db.query(Product).filter(
+                        Product.id == marketing_product.product_id
+                    ).first()
+                    if product:
+                        product_name = product.name or product_name
+        
+        # 작업자명 조회
+        if task.worker_id:
+            worker_obj = db.query(BlogWorker).filter(
+                BlogWorker.id == task.worker_id
+            ).first()
+            if worker_obj and worker_obj.user:
+                worker_name = worker_obj.user.username
+        
+        # 계정 ID 조회
+        if task.blog_account_id:
+            account = db.query(BlogAccount).filter(
+                BlogAccount.id == task.blog_account_id
+            ).first()
+            if account:
+                account_id = account.account_id
+        
         result.append({
             "id": task.id,
+            "task_date": str(task.task_date),
             "keyword": task.keyword_text,
-            "product_name": task.marketing_product.name if task.marketing_product else "",
-            "worker_name": task.worker.user.username if task.worker else "",
-            "account_id": task.blog_account.account_id if task.blog_account else "",
+            "product_name": product_name,
+            "worker_name": worker_name,
+            "account_id": account_id,
             "status": task.status,
-            "post_id": task.completed_post_id
+            "post_id": task.blog_post_id
         })
     
     return result
-
 
 # ============================================
 # 상품 관리 API
@@ -481,13 +511,38 @@ def get_blog_posts(request: Request, db: Session = Depends(get_db)):
     
     result = []
     for post in posts:
+        # ⭐ 안전하게 조회
+        product_name = ""
+        if post.marketing_product_id:
+            marketing_product = db.query(MarketingProduct).filter(
+                MarketingProduct.id == post.marketing_product_id
+            ).first()
+            if marketing_product:
+                product_name = marketing_product.name or ""
+        
+        worker_name = ""
+        if post.worker_id:
+            worker_obj = db.query(BlogWorker).filter(
+                BlogWorker.id == post.worker_id
+            ).first()
+            if worker_obj and worker_obj.user:
+                worker_name = worker_obj.user.username
+        
+        account_id = ""
+        if post.blog_account_id:
+            account = db.query(BlogAccount).filter(
+                BlogAccount.id == post.blog_account_id
+            ).first()
+            if account:
+                account_id = account.account_id
+        
         result.append({
             "id": post.id,
             "title": post.post_title,
             "keyword": post.keyword_text,
-            "product_name": post.marketing_product.name if post.marketing_product else "",
-            "worker_name": post.worker.user.username if post.worker else "",
-            "account_id": post.blog_account.account_id if post.blog_account else "",
+            "product_name": product_name,
+            "worker_name": worker_name,
+            "account_id": account_id,
             "char_count": post.char_count,
             "image_count": post.image_count,
             "keyword_count": post.keyword_count,
