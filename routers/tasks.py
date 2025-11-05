@@ -1123,7 +1123,8 @@ def get_my_tasks_dashboard(request: Request, db: Session = Depends(get_db)):
     ).count()
     completed = db.query(TaskAssignment).filter(
         TaskAssignment.creator_id == current_user.id,
-        TaskAssignment.status == 'completed'
+        TaskAssignment.status == 'completed',
+        func.date(TaskAssignment.completed_at) == datetime.now().date()  # ✅ 당일 필터 추가
     ).count()
     
     return {
