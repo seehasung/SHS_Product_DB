@@ -851,21 +851,6 @@ function submitPost() {
 }
 
 function viewPost(postId) {
-    // 모달 열기
-    const modal = new bootstrap.Modal(document.getElementById('viewPostModal'));
-    const modalBody = document.getElementById('postDetailBody');
-    
-    // 로딩 표시
-    modalBody.innerHTML = `
-        <div class="text-center">
-            <div class="spinner-border" role="status">
-                <span class="visually-hidden">로딩 중...</span>
-            </div>
-        </div>
-    `;
-    
-    modal.show();
-    
     // 글 상세 정보 가져오기
     fetch('/blog/api/posts/' + postId)
         .then(r => {
@@ -873,84 +858,119 @@ function viewPost(postId) {
             return r.json();
         })
         .then(post => {
-            modalBody.innerHTML = `
-                <div class="row mb-3">
-                    <div class="col-md-6">
-                        <strong>작성일:</strong> ${post.created_at}
-                    </div>
-                    <div class="col-md-6">
-                        <strong>작업자:</strong> ${post.worker_name}
-                    </div>
-                </div>
+            // 글 작성 모달을 수정 모드로 열기
+            const modal = new bootstrap.Modal(document.getElementById('createPostModal'));
+            
+            // 모달 제목 변경
+            document.querySelector('#createPostModal .modal-title').textContent = '✏️ 블로그 글 수정';
+            
+            // 폼 초기화
+            const form = document.getElementById('createPostForm');
+            form.reset();
+            
+            // 데이터 채우기
+            document.getElementById('taskId').value = post.task_id || '';
+            document.getElementById('postTitle').value = post.title;
+            document.getElementById('postBody').value = post.body;
+            document.getElementById('postUrl').value = post.post_url || '';
+            
+            // 작업 선택 비활성화 (이미 작성된 글이므로)
+            const taskSelect = document.getElementById('taskSelect');
+            taskSelect.innerHTML = `<option value="" selected>${post.product_name} - ${post.keyword}</option>`;
+            taskSelect.disabled = true;
+            
+            // 키워드 정보 표시
+            document.getElementById('targetKeyword').textContent = post.keyword;
+            document.getElementById('keywordAlert').style.display = 'block';
+            
+            // 글자 수 & 키워드 카운트 업데이트
+            document.getElementById('charCount').textContent = post.char_count;
+            document.getElementById('keywordCount').textContent = post.keyword_count;
+            
+            // 기존 이미지 표시
+            if (post.images && post.images.length > 0) {
+                const container = document.getElementById('imagePreviewContainer');
+                const preview = document.getElementById('imagePreview');
+                const count = document.getElementById('imageCount');
                 
-                <div class="row mb-3">
-                    <div class="col-md-4">
-                        <strong>상품:</strong> ${post.product_name}
-                    </div>
-                    <div class="col-md-4">
-                        <strong>키워드:</strong> <span class="badge bg-info">${post.keyword}</span>
-                    </div>
-                    <div class="col-md-4">
-                        <strong>계정:</strong> ${post.account_id}
-                    </div>
-                </div>
+                container.style.display = 'block';
+                count.textContent = post.images.length;
                 
-                <div class="mb-3">
-                    <strong>제목:</strong>
-                    <div class="p-2 bg-light rounded">${post.title}</div>
-                </div>
-                
-                <div class="mb-3">
-                    <strong>본문:</strong>
-                    <div class="p-3 bg-light rounded" style="max-height: 400px; overflow-y: auto; white-space: pre-wrap;">${post.body}</div>
-                </div>
-                
-                <div class="row mb-3">
-                    <div class="col-md-4">
-                        <strong>글자 수:</strong> ${post.char_count}자
+                preview.innerHTML = post.images.map((img, i) => `
+                    <div class="position-relative">
+                        <img src="/static/uploads/blog_images/${img.filename}" 
+                             class="img-thumbnail" 
+                             style="width: 100px; height: 100px; object-fit: cover;">
+                        <span class="badge bg-secondary position-absolute top-0 start-0">기존</span>
                     </div>
-                    <div class="col-md-4">
-                        <strong>키워드 출현:</strong> ${post.keyword_count}회
-                    </div>
-                    <div class="col-md-4">
-                        <strong>이미지 수:</strong> ${post.image_count}개
-                    </div>
-                </div>
-                
-                ${post.images && post.images.length > 0 ? `
-                    <div class="mb-3">
-                        <strong>첨부 이미지:</strong>
-                        <div class="d-flex flex-wrap gap-2 mt-2">
-                            ${post.images.map(img => `
-                                <img src="/static/uploads/blog_images/${img.filename}" 
-                                     class="img-thumbnail" 
-                                     style="width: 150px; height: 150px; object-fit: cover; cursor: pointer;"
-                                     onclick="window.open('/static/uploads/blog_images/${img.filename}', '_blank')">
-                            `).join('')}
-                        </div>
-                    </div>
-                ` : ''}
-                
-                ${post.post_url ? `
-                    <div class="mb-3">
-                        <strong>블로그 URL:</strong>
-                        <div class="p-2 bg-light rounded">
-                            <a href="${post.post_url}" target="_blank" class="text-decoration-none">
-                                ${post.post_url}
-                            </a>
-                        </div>
-                    </div>
-                ` : ''}
-            `;
+                `).join('');
+            }
+            
+            // 수정 모드 플래그 설정
+            form.dataset.editMode = 'true';
+            form.dataset.postId = postId;
+            
+            // 제출 버튼 텍스트 변경
+            const submitBtn = document.querySelector('#createPostModal .modal-footer .btn-primary');
+            submitBtn.textContent = '수정 완료';
+            submitBtn.onclick = function() { submitPostEdit(postId); };
+            
+            modal.show();
         })
         .catch(err => {
             console.error('Error:', err);
-            modalBody.innerHTML = `
-                <div class="alert alert-danger">
-                    ❌ ${err.message}
-                </div>
-            `;
+            alert('글을 불러오는데 실패했습니다: ' + err.message);
         });
+}
+
+function submitPostEdit(postId) {
+    const form = document.getElementById('createPostForm');
+    const formData = new FormData(form);
+    
+    // 새로 추가된 파일들
+    const files = document.getElementById('postImages').files;
+    for (let file of files) {
+        formData.append('images', file);
+    }
+    
+    fetch(`/blog/api/posts/${postId}`, {
+        method: 'PUT',
+        body: formData
+    })
+    .then(r => {
+        if (!r.ok) throw new Error('수정 실패');
+        return r.json();
+    })
+    .then(data => {
+        alert('글이 수정되었습니다!');
+        
+        // 모달 닫기
+        const modal = bootstrap.Modal.getInstance(document.getElementById('createPostModal'));
+        modal.hide();
+        
+        // 폼 초기화
+        form.reset();
+        form.dataset.editMode = 'false';
+        delete form.dataset.postId;
+        
+        // 모달 제목 원상복구
+        document.querySelector('#createPostModal .modal-title').textContent = '✍️ 블로그 글 작성';
+        
+        // 제출 버튼 원상복구
+        const submitBtn = document.querySelector('#createPostModal .modal-footer .btn-primary');
+        submitBtn.textContent = '작성 완료';
+        submitBtn.onclick = submitPost;
+        
+        // 작업 선택 활성화
+        document.getElementById('taskSelect').disabled = false;
+        
+        // 목록 새로고침
+        loadPosts();
+        loadDashboard();
+    })
+    .catch(err => {
+        alert('오류: ' + err.message);
+    });
 }
 
 // ==================== 계정 관리 ====================

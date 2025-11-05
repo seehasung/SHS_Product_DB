@@ -676,7 +676,7 @@ def get_blog_post(post_id: int, request: Request, db: Session = Depends(get_db))
     if not check_is_blog_manager(user, db) and blog_worker and post.worker_id != blog_worker.id:
         raise HTTPException(status_code=403, detail="권한이 없습니다")
     
-    # ⭐ Product 테이블에서 이름 가져오기
+    # Product 테이블에서 이름 가져오기
     product_name = ""
     if post.marketing_product_id:
         marketing_product = db.query(MarketingProduct).filter(
@@ -706,8 +706,17 @@ def get_blog_post(post_id: int, request: Request, db: Session = Depends(get_db))
         if account:
             account_id = account.account_id
     
+    # ⭐ task_id 찾기
+    task_id = None
+    task = db.query(BlogWorkTask).filter(
+        BlogWorkTask.completed_post_id == post_id
+    ).first()
+    if task:
+        task_id = task.id
+    
     return {
         "id": post.id,
+        "task_id": task_id,  # ⭐ 추가
         "title": post.post_title,
         "body": post.post_body,
         "keyword": post.keyword_text,
@@ -721,6 +730,73 @@ def get_blog_post(post_id: int, request: Request, db: Session = Depends(get_db))
         "account_id": account_id,
         "created_at": post.created_at.strftime("%Y-%m-%d %H:%M")
     }
+
+@router.put("/blog/api/posts/{post_id}")
+async def update_blog_post(
+    post_id: int,
+    request: Request,
+    title: str = Form(...),
+    body: str = Form(...),
+    post_url: str = Form(None),
+    images: List[UploadFile] = File(None),
+    db: Session = Depends(get_db)
+):
+    """블로그 글 수정"""
+    user = get_current_user(request, db)
+    has_access, blog_worker_or_error = check_blog_access(user, db)
+    
+    if not has_access:
+        raise HTTPException(status_code=403)
+    
+    post = db.query(BlogPost).get(post_id)
+    if not post:
+        raise HTTPException(status_code=404, detail="글을 찾을 수 없습니다")
+    
+    # 권한 체크
+    blog_worker = blog_worker_or_error if not user.is_admin else None
+    if not check_is_blog_manager(user, db) and blog_worker and post.worker_id != blog_worker.id:
+        raise HTTPException(status_code=403, detail="권한이 없습니다")
+    
+    # 글 수정
+    post.post_title = title
+    post.post_body = body
+    post.post_url = post_url
+    
+    # 통계 재계산
+    post.char_count = len(body)
+    post.keyword_count = count_keyword_occurrences(title + " " + body, post.keyword_text)
+    
+    # 새 이미지 추가
+    if images:
+        upload_dir = Path("static/uploads/blog_images")
+        upload_dir.mkdir(parents=True, exist_ok=True)
+        
+        # 기존 이미지 개수
+        existing_count = len(post.images)
+        
+        for i, image in enumerate(images):
+            if image.filename:
+                ext = os.path.splitext(image.filename)[1]
+                filename = f"{uuid.uuid4()}{ext}"
+                filepath = upload_dir / filename
+                
+                with open(filepath, "wb") as f:
+                    content = await image.read()
+                    f.write(content)
+                
+                blog_image = BlogPostImage(
+                    blog_post_id=post.id,
+                    image_path=str(filepath),
+                    image_filename=filename,
+                    image_order=existing_count + i
+                )
+                db.add(blog_image)
+        
+        post.image_count = existing_count + len(images)
+    
+    db.commit()
+    
+    return {"message": "글 수정 완료", "post_id": post.id}
 
 @router.delete("/blog/api/posts/{post_id}")
 def delete_blog_post(post_id: int, request: Request, db: Session = Depends(get_db)):
