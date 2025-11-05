@@ -372,7 +372,7 @@ def sync_product_keywords(product_id: int, request: Request, db: Session = Depen
     if not product:
         raise HTTPException(status_code=404, detail="상품을 찾을 수 없습니다")
     
-    # ⭐ keywords 파싱 (JSON 문자열일 수 있음)
+    # ⭐ keywords 파싱
     if isinstance(product.keywords, str):
         try:
             import json
@@ -388,7 +388,6 @@ def sync_product_keywords(product_id: int, request: Request, db: Session = Depen
     
     # 디버깅 로그
     print(f"🔍 [SYNC] 상품 {product_id}: 동기화할 키워드 수 = {len(keywords)}")
-    print(f"🔍 [SYNC] 키워드 목록: {keywords}")
     
     if len(keywords) == 0:
         return {
@@ -402,23 +401,39 @@ def sync_product_keywords(product_id: int, request: Request, db: Session = Depen
     ).delete()
     print(f"🗑️ [SYNC] 기존 키워드 {deleted_count}개 삭제")
     
-    # 새로 생성
-    for i, keyword in enumerate(keywords):
-        if keyword and keyword.strip():  # 빈 문자열 제외
+    # ⭐ 새로 생성 (dict 또는 string 모두 처리)
+    added_count = 0
+    for i, keyword_item in enumerate(keywords):
+        # dict 형식인 경우: {'keyword': '...', 'active': True}
+        if isinstance(keyword_item, dict):
+            keyword_text = keyword_item.get('keyword', '')
+            is_active = keyword_item.get('active', True)
+        # string 형식인 경우: '키워드'
+        elif isinstance(keyword_item, str):
+            keyword_text = keyword_item
+            is_active = True
+        else:
+            continue
+        
+        # 빈 문자열 제외
+        if keyword_text and keyword_text.strip():
             blog_keyword = BlogProductKeyword(
                 marketing_product_id=product_id,
-                keyword_text=keyword.strip(),
-                is_active=True,
+                keyword_text=keyword_text.strip(),
+                is_active=is_active,  # ⭐ active 상태 유지
                 order_index=i
             )
             db.add(blog_keyword)
-            print(f"➕ [SYNC] 키워드 추가: {keyword.strip()}")
+            added_count += 1
+            print(f"➕ [SYNC] 키워드 추가: {keyword_text.strip()} (active={is_active})")
     
     db.commit()
     
+    print(f"✅ [SYNC] 총 {added_count}개 키워드 동기화 완료")
+    
     return {
-        "message": f"키워드 동기화 완료 ({len(keywords)}개)",
-        "keyword_count": len(keywords)
+        "message": f"키워드 동기화 완료 ({added_count}개)",
+        "keyword_count": added_count
     }
 
 
