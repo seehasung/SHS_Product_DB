@@ -1020,27 +1020,45 @@ def auto_assign_daily_tasks(
     else:
         task_date = date.today()
     
+    print("=" * 80)
+    print(f"🔍 [AUTO-ASSIGN] 작업 배정 시작: {task_date}")
+    print("=" * 80)
+    
     # 이미 배정된 작업이 있는지 확인
     existing = db.query(BlogWorkTask).filter(
         BlogWorkTask.task_date == task_date
     ).first()
     
     if existing:
-        raise HTTPException(status_code=400, detail="이미 배정된 작업이 있습니다")
+        print(f"⚠️ [AUTO-ASSIGN] 이미 배정된 작업 있음")
+        raise HTTPException(status_code=400, detail=f"{task_date} 날짜에 이미 배정된 작업이 있습니다")
     
     # 활성 작업자 조회
     active_workers = db.query(BlogWorker).filter(
         BlogWorker.status == 'active'
     ).all()
     
+    print(f"🔍 [AUTO-ASSIGN] 활성 작업자 수: {len(active_workers)}")
+    
     if not active_workers:
+        print(f"⚠️ [AUTO-ASSIGN] 활성 작업자 없음!")
         raise HTTPException(status_code=400, detail="활성 작업자가 없습니다")
     
     # 오늘 배정된 키워드 (중복 방지)
     today_assigned_keywords = set()
+    total_assigned = 0
     
     for worker in active_workers:
+        print(f"\n📋 [AUTO-ASSIGN] 작업자: {worker.user.username} (ID: {worker.id})")
+        print(f"   - current_product_id: {worker.current_product_id}")
+        print(f"   - daily_quota: {worker.daily_quota}")
+        
         if not worker.current_product_id:
+            print(f"   ⚠️ 상품이 설정되지 않음 → 스킵")
+            continue
+        
+        if worker.daily_quota <= 0:
+            print(f"   ⚠️ 작업량이 0 → 스킵")
             continue
         
         # 이 작업자가 아직 안 쓴 키워드 조회
@@ -1050,6 +1068,7 @@ def auto_assign_daily_tasks(
             BlogKeywordProgress.is_completed == True
         ).all()
         completed_keywords = {k[0] for k in completed}
+        print(f"   - 완료한 키워드: {len(completed_keywords)}개")
         
         # 이 상품의 활성 키워드
         active_kws = db.query(BlogProductKeyword.keyword_text).filter(
@@ -1057,38 +1076,51 @@ def auto_assign_daily_tasks(
             BlogProductKeyword.is_active == True
         ).all()
         active_keywords = {k[0] for k in active_kws}
+        print(f"   - 활성 키워드: {len(active_keywords)}개")
+        
+        if len(active_keywords) == 0:
+            print(f"   ⚠️ 활성 키워드 없음 → 스킵")
+            continue
         
         # 아직 안 쓴 키워드
         unused = active_keywords - completed_keywords
+        print(f"   - 미사용 키워드: {len(unused)}개")
         
         # 오늘 다른 작업자가 배정받은 키워드 제외
         available = unused - today_assigned_keywords
+        print(f"   - 배정 가능 키워드: {len(available)}개")
         
         if not available:
-            # 사용 가능한 키워드 없음 → 다음 상품으로 이동
+            print(f"   ⚠️ 배정 가능한 키워드 없음 → 스킵")
             continue
         
         # 할당량만큼 랜덤 선택
         quota = min(worker.daily_quota, len(available))
         selected = random.sample(list(available), quota)
+        print(f"   ✅ 선택된 키워드: {quota}개 - {selected[:3]}{'...' if len(selected) > 3 else ''}")
         
         # 작업자의 블로그 계정들
         accounts = db.query(BlogAccount).filter(
             BlogAccount.assigned_worker_id == worker.id
         ).order_by(BlogAccount.assignment_order).all()
         
+        print(f"   - 배정된 계정: {len(accounts)}개")
+        
         if not accounts:
+            print(f"   ⚠️ 배정된 계정 없음 → 스킵")
             continue
         
         # 계정별 작업 분배 (계정당 최대 3개)
         account_idx = 0
         account_post_count = {}
+        assigned_for_worker = 0
         
         for keyword in selected:
             # 현재 계정이 3개 다 찼으면 다음 계정으로
             if account_post_count.get(account_idx, 0) >= 3:
                 account_idx += 1
                 if account_idx >= len(accounts):
+                    print(f"   ⚠️ 모든 계정이 가득 참 (배정: {assigned_for_worker}개)")
                     break
             
             task = BlogWorkTask(
@@ -1100,6 +1132,7 @@ def auto_assign_daily_tasks(
                 blog_account_id=accounts[account_idx].id
             )
             db.add(task)
+            assigned_for_worker += 1
             
             # 진행 상황에도 기록 (아직 없다면)
             progress = db.query(BlogKeywordProgress).filter(
@@ -1120,15 +1153,21 @@ def auto_assign_daily_tasks(
             today_assigned_keywords.add(keyword)
             account_post_count[account_idx] = account_post_count.get(account_idx, 0) + 1
         
-        # 이 상품의 모든 키워드 완료 체크
-        if len(unused) <= worker.daily_quota:
-            # TODO: 다음 상품으로 자동 이동 로직
-            pass
+        print(f"   ✅ 이 작업자에게 {assigned_for_worker}개 작업 배정")
+        total_assigned += assigned_for_worker
     
     db.commit()
     
-    return {"message": f"{task_date} 작업 배정 완료", "assigned_count": len(today_assigned_keywords)}
-
+    print("=" * 80)
+    print(f"✅ [AUTO-ASSIGN] 총 {total_assigned}개 작업 배정 완료")
+    print("=" * 80)
+    
+    return {
+        "message": f"{task_date} 작업 배정 완료 (총 {total_assigned}개)",
+        "assigned_count": total_assigned,
+        "workers_count": len(active_workers)
+    }
+    
 @router.delete("/blog/api/workers/{worker_id}")
 def delete_blog_worker(worker_id: int, request: Request, db: Session = Depends(get_db)):
     """블로그 작업자 삭제"""
