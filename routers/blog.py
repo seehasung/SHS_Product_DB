@@ -6,6 +6,7 @@ from typing import List, Optional
 from datetime import datetime, date, timedelta
 import random
 import math
+import re
 import os
 import uuid
 from pathlib import Path
@@ -95,6 +96,12 @@ def check_is_blog_manager(user: User, db: Session):  # ⭐ 함수명 변경
 def count_keyword_occurrences(text: str, keyword: str):
     """텍스트에서 키워드 출현 횟수 세기"""
     return text.lower().count(keyword.lower())
+
+def count_chars_without_spaces(text: str):
+    """공백을 제외한 글자 수 세기"""
+    import re
+    # 모든 공백 문자(스페이스, 탭, 줄바꿈 등) 제거
+    return len(re.sub(r'\s', '', text))
 
 
 def update_worker_accounts(worker: BlogWorker, db: Session):
@@ -591,7 +598,7 @@ async def create_blog_post(
         raise HTTPException(status_code=403, detail="권한이 없습니다")
     
     # 통계 계산
-    char_count = len(body)
+    char_count = count_chars_without_spaces(body)  # ✅
     keyword_count = count_keyword_occurrences(title + " " + body, task.keyword_text)
     
     # 블로그 글 생성
@@ -763,9 +770,9 @@ async def update_blog_post(
     post.post_url = post_url
     
     # 통계 재계산
-    post.char_count = len(body)
-    post.keyword_count = count_keyword_occurrences(title + " " + body, post.keyword_text)
-    
+    post.char_count = count_chars_without_spaces(body)  # ✅
+    post.keyword_count = count_keyword_occurrences(title + " " + body, post.keyword_text)  
+      
     # 새 이미지 추가
     if images:
         upload_dir = Path("static/uploads/blog_images")
