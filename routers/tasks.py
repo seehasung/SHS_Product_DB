@@ -129,7 +129,7 @@ async def task_list(
             task.is_read = True
     db.commit()
     
-    return templates.TemplateResponse("task_list.html", {
+    return templates.TemplateResponse("tasks/task_list.html", {
         "request": request,
         "username": username,
         "is_admin": is_admin,
