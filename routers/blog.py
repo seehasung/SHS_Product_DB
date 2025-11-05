@@ -1085,3 +1085,31 @@ def auto_assign_daily_tasks(
     db.commit()
     
     return {"message": f"{task_date} 작업 배정 완료", "assigned_count": len(today_assigned_keywords)}
+
+@router.delete("/blog/api/workers/{worker_id}")
+def delete_blog_worker(worker_id: int, request: Request, db: Session = Depends(get_db)):
+    """블로그 작업자 삭제"""
+    user = get_current_user(request, db)
+    
+    if not check_is_blog_manager(user, db):
+        raise HTTPException(status_code=403, detail="관리자 권한이 필요합니다")
+    
+    worker = db.query(BlogWorker).get(worker_id)
+    if not worker:
+        raise HTTPException(status_code=404, detail="작업자를 찾을 수 없습니다")
+    
+    # 배정된 계정 모두 해제
+    accounts = db.query(BlogAccount).filter(
+        BlogAccount.assigned_worker_id == worker_id
+    ).all()
+    
+    for account in accounts:
+        account.assigned_worker_id = None
+        account.assignment_order = None
+        db.add(account)
+    
+    # 작업자 삭제
+    db.delete(worker)
+    db.commit()
+    
+    return {"message": "작업자 삭제 완료"}
