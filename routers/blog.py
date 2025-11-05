@@ -167,13 +167,21 @@ def blog_main_page(request: Request, db: Session = Depends(get_db)):
     
     is_manager = is_blog_manager(user, db)
     
+    # ⭐ 디버깅 추가
+    print("=" * 80)
+    print(f"🔍 [BLOG PAGE] 사용자: {user.username}")
+    print(f"🔍 [BLOG PAGE] is_admin: {user.is_admin}")
+    print(f"🔍 [BLOG PAGE] blog_worker: {blog_worker}")
+    print(f"🔍 [BLOG PAGE] blog_worker.is_blog_manager: {blog_worker.is_blog_manager if blog_worker else 'N/A'}")
+    print(f"🔍 [BLOG PAGE] is_manager (템플릿 전달값): {is_manager}")
+    print("=" * 80)
+    
     return templates.TemplateResponse("marketing_blog.html", {
         "request": request,
         "user": user,
         "blog_worker": blog_worker,
         "is_manager": is_manager
     })
-
 
 # ============================================
 # 전체 현황 API
