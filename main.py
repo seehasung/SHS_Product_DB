@@ -14,7 +14,7 @@ from routers import tasks
 
 from database import (
     Base, engine, SessionLocal, User, PostSchedule, MarketingPost,
-    MarketingProduct  # ✅ 추가!
+    MarketingProduct, Product
 )
 from routers import auth, admin_users, product, marketing, tasks, blog
 
