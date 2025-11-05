@@ -1022,6 +1022,29 @@ function submitPostEdit(postId) {
     });
 }
 
+function deletePost(postId) {
+    if (!confirm('이 글을 삭제하시겠습니까?\n삭제된 글은 복구할 수 없습니다.')) {
+        return;
+    }
+    
+    fetch(`/blog/api/posts/${postId}`, {
+        method: 'DELETE'
+    })
+    .then(r => {
+        if (!r.ok) throw new Error('삭제 실패');
+        return r.json();
+    })
+    .then(data => {
+        alert(data.message || '글이 삭제되었습니다.');
+        loadPosts();
+        loadDashboard();
+    })
+    .catch(err => {
+        console.error('삭제 오류:', err);
+        alert('오류: ' + err.message);
+    });
+}
+
 // ==================== 계정 관리 ====================
 {% if is_manager %}
 function loadAccounts() {
