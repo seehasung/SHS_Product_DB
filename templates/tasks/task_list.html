@@ -303,6 +303,18 @@
             transform: translateY(-3px);
             box-shadow: 0 8px 24px rgba(40, 167, 69, 0.45);
         }
+
+        .btn-modern-danger {
+            background: linear-gradient(135deg, #dc3545 0%, #ff6b6b 100%);
+            color: white;
+            box-shadow: 0 4px 16px rgba(220, 53, 69, 0.35);
+        }
+
+        .btn-modern-danger:hover {
+            color: white;
+            transform: translateY(-3px);
+            box-shadow: 0 8px 24px rgba(220, 53, 69, 0.45);
+        }
         
         /* ========================================
            🎨 빈 상태
@@ -406,6 +418,53 @@
                 <div class="filter-card">
                     <div class="filter-title">
                         <i class="bi bi-funnel"></i> 필터
+                    </div>
+                    
+                    <!-- 날짜 필터 -->
+                    <div class="filter-section">
+                        <div class="filter-section-title">날짜</div>
+                        <form method="get" action="/tasks" id="filterForm">
+                            <input type="date" 
+                                class="form-control mb-2" 
+                                name="date_filter" 
+                                value="{{ date_filter or '' }}"
+                                onchange="document.getElementById('filterForm').submit()">
+                            
+                            <!-- 지시자 필터 -->
+                            <div class="filter-section-title mt-3">지시자</div>
+                            <select class="form-select mb-2" 
+                                    name="creator_filter" 
+                                    onchange="document.getElementById('filterForm').submit()">
+                                <option value="">전체 지시자</option>
+                                {% for creator in creators %}
+                                <option value="{{ creator.id }}" {{ 'selected' if creator_filter == creator.id else '' }}>
+                                    {{ creator.username }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                            
+                            <!-- 작업자 필터 (관리자만) -->
+                            {% if is_admin %}
+                            <div class="filter-section-title mt-3">작업자</div>
+                            <select class="form-select mb-2" 
+                                    name="assignee_filter" 
+                                    onchange="document.getElementById('filterForm').submit()">
+                                <option value="">전체 작업자</option>
+                                {% for user in all_users %}
+                                <option value="{{ user.id }}" {{ 'selected' if assignee_filter == user.id else '' }}>
+                                    {{ user.username }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                            {% endif %}
+                            
+                            <!-- 필터 초기화 -->
+                            {% if date_filter or creator_filter or assignee_filter %}
+                            <a href="/tasks" class="btn btn-sm btn-outline-secondary w-100 mt-2">
+                                <i class="bi bi-x-circle"></i> 필터 초기화
+                            </a>
+                            {% endif %}
+                        </form>
                     </div>
                     
                     <!-- 상태 필터 -->
@@ -533,10 +592,17 @@
                                     </small>
                                 </div>
                             </div>
-                            <div>
+                            <div class="d-flex gap-2">
                                 <a href="/tasks/{{ task.id }}" class="btn-modern btn-modern-primary btn-sm">
                                     <i class="bi bi-eye"></i> 상세보기
                                 </a>
+                                {% if is_admin %}
+                                <button class="btn-modern btn-modern-danger btn-sm" 
+                                        onclick="deleteTask({{ task.id }})"
+                                        title="업무 삭제 (관리자 전용)">
+                                    <i class="bi bi-trash"></i> 삭제
+                                </button>
+                                {% endif %}
                             </div>
                         </div>
                     </div>
@@ -675,6 +741,35 @@
         
         // 페이지 로드 시 WebSocket 연결
         connectWebSocket();
+
+        // ============================================
+        // 업무 삭제 (관리자 전용)
+        // ============================================
+        async function deleteTask(taskId) {
+            if (!confirm('정말 이 업무를 완전히 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다.')) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/tasks/api/${taskId}/delete`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                if (response.ok) {
+                    alert('업무가 삭제되었습니다.');
+                    location.reload();
+                } else {
+                    const data = await response.json();
+                    alert('삭제 실패: ' + (data.detail || '알 수 없는 오류'));
+                }
+            } catch (error) {
+                console.error('삭제 오류:', error);
+                alert('삭제 중 오류가 발생했습니다.');
+            }
+        }
     </script>
 </body>
 </html>
