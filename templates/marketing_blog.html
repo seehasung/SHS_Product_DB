@@ -583,12 +583,16 @@ function loadTodayTasks() {
                 return;
             }
             
+            // 오늘의 작업 목록 테이블 헤더에서 "작업자" 컬럼 숨기기
             tbody.innerHTML = tasks.map(task => `
                 <tr>
                     <td>${new Date().toISOString().split('T')[0]}</td>
                     <td>${task.product_name}</td>
                     <td><span class="badge bg-info">${task.keyword}</span></td>
+                    <!-- ⭐ 관리자만 작업자 컬럼 표시 -->
+                    {% if is_manager %}
                     <td>${task.worker_name}</td>
+                    {% endif %}
                     <td>${task.account_id}</td>
                     <td>
                         ${task.status === 'completed' 
@@ -598,7 +602,7 @@ function loadTodayTasks() {
                     <td>
                         ${task.status === 'pending' 
                             ? `<button class="btn btn-sm btn-primary" onclick="openCreatePostModal(${task.id}, '${task.keyword}')">완료하기</button>`
-                            : `<a href="/blog/api/posts/${task.post_id}" class="btn btn-sm btn-info">보기</a>`}
+                            : `<button class="btn btn-sm btn-info" onclick="viewPost(${task.post_id})">보기</button>`}
                     </td>
                 </tr>
             `).join('');

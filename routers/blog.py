@@ -267,13 +267,22 @@ def get_today_tasks(request: Request, db: Session = Depends(get_db)):
     
     today = date.today()
     
-    # 관리자면 전체, 작업자면 본인 것만
+    # 기본 쿼리 (오늘 작업만)
     query = db.query(BlogWorkTask).filter(BlogWorkTask.task_date == today)
     
-    worker = db.query(BlogWorker).filter(BlogWorker.user_id == user.id).first()
-    if worker and not worker.is_blog_manager:
-        query = query.filter(BlogWorkTask.worker_id == worker.id)
+    # ⭐ 관리자 체크
+    is_manager = check_is_blog_manager(user, db)
     
+    # ⭐ 일반 사용자는 자기 작업만 필터링
+    if not is_manager:
+        worker = db.query(BlogWorker).filter(BlogWorker.user_id == user.id).first()
+        if worker:
+            query = query.filter(BlogWorkTask.worker_id == worker.id)
+        else:
+            # 작업자가 아니면 빈 결과 반환
+            return []
+    
+    # ⭐ 관리자는 모든 작업 표시
     tasks = query.all()
     
     result = []
@@ -318,7 +327,7 @@ def get_today_tasks(request: Request, db: Session = Depends(get_db)):
             "worker_name": worker_name,
             "account_id": account_id,
             "status": task.status,
-            "post_id": task.completed_post_id  # ⭐⭐⭐ 여기가 핵심!
+            "post_id": task.completed_post_id
         })
     
     return result
