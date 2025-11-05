@@ -75,11 +75,12 @@ def read_root(request: Request):
     
     # ⭐ 업무 지시 통계 초기화
     task_stats = {
-        'total': 0,
         'new': 0,
+        'confirmed': 0,
         'in_progress': 0,
-        'completed_today': 0
+        'on_hold': 0
     }
+    
     my_pending_tasks = []
     
     if username and (can_manage_marketing or is_admin):
@@ -182,25 +183,24 @@ def read_root(request: Request):
             current_user = db.query(User).filter(User.username == username).first()
             if current_user:
                 # 내가 받은 업무 통계
-                task_stats['total'] = db.query(TaskAssignment).filter(
-                    TaskAssignment.assignee_id == current_user.id,
-                    TaskAssignment.status != 'cancelled'
-                ).count()
-                
                 task_stats['new'] = db.query(TaskAssignment).filter(
                     TaskAssignment.assignee_id == current_user.id,
                     TaskAssignment.status == 'new'
                 ).count()
-                
+
+                task_stats['confirmed'] = db.query(TaskAssignment).filter(
+                    TaskAssignment.assignee_id == current_user.id,
+                    TaskAssignment.status == 'confirmed'
+                ).count()
+
                 task_stats['in_progress'] = db.query(TaskAssignment).filter(
                     TaskAssignment.assignee_id == current_user.id,
                     TaskAssignment.status == 'in_progress'
                 ).count()
-                
-                task_stats['completed_today'] = db.query(TaskAssignment).filter(
+
+                task_stats['on_hold'] = db.query(TaskAssignment).filter(
                     TaskAssignment.assignee_id == current_user.id,
-                    TaskAssignment.status == 'completed',
-                    func.date(TaskAssignment.completed_at) == datetime.now().date()
+                    TaskAssignment.status == 'on_hold'
                 ).count()
                 
                 # 미완료 업무 목록 (최대 5개)

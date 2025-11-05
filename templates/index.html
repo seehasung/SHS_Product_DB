@@ -767,47 +767,51 @@
             <!-- ⭐ 업무 지시 통계 (모든 로그인 사용자) -->
             {% if username %}
             <div class="stats-grid" style="grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); margin-top: -20px;">
-                <div class="stat-card" style="--stat-gradient: linear-gradient(90deg, #a29bfe 0%, #6c5ce7 100%);">
-                    <div class="stat-icon" style="background: linear-gradient(135deg, #a29bfe 0%, #6c5ce7 100%); color: white;">
-                        <i class="bi bi-clipboard-check"></i>
-                    </div>
-                    <div class="stat-value">{{ task_stats.total | default(0) }}</div>
-                    <div class="stat-label">받은 업무</div>
-                    <div class="stat-change">
-                        <i class="bi bi-dash"></i> 전체
-                    </div>
-                </div>
-                
+                <!-- 카드 1: 새 지시 (빨간색) -->
                 <div class="stat-card" style="--stat-gradient: linear-gradient(90deg, #ff7675 0%, #d63031 100%);">
                     <div class="stat-icon" style="background: linear-gradient(135deg, #ff7675 0%, #d63031 100%); color: white;">
                         <i class="bi bi-exclamation-circle"></i>
                     </div>
                     <div class="stat-value">{{ task_stats.new | default(0) }}</div>
                     <div class="stat-label">새 지시</div>
-                    <div class="stat-change negative">
-                        <i class="bi bi-arrow-down"></i> 확인 필요
+                    <div class="stat-change" style="background: rgba(255, 118, 117, 0.1); color: #d63031;">
+                        <i class="bi bi-bell"></i> 확인 필요
                     </div>
                 </div>
                 
+                <!-- 카드 2: 확인함 (하늘색) -->
                 <div class="stat-card" style="--stat-gradient: linear-gradient(90deg, #74b9ff 0%, #0984e3 100%);">
                     <div class="stat-icon" style="background: linear-gradient(135deg, #74b9ff 0%, #0984e3 100%); color: white;">
+                        <i class="bi bi-check2-circle"></i>
+                    </div>
+                    <div class="stat-value">{{ task_stats.confirmed | default(0) }}</div>
+                    <div class="stat-label">확인함</div>
+                    <div class="stat-change" style="background: rgba(116, 185, 255, 0.1); color: #0984e3;">
+                        <i class="bi bi-eye"></i> 읽음
+                    </div>
+                </div>
+                
+                <!-- 카드 3: 진행중 (주황색) -->
+                <div class="stat-card" style="--stat-gradient: linear-gradient(90deg, #fdcb6e 0%, #e17055 100%);">
+                    <div class="stat-icon" style="background: linear-gradient(135deg, #fdcb6e 0%, #e17055 100%); color: white;">
                         <i class="bi bi-arrow-repeat"></i>
                     </div>
                     <div class="stat-value">{{ task_stats.in_progress | default(0) }}</div>
                     <div class="stat-label">진행중</div>
-                    <div class="stat-change positive">
-                        <i class="bi bi-arrow-up"></i> 작업 중
+                    <div class="stat-change" style="background: rgba(253, 203, 110, 0.1); color: #e17055;">
+                        <i class="bi bi-gear"></i> 작업 중
                     </div>
                 </div>
-                
-                <div class="stat-card" style="--stat-gradient: linear-gradient(90deg, #00b894 0%, #00cec9 100%);">
-                    <div class="stat-icon" style="background: linear-gradient(135deg, #00b894 0%, #00cec9 100%); color: white;">
-                        <i class="bi bi-check-circle"></i>
+
+                <!-- 카드 4: 보류 (회색) -->
+                <div class="stat-card" style="--stat-gradient: linear-gradient(90deg, #b2bec3 0%, #636e72 100%);">
+                    <div class="stat-icon" style="background: linear-gradient(135deg, #b2bec3 0%, #636e72 100%); color: white;">
+                        <i class="bi bi-pause-circle"></i>
                     </div>
-                    <div class="stat-value">{{ task_stats.completed_today | default(0) }}</div>
-                    <div class="stat-label">오늘 완료</div>
-                    <div class="stat-change positive">
-                        <i class="bi bi-arrow-up"></i> 완료
+                    <div class="stat-value">{{ task_stats.on_hold | default(0) }}</div>
+                    <div class="stat-label">보류</div>
+                    <div class="stat-change" style="background: rgba(178, 190, 195, 0.1); color: #636e72;">
+                        <i class="bi bi-clock-history"></i> 대기 중
                     </div>
                 </div>
             </div>
