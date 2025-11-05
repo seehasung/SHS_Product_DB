@@ -69,8 +69,8 @@ async def task_list(
     request: Request,
     start_date: str = Query(None),
     end_date: str = Query(None),
-    creator_filter: int = Query(None),
-    assignee_filter: int = Query(None),
+    creator_filter: Optional[int] = Query(None),
+    assignee_filter: Optional[int] = Query(None),
     db: Session = Depends(get_db)
 ):
     """업무 목록 (기간 필터링 기능)"""
@@ -84,11 +84,19 @@ async def task_list(
     
     is_admin = current_user.is_admin
     
+    # ✅ 빈 문자열을 None으로 변환
+    if creator_filter == 0 or (isinstance(creator_filter, str) and not creator_filter):
+        creator_filter = None
+    if assignee_filter == 0 or (isinstance(assignee_filter, str) and not assignee_filter):
+        assignee_filter = None
+    
     # 기본 쿼리
     query = db.query(TaskAssignment).options(
         joinedload(TaskAssignment.creator),
         joinedload(TaskAssignment.assignee)
     )
+    
+    # ... 나머지 코드 동일 ...
     
     # 관리자가 아니면 자기 업무만
     if not is_admin:
