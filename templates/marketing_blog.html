@@ -301,6 +301,28 @@
     </div>
 </div>
 
+<!-- ==================== 모달: 글 상세 보기 ==================== -->
+<div class="modal fade" id="viewPostModal" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">📄 블로그 글 상세</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="postDetailBody">
+                <div class="text-center">
+                    <div class="spinner-border" role="status">
+                        <span class="visually-hidden">로딩 중...</span>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">닫기</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- ==================== 모달: 계정 추가 ==================== -->
 {% if is_manager %}
 <div class="modal fade" id="addAccountModal" tabindex="-1">
@@ -825,21 +847,105 @@ function submitPost() {
 }
 
 function viewPost(postId) {
-    // TODO: 글 상세 보기 모달
-    alert('글 상세 보기 기능은 추후 구현 예정입니다.');
-}
-
-function deletePost(postId) {
-    if (!confirm('이 글을 삭제하시겠습니까?')) return;
+    // 모달 열기
+    const modal = new bootstrap.Modal(document.getElementById('viewPostModal'));
+    const modalBody = document.getElementById('postDetailBody');
     
-    fetch(`/blog/api/posts/${postId}`, {
-        method: 'DELETE'
-    })
-    .then(r => r.json())
-    .then(data => {
-        alert(data.message);
-        loadPosts();
-    });
+    // 로딩 표시
+    modalBody.innerHTML = `
+        <div class="text-center">
+            <div class="spinner-border" role="status">
+                <span class="visually-hidden">로딩 중...</span>
+            </div>
+        </div>
+    `;
+    
+    modal.show();
+    
+    // 글 상세 정보 가져오기
+    fetch(`/blog/api/posts/${postId}`)
+        .then(r => {
+            if (!r.ok) throw new Error('글을 불러올 수 없습니다');
+            return r.json();
+        })
+        .then(post => {
+            modalBody.innerHTML = `
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <strong>작성일:</strong> ${post.created_at}
+                    </div>
+                    <div class="col-md-6">
+                        <strong>작업자:</strong> ${post.worker_name}
+                    </div>
+                </div>
+                
+                <div class="row mb-3">
+                    <div class="col-md-4">
+                        <strong>상품:</strong> ${post.product_name}
+                    </div>
+                    <div class="col-md-4">
+                        <strong>키워드:</strong> <span class="badge bg-info">${post.keyword}</span>
+                    </div>
+                    <div class="col-md-4">
+                        <strong>계정:</strong> ${post.account_id}
+                    </div>
+                </div>
+                
+                <div class="mb-3">
+                    <strong>제목:</strong>
+                    <div class="p-2 bg-light rounded">${post.title}</div>
+                </div>
+                
+                <div class="mb-3">
+                    <strong>본문:</strong>
+                    <div class="p-3 bg-light rounded" style="max-height: 400px; overflow-y: auto; white-space: pre-wrap;">${post.body}</div>
+                </div>
+                
+                <div class="row mb-3">
+                    <div class="col-md-4">
+                        <strong>글자 수:</strong> ${post.char_count}자
+                    </div>
+                    <div class="col-md-4">
+                        <strong>키워드 출현:</strong> ${post.keyword_count}회
+                    </div>
+                    <div class="col-md-4">
+                        <strong>이미지 수:</strong> ${post.image_count}개
+                    </div>
+                </div>
+                
+                ${post.images && post.images.length > 0 ? `
+                    <div class="mb-3">
+                        <strong>첨부 이미지:</strong>
+                        <div class="d-flex flex-wrap gap-2 mt-2">
+                            ${post.images.map(img => `
+                                <img src="/static/uploads/blog_images/${img.filename}" 
+                                     class="img-thumbnail" 
+                                     style="width: 150px; height: 150px; object-fit: cover; cursor: pointer;"
+                                     onclick="window.open('/static/uploads/blog_images/${img.filename}', '_blank')">
+                            `).join('')}
+                        </div>
+                    </div>
+                ` : ''}
+                
+                ${post.post_url ? `
+                    <div class="mb-3">
+                        <strong>블로그 URL:</strong>
+                        <div class="p-2 bg-light rounded">
+                            <a href="${post.post_url}" target="_blank" class="text-decoration-none">
+                                ${post.post_url} <i class="bi bi-box-arrow-up-right"></i>
+                            </a>
+                        </div>
+                    </div>
+                ` : ''}
+            `;
+        })
+        .catch(err => {
+            modalBody.innerHTML = `
+                <div class="alert alert-danger">
+                    ❌ ${err.message}
+                </div>
+            `;
+        });
 }
 
 // ==================== 계정 관리 ====================
@@ -1215,6 +1321,19 @@ function collapseAllProducts() {
 /* 테이블 행 호버 효과 */
 .table-hover tbody tr:hover {
     background-color: rgba(0, 123, 255, 0.05);
+}
+
+/* 글 상세 모달 스타일 */
+#postDetailBody .bg-light {
+    background-color: #f8f9fa !important;
+}
+
+#postDetailBody img {
+    transition: transform 0.2s;
+}
+
+#postDetailBody img:hover {
+    transform: scale(1.05);
 }
 </style>
 
