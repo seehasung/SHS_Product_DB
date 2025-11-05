@@ -1,6 +1,6 @@
 # routers/tasks.py
 
-from fastapi import APIRouter, Depends, HTTPException, Form, UploadFile, File, Request
+from fastapi import APIRouter, Depends, HTTPException, Form, UploadFile, File, Request, Query
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session, joinedload
@@ -65,48 +65,73 @@ def get_current_user_id(request: Request, db: Session = Depends(get_db)):
 # ============================================
 
 @router.get("/", response_class=HTMLResponse)
-async def task_list(request: Request, db: Session = Depends(get_db)):
-    """업무 지시 목록 (담당자 기준)"""
-    username = check_session(request)
+async def task_list(
+    request: Request,
+    date_filter: str = Query(None),
+    creator_filter: int = Query(None),
+    assignee_filter: int = Query(None),
+    db: Session = Depends(get_db)
+):
+    """업무 목록 (필터링 기능 추가)"""
+    username = request.session.get("user")
     if not username:
-        return RedirectResponse("/login", status_code=302)
+        return RedirectResponse("/login", status_code=303)
     
     current_user = db.query(User).filter(User.username == username).first()
-    is_admin = request.session.get("is_admin", False)
+    if not current_user:
+        return RedirectResponse("/login", status_code=303)
     
-    # ⭐ 권한 설정 추가
-    can_manage_products = current_user.can_manage_products or is_admin
-    can_manage_marketing = current_user.can_manage_marketing or is_admin
+    is_admin = current_user.is_admin
     
-    # 담당자로서 받은 업무 조회 (관계 데이터 미리 로드)
-    tasks_query = db.query(TaskAssignment).options(
+    # 기본 쿼리
+    query = db.query(TaskAssignment).options(
         joinedload(TaskAssignment.creator),
         joinedload(TaskAssignment.assignee)
     )
     
+    # 관리자가 아니면 자기 업무만
     if not is_admin:
-        tasks_query = tasks_query.filter(TaskAssignment.assignee_id == current_user.id)
+        query = query.filter(TaskAssignment.assignee_id == current_user.id)
     
-    tasks = tasks_query.order_by(
-        TaskAssignment.status.in_(['new', 'confirmed', 'in_progress']).desc(),
-        TaskAssignment.deadline.asc()
-    ).all()
+    # 날짜 필터
+    if date_filter:
+        try:
+            filter_date = datetime.strptime(date_filter, '%Y-%m-%d').date()
+            query = query.filter(func.date(TaskAssignment.created_at) == filter_date)
+        except:
+            pass
     
-    # 미읽은 알림 수
-    unread_count = db.query(TaskNotification).filter(
-        TaskNotification.user_id == current_user.id,
-        TaskNotification.is_read == False
-    ).count()
+    # 지시자 필터
+    if creator_filter:
+        query = query.filter(TaskAssignment.creator_id == creator_filter)
     
-    return templates.TemplateResponse("tasks/task_list.html", {
+    # 작업자 필터 (관리자만)
+    if assignee_filter and is_admin:
+        query = query.filter(TaskAssignment.assignee_id == assignee_filter)
+    
+    tasks = query.order_by(TaskAssignment.created_at.desc()).all()
+    
+    # 필터용 사용자 목록
+    all_users = db.query(User).all()
+    creators = db.query(User).join(TaskAssignment, User.id == TaskAssignment.creator_id).distinct().all()
+    
+    # 읽음 처리
+    for task in tasks:
+        if task.assignee_id == current_user.id and not task.is_read:
+            task.is_read = True
+    db.commit()
+    
+    return templates.TemplateResponse("task_list.html", {
         "request": request,
         "username": username,
         "is_admin": is_admin,
-        "can_manage_products": can_manage_products,  # ⭐ 추가
-        "can_manage_marketing": can_manage_marketing,  # ⭐ 추가
         "tasks": tasks,
-        "unread_count": unread_count,
-        "current_user_id": current_user.id
+        "current_user_id": current_user.id,
+        "all_users": all_users,
+        "creators": creators,
+        "date_filter": date_filter,
+        "creator_filter": creator_filter,
+        "assignee_filter": assignee_filter
     })
 
 
@@ -1394,3 +1419,45 @@ async def hold_task_api(
         "message": "업무가 보류 처리되었습니다",
         "files": uploaded_files
     }
+    
+@router.post("/api/{task_id}/delete")
+async def delete_task(
+    task_id: int,
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    """업무 완전 삭제 (관리자 전용)"""
+    username = request.session.get("user")
+    if not username:
+        raise HTTPException(status_code=401, detail="로그인이 필요합니다")
+    
+    current_user = db.query(User).filter(User.username == username).first()
+    if not current_user or not current_user.is_admin:
+        raise HTTPException(status_code=403, detail="관리자만 삭제할 수 있습니다")
+    
+    task = db.query(TaskAssignment).filter(TaskAssignment.id == task_id).first()
+    if not task:
+        raise HTTPException(status_code=404, detail="업무를 찾을 수 없습니다")
+    
+    # 관련 파일 먼저 삭제
+    files = db.query(TaskFile).filter(TaskFile.task_id == task_id).all()
+    for file in files:
+        db.delete(file)
+    
+    # 댓글 삭제
+    comments = db.query(TaskComment).filter(TaskComment.task_id == task_id).all()
+    for comment in comments:
+        db.delete(comment)
+    
+    # 알림 삭제
+    notifications = db.query(TaskNotification).filter(TaskNotification.task_id == task_id).all()
+    for notif in notifications:
+        db.delete(notif)
+    
+    # 업무 삭제
+    db.delete(task)
+    db.commit()
+    
+    return {"success": True, "message": "업무가 삭제되었습니다"}
+
+
