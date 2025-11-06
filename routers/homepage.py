@@ -157,7 +157,11 @@ def update_worker_accounts(worker: HomepageWorker, db: Session):
 # 메인 페이지
 # ============================================
 
-@router.get("/homepage")
+# ============================================
+# 메인 페이지
+# ============================================
+
+@router.get("/marketing/homepage")  # ⭐ /homepage → /marketing/homepage 로 변경
 def homepage_main_page(request: Request, db: Session = Depends(get_db)):
     """통페이지 메인 페이지"""
     from fastapi.templating import Jinja2Templates
