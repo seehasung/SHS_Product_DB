@@ -1198,6 +1198,7 @@ def update_worker_product(
     request: Request = None,
     db: Session = Depends(get_db)
 ):
+    
     """작업자 현재 상품 변경"""
     user = get_current_user(request, db)
     
@@ -1212,6 +1213,39 @@ def update_worker_product(
     db.commit()
     
     return {"message": "상품 변경 완료"}
+
+
+@router.put("/blog/api/workers/{worker_id}/blog-manager")
+def update_worker_blog_manager(
+    worker_id: int,
+    is_blog_manager: bool = Form(...),
+    request: Request = None,
+    db: Session = Depends(get_db)
+):
+    """작업자 블로그 관리자 권한 변경"""
+    user = get_current_user(request, db)
+    
+    if not check_is_blog_manager(user, db):
+        raise HTTPException(status_code=403, detail="관리자 권한이 필요합니다")
+    
+    worker = db.query(BlogWorker).get(worker_id)
+    if not worker:
+        raise HTTPException(status_code=404, detail="작업자를 찾을 수 없습니다")
+    
+    # 자기 자신의 관리자 권한은 해제할 수 없음
+    if worker.user_id == user.id and not is_blog_manager:
+        raise HTTPException(
+            status_code=400, 
+            detail="자신의 관리자 권한은 해제할 수 없습니다"
+        )
+    
+    worker.is_blog_manager = is_blog_manager
+    db.commit()
+    
+    status_text = "관리자로 지정" if is_blog_manager else "일반 작업자로 변경"
+    print(f"✅ [WORKER] {worker.user.username}: {status_text}")
+    
+    return {"message": f"{status_text}되었습니다"}
 
 
 # ============================================

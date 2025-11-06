@@ -219,6 +219,7 @@
                         <th>현재 상품</th>
                         <th>진행률</th>
                         <th>일일 작업량</th>
+                        <th>블로그 관리자</th>  <!-- ⭐ 추가 -->
                         <th>상태</th>
                         <th>관리</th>
                     </tr>
@@ -1194,7 +1195,7 @@ function loadWorkers() {
             const tbody = document.getElementById('workersTableBody');
             
             if (workers.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="7" class="text-center">등록된 작업자가 없습니다</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="8" class="text-center">등록된 작업자가 없습니다</td></tr>';
                 return;
             }
             
@@ -1213,6 +1214,18 @@ function loadWorkers() {
                         <input type="number" class="form-control form-control-sm" 
                                value="${worker.daily_quota}" min="1" 
                                onchange="updateQuota(${worker.id}, this.value)">
+                    </td>
+                    <td>
+                        <!-- ⭐ 블로그 관리자 체크박스 추가 -->
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" 
+                                   id="blogManager${worker.id}"
+                                   ${worker.is_blog_manager ? 'checked' : ''}
+                                   onchange="toggleBlogManager(${worker.id}, this.checked)">
+                            <label class="form-check-label" for="blogManager${worker.id}">
+                                ${worker.is_blog_manager ? '✅ 관리자' : '일반'}
+                            </label>
+                        </div>
                     </td>
                     <td>
                         <span class="badge bg-${worker.status === 'active' ? 'success' : 'secondary'}">
@@ -1334,6 +1347,33 @@ async function deleteWorker(workerId, username) {
     }
 }
 
+function toggleBlogManager(workerId, isBlogManager) {
+    const formData = new FormData();
+    formData.append('is_blog_manager', isBlogManager);
+    
+    fetch(`/blog/api/workers/${workerId}/blog-manager`, {
+        method: 'PUT',
+        body: formData
+    })
+    .then(r => {
+        if (!r.ok) {
+            return r.json().then(data => {
+                throw new Error(data.detail || '변경 실패');
+            });
+        }
+        return r.json();
+    })
+    .then(data => {
+        alert(data.message);
+        loadWorkers();
+    })
+    .catch(err => {
+        alert('오류: ' + err.message);
+        loadWorkers(); // 실패 시 원래 상태로 되돌리기
+    });
+}
+
+
 // 전체 펼치기
 function expandAllProducts() {
     const collapses = document.querySelectorAll('[id^="keywords-"]');
@@ -1358,6 +1398,22 @@ function collapseAllProducts() {
 </script>
 
 <style>
+/* 블로그 관리자 체크박스 스타일 */
+.form-check-input:checked {
+    background-color: #198754;
+    border-color: #198754;
+}
+
+.form-check-label {
+    font-size: 0.9em;
+    margin-left: 0.3em;
+}
+
+/* 작업자 테이블 컬럼 너비 조정 */
+#workersTable th:nth-child(6) {
+    min-width: 120px;
+}
+
 .card {
     box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
