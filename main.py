@@ -16,7 +16,7 @@ from database import (
     Base, engine, SessionLocal, User, PostSchedule, MarketingPost,
     MarketingProduct, Product
 )
-from routers import auth, admin_users, product, marketing, tasks, blog
+from routers import auth, admin_users, product, marketing, tasks, blog, homepage
 
 
 @asynccontextmanager
@@ -51,6 +51,7 @@ app.include_router(product.router)
 app.include_router(marketing.router)
 app.include_router(tasks.router)
 app.include_router(blog.router)
+app.include_router(homepage.router)
 
 
 @app.get("/", response_class=HTMLResponse)
