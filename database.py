@@ -420,6 +420,11 @@ class TaskNotification(Base):
 
 
 # ============================================
+# database.py - 블로그/통페이지 모델 전체 수정
+# ============================================
+# 기존의 BlogWorker부터 HomepagePostSchedule까지 전체를 이 코드로 교체하세요
+
+# ============================================
 # 블로그 마케팅 시스템 모델
 # ============================================
 
@@ -437,7 +442,7 @@ class BlogWorker(Base):
     updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
     
     # Relationships
-    user = relationship("User", backref="homepage_worker_profile")
+    user = relationship("User", back_populates="blog_worker")  # ⭐ 수정!
     current_product = relationship("MarketingProduct", foreign_keys=[current_product_id])
     blog_accounts = relationship("BlogAccount", back_populates="assigned_worker")
     blog_posts = relationship("BlogPost", back_populates="worker")
@@ -455,16 +460,16 @@ class BlogAccount(Base):
     __tablename__ = 'blog_accounts'
     
     id = Column(Integer, primary_key=True, index=True)
-    platform = Column(String, default='naver_blog')  # 네이버 블로그
+    platform = Column(String, default='naver_blog')
     account_id = Column(String, unique=True, nullable=False)
     account_pw = Column(String, nullable=False)
-    blog_url = Column(String)  # 블로그 URL
+    blog_url = Column(String)
     ip_address = Column(String)
     category = Column(String)
-    assigned_worker_id = Column(Integer, ForeignKey('blog_workers.id'))  # 배정된 작업자
-    assignment_order = Column(Integer)  # 배정 순서 (1, 2, 3...)
-    daily_post_limit = Column(Integer, default=3)  # 일일 포스팅 제한
-    status = Column(String, default='active')  # active, inactive
+    assigned_worker_id = Column(Integer, ForeignKey('blog_workers.id'))
+    assignment_order = Column(Integer)
+    daily_post_limit = Column(Integer, default=3)
+    status = Column(String, default='active')
     created_at = Column(DateTime, default=datetime.now)
     updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
     
@@ -481,8 +486,8 @@ class BlogProductKeyword(Base):
     id = Column(Integer, primary_key=True, index=True)
     marketing_product_id = Column(Integer, ForeignKey('marketing_products.id'), nullable=False)
     keyword_text = Column(String, nullable=False)
-    is_active = Column(Boolean, default=True)  # 블로그에서 사용 여부
-    order_index = Column(Integer, default=0)  # 순서
+    is_active = Column(Boolean, default=True)
+    order_index = Column(Integer, default=0)
     created_at = Column(DateTime, default=datetime.now)
     updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
     
@@ -497,25 +502,22 @@ class BlogPost(Base):
     id = Column(Integer, primary_key=True, index=True)
     post_title = Column(String, nullable=False)
     post_body = Column(Text, nullable=False)
-    keyword_text = Column(String, nullable=False)  # 사용된 키워드
-    post_url = Column(String)  # 실제 게시된 URL
+    keyword_text = Column(String, nullable=False)
+    post_url = Column(String)
     
-    # 통계 정보
-    char_count = Column(Integer, default=0)  # 글자 수
-    image_count = Column(Integer, default=0)  # 이미지 개수
-    keyword_count = Column(Integer, default=0)  # 키워드 출현 횟수
+    char_count = Column(Integer, default=0)
+    image_count = Column(Integer, default=0)
+    keyword_count = Column(Integer, default=0)
     
-    # 조회수 등
     view_count = Column(Integer, default=0)
     like_count = Column(Integer, default=0)
     comment_count = Column(Integer, default=0)
     
-    # 관계
     marketing_product_id = Column(Integer, ForeignKey('marketing_products.id'), nullable=False)
     worker_id = Column(Integer, ForeignKey('blog_workers.id'), nullable=False)
     blog_account_id = Column(Integer, ForeignKey('blog_accounts.id'), nullable=False)
     
-    is_registration_complete = Column(Boolean, default=True)  # 등록 완료 여부
+    is_registration_complete = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.now)
     updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
     
@@ -532,9 +534,9 @@ class BlogPostImage(Base):
     
     id = Column(Integer, primary_key=True, index=True)
     blog_post_id = Column(Integer, ForeignKey('blog_posts.id'), nullable=False)
-    image_path = Column(String, nullable=False)  # 저장 경로
-    image_filename = Column(String, nullable=False)  # 파일명
-    image_order = Column(Integer, default=0)  # 순서
+    image_path = Column(String, nullable=False)
+    image_filename = Column(String, nullable=False)
+    image_order = Column(Integer, default=0)
     uploaded_at = Column(DateTime, default=datetime.now)
     
     # Relationships
@@ -565,7 +567,7 @@ class BlogWorkTask(Base):
     
     id = Column(Integer, primary_key=True, index=True)
     task_date = Column(Date, nullable=False)
-    status = Column(String, default='pending')  # pending, completed
+    status = Column(String, default='pending')
     keyword_text = Column(String, nullable=False)
     
     worker_id = Column(Integer, ForeignKey('blog_workers.id'), nullable=False)
@@ -589,7 +591,7 @@ class BlogPostSchedule(Base):
     
     id = Column(Integer, primary_key=True, index=True)
     scheduled_date = Column(Date, nullable=False)
-    status = Column(String, default='pending')  # pending, completed, cancelled
+    status = Column(String, default='pending')
     
     worker_id = Column(Integer, ForeignKey('blog_workers.id'), nullable=False)
     blog_account_id = Column(Integer, ForeignKey('blog_accounts.id'), nullable=False)
@@ -609,25 +611,27 @@ class BlogPostSchedule(Base):
     blog_account = relationship("BlogAccount", foreign_keys=[blog_account_id])
     marketing_product = relationship("MarketingProduct", foreign_keys=[marketing_product_id])
     blog_post = relationship("BlogPost", foreign_keys=[blog_post_id])
-    
+
+
 # ============================================
 # 통페이지 마케팅 시스템 모델
 # ============================================
 
 class HomepageWorker(Base):
-    """통페이지 작업자"""
+    """통페이지 작업자 (사이트 회원 중 통페이지 작업 권한을 가진 사람)"""
     __tablename__ = 'homepage_workers'
+    
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey('users.id'), unique=True, nullable=False)
-    status = Column(String, default='active')  # active, inactive, suspended
-    daily_quota = Column(Integer, default=3)  # 일일 작업량
-    current_product_id = Column(Integer, ForeignKey('marketing_products.id'))  # 현재 진행 중인 상품
-    is_blog_manager = Column(Boolean, default=False)  # 블로그 관리자 여부
+    status = Column(String, default='active')
+    daily_quota = Column(Integer, default=3)
+    current_product_id = Column(Integer, ForeignKey('marketing_products.id'))
+    is_homepage_manager = Column(Boolean, default=False)  # ⭐ 수정!
     created_at = Column(DateTime, default=datetime.now)
     updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
     
     # Relationships
-    user = relationship("User", back_populates="homepage_worker")
+    user = relationship("User", back_populates="homepage_worker")  # ⭐ 수정!
     current_product = relationship("MarketingProduct", foreign_keys=[current_product_id])
     homepage_accounts = relationship("HomepageAccount", back_populates="assigned_worker")
     homepage_posts = relationship("HomepagePost", back_populates="worker")
@@ -636,169 +640,166 @@ class HomepageWorker(Base):
     
     @property
     def required_accounts(self):
-        """필요한 블로그 계정 수 계산 (하루 최대 3개씩)"""
+        """필요한 통페이지 계정 수 계산 (하루 최대 3개씩)"""
         return math.ceil(self.daily_quota / 3)
 
-	
-class HomepageAccount(Base):
-    """통페이지 계정"""
-    __tablename__ = 'homepage_accounts'
 
+class HomepageAccount(Base):
+    """통페이지 계정 (네이버 블로그)"""
+    __tablename__ = 'homepage_accounts'
+    
     id = Column(Integer, primary_key=True, index=True)
-    platform = Column(String, default='naver_blog')  # 네이버 블로그
+    platform = Column(String, default='naver_blog')
     account_id = Column(String, unique=True, nullable=False)
     account_pw = Column(String, nullable=False)
-    blog_url = Column(String)  # 블로그 URL
+    blog_url = Column(String)
     ip_address = Column(String)
     category = Column(String)
-    assigned_worker_id = Column(Integer, ForeignKey('blog_workers.id'))  # 배정된 작업자
-    assignment_order = Column(Integer)  # 배정 순서 (1, 2, 3...)
-    daily_post_limit = Column(Integer, default=3)  # 일일 포스팅 제한
-    status = Column(String, default='active')  # active, inactive
+    assigned_worker_id = Column(Integer, ForeignKey('homepage_workers.id'))  # ⭐ 수정!
+    assignment_order = Column(Integer)
+    daily_post_limit = Column(Integer, default=3)
+    status = Column(String, default='active')
     created_at = Column(DateTime, default=datetime.now)
     updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
     
     # Relationships
-    assigned_worker = relationship("BlogWorker", back_populates="blog_accounts")
-    blog_posts = relationship("BlogPost", back_populates="blog_account")
-    blog_tasks = relationship("BlogWorkTask", back_populates="blog_account")
+    assigned_worker = relationship("HomepageWorker", back_populates="homepage_accounts")
+    homepage_posts = relationship("HomepagePost", back_populates="homepage_account")
+    homepage_tasks = relationship("HomepageWorkTask", back_populates="homepage_account")
 
 
 class HomepageProductKeyword(Base):
-    """통페이지용 상품 키워드"""
+    """통페이지용 상품 키워드 ON/OFF 관리"""
     __tablename__ = 'homepage_product_keywords'
-
+    
     id = Column(Integer, primary_key=True, index=True)
     marketing_product_id = Column(Integer, ForeignKey('marketing_products.id'), nullable=False)
     keyword_text = Column(String, nullable=False)
-    is_active = Column(Boolean, default=True)  # 블로그에서 사용 여부
-    order_index = Column(Integer, default=0)  # 순서
+    is_active = Column(Boolean, default=True)
+    order_index = Column(Integer, default=0)
     created_at = Column(DateTime, default=datetime.now)
     updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
     
     # Relationships
-    marketing_product = relationship("MarketingProduct", backref="blog_keywords")
+    marketing_product = relationship("MarketingProduct", backref="homepage_keywords")
 
 
 class HomepagePost(Base):
     """통페이지 글"""
     __tablename__ = 'homepage_posts'
-
+    
     id = Column(Integer, primary_key=True, index=True)
     post_title = Column(String, nullable=False)
     post_body = Column(Text, nullable=False)
-    keyword_text = Column(String, nullable=False)  # 사용된 키워드
-    post_url = Column(String)  # 실제 게시된 URL
+    keyword_text = Column(String, nullable=False)
+    post_url = Column(String)
     
-    # 통계 정보
-    char_count = Column(Integer, default=0)  # 글자 수
-    image_count = Column(Integer, default=0)  # 이미지 개수
-    keyword_count = Column(Integer, default=0)  # 키워드 출현 횟수
+    char_count = Column(Integer, default=0)
+    image_count = Column(Integer, default=0)
+    keyword_count = Column(Integer, default=0)
     
-    # 조회수 등
     view_count = Column(Integer, default=0)
     like_count = Column(Integer, default=0)
     comment_count = Column(Integer, default=0)
     
-    # 관계
     marketing_product_id = Column(Integer, ForeignKey('marketing_products.id'), nullable=False)
-    worker_id = Column(Integer, ForeignKey('blog_workers.id'), nullable=False)
-    blog_account_id = Column(Integer, ForeignKey('blog_accounts.id'), nullable=False)
+    worker_id = Column(Integer, ForeignKey('homepage_workers.id'), nullable=False)  # ⭐ 수정!
+    homepage_account_id = Column(Integer, ForeignKey('homepage_accounts.id'), nullable=False)  # ⭐ 수정!
     
-    is_registration_complete = Column(Boolean, default=True)  # 등록 완료 여부
+    is_registration_complete = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.now)
     updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
     
     # Relationships
-    marketing_product = relationship("MarketingProduct", backref="blog_posts")
-    worker = relationship("BlogWorker", back_populates="blog_posts")
-    blog_account = relationship("BlogAccount", back_populates="blog_posts")
-    images = relationship("BlogPostImage", back_populates="blog_post", cascade="all, delete-orphan")
+    marketing_product = relationship("MarketingProduct", backref="homepage_posts")
+    worker = relationship("HomepageWorker", back_populates="homepage_posts")
+    homepage_account = relationship("HomepageAccount", back_populates="homepage_posts")
+    images = relationship("HomepagePostImage", back_populates="homepage_post", cascade="all, delete-orphan")
 
 
 class HomepagePostImage(Base):
     """통페이지 글 이미지"""
     __tablename__ = 'homepage_post_images'
-
+    
     id = Column(Integer, primary_key=True, index=True)
-    blog_post_id = Column(Integer, ForeignKey('blog_posts.id'), nullable=False)
-    image_path = Column(String, nullable=False)  # 저장 경로
-    image_filename = Column(String, nullable=False)  # 파일명
-    image_order = Column(Integer, default=0)  # 순서
+    homepage_post_id = Column(Integer, ForeignKey('homepage_posts.id'), nullable=False)  # ⭐ 수정!
+    image_path = Column(String, nullable=False)
+    image_filename = Column(String, nullable=False)
+    image_order = Column(Integer, default=0)
     uploaded_at = Column(DateTime, default=datetime.now)
     
     # Relationships
-    blog_post = relationship("BlogPost", back_populates="images")
+    homepage_post = relationship("HomepagePost", back_populates="images")
 
 
 class HomepageKeywordProgress(Base):
     """작업자별 키워드 진행 상황"""
     __tablename__ = 'homepage_keyword_progress'
-
+    
     id = Column(Integer, primary_key=True, index=True)
-    worker_id = Column(Integer, ForeignKey('blog_workers.id'), nullable=False)
+    worker_id = Column(Integer, ForeignKey('homepage_workers.id'), nullable=False)  # ⭐ 수정!
     marketing_product_id = Column(Integer, ForeignKey('marketing_products.id'), nullable=False)
     keyword_text = Column(String, nullable=False)
     is_completed = Column(Boolean, default=False)
-    completed_post_id = Column(Integer, ForeignKey('blog_posts.id'))
+    completed_post_id = Column(Integer, ForeignKey('homepage_posts.id'))  # ⭐ 수정!
     completed_at = Column(DateTime)
     
     # Relationships
-    worker = relationship("BlogWorker", back_populates="keyword_progress")
-    marketing_product = relationship("MarketingProduct", backref="blog_keyword_progress")
-    completed_post = relationship("BlogPost", foreign_keys=[completed_post_id])
+    worker = relationship("HomepageWorker", back_populates="keyword_progress")
+    marketing_product = relationship("MarketingProduct", backref="homepage_keyword_progress")
+    completed_post = relationship("HomepagePost", foreign_keys=[completed_post_id])
 
 
 class HomepageWorkTask(Base):
     """통페이지 일일 작업 할당"""
     __tablename__ = 'homepage_work_tasks'
-
+    
     id = Column(Integer, primary_key=True, index=True)
     task_date = Column(Date, nullable=False)
-    status = Column(String, default='pending')  # pending, completed
+    status = Column(String, default='pending')
     keyword_text = Column(String, nullable=False)
     
-    worker_id = Column(Integer, ForeignKey('blog_workers.id'), nullable=False)
+    worker_id = Column(Integer, ForeignKey('homepage_workers.id'), nullable=False)  # ⭐ 수정!
     marketing_product_id = Column(Integer, ForeignKey('marketing_products.id'), nullable=False)
-    blog_account_id = Column(Integer, ForeignKey('blog_accounts.id'), nullable=False)
-    completed_post_id = Column(Integer, ForeignKey('blog_posts.id'))
+    homepage_account_id = Column(Integer, ForeignKey('homepage_accounts.id'), nullable=False)  # ⭐ 수정!
+    completed_post_id = Column(Integer, ForeignKey('homepage_posts.id'))  # ⭐ 수정!
     
     created_at = Column(DateTime, default=datetime.now)
     completed_at = Column(DateTime)
     
     # Relationships
-    worker = relationship("BlogWorker", back_populates="blog_tasks")
-    marketing_product = relationship("MarketingProduct", backref="blog_work_tasks")
-    blog_account = relationship("BlogAccount", back_populates="blog_tasks")
-    completed_post = relationship("BlogPost", foreign_keys=[completed_post_id])
+    worker = relationship("HomepageWorker", back_populates="homepage_tasks")
+    marketing_product = relationship("MarketingProduct", backref="homepage_work_tasks")
+    homepage_account = relationship("HomepageAccount", back_populates="homepage_tasks")
+    completed_post = relationship("HomepagePost", foreign_keys=[completed_post_id])
 
 
 class HomepagePostSchedule(Base):
-    """통페이지 포스트 스케줄"""
+    """통페이지 포스트 스케줄 (관리자용)"""
     __tablename__ = 'homepage_post_schedules'
-
+    
     id = Column(Integer, primary_key=True, index=True)
     scheduled_date = Column(Date, nullable=False)
-    status = Column(String, default='pending')  # pending, completed, cancelled
+    status = Column(String, default='pending')
     
-    worker_id = Column(Integer, ForeignKey('blog_workers.id'), nullable=False)
-    blog_account_id = Column(Integer, ForeignKey('blog_accounts.id'), nullable=False)
+    worker_id = Column(Integer, ForeignKey('homepage_workers.id'), nullable=False)  # ⭐ 수정!
+    homepage_account_id = Column(Integer, ForeignKey('homepage_accounts.id'), nullable=False)  # ⭐ 수정!
     marketing_product_id = Column(Integer, ForeignKey('marketing_products.id'), nullable=False)
     keyword_text = Column(String, nullable=False)
     
     is_completed = Column(Boolean, default=False)
     completed_at = Column(DateTime)
-    blog_post_id = Column(Integer, ForeignKey('blog_posts.id'))
+    homepage_post_id = Column(Integer, ForeignKey('homepage_posts.id'))  # ⭐ 수정!
     
     notes = Column(Text)
     created_at = Column(DateTime, default=datetime.now)
     updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
     
     # Relationships
-    worker = relationship("BlogWorker", foreign_keys=[worker_id])
-    blog_account = relationship("BlogAccount", foreign_keys=[blog_account_id])
+    worker = relationship("HomepageWorker", foreign_keys=[worker_id])
+    homepage_account = relationship("HomepageAccount", foreign_keys=[homepage_account_id])
     marketing_product = relationship("MarketingProduct", foreign_keys=[marketing_product_id])
-    blog_post = relationship("BlogPost", foreign_keys=[blog_post_id])
+    homepage_post = relationship("HomepagePost", foreign_keys=[homepage_post_id])
 
 def get_db():
     """데이터베이스 세션 의존성"""
