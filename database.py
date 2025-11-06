@@ -44,7 +44,10 @@ class User(Base):
     post_logs = relationship("PostLog", back_populates="worker")
     references_modified = relationship("Reference", back_populates="last_modified_by")
     login_logs = relationship("LoginLog", back_populates="user")
-
+    blog_worker = relationship("BlogWorker", back_populates="user", uselist=False)
+    homepage_worker = relationship("HomepageWorker", back_populates="user", uselist=False)
+    
+    
 class Product(Base):
     __tablename__ = "products"
     id = Column(Integer, primary_key=True, index=True)
@@ -624,7 +627,7 @@ class HomepageWorker(Base):
     updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
     
     # Relationships
-    user = relationship("User", backref="homepage_worker_profile")
+    user = relationship("User", back_populates="homepage_worker")
     current_product = relationship("MarketingProduct", foreign_keys=[current_product_id])
     homepage_accounts = relationship("HomepageAccount", back_populates="assigned_worker")
     homepage_posts = relationship("HomepagePost", back_populates="worker")
