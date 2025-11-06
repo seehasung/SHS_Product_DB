@@ -434,7 +434,7 @@ class BlogWorker(Base):
     updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
     
     # Relationships
-    user = relationship("User", backref="blog_worker_profile")
+    user = relationship("User", backref="homepage_worker_profile")
     current_product = relationship("MarketingProduct", foreign_keys=[current_product_id])
     blog_accounts = relationship("BlogAccount", back_populates="assigned_worker")
     blog_posts = relationship("BlogPost", back_populates="worker")
@@ -624,12 +624,12 @@ class HomepageWorker(Base):
     updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
     
     # Relationships
-    user = relationship("User", backref="blog_worker_profile")
+    user = relationship("User", backref="homepage_worker_profile")
     current_product = relationship("MarketingProduct", foreign_keys=[current_product_id])
-    blog_accounts = relationship("BlogAccount", back_populates="assigned_worker")
-    blog_posts = relationship("BlogPost", back_populates="worker")
-    blog_tasks = relationship("BlogWorkTask", back_populates="worker")
-    keyword_progress = relationship("BlogKeywordProgress", back_populates="worker")
+    homepage_accounts = relationship("HomepageAccount", back_populates="assigned_worker")
+    homepage_posts = relationship("HomepagePost", back_populates="worker")
+    homepage_tasks = relationship("HomepageWorkTask", back_populates="worker")
+    keyword_progress = relationship("HomepageKeywordProgress", back_populates="worker")
     
     @property
     def required_accounts(self):
