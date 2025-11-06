@@ -634,15 +634,28 @@
                         {% endif %}
                         
                         <!-- 마케팅 관리 권한 -->
-                        {% if can_manage_marketing %}
-                        <li class="nav-item">
-                            <a class="nav-link-custom" href="/marketing/cafe">
+                        <li class="nav-item dropdown">
+                            <a class="nav-link-custom dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
                                 <i class="bi bi-megaphone-fill"></i> 마케팅 관리
                             </a>
+                            <ul class="dropdown-menu">
+                                <li><a class="dropdown-item" href="/marketing/cafe">
+                                    <i class="bi bi-cup-fill"></i> 카페
+                                </a></li>
+                                <li><a class="dropdown-item" href="/marketing/blog">
+                                    <i class="bi bi-pencil-square"></i> 블로그
+                                </a></li>
+                                <li><a class="dropdown-item" href="/marketing/homepage">
+                                    <i class="bi bi-house-fill"></i> 통페이지
+                                </a></li>
+                                <li><a class="dropdown-item" href="/marketing/kin">
+                                    <i class="bi bi-question-circle-fill"></i> 지식인
+                                </a></li>
+                            </ul>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link-custom" href="/marketing/schedules">
-                                <i class="bi bi-calendar-check-fill"></i> 스케줄 현황
+                            <a class="nav-link-custom" href="/tasks/">
+                                <i class="bi bi-list-task"></i> 내 업무 목록
                             </a>
                         </li>
                         {% endif %}
