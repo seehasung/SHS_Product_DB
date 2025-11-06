@@ -152,11 +152,6 @@ def update_worker_accounts(worker: HomepageWorker, db: Session):
     
     db.commit()
 
-
-# ============================================
-# 메인 페이지
-# ============================================
-
 # ============================================
 # 메인 페이지
 # ============================================
@@ -201,7 +196,7 @@ def homepage_main_page(request: Request, db: Session = Depends(get_db)):
 # 전체 현황 API
 # ============================================
 
-@router.get("/homepage/api/dashboard")
+@router.get("/marketing/homepage/api/dashboard")
 def get_dashboard_stats(request: Request, db: Session = Depends(get_db)):
     """전체 현황 통계"""
     user = get_current_user(request, db)
@@ -270,7 +265,7 @@ def get_dashboard_stats(request: Request, db: Session = Depends(get_db)):
         "active_workers": active_workers
     }
 
-@router.get("/homepage/api/tasks/today")
+@router.get("/marketing/homepage/api/tasks/today")
 def get_today_tasks(request: Request, db: Session = Depends(get_db)):
     """오늘의 작업 목록 조회"""
     user = get_current_user(request, db)
@@ -346,7 +341,7 @@ def get_today_tasks(request: Request, db: Session = Depends(get_db)):
 # 상품 관리 API
 # ============================================
 
-@router.get("/homepage/api/products")
+@router.get("/marketing/homepage/api/products")
 def get_homepage_products(request: Request, db: Session = Depends(get_db)):
     """통페이지 상품 목록"""
     user = get_current_user(request, db)
@@ -401,7 +396,7 @@ def get_homepage_products(request: Request, db: Session = Depends(get_db)):
     
     return result
 
-@router.post("/homepage/api/products/{product_id}/sync-keywords")
+@router.post("/marketing/homepage/api/products/{product_id}/sync-keywords")
 def sync_product_keywords(product_id: int, request: Request, db: Session = Depends(get_db)):
     """상품의 기본 키워드를 통페이지 키워드로 동기화"""
     user = get_current_user(request, db)
@@ -478,7 +473,7 @@ def sync_product_keywords(product_id: int, request: Request, db: Session = Depen
     }
 
 
-@router.put("/homepage/api/keywords/{keyword_id}/toggle")
+@router.put("/marketing/homepage/api/keywords/{keyword_id}/toggle")
 def toggle_keyword_active(keyword_id: int, request: Request, db: Session = Depends(get_db)):
     """통페이지 키워드 ON/OFF 토글"""
     user = get_current_user(request, db)
@@ -500,7 +495,7 @@ def toggle_keyword_active(keyword_id: int, request: Request, db: Session = Depen
 # 글 관리 API
 # ============================================
 
-@router.get("/homepage/api/posts")
+@router.get("/marketing/homepage/api/posts")
 def get_homepage_posts(request: Request, db: Session = Depends(get_db)):
     """통페이지 글 목록"""
     user = get_current_user(request, db)
@@ -570,7 +565,7 @@ def get_homepage_posts(request: Request, db: Session = Depends(get_db)):
     return result
 
 
-@router.post("/homepage/api/posts")
+@router.post("/marketing/homepage/api/posts")
 async def create_homepage_post(
     request: Request,
     task_id: int = Form(...),
@@ -668,7 +663,7 @@ async def create_homepage_post(
     return {"message": "글 작성 완료", "post_id": homepage_post.id}
 
 
-@router.get("/homepage/api/posts/{post_id}")
+@router.get("/marketing/homepage/api/posts/{post_id}")
 def get_homepage_post(post_id: int, request: Request, db: Session = Depends(get_db)):
     """통페이지 글 상세"""
     user = get_current_user(request, db)
@@ -741,7 +736,7 @@ def get_homepage_post(post_id: int, request: Request, db: Session = Depends(get_
         "created_at": post.created_at.strftime("%Y-%m-%d %H:%M")
     }
 
-@router.put("/homepage/api/posts/{post_id}")
+@router.put("/marketing/homepage/api/posts/{post_id}")
 async def update_homepage_post(
     post_id: int,
     request: Request,
@@ -808,7 +803,7 @@ async def update_homepage_post(
     
     return {"message": "글 수정 완료", "post_id": post.id}
 
-@router.delete("/homepage/api/posts/{post_id}")
+@router.delete("/marketing/homepage/api/posts/{post_id}")
 def delete_homepage_post(post_id: int, request: Request, db: Session = Depends(get_db)):
     """통페이지 글 삭제"""
     user = get_current_user(request, db)
@@ -879,7 +874,7 @@ def delete_homepage_post(post_id: int, request: Request, db: Session = Depends(g
 # 계정 관리 API
 # ============================================
 
-@router.get("/homepage/api/accounts")
+@router.get("/marketing/homepage/api/accounts")
 def get_homepage_accounts(request: Request, db: Session = Depends(get_db)):
     """통페이지 계정 목록"""
     user = get_current_user(request, db)
@@ -905,7 +900,7 @@ def get_homepage_accounts(request: Request, db: Session = Depends(get_db)):
     return result
 
 
-@router.post("/homepage/api/accounts")
+@router.post("/marketing/homepage/api/accounts")
 def create_homepage_account(
     account_id: str = Form(...),
     account_pw: str = Form(...),
@@ -943,7 +938,7 @@ def create_homepage_account(
     return {"message": "계정 추가 완료", "account_id": account.id}
 
 
-@router.put("/homepage/api/accounts/{account_id}")
+@router.put("/marketing/homepage/api/accounts/{account_id}")
 def update_homepage_account(
     account_id: int,
     account_pw: str = Form(None),
@@ -980,7 +975,7 @@ def update_homepage_account(
     return {"message": "계정 수정 완료"}
 
 
-@router.delete("/homepage/api/accounts/{account_id}")
+@router.delete("/marketing/homepage/api/accounts/{account_id}")
 def delete_homepage_account(account_id: int, request: Request, db: Session = Depends(get_db)):
     """통페이지 계정 삭제"""
     user = get_current_user(request, db)
@@ -1006,7 +1001,7 @@ def delete_homepage_account(account_id: int, request: Request, db: Session = Dep
 # 작업자 관리 API
 # ============================================
 
-@router.get("/homepage/api/workers")
+@router.get("/marketing/homepage/api/workers")
 def get_homepage_workers(request: Request, db: Session = Depends(get_db)):
     """통페이지 작업자 목록"""
     user = get_current_user(request, db)
@@ -1068,7 +1063,7 @@ def get_homepage_workers(request: Request, db: Session = Depends(get_db)):
     return result
 
 
-@router.get("/homepage/api/available-users")
+@router.get("/marketing/homepage/api/available-users")
 def get_available_users(request: Request, db: Session = Depends(get_db)):
     """통페이지 작업자로 추가 가능한 사용자 목록"""
     user = get_current_user(request, db)
@@ -1088,7 +1083,7 @@ def get_available_users(request: Request, db: Session = Depends(get_db)):
     return [{"id": u.id, "username": u.username} for u in users]
 
 
-@router.post("/homepage/api/workers")
+@router.post("/marketing/homepage/api/workers")
 def create_homepage_worker(
     user_id: int = Form(...),
     daily_quota: int = Form(...),
@@ -1139,7 +1134,7 @@ def create_homepage_worker(
     return {"message": "작업자 추가 완료", "worker_id": worker.id}
 
 
-@router.put("/homepage/api/workers/{worker_id}/quota")
+@router.put("/marketing/homepage/api/workers/{worker_id}/quota")
 def update_worker_quota(
     worker_id: int,
     daily_quota: int = Form(...),
@@ -1170,7 +1165,7 @@ def update_worker_quota(
     return {"message": "할당량 변경 완료"}
 
 
-@router.put("/homepage/api/workers/{worker_id}/status")
+@router.put("/marketing/homepage/api/workers/{worker_id}/status")
 def update_worker_status(
     worker_id: int,
     status: str = Form(...),
@@ -1193,7 +1188,7 @@ def update_worker_status(
     return {"message": "상태 변경 완료"}
 
 
-@router.put("/homepage/api/workers/{worker_id}/product")
+@router.put("/marketing/homepage/api/workers/{worker_id}/product")
 def update_worker_product(
     worker_id: int,
     product_id: int = Form(...),
@@ -1217,7 +1212,7 @@ def update_worker_product(
     return {"message": "상품 변경 완료"}
 
 
-@router.put("/homepage/api/workers/{worker_id}/homepage-manager")
+@router.put("/marketing/homepage/api/workers/{worker_id}/homepage-manager")
 def update_worker_homepage_manager(
     worker_id: int,
     is_homepage_manager: bool = Form(...),
@@ -1254,7 +1249,7 @@ def update_worker_homepage_manager(
 # 스케줄 자동 배정 (Cron Job용)
 # ============================================
 
-@router.post("/homepage/api/schedule/auto-assign")
+@router.post("/marketing/homepage/api/schedule/auto-assign")
 def auto_assign_daily_tasks(
     target_date: str = Form(None),
     request: Request = None,
@@ -1420,7 +1415,7 @@ def auto_assign_daily_tasks(
         "workers_count": len(active_workers)
     }
     
-@router.delete("/homepage/api/workers/{worker_id}")
+@router.delete("/marketing/homepage/api/workers/{worker_id}")
 def delete_homepage_worker(worker_id: int, request: Request, db: Session = Depends(get_db)):
     """통페이지 작업자 삭제"""
     user = get_current_user(request, db)
