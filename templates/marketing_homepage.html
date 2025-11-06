@@ -3,6 +3,21 @@
 
 {% block content %}
 <div class="container-fluid mt-4">
+    <!-- ⭐ 디버그 정보 추가 ⭐ -->
+    <div class="alert alert-warning">
+        <strong>🔍 디버그:</strong><br>
+        is_manager = {{ is_manager }}<br>
+        user = {{ user }}<br>
+        {% if user %}
+        user.username = {{ user.username }}<br>
+        user.is_admin = {{ user.is_admin }}<br>
+        {% endif %}
+        {% if homepage_worker %}
+        homepage_worker.id = {{ homepage_worker.id }}<br>
+        homepage_worker.is_homepage_manager = {{ homepage_worker.is_homepage_manager }}<br>
+        {% endif %}
+    </div>
+    
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h1>🏠 통페이지 작업 관리</h1>
         <a href="/" class="btn btn-secondary">← 홈으로</a>
