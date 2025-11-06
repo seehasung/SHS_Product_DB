@@ -130,6 +130,9 @@
                     <strong>💡 안내:</strong> 각 상품의 키워드를 통페이지에서 사용할지 ON/OFF 할 수 있습니다.
                 </div>
                 <div>
+                    <button class="btn btn-primary me-2" onclick="syncAllKeywords()">
+                        <i class="bi bi-arrow-repeat"></i> 키워드 동기화
+                    </button>
                     <button class="btn btn-sm btn-outline-primary me-1" onclick="expandAllProducts()">
                         ▼ 전체 펼치기
                     </button>
@@ -139,7 +142,6 @@
                 </div>
             </div>
             {% endif %}
-
             <div id="productsContainer">
                 <p class="text-center">로딩 중...</p>
             </div>
@@ -1356,6 +1358,46 @@ function collapseAllProducts() {
         }
     });
 }
+
+/**
+ * 모든 상품의 키워드 동기화
+ */
+async function syncAllKeywords() {
+    if (!confirm('모든 마케팅 상품의 키워드를 동기화하시겠습니까?\n(기존 키워드는 유지되고 새로운 키워드만 추가됩니다)')) {
+        return;
+    }
+
+    const btn = event.target.closest('button');
+    const originalText = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>동기화 중...';
+
+    try {
+        const response = await fetch('/homepage/api/products/sync-keywords', {
+            method: 'POST'
+        });
+
+        const result = await response.json();
+
+        if (response.ok) {
+            alert(`✅ 키워드 동기화 완료!\n\n` +
+                  `동기화된 상품: ${result.synced_count}개\n` +
+                  `새로 추가된 키워드: ${result.total_keywords_added}개`);
+            
+            // 상품 목록 새로고침
+            await loadProducts();
+        } else {
+            throw new Error(result.detail || '동기화 실패');
+        }
+    } catch (error) {
+        console.error('키워드 동기화 오류:', error);
+        alert('❌ 키워드 동기화 중 오류가 발생했습니다: ' + error.message);
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = originalText;
+    }
+}
+
 {% endif %}
 </script>
 
