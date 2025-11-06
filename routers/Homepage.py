@@ -1433,6 +1433,7 @@ def delete_homepage_worker(worker_id: int, request: Request, db: Session = Depen
         HomepageAccount.assigned_worker_id == worker_id
     ).all()
     
+    
     for account in accounts:
         account.assigned_worker_id = None
         account.assignment_order = None
