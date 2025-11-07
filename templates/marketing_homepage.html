@@ -578,7 +578,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // ==================== 전체 현황 ====================
 function loadDashboard() {
-    fetch('/marketing/marketing/homepage/api/dashboard')  // ✅
+    fetch('/marketing/homepage/api/dashboard')  // ✅
         .then(r => r.json())
         .then(data => {
             document.getElementById('todayProgress').textContent = data.progress + '%';
