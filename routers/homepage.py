@@ -946,6 +946,7 @@ def update_homepage_account(
     ip_address: str = Form(None),
     category: str = Form(None),
     status: str = Form(None),
+    assigned_worker_id: int = Form(None),  # ⭐ 추가
     request: Request = None,
     db: Session = Depends(get_db)
 ):
@@ -959,6 +960,10 @@ def update_homepage_account(
     if not account:
         raise HTTPException(status_code=404, detail="계정을 찾을 수 없습니다")
     
+    # ⭐ 작업자 재배정 로직
+    old_worker_id = account.assigned_worker_id
+    
+    # 기본 정보 수정
     if account_pw:
         account.account_pw = account_pw
     if blog_url:
@@ -969,6 +974,37 @@ def update_homepage_account(
         account.category = category
     if status:
         account.status = status
+    
+    # ⭐ 작업자 변경 처리
+    if assigned_worker_id is not None and assigned_worker_id != old_worker_id:
+        print(f"🔄 [UPDATE ACCOUNT] 계정 {account.account_id}: 작업자 변경 {old_worker_id} → {assigned_worker_id}")
+        
+        # 이전 작업자에서 배정 해제
+        if old_worker_id:
+            old_worker = db.query(HomepageWorker).get(old_worker_id)
+            if old_worker:
+                print(f"   - 이전 작업자: {old_worker.user.username}")
+        
+        # 새 작업자에게 배정
+        if assigned_worker_id == 0:  # 0 = 미배정
+            account.assigned_worker_id = None
+            account.assignment_order = None
+            print(f"   → 미배정 상태로 변경")
+        else:
+            new_worker = db.query(HomepageWorker).get(assigned_worker_id)
+            if not new_worker:
+                raise HTTPException(status_code=404, detail="작업자를 찾을 수 없습니다")
+            
+            # 새 작업자의 다음 순서 번호 계산
+            max_order = db.query(func.max(HomepageAccount.assignment_order)).filter(
+                HomepageAccount.assigned_worker_id == assigned_worker_id
+            ).scalar() or 0
+            
+            account.assigned_worker_id = assigned_worker_id
+            account.assignment_order = max_order + 1
+            print(f"   → 새 작업자: {new_worker.user.username} (순서: {account.assignment_order})")
+        
+        db.add(account)
     
     db.commit()
     
@@ -987,15 +1023,66 @@ def delete_homepage_account(account_id: int, request: Request, db: Session = Dep
     if not account:
         raise HTTPException(status_code=404, detail="계정을 찾을 수 없습니다")
     
-    # 배정된 작업자가 있으면 삭제 불가
-    if account.assigned_worker_id:
-        raise HTTPException(status_code=400, detail="작업자가 배정된 계정은 삭제할 수 없습니다")
-    
-    db.delete(account)
-    db.commit()
-    
-    return {"message": "계정 삭제 완료"}
-
+    try:
+        # 1단계: 해당 계정으로 배정된 작업 확인
+        related_tasks = db.query(HomepageWorkTask).filter(
+            HomepageWorkTask.homepage_account_id == account_id,
+            HomepageWorkTask.status.in_(['pending', 'in_progress'])
+        ).all()
+        
+        if related_tasks:
+            print(f"⚠️ [DELETE ACCOUNT] 계정 {account.account_id}: 미완료 작업 {len(related_tasks)}개 발견")
+            
+            for task in related_tasks:
+                task.homepage_account_id = None
+                task.status = 'pending'
+                db.add(task)
+            
+            print(f"🔄 [DELETE ACCOUNT] 미완료 작업 {len(related_tasks)}개를 미배정 상태로 전환")
+        
+        # 2단계: 배정된 작업자 정보 저장
+        assigned_worker = None
+        if account.assigned_worker_id:
+            assigned_worker = db.query(HomepageWorker).get(account.assigned_worker_id)
+            worker_name = assigned_worker.user.username if assigned_worker else "알 수 없음"
+            print(f"🔄 [DELETE ACCOUNT] 계정 {account.account_id}: 작업자 {worker_name}에서 배정 해제")
+        
+        # 3단계: 계정 삭제
+        db.delete(account)
+        db.flush()  # ⭐ commit 전에 flush
+        
+        # ⭐ 4단계: 작업자에게 자동으로 다른 계정 재배정
+        if assigned_worker:
+            try:
+                print(f"🔄 [DELETE ACCOUNT] 작업자 {assigned_worker.user.username}에게 계정 자동 재배정 시도...")
+                update_worker_accounts(assigned_worker, db)
+                print(f"✅ [DELETE ACCOUNT] 작업자에게 새 계정 자동 배정 완료")
+            except HTTPException as e:
+                # 사용 가능한 계정이 부족한 경우
+                print(f"⚠️ [DELETE ACCOUNT] 자동 재배정 실패: {e.detail}")
+                db.commit()  # 계정 삭제는 유지
+                
+                return {
+                    "message": f"계정이 삭제되었습니다.\n⚠️ 경고: {e.detail}",
+                    "warning": True
+                }
+        
+        db.commit()
+        
+        print(f"✅ [DELETE ACCOUNT] 계정 {account.account_id} 삭제 완료")
+        
+        message = "계정이 삭제되었습니다."
+        if related_tasks:
+            message += f"\n관련 작업 {len(related_tasks)}개를 미배정 상태로 전환했습니다."
+        if assigned_worker:
+            message += f"\n작업자에게 자동으로 새 계정이 배정되었습니다."
+        
+        return {"message": message, "warning": False}
+        
+    except Exception as e:
+        db.rollback()
+        print(f"❌ [DELETE ACCOUNT] 오류 발생: {e}")
+        raise HTTPException(status_code=500, detail=f"삭제 중 오류 발생: {str(e)}")
 
 # ============================================
 # 작업자 관리 API

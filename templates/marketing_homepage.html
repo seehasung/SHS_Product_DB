@@ -404,6 +404,15 @@
                     <input type="text" class="form-control" id="editCategory">
                 </div>
                 
+                <!-- ⭐ 작업자 배정 추가 -->
+                <div class="mb-3">
+                    <label class="form-label">배정된 작업자</label>
+                    <select class="form-select" id="editAssignedWorker">
+                        <option value="0">미배정</option>
+                    </select>
+                    <small class="text-muted">작업자를 변경하면 자동으로 재배정됩니다</small>
+                </div>
+                
                 <div class="mb-3">
                     <label class="form-label">상태</label>
                     <select class="form-select" id="editStatus">
@@ -1079,8 +1088,18 @@ function submitAccount() {
 }
 
 function editAccount(accountId) {
-    fetch('/marketing/homepage/api/accounts')
-        .then(response => response.json())
+    // 작업자 목록 먼저 로드
+    fetch('/marketing/homepage/api/workers')
+        .then(r => r.json())
+        .then(workers => {
+            const workerSelect = document.getElementById('editAssignedWorker');
+            workerSelect.innerHTML = '<option value="0">미배정</option>' +
+                workers.map(w => `<option value="${w.id}">${w.username}</option>`).join('');
+            
+            // 계정 정보 로드
+            return fetch('/marketing/homepage/api/accounts');
+        })
+        .then(r => r.json())
         .then(accounts => {
             const account = accounts.find(a => a.id === accountId);
             if (!account) {
@@ -1096,6 +1115,20 @@ function editAccount(accountId) {
             document.getElementById('editCategory').value = account.category || '';
             document.getElementById('editStatus').value = account.status || 'active';
             
+            // ⭐ 작업자 선택
+            const workerSelect = document.getElementById('editAssignedWorker');
+            if (account.assigned_worker_name) {
+                // 작업자 이름으로 ID 찾기
+                const option = Array.from(workerSelect.options).find(
+                    opt => opt.text === account.assigned_worker_name
+                );
+                if (option) {
+                    workerSelect.value = option.value;
+                }
+            } else {
+                workerSelect.value = '0';
+            }
+            
             const modal = new bootstrap.Modal(document.getElementById('editAccountModal'));
             modal.show();
         })
@@ -1103,6 +1136,38 @@ function editAccount(accountId) {
             console.error('계정 정보 로드 실패:', error);
             alert('계정 정보를 불러오는데 실패했습니다.');
         });
+}
+
+function submitEditAccount() {
+    const accountId = document.getElementById('editAccountId').value;
+    const formData = new FormData();
+    
+    const password = document.getElementById('editAccountPw').value;
+    if (password) formData.append('account_pw', password);
+    
+    formData.append('blog_url', document.getElementById('editBlogUrl').value);
+    formData.append('ip_address', document.getElementById('editIpAddress').value);
+    formData.append('category', document.getElementById('editCategory').value);
+    formData.append('status', document.getElementById('editStatus').value);
+    
+    // ⭐ 작업자 배정 추가
+    const assignedWorkerId = document.getElementById('editAssignedWorker').value;
+    formData.append('assigned_worker_id', assignedWorkerId);
+    
+    fetch(`/marketing/homepage/api/accounts/${accountId}`, {
+        method: 'PUT',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        alert(data.message || '계정이 수정되었습니다.');
+        bootstrap.Modal.getInstance(document.getElementById('editAccountModal')).hide();
+        loadAccounts();
+    })
+    .catch(error => {
+        console.error('계정 수정 오류:', error);
+        alert('계정 수정 중 오류가 발생했습니다.');
+    });
 }
 
 function submitEditAccount() {
