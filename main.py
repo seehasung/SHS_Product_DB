@@ -48,7 +48,7 @@ templates = Jinja2Templates(directory="templates")
 app.include_router(auth.router)
 app.include_router(admin_users.router)  # prefix 제거됨 (admin_users.py에서 처리)
 app.include_router(product.router)
-app.include_router(homepage.router, prefix="/marketing")
+app.include_router(homepage.router)
 app.include_router(marketing.router)
 app.include_router(tasks.router)
 app.include_router(blog.router)
@@ -57,6 +57,7 @@ app.include_router(blog.router)
 
 @app.get("/", response_class=HTMLResponse)
 def read_root(request: Request):
+    
     # 일일 세션 만료 기능
     if request.session.get("login_date") != date.today().isoformat():
         request.session.clear()
