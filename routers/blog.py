@@ -991,7 +991,20 @@ def delete_blog_account(account_id: int, request: Request, db: Session = Depends
         raise HTTPException(status_code=404, detail="계정을 찾을 수 없습니다")
     
     try:
-        # ⭐ 1단계: 해당 계정으로 배정된 작업 확인
+        # ⭐ 0단계: 이 계정으로 작성된 글이 있는지 확인
+        existing_posts = db.query(BlogPost).filter(
+            BlogPost.blog_account_id == account_id
+        ).count()
+        
+        if existing_posts > 0:
+            print(f"⚠️ [DELETE ACCOUNT] 계정 {account.account_id}: 작성된 글 {existing_posts}개 있음 → 삭제 불가")
+            raise HTTPException(
+                status_code=400, 
+                detail=f"이 계정으로 작성된 글이 {existing_posts}개 있어 삭제할 수 없습니다.\n"
+                       f"계정 상태를 '비활성'으로 변경하거나, 먼저 글을 삭제해주세요."
+            )
+        
+        # 1단계: 해당 계정으로 배정된 작업 확인
         related_tasks = db.query(BlogWorkTask).filter(
             BlogWorkTask.blog_account_id == account_id,
             BlogWorkTask.status.in_(['pending', 'in_progress'])
@@ -1007,42 +1020,46 @@ def delete_blog_account(account_id: int, request: Request, db: Session = Depends
             
             print(f"🔄 [DELETE ACCOUNT] 미완료 작업 {len(related_tasks)}개를 미배정 상태로 전환")
         
-        # ⭐ 2단계: 배정된 작업자 정보 저장 및 해제
+        # 2단계: 배정된 작업자 정보 저장
         assigned_worker = None
         if account.assigned_worker_id:
             assigned_worker = db.query(BlogWorker).get(account.assigned_worker_id)
             worker_name = assigned_worker.user.username if assigned_worker else "알 수 없음"
             print(f"🔄 [DELETE ACCOUNT] 계정 {account.account_id}: 작업자 {worker_name}에서 배정 해제")
-            
-            account.assigned_worker_id = None
-            account.assignment_order = None
-            db.add(account)
-            db.flush()
         
-        # ⭐ 3단계: 계정 삭제
+        # 3단계: 계정 삭제
         db.delete(account)
-        db.commit()
+        db.flush()
         
-        # ⭐ 4단계: 작업자 할당량 확인
+        # 4단계: 작업자에게 자동으로 다른 계정 재배정
         if assigned_worker:
-            remaining_accounts = db.query(BlogAccount).filter(
-                BlogAccount.assigned_worker_id == assigned_worker.id
-            ).count()
-            
-            required = assigned_worker.required_accounts
-            
-            print(f"📊 [DELETE ACCOUNT] 작업자 {assigned_worker.user.username}: 필요 {required}개, 남은 계정 {remaining_accounts}개")
+            try:
+                print(f"🔄 [DELETE ACCOUNT] 작업자 {assigned_worker.user.username}에게 계정 자동 재배정 시도...")
+                update_worker_accounts(assigned_worker, db)
+                print(f"✅ [DELETE ACCOUNT] 작업자에게 새 계정 자동 배정 완료")
+            except HTTPException as e:
+                print(f"⚠️ [DELETE ACCOUNT] 자동 재배정 실패: {e.detail}")
+                db.commit()
+                
+                return {
+                    "message": f"계정이 삭제되었습니다.\n⚠️ 경고: {e.detail}",
+                    "warning": True
+                }
+        
+        db.commit()
         
         print(f"✅ [DELETE ACCOUNT] 계정 {account.account_id} 삭제 완료")
         
         message = "계정이 삭제되었습니다."
         if related_tasks:
             message += f"\n관련 작업 {len(related_tasks)}개를 미배정 상태로 전환했습니다."
-        if assigned_worker and remaining_accounts < required:
-            message += f"\n⚠️ 작업자에게 계정이 부족합니다. (필요: {required}개, 현재: {remaining_accounts}개)"
+        if assigned_worker:
+            message += f"\n작업자에게 자동으로 새 계정이 배정되었습니다."
         
-        return {"message": message, "warning": remaining_accounts < required if assigned_worker else False}
+        return {"message": message, "warning": False}
         
+    except HTTPException:
+        raise
     except Exception as e:
         db.rollback()
         print(f"❌ [DELETE ACCOUNT] 오류 발생: {e}")

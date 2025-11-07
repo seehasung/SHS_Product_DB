@@ -1024,6 +1024,19 @@ def delete_homepage_account(account_id: int, request: Request, db: Session = Dep
         raise HTTPException(status_code=404, detail="계정을 찾을 수 없습니다")
     
     try:
+        # ⭐ 0단계: 이 계정으로 작성된 글이 있는지 확인
+        existing_posts = db.query(HomepagePost).filter(
+            HomepagePost.homepage_account_id == account_id
+        ).count()
+        
+        if existing_posts > 0:
+            print(f"⚠️ [DELETE ACCOUNT] 계정 {account.account_id}: 작성된 글 {existing_posts}개 있음 → 삭제 불가")
+            raise HTTPException(
+                status_code=400, 
+                detail=f"이 계정으로 작성된 글이 {existing_posts}개 있어 삭제할 수 없습니다.\n"
+                       f"계정 상태를 '비활성'으로 변경하거나, 먼저 글을 삭제해주세요."
+            )
+        
         # 1단계: 해당 계정으로 배정된 작업 확인
         related_tasks = db.query(HomepageWorkTask).filter(
             HomepageWorkTask.homepage_account_id == account_id,
@@ -1049,18 +1062,17 @@ def delete_homepage_account(account_id: int, request: Request, db: Session = Dep
         
         # 3단계: 계정 삭제
         db.delete(account)
-        db.flush()  # ⭐ commit 전에 flush
+        db.flush()
         
-        # ⭐ 4단계: 작업자에게 자동으로 다른 계정 재배정
+        # 4단계: 작업자에게 자동으로 다른 계정 재배정
         if assigned_worker:
             try:
                 print(f"🔄 [DELETE ACCOUNT] 작업자 {assigned_worker.user.username}에게 계정 자동 재배정 시도...")
                 update_worker_accounts(assigned_worker, db)
                 print(f"✅ [DELETE ACCOUNT] 작업자에게 새 계정 자동 배정 완료")
             except HTTPException as e:
-                # 사용 가능한 계정이 부족한 경우
                 print(f"⚠️ [DELETE ACCOUNT] 자동 재배정 실패: {e.detail}")
-                db.commit()  # 계정 삭제는 유지
+                db.commit()
                 
                 return {
                     "message": f"계정이 삭제되었습니다.\n⚠️ 경고: {e.detail}",
@@ -1079,11 +1091,15 @@ def delete_homepage_account(account_id: int, request: Request, db: Session = Dep
         
         return {"message": message, "warning": False}
         
+    except HTTPException:
+        # HTTPException은 그대로 raise (400 에러 등)
+        raise
     except Exception as e:
         db.rollback()
         print(f"❌ [DELETE ACCOUNT] 오류 발생: {e}")
         raise HTTPException(status_code=500, detail=f"삭제 중 오류 발생: {str(e)}")
-
+    
+    
 # ============================================
 # 작업자 관리 API
 # ============================================
