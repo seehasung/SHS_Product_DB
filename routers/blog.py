@@ -991,7 +991,7 @@ def delete_blog_account(account_id: int, request: Request, db: Session = Depends
         raise HTTPException(status_code=404, detail="계정을 찾을 수 없습니다")
     
     try:
-        # ⭐ 0단계: 이 계정으로 작성된 글이 있는지 확인
+        # 0단계: 이 계정으로 작성된 글이 있는지 확인
         existing_posts = db.query(BlogPost).filter(
             BlogPost.blog_account_id == account_id
         ).count()
@@ -1004,7 +1004,7 @@ def delete_blog_account(account_id: int, request: Request, db: Session = Depends
                        f"계정 상태를 '비활성'으로 변경하거나, 먼저 글을 삭제해주세요."
             )
         
-        # 1단계: 해당 계정으로 배정된 작업 확인
+        # ⭐ 1단계: 해당 계정으로 배정된 미완료 작업 삭제 (NOT NULL 제약조건 때문)
         related_tasks = db.query(BlogWorkTask).filter(
             BlogWorkTask.blog_account_id == account_id,
             BlogWorkTask.status.in_(['pending', 'in_progress'])
@@ -1013,25 +1013,50 @@ def delete_blog_account(account_id: int, request: Request, db: Session = Depends
         if related_tasks:
             print(f"⚠️ [DELETE ACCOUNT] 계정 {account.account_id}: 미완료 작업 {len(related_tasks)}개 발견")
             
+            # ⭐ blog_account_id가 NOT NULL이므로 작업 자체를 삭제
             for task in related_tasks:
-                task.blog_account_id = None
-                task.status = 'pending'
-                db.add(task)
+                # 관련된 진행상황도 확인
+                progress = db.query(BlogKeywordProgress).filter(
+                    BlogKeywordProgress.worker_id == task.worker_id,
+                    BlogKeywordProgress.marketing_product_id == task.marketing_product_id,
+                    BlogKeywordProgress.keyword_text == task.keyword_text
+                ).first()
+                
+                if progress and not progress.is_completed:
+                    # 미완료 진행상황도 삭제
+                    db.delete(progress)
+                    print(f"   - 진행상황 삭제: {task.keyword_text}")
+                
+                db.delete(task)
             
-            print(f"🔄 [DELETE ACCOUNT] 미완료 작업 {len(related_tasks)}개를 미배정 상태로 전환")
+            print(f"🗑️ [DELETE ACCOUNT] 미완료 작업 {len(related_tasks)}개 삭제")
         
-        # 2단계: 배정된 작업자 정보 저장
+        # 2단계: 완료된 작업 확인 (completed_post_id가 있는 경우)
+        completed_tasks = db.query(BlogWorkTask).filter(
+            BlogWorkTask.blog_account_id == account_id,
+            BlogWorkTask.status == 'completed'
+        ).count()
+        
+        if completed_tasks > 0:
+            print(f"⚠️ [DELETE ACCOUNT] 계정 {account.account_id}: 완료된 작업 {completed_tasks}개 있음 → 삭제 불가")
+            raise HTTPException(
+                status_code=400,
+                detail=f"이 계정으로 완료된 작업이 {completed_tasks}개 있어 삭제할 수 없습니다.\n"
+                       f"계정 상태를 '비활성'으로 변경해주세요."
+            )
+        
+        # 3단계: 배정된 작업자 정보 저장
         assigned_worker = None
         if account.assigned_worker_id:
             assigned_worker = db.query(BlogWorker).get(account.assigned_worker_id)
             worker_name = assigned_worker.user.username if assigned_worker else "알 수 없음"
             print(f"🔄 [DELETE ACCOUNT] 계정 {account.account_id}: 작업자 {worker_name}에서 배정 해제")
         
-        # 3단계: 계정 삭제
+        # 4단계: 계정 삭제
         db.delete(account)
         db.flush()
         
-        # 4단계: 작업자에게 자동으로 다른 계정 재배정
+        # 5단계: 작업자에게 자동으로 다른 계정 재배정
         if assigned_worker:
             try:
                 print(f"🔄 [DELETE ACCOUNT] 작업자 {assigned_worker.user.username}에게 계정 자동 재배정 시도...")
@@ -1052,7 +1077,7 @@ def delete_blog_account(account_id: int, request: Request, db: Session = Depends
         
         message = "계정이 삭제되었습니다."
         if related_tasks:
-            message += f"\n관련 작업 {len(related_tasks)}개를 미배정 상태로 전환했습니다."
+            message += f"\n미완료 작업 {len(related_tasks)}개도 함께 삭제되었습니다."
         if assigned_worker:
             message += f"\n작업자에게 자동으로 새 계정이 배정되었습니다."
         
