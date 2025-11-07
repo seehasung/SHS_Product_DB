@@ -156,7 +156,7 @@ def update_worker_accounts(worker: HomepageWorker, db: Session):
 # 메인 페이지
 # ============================================
 
-@router.get("/homepage")  # ⭐ /homepage → /homepage 로 변경
+@router.get("/homepage")
 def homepage_main_page(request: Request, db: Session = Depends(get_db)):
     """통페이지 메인 페이지"""
     from fastapi.templating import Jinja2Templates
@@ -177,20 +177,20 @@ def homepage_main_page(request: Request, db: Session = Depends(get_db)):
     print("=" * 80)
     print(f"🔍 [HOMEPAGE PAGE] 사용자: {user.username}")
     print(f"🔍 [HOMEPAGE PAGE] user.is_admin: {user.is_admin}")
-    print(f"🔍 [HOMEPAGE PAGE] homepage_worker: {homepage_worker}")
-    if homepage_worker:
-        print(f"🔍 [HOMEPAGE PAGE] homepage_worker.id: {homepage_worker.id}")
-        print(f"🔍 [HOMEPAGE PAGE] homepage_worker.is_homepage_manager: {homepage_worker.is_homepage_manager}")
-        print(f"🔍 [HOMEPAGE PAGE] homepage_worker.status: {homepage_worker.status}")
-    print(f"🔍 [HOMEPAGE PAGE] is_manager (템플릿 전달값): {is_manager}")
+    print(f"🔍 [HOMEPAGE PAGE] is_manager: {is_manager}")
     print("=" * 80)
     
     return templates.TemplateResponse("marketing_homepage.html", {
         "request": request,
         "user": user,
+        "username": user.username,  # ⭐ 추가
+        "is_admin": user.is_admin,  # ⭐ 추가
+        "can_manage_products": user.can_manage_products,  # ⭐ 추가
+        "can_manage_marketing": user.can_manage_marketing,  # ⭐ 추가
         "homepage_worker": homepage_worker,
         "is_manager": is_manager
     })
+    
     
 # ============================================
 # 전체 현황 API
