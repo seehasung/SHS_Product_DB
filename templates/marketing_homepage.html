@@ -578,7 +578,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // ==================== 전체 현황 ====================
 function loadDashboard() {
-    fetch('/homepage/api/dashboard')
+    fetch('/marketing/marketing/homepage/api/dashboard')  // ✅
         .then(r => r.json())
         .then(data => {
             document.getElementById('todayProgress').textContent = data.progress + '%';
@@ -592,7 +592,7 @@ function loadDashboard() {
 }
 
 function loadTodayTasks() {
-    fetch('/homepage/api/tasks/today')
+    fetch('/marketing/homepage/api/tasks/today')
         .then(r => r.json())
         .then(tasks => {
             const tbody = document.getElementById('tasksTableBody');
@@ -628,7 +628,7 @@ function loadTodayTasks() {
 function openCreatePostModal(taskId, keyword) {
     const modal = new bootstrap.Modal(document.getElementById('createPostModal'));
     
-    fetch('/homepage/api/tasks/today')
+    fetch('/marketing/homepage/api/tasks/today')
         .then(r => r.json())
         .then(tasks => {
             const select = document.getElementById('taskSelect');
@@ -654,7 +654,7 @@ function assignDailyTasks() {
     if (!confirm('오늘 작업을 자동으로 배정하시겠습니까?')) return;
     
     const formData = new FormData();
-    fetch('/homepage/api/schedule/auto-assign', {
+    fetch('/marketing/homepage/api/schedule/auto-assign', {
         method: 'POST',
         body: formData
     })
@@ -670,7 +670,7 @@ function assignDailyTasks() {
 
 // ==================== 상품 관리 ====================
 function loadProducts() {
-    fetch('/homepage/api/products')
+    fetch('/marketing/homepage/api/products')
         .then(r => r.json())
         .then(products => {
             const container = document.getElementById('productsContainer');
@@ -760,7 +760,7 @@ function loadProducts() {
 function syncKeywords(productId) {
     if (!confirm('기본 키워드를 통페이지 키워드로 동기화하시겠습니까?')) return;
     
-    fetch(`/homepage/api/products/${productId}/sync-keywords`, {
+    fetch(`/marketing/homepage/api/products/${productId}/sync-keywords`, {
         method: 'POST'
     })
     .then(r => r.json())
@@ -779,7 +779,7 @@ function syncKeywords(productId) {
 }
 
 function toggleKeyword(keywordId) {
-    fetch(`/homepage/api/keywords/${keywordId}/toggle`, {
+    fetch(`/marketing/homepage/api/keywords/${keywordId}/toggle`, {
         method: 'PUT'
     })
     .then(r => r.json())
@@ -790,7 +790,7 @@ function toggleKeyword(keywordId) {
 
 // ==================== 글 관리 ====================
 function loadPosts() {
-    fetch('/homepage/api/posts')
+    fetch('/marketing/homepage/api/posts')
         .then(r => r.json())
         .then(posts => {
             const tbody = document.getElementById('postsTableBody');
@@ -843,7 +843,7 @@ function submitPost() {
         formData.append('images', file);
     }
     
-    fetch('/homepage/api/posts', {
+    fetch('/marketing/homepage/api/posts', {
         method: 'POST',
         body: formData
     })
@@ -861,7 +861,7 @@ function submitPost() {
 }
 
 function viewPost(postId) {
-    fetch('/homepage/api/posts/' + postId)
+    fetch('/marketing/homepage/api/posts/' + postId)
         .then(r => {
             if (!r.ok) throw new Error('글을 불러올 수 없습니다');
             return r.json();
@@ -967,7 +967,7 @@ function submitPostEdit(postId) {
         }
     }
     
-    fetch(`/homepage/api/posts/${postId}`, {
+    fetch(`/marketing/homepage/api/posts/${postId}`, {
         method: 'PUT',
         body: formData
     })
@@ -1017,7 +1017,7 @@ function deletePost(postId) {
         return;
     }
     
-    fetch(`/homepage/api/posts/${postId}`, {
+    fetch(`/marketing/homepage/api/posts/${postId}`, {
         method: 'DELETE'
     })
     .then(r => {
@@ -1038,7 +1038,7 @@ function deletePost(postId) {
 // ==================== 계정 관리 ====================
 {% if is_manager %}
 function loadAccounts() {
-    fetch('/homepage/api/accounts')
+    fetch('/marketing/homepage/api/accounts')
         .then(r => r.json())
         .then(accounts => {
             const tbody = document.getElementById('accountsTableBody');
@@ -1077,7 +1077,7 @@ function submitAccount() {
     const form = document.getElementById('addAccountForm');
     const formData = new FormData(form);
     
-    fetch('/homepage/api/accounts', {
+    fetch('/marketing/homepage/api/accounts', {
         method: 'POST',
         body: formData
     })
@@ -1094,7 +1094,7 @@ function submitAccount() {
 }
 
 function editAccount(accountId) {
-    fetch('/homepage/api/accounts')
+    fetch('/marketing/homepage/api/accounts')
         .then(response => response.json())
         .then(accounts => {
             const account = accounts.find(a => a.id === accountId);
@@ -1132,7 +1132,7 @@ function submitEditAccount() {
     formData.append('category', document.getElementById('editCategory').value);
     formData.append('status', document.getElementById('editStatus').value);
     
-    fetch(`/homepage/api/accounts/${accountId}`, {
+    fetch(`/marketing/homepage/api/accounts/${accountId}`, {
         method: 'PUT',
         body: formData
     })
@@ -1154,7 +1154,7 @@ async function deleteAccount(accountId, accountName) {
     }
     
     try {
-        const response = await fetch(`/homepage/api/accounts/${accountId}`, {
+        const response = await fetch(`/marketing/homepage/api/accounts/${accountId}`, {
             method: 'DELETE'
         });
         
@@ -1173,7 +1173,7 @@ async function deleteAccount(accountId, accountName) {
 
 // ==================== 작업자 관리 ====================
 function loadWorkers() {
-    fetch('/homepage/api/workers')
+    fetch('/marketing/homepage/api/workers')
         .then(r => r.json())
         .then(workers => {
             const tbody = document.getElementById('workersTableBody');
@@ -1231,7 +1231,7 @@ function loadWorkers() {
 }
 
 function loadAvailableUsers() {
-    fetch('/homepage/api/available-users')
+    fetch('/marketing/homepage/api/available-users')
         .then(r => r.json())
         .then(users => {
             const select = document.getElementById('userSelect');
@@ -1241,7 +1241,7 @@ function loadAvailableUsers() {
 }
 
 function loadProductsForSelect() {
-    fetch('/homepage/api/products')
+    fetch('/marketing/homepage/api/products')
         .then(r => r.json())
         .then(products => {
             const select = document.getElementById('productSelect');
@@ -1254,7 +1254,7 @@ function submitWorker() {
     const form = document.getElementById('addWorkerForm');
     const formData = new FormData(form);
     
-    fetch('/homepage/api/workers', {
+    fetch('/marketing/homepage/api/workers', {
         method: 'POST',
         body: formData
     })
@@ -1275,7 +1275,7 @@ function updateQuota(workerId, newQuota) {
     const formData = new FormData();
     formData.append('daily_quota', newQuota);
     
-    fetch(`/homepage/api/workers/${workerId}/quota`, {
+    fetch(`/marketing/homepage/api/workers/${workerId}/quota`, {
         method: 'PUT',
         body: formData
     })
@@ -1294,7 +1294,7 @@ function toggleWorkerStatus(workerId, currentStatus) {
     const formData = new FormData();
     formData.append('status', newStatus);
     
-    fetch(`/homepage/api/workers/${workerId}/status`, {
+    fetch(`/marketing/homepage/api/workers/${workerId}/status`, {
         method: 'PUT',
         body: formData
     })
@@ -1311,7 +1311,7 @@ async function deleteWorker(workerId, username) {
     }
     
     try {
-        const response = await fetch(`/homepage/api/workers/${workerId}`, {
+        const response = await fetch(`/marketing/homepage/api/workers/${workerId}`, {
             method: 'DELETE'
         });
         
@@ -1333,7 +1333,7 @@ function toggleHomepageManager(workerId, isHomepageManager) {
     const formData = new FormData();
     formData.append('is_homepage_manager', isHomepageManager);
     
-    fetch(`/homepage/api/workers/${workerId}/homepage-manager`, {
+    fetch(`/marketing/homepage/api/workers/${workerId}/homepage-manager`, {
         method: 'PUT',
         body: formData
     })
@@ -1388,7 +1388,7 @@ async function syncAllKeywords() {
     btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>동기화 중...';
 
     try {
-        const response = await fetch('/homepage/api/products/sync-keywords', {
+        const response = await fetch('/marketing/homepage/api/products/sync-keywords', {
             method: 'POST'
         });
 
