@@ -255,8 +255,6 @@
     }
     
     .keyword-badge {
-        background: linear-gradient(135deg, #e9ecef 0%, #dee2e6 100%);
-        color: #495057;
         padding: 6px 12px;
         border-radius: 12px;
         font-size: 0.85rem;
@@ -265,6 +263,28 @@
         font-weight: 600;
         box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
     }
+    
+        /* 상태별 키워드 색상 */
+    .keyword-pending {
+        background: linear-gradient(135deg, #fff3bf 0%, #ffec99 100%);
+        color: #856404;
+    }
+
+    .keyword-completed {
+        background: linear-gradient(135deg, #d3f9d8 0%, #b2f2bb 100%);
+        color: #2b8a3e;
+    }
+
+    .keyword-in-progress {
+        background: linear-gradient(135deg, #d0ebff 0%, #a5d8ff 100%);
+        color: #1864ab;
+    }
+
+    .keyword-skipped {
+        background: linear-gradient(135deg, #e9ecef 0%, #dee2e6 100%);
+        color: #495057;
+    }
+
     
     .action-buttons {
         display: flex;
@@ -470,11 +490,15 @@
                             <p class="mb-0 mt-2 opacity-90" id="selectedDateText">{{ today }}</p>
                         </div>
                         <div>
-                            {% if is_manager %}
+                            <!-- ⭐ 조건문 제거 - 모든 사용자에게 버튼 표시 -->
                             <button type="button" class="btn btn-light btn-lg" onclick="assignDailyTasks()">
-                                <i class="bi bi-plus-circle"></i> 오늘 작업 자동 배정
+                                <i class="bi bi-plus-circle"></i> 
+                                {% if is_manager %}
+                                전체 작업 자동 배정
+                                {% else %}
+                                내 작업 자동 배정
+                                {% endif %}
                             </button>
-                            {% endif %}
                         </div>
                     </div>
                 </div>
@@ -543,6 +567,7 @@
                     <table class="table table-hover mb-0">
                         <thead>
                             <tr>
+                                <th width="100">상태</th>  <!-- ⭐ 추가 -->
                                 <th width="100">날짜</th>
                                 <th>제목</th>
                                 <th width="120">키워드</th>
@@ -555,7 +580,7 @@
                         </thead>
                         <tbody id="scheduleTableBody">
                             <tr>
-                                <td colspan="8">
+                                <td colspan="9">
                                     <div class="no-data">
                                         <i class="bi bi-calendar-x"></i>
                                         <p class="mb-2">작업을 불러오는 중...</p>
@@ -1242,7 +1267,7 @@ function renderScheduleTable() {
         console.log('ℹ️ 스케줄이 없어서 "작업 없음" 메시지 표시');
         tbody.innerHTML = `
             <tr>
-                <td colspan="8">
+                <td colspan="9">
                     <div class="no-data">
                         <i class="bi bi-calendar-x"></i>
                         <p class="mb-2">선택한 날짜에 할당된 작업이 없습니다.</p>
@@ -1261,7 +1286,7 @@ function renderScheduleTable() {
         // 날짜 포맷팅
         const scheduleDate = schedule.scheduled_date || currentSelectedDate;
         
-        // 제목 처리 (작성된 글이 있으면 제목, 없으면 "미작성")
+        // 제목 처리
         const title = schedule.post_title || '<span class="text-muted">미작성</span>';
         
         // 통계 처리
@@ -1282,11 +1307,31 @@ function renderScheduleTable() {
             </div>
         ` : '<span class="text-muted">-</span>';
         
+        // ⭐ 상태별 한글 텍스트
+        const statusText = {
+            'pending': '대기중',
+            'in_progress': '진행중',
+            'completed': '완료',
+            'skipped': '건너뜀'
+        }[schedule.status] || schedule.status;
+        
+        // ⭐ 상태별 CSS 클래스
+        const statusClass = schedule.status.replace('_', '-');
+        
         return `
         <tr class="schedule-row" data-status="${schedule.status}" data-schedule-id="${schedule.id}">
+            <td>
+                <span class="status-badge status-${statusClass}">
+                    ${statusText}
+                </span>
+            </td>
             <td>${scheduleDate}</td>
             <td>${title}</td>
-            <td><span class="keyword-badge">${schedule.keyword}</span></td>
+            <td>
+                <span class="keyword-badge keyword-${statusClass}">
+                    ${schedule.keyword}
+                </span>
+            </td>
             <td>${stats}</td>
             <td>${images}</td>
             <td><strong>${schedule.worker_name || '미할당'}</strong></td>
@@ -1303,13 +1348,21 @@ function renderScheduleTable() {
                         </a>
                     ` : ''}
                     
-                    <button class="btn btn-sm ${schedule.status === 'completed' ? 'btn-outline-secondary' : 'btn-primary'}" 
-                            onclick="editBlogSchedule(${schedule.id}, '${schedule.status}')"
-                            ${schedule.status === 'completed' ? 'disabled' : ''}
-                            data-bs-toggle="tooltip" 
-                            title="${schedule.status === 'completed' ? '완료된 글' : schedule.post_title ? '글 수정' : '글 작성'}">
-                        <i class="bi bi-pencil"></i> ${schedule.post_title ? '수정' : '작성'}
-                    </button>
+                    ${schedule.post_title ? `
+                        <button class="btn btn-sm btn-primary" 
+                                onclick="openEditPostModal(${schedule.post_id})"
+                                data-bs-toggle="tooltip" 
+                                title="글 수정하기">
+                            <i class="bi bi-pencil"></i> 수정
+                        </button>
+                    ` : `
+                        <button class="btn btn-sm btn-primary" 
+                                onclick="editBlogSchedule(${schedule.id}, '${schedule.status}')"
+                                data-bs-toggle="tooltip" 
+                                title="글 작성하기">
+                            <i class="bi bi-pencil"></i> 작성
+                        </button>
+                    `}
                     
                     ${schedule.status !== 'completed' ? `
                         <button class="btn btn-sm btn-outline-danger"
@@ -1324,6 +1377,8 @@ function renderScheduleTable() {
         </tr>
         `;
     }).join('');
+    
+    console.log('✅ 테이블 HTML 생성 완료');
     
     // 툴팁 재초기화
     const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
@@ -1373,18 +1428,32 @@ function openCreatePostModal(taskId, keyword) {
 }
 
 function assignDailyTasks() {
-    if (!confirm('오늘 작업을 자동으로 배정하시겠습니까?')) return;
+    // ⭐ 사용자 구분에 따라 다른 확인 메시지
+    const isManager = {{ 'true' if is_manager else 'false' }};
+    
+    const confirmMessage = isManager 
+        ? '모든 작업자에게 오늘 작업을 자동으로 배정하시겠습니까?'
+        : '내게 오늘 작업을 자동으로 배정하시겠습니까?';
+    
+    if (!confirm(confirmMessage)) return;
     
     const formData = new FormData();
-    formData.append('date', currentSelectedDate);  // ⭐ 날짜 추가
+    formData.append('date', currentSelectedDate);
+    
+    // ⭐ 디버깅 로그
+    console.log('📤 작업 배정 요청:', {
+        date: currentSelectedDate,
+        is_manager: isManager
+    });
     
     fetch('/blog/api/schedule/auto-assign', {
         method: 'POST',
         body: formData
     })
     .then(r => {
+        console.log('📥 응답 상태:', r.status);
+        
         if (!r.ok) {
-            // ✅ 에러 응답 처리
             return r.json().then(errorData => {
                 throw new Error(errorData.detail || errorData.message || '작업 배정에 실패했습니다.');
             });
@@ -1392,11 +1461,12 @@ function assignDailyTasks() {
         return r.json();
     })
     .then(data => {
+        console.log('✅ 배정 성공:', data);
         alert(data.message);
         loadBlogDashboard();
     })
     .catch(err => {
-        console.error('작업 배정 오류:', err);
+        console.error('❌ 배정 오류:', err);
         alert('오류: ' + err.message);
     });
 }

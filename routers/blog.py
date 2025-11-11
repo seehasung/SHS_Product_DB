@@ -205,7 +205,7 @@ def blog_main_page(request: Request, db: Session = Depends(get_db)):
 @router.get("/blog/api/dashboard")
 def get_dashboard_stats(
     request: Request, 
-    date_param: Optional[str] = None,
+    date: Optional[str] = None,  # ⭐ date_param → date로 변경!
     db: Session = Depends(get_db)
 ):
     """전체 현황 통계 + 작업 목록"""
@@ -219,13 +219,21 @@ def get_dashboard_stats(
     is_manager = check_is_blog_manager(user, db)
     
     # 날짜 파싱
-    if date_param:
+    if date:  # ⭐ date로 변경
         try:
-            target_date = datetime.strptime(date_param, '%Y-%m-%d').date()
+            target_date = datetime.strptime(date, '%Y-%m-%d').date()
         except ValueError:
             target_date = date.today()
     else:
         target_date = date.today()
+    
+    # ⭐ 디버깅 로그
+    print("=" * 80)
+    print(f"📊 [DASHBOARD API] 요청 받음")
+    print(f"   - 사용자: {user.username}")
+    print(f"   - date 파라미터: {date}")
+    print(f"   - target_date: {target_date}")
+    print("=" * 80)
     
     # ============ 통계 계산 ============
     if is_manager:
@@ -1451,48 +1459,89 @@ def update_worker_blog_manager(
 
 @router.post("/blog/api/schedule/auto-assign")
 def auto_assign_daily_tasks(
-    target_date: str = Form(None),
+    date: str = Form(None),
     request: Request = None,
     db: Session = Depends(get_db)
 ):
-    """일일 작업 자동 배정"""
+    """일일 작업 자동 배정 - 관리자는 전체, 일반 작업자는 자기 자신만"""
     user = get_current_user(request, db)
     
-    if not check_is_blog_manager(user, db):
-        raise HTTPException(status_code=403, detail="관리자 권한이 필요합니다")
+    # 접근 권한 체크
+    has_access, blog_worker_or_error = check_blog_access(user, db)
+    if not has_access:
+        raise HTTPException(status_code=403, detail=blog_worker_or_error)
+    
+    blog_worker = blog_worker_or_error if not user.is_admin else db.query(BlogWorker).filter(
+        BlogWorker.user_id == user.id
+    ).first()
+    
+    is_manager = check_is_blog_manager(user, db)
     
     # 날짜 설정
-    if target_date:
-        task_date = datetime.strptime(target_date, "%Y-%m-%d").date()
+    if date:
+        try:
+            task_date = datetime.strptime(date, "%Y-%m-%d").date()
+        except ValueError:
+            task_date = date.today()
     else:
         task_date = date.today()
     
     print("=" * 80)
-    print(f"🔍 [AUTO-ASSIGN] 작업 배정 시작: {task_date}")
+    print(f"🔍 [AUTO-ASSIGN] 작업 배정 시작")
+    print(f"   - 사용자: {user.username}")
+    print(f"   - is_manager: {is_manager}")
+    print(f"   - 날짜: {task_date}")
     print("=" * 80)
     
     # 이미 배정된 작업이 있는지 확인
-    existing = db.query(BlogWorkTask).filter(
-        BlogWorkTask.task_date == task_date
-    ).first()
+    if is_manager:
+        existing = db.query(BlogWorkTask).filter(
+            BlogWorkTask.task_date == task_date
+        ).first()
+        
+        if existing:
+            print(f"⚠️ [AUTO-ASSIGN] {task_date}에 이미 작업 배정됨")
+            raise HTTPException(
+                status_code=400, 
+                detail=f"{task_date} 날짜에 이미 배정된 작업이 있습니다"
+            )
+    else:
+        existing = db.query(BlogWorkTask).filter(
+            BlogWorkTask.task_date == task_date,
+            BlogWorkTask.worker_id == blog_worker.id
+        ).first()
+        
+        if existing:
+            print(f"⚠️ [AUTO-ASSIGN] {user.username}에게 {task_date} 작업 이미 배정됨")
+            raise HTTPException(
+                status_code=400, 
+                detail=f"{task_date} 날짜에 이미 배정된 작업이 있습니다"
+            )
     
-    if existing:
-        print(f"⚠️ [AUTO-ASSIGN] 이미 배정된 작업 있음")
-        raise HTTPException(status_code=400, detail=f"{task_date} 날짜에 이미 배정된 작업이 있습니다")
-    
-    # 활성 작업자 조회
-    active_workers = db.query(BlogWorker).filter(
-        BlogWorker.status == 'active'
-    ).all()
-    
-    print(f"🔍 [AUTO-ASSIGN] 활성 작업자 수: {len(active_workers)}")
+    # 작업자 필터링
+    if is_manager:
+        active_workers = db.query(BlogWorker).filter(
+            BlogWorker.status == 'active'
+        ).all()
+        print(f"📋 [AUTO-ASSIGN] 관리자 모드 - 전체 활성 작업자 {len(active_workers)}명")
+    else:
+        active_workers = [blog_worker]
+        print(f"📋 [AUTO-ASSIGN] 일반 작업자 모드 - {user.username}에게만 배정")
     
     if not active_workers:
         print(f"⚠️ [AUTO-ASSIGN] 활성 작업자 없음!")
         raise HTTPException(status_code=400, detail="활성 작업자가 없습니다")
     
-    # 오늘 배정된 키워드 (중복 방지)
-    today_assigned_keywords = set()
+    # ⭐⭐⭐ 핵심 수정: 해당 날짜에 이미 배정된 키워드 조회 ⭐⭐⭐
+    already_assigned = db.query(BlogWorkTask.keyword_text).filter(
+        BlogWorkTask.task_date == task_date
+    ).all()
+    today_assigned_keywords = {k[0] for k in already_assigned}
+    
+    print(f"🔍 [AUTO-ASSIGN] {task_date}에 이미 배정된 키워드: {len(today_assigned_keywords)}개")
+    if today_assigned_keywords:
+        print(f"   키워드 목록: {list(today_assigned_keywords)[:5]}{'...' if len(today_assigned_keywords) > 5 else ''}")
+    
     total_assigned = 0
     
     for worker in active_workers:
@@ -1533,12 +1582,14 @@ def auto_assign_daily_tasks(
         unused = active_keywords - completed_keywords
         print(f"   - 미사용 키워드: {len(unused)}개")
         
-        # 오늘 다른 작업자가 배정받은 키워드 제외
+        # ⭐⭐⭐ 핵심 수정: 모든 작업자가 오늘 배정된 키워드 제외 ⭐⭐⭐
         available = unused - today_assigned_keywords
-        print(f"   - 배정 가능 키워드: {len(available)}개")
+        print(f"   - 배정 가능 키워드 (중복 제외): {len(available)}개")
         
         if not available:
             print(f"   ⚠️ 배정 가능한 키워드 없음 → 스킵")
+            if len(unused) > 0:
+                print(f"   💡 미사용 키워드는 {len(unused)}개 있지만, 모두 오늘 다른 작업자에게 배정됨")
             continue
         
         # 할당량만큼 랜덤 선택
@@ -1581,7 +1632,7 @@ def auto_assign_daily_tasks(
             db.add(task)
             assigned_for_worker += 1
             
-            # 진행 상황에도 기록 (아직 없다면)
+            # 진행 상황에도 기록
             progress = db.query(BlogKeywordProgress).filter(
                 BlogKeywordProgress.worker_id == worker.id,
                 BlogKeywordProgress.marketing_product_id == worker.current_product_id,
@@ -1597,6 +1648,7 @@ def auto_assign_daily_tasks(
                 )
                 db.add(progress)
             
+            # ⭐⭐⭐ 핵심: 배정된 키워드를 즉시 today_assigned_keywords에 추가 ⭐⭐⭐
             today_assigned_keywords.add(keyword)
             account_post_count[account_idx] = account_post_count.get(account_idx, 0) + 1
         
@@ -1607,10 +1659,16 @@ def auto_assign_daily_tasks(
     
     print("=" * 80)
     print(f"✅ [AUTO-ASSIGN] 총 {total_assigned}개 작업 배정 완료")
+    print(f"✅ [AUTO-ASSIGN] 최종 배정된 키워드 수: {len(today_assigned_keywords)}개")
     print("=" * 80)
     
+    if is_manager:
+        message = f"{task_date} 전체 작업 배정 완료 (총 {total_assigned}개)"
+    else:
+        message = f"{task_date} 내 작업 배정 완료 (총 {total_assigned}개)"
+    
     return {
-        "message": f"{task_date} 작업 배정 완료 (총 {total_assigned}개)",
+        "message": message,
         "assigned_count": total_assigned,
         "workers_count": len(active_workers)
     }
