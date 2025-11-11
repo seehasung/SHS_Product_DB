@@ -2151,7 +2151,11 @@ async def update_marketing_post(
     return RedirectResponse(url=referer, status_code=303)
 
 @router.post("/post/delete/{post_id}", response_class=RedirectResponse)
-async def delete_marketing_post(post_id: int, db: Session = Depends(get_db)):
+async def delete_marketing_post(
+    post_id: int, 
+    request: Request,  # ✅ 이 줄 추가
+    db: Session = Depends(get_db)
+):
     post = db.query(MarketingPost).filter(MarketingPost.id == post_id).first()
     mp_id = None
     if post:
