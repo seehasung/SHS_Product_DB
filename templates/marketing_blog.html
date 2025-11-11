@@ -1350,7 +1350,7 @@ function renderScheduleTable() {
                     
                     ${schedule.post_title ? `
                         <button class="btn btn-sm btn-primary" 
-                                onclick="openEditPostModal(${schedule.post_id})"
+                                onclick="viewPost(${schedule.post_id})"
                                 data-bs-toggle="tooltip" 
                                 title="글 수정하기">
                             <i class="bi bi-pencil"></i> 수정
@@ -1768,6 +1768,7 @@ function viewPost(postId) {
             alert('글을 불러오는데 실패했습니다: ' + err.message);
         });
 }
+
 
 function submitPostEdit(postId) {
     const form = document.getElementById('createPostForm');
