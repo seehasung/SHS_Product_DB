@@ -270,12 +270,43 @@
         display: flex;
         gap: 5px;
         justify-content: center;
-        flex-wrap: nowrap;
+        flex-wrap: nowrap;  /* ⭐ 줄바꿈 방지 */
+        white-space: nowrap; /* ⭐ 텍스트 줄바꿈 방지 */
     }
-    
+
     .action-buttons .btn-sm {
-        padding: 6px 10px;
-        font-size: 0.8rem;
+        padding: 6px 12px;  /* ⭐ 좌우 패딩 증가 */
+        font-size: 0.85rem;  /* ⭐ 폰트 크기 증가 */
+        min-width: 60px;  /* ⭐ 최소 너비 설정 */
+        white-space: nowrap;  /* ⭐ 텍스트 줄바꿈 방지 */
+    }
+
+    .action-buttons .btn-success {
+        background: linear-gradient(135deg, #51cf66 0%, #40c057 100%);
+        border: none;
+        color: white;
+    }
+
+    .action-buttons .btn-success:hover {
+        background: linear-gradient(135deg, #40c057 0%, #37b24d 100%);
+        transform: translateY(-2px);
+    }
+
+    .action-buttons .btn-primary {
+        background: linear-gradient(135deg, #4A90E2 0%, #5BA3F5 100%);
+        border: none;
+    }
+
+    .action-buttons .btn-primary:hover {
+        background: linear-gradient(135deg, #3A7BC8 0%, #4A90E2 100%);
+        transform: translateY(-2px);
+    }
+
+    /* ⭐ 관리 열 너비 증가 */
+    .schedule-table th:last-child,
+    .schedule-table td:last-child {
+        min-width: 180px;  /* ⭐ 최소 너비 증가 */
+        width: 200px;  /* ⭐ 기본 너비 증가 */
     }
     
     .no-data {
@@ -512,14 +543,14 @@
                     <table class="table table-hover mb-0">
                         <thead>
                             <tr>
-                                <th>날짜</th>
+                                <th width="100">날짜</th>
                                 <th>제목</th>
-                                <th>키워드</th>
-                                <th>통계</th>
-                                <th>이미지</th>
-                                <th>작업자</th>
-                                <th>계정</th>
-                                <th width="120" class="text-center">관리</th>
+                                <th width="120">키워드</th>
+                                <th width="100">통계</th>
+                                <th width="100">이미지</th>
+                                <th width="100">작업자</th>
+                                <th width="120">계정</th>
+                                <th width="200" class="text-center">관리</th>
                             </tr>
                         </thead>
                         <tbody id="scheduleTableBody">
@@ -1012,12 +1043,22 @@ function changeDateBlog(days) {
     
     document.getElementById('dateSelector').value = currentSelectedDate;
     updateDateDisplay();
+    
+    // ⭐ 필터 초기화 - "전체" 버튼 활성화
+    document.querySelectorAll('.filter-btn').forEach(btn => btn.classList.remove('active'));
+    document.querySelector('.filter-btn[onclick*="all"]').classList.add('active');
+    
     loadBlogDashboard();
 }
 
 function selectDateBlog(date) {
     currentSelectedDate = date;
     updateDateDisplay();
+    
+    // ⭐ 필터 초기화 - "전체" 버튼 활성화
+    document.querySelectorAll('.filter-btn').forEach(btn => btn.classList.remove('active'));
+    document.querySelector('.filter-btn[onclick*="all"]').classList.add('active');
+    
     loadBlogDashboard();
 }
 
@@ -1138,6 +1179,7 @@ function deleteBlogSchedule(scheduleId) {
 // ==================== 전체 현황 (새로운 구조) ====================
 function loadBlogDashboard() {
     console.log('🔄 대시보드 로드 시작 - 날짜:', currentSelectedDate);
+    console.log('🔄 API URL:', `/blog/api/dashboard?date=${currentSelectedDate}`);
     
     fetch(`/blog/api/dashboard?date=${currentSelectedDate}`)
         .then(r => {
@@ -1150,6 +1192,10 @@ function loadBlogDashboard() {
         .then(data => {
             console.log('📊 받은 데이터:', data);
             console.log('📋 스케줄 개수:', data.schedules ? data.schedules.length : 0);
+            
+            if (data.schedules && data.schedules.length > 0) {
+                console.log('📅 첫 번째 스케줄 날짜:', data.schedules[0].scheduled_date);
+            }
             
             // 통계 업데이트
             const total = data.total || 0;
@@ -1248,9 +1294,12 @@ function renderScheduleTable() {
             <td class="text-center">
                 <div class="action-buttons">
                     ${schedule.status === 'completed' && schedule.post_url ? `
-                        <a href="${schedule.post_url}" target="_blank" 
-                           class="btn btn-sm btn-success" data-bs-toggle="tooltip" title="글 보기">
-                            <i class="bi bi-box-arrow-up-right"></i>
+                        <a href="${schedule.post_url}" 
+                           target="_blank" 
+                           class="btn btn-sm btn-success" 
+                           data-bs-toggle="tooltip" 
+                           title="블로그 글 보기">
+                            <i class="bi bi-box-arrow-up-right"></i> 보기
                         </a>
                     ` : ''}
                     
@@ -1258,14 +1307,15 @@ function renderScheduleTable() {
                             onclick="editBlogSchedule(${schedule.id}, '${schedule.status}')"
                             ${schedule.status === 'completed' ? 'disabled' : ''}
                             data-bs-toggle="tooltip" 
-                            title="${schedule.status === 'completed' ? '완료된 글' : schedule.post_title ? '수정' : '작성'}">
+                            title="${schedule.status === 'completed' ? '완료된 글' : schedule.post_title ? '글 수정' : '글 작성'}">
                         <i class="bi bi-pencil"></i> ${schedule.post_title ? '수정' : '작성'}
                     </button>
                     
                     ${schedule.status !== 'completed' ? `
                         <button class="btn btn-sm btn-outline-danger"
                                 onclick="deleteBlogSchedule(${schedule.id})"
-                                data-bs-toggle="tooltip" title="삭제">
+                                data-bs-toggle="tooltip" 
+                                title="작업 삭제">
                             <i class="bi bi-trash"></i>
                         </button>
                     ` : ''}
@@ -1274,8 +1324,6 @@ function renderScheduleTable() {
         </tr>
         `;
     }).join('');
-    
-    console.log('✅ 테이블 HTML 생성 완료');
     
     // 툴팁 재초기화
     const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
