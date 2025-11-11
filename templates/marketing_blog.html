@@ -507,19 +507,19 @@
                     </button>
                 </div>
                 
-                <!-- ✅ 6. 작업 목록 테이블 -->
+                <!-- ==================== 전체 현황 탭 테이블 ==================== -->
                 <div class="schedule-table">
                     <table class="table table-hover mb-0">
                         <thead>
                             <tr>
-                                <th width="50" class="text-center">완료</th>
+                                <th>날짜</th>
+                                <th>제목</th>
+                                <th>키워드</th>
+                                <th>통계</th>
+                                <th>이미지</th>
                                 <th>작업자</th>
                                 <th>계정</th>
-                                <th>상품</th>
-                                <th>키워드</th>
-                                <th width="100">상태</th>
-                                <th width="120">작성된 글</th>
-                                <th width="180" class="text-center">관리</th>
+                                <th width="120" class="text-center">관리</th>
                             </tr>
                         </thead>
                         <tbody id="scheduleTableBody">
@@ -1182,7 +1182,6 @@ function loadBlogDashboard() {
             alert('대시보드를 불러오는데 실패했습니다: ' + error.message);
         });
 }
-
 function renderScheduleTable() {
     console.log('🎨 테이블 렌더링 시작 - 스케줄 개수:', todaySchedules.length);
     
@@ -1213,63 +1212,67 @@ function renderScheduleTable() {
     tbody.innerHTML = todaySchedules.map((schedule, index) => {
         console.log(`  📝 스케줄 ${index + 1}:`, schedule);
         
+        // 날짜 포맷팅
+        const scheduleDate = schedule.scheduled_date || currentSelectedDate;
+        
+        // 제목 처리 (작성된 글이 있으면 제목, 없으면 "미작성")
+        const title = schedule.post_title || '<span class="text-muted">미작성</span>';
+        
+        // 통계 처리
+        const stats = schedule.post_title ? `
+            📝 ${schedule.char_count || 0}자<br>
+            🎯 키워드 ${schedule.keyword_count || 0}회
+        ` : '<span class="text-muted">-</span>';
+        
+        // 이미지 처리
+        const images = schedule.images && schedule.images.length > 0 ? `
+            <div class="d-flex gap-1">
+                ${schedule.images.slice(0, 2).map(img => `
+                    <img src="/static/uploads/blog_images/${img.filename}" 
+                         class="img-thumbnail" style="width: 40px; height: 40px; object-fit: cover;">
+                `).join('')}
+                ${schedule.images.length > 2 ? 
+                    `<span class="badge bg-secondary">+${schedule.images.length - 2}</span>` : ''}
+            </div>
+        ` : '<span class="text-muted">-</span>';
+        
         return `
         <tr class="schedule-row" data-status="${schedule.status}" data-schedule-id="${schedule.id}">
-            <td class="text-center">
-                <input type="checkbox" 
-                    class="form-check-input check-complete" 
-                    ${schedule.is_completed ? 'checked' : ''}
-                    onchange="toggleCompleteBlog(${schedule.id}, this)"
-                    ${schedule.status === 'completed' || schedule.status === 'skipped' ? 'disabled' : ''}
-                    data-bs-toggle="tooltip" 
-                    title="${schedule.status === 'completed' ? '완료 잠김' : '완료 체크'}">
-            </td>
+            <td>${scheduleDate}</td>
+            <td>${title}</td>
+            <td><span class="keyword-badge">${schedule.keyword}</span></td>
+            <td>${stats}</td>
+            <td>${images}</td>
             <td><strong>${schedule.worker_name || '미할당'}</strong></td>
             <td><span class="text-primary">${schedule.account_id || '미할당'}</span></td>
-            <td><small>${schedule.product_name || '-'}</small></td>
-            <td><span class="keyword-badge">${schedule.keyword}</span></td>
-            <td>
-                <span class="status-badge status-${schedule.status.replace('_', '-')}">
-                    ${schedule.status === 'pending' ? '대기중' :
-                      schedule.status === 'in_progress' ? '진행중' :
-                      schedule.status === 'completed' ? '완료' : '건너뜀'}
-                </span>
-            </td>
-            <td>
-                ${schedule.post_url ? 
-                    `<a href="${schedule.post_url}" target="_blank" class="btn btn-sm btn-success">
-                        <i class="bi bi-box-arrow-up-right"></i> 보기
-                    </a>` : 
-                    '<span class="text-muted">-</span>'}
-            </td>
             <td class="text-center">
                 <div class="action-buttons">
-                    <button class="btn btn-sm ${schedule.status === 'completed' ? 'btn-success' : 'btn-outline-info'}" 
+                    ${schedule.status === 'completed' && schedule.post_url ? `
+                        <a href="${schedule.post_url}" target="_blank" 
+                           class="btn btn-sm btn-success" data-bs-toggle="tooltip" title="글 보기">
+                            <i class="bi bi-box-arrow-up-right"></i>
+                        </a>
+                    ` : ''}
+                    
+                    <button class="btn btn-sm ${schedule.status === 'completed' ? 'btn-outline-secondary' : 'btn-primary'}" 
                             onclick="editBlogSchedule(${schedule.id}, '${schedule.status}')"
                             ${schedule.status === 'completed' ? 'disabled' : ''}
                             data-bs-toggle="tooltip" 
-                            title="${schedule.status === 'completed' ? '완료된 글은 수정 불가' : '수정'}">
-                        <i class="bi bi-pencil"></i>
+                            title="${schedule.status === 'completed' ? '완료된 글' : schedule.post_title ? '수정' : '작성'}">
+                        <i class="bi bi-pencil"></i> ${schedule.post_title ? '수정' : '작성'}
                     </button>
-                    <button class="btn btn-sm btn-outline-warning"
-                            onclick="changeBlogStatus(${schedule.id}, 'pending')"
-                            data-bs-toggle="tooltip" title="대기중">
-                        <i class="bi bi-pause-circle"></i>
-                    </button>
-                    <button class="btn btn-sm btn-outline-secondary"
-                            onclick="changeBlogStatus(${schedule.id}, 'skipped')"
-                            data-bs-toggle="tooltip" title="건너뛰기">
-                        <i class="bi bi-skip-forward"></i>
-                    </button>
-                    <button class="btn btn-sm btn-outline-danger"
-                            onclick="deleteBlogSchedule(${schedule.id})"
-                            data-bs-toggle="tooltip" title="삭제">
-                        <i class="bi bi-trash"></i>
-                    </button>
+                    
+                    ${schedule.status !== 'completed' ? `
+                        <button class="btn btn-sm btn-outline-danger"
+                                onclick="deleteBlogSchedule(${schedule.id})"
+                                data-bs-toggle="tooltip" title="삭제">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    ` : ''}
                 </div>
             </td>
         </tr>
-    `;
+        `;
     }).join('');
     
     console.log('✅ 테이블 HTML 생성 완료');

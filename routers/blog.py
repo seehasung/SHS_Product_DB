@@ -203,8 +203,12 @@ def blog_main_page(request: Request, db: Session = Depends(get_db)):
 # ============================================
 
 @router.get("/blog/api/dashboard")
-def get_dashboard_stats(request: Request, db: Session = Depends(get_db)):
-    """전체 현황 통계"""
+def get_dashboard_stats(
+    request: Request, 
+    date_param: Optional[str] = None,
+    db: Session = Depends(get_db)
+):
+    """전체 현황 통계 + 작업 목록"""
     user = get_current_user(request, db)
     has_access, blog_worker_or_error = check_blog_access(user, db)
     
@@ -214,61 +218,161 @@ def get_dashboard_stats(request: Request, db: Session = Depends(get_db)):
     blog_worker = blog_worker_or_error if not user.is_admin else None
     is_manager = check_is_blog_manager(user, db)
     
-    today = date.today()
-    
-    # 오늘의 작업 통계
-    if is_manager:
-        # 관리자: 전체 통계
-        total_tasks = db.query(BlogWorkTask).filter(
-            BlogWorkTask.task_date == today
-        ).count()
-        
-        completed_tasks = db.query(BlogWorkTask).filter(
-            BlogWorkTask.task_date == today,
-            BlogWorkTask.status == 'completed'
-        ).count()
+    # 날짜 파싱
+    if date_param:
+        try:
+            target_date = datetime.strptime(date_param, '%Y-%m-%d').date()
+        except ValueError:
+            target_date = date.today()
     else:
-        # 일반 작업자: 내 작업만
-        total_tasks = db.query(BlogWorkTask).filter(
-            BlogWorkTask.task_date == today,
-            BlogWorkTask.worker_id == blog_worker.id
-        ).count()
-        
-        completed_tasks = db.query(BlogWorkTask).filter(
-            BlogWorkTask.task_date == today,
-            BlogWorkTask.worker_id == blog_worker.id,
-            BlogWorkTask.status == 'completed'
-        ).count()
+        target_date = date.today()
     
-    progress = (completed_tasks / total_tasks * 100) if total_tasks > 0 else 0
-    
-    # 전체 글 수
+    # ============ 통계 계산 ============
     if is_manager:
+        tasks_query = db.query(BlogWorkTask).filter(
+            BlogWorkTask.task_date == target_date
+        )
+        
+        total_tasks = tasks_query.count()
+        completed = tasks_query.filter(BlogWorkTask.status == 'completed').count()
+        in_progress = tasks_query.filter(BlogWorkTask.status == 'in_progress').count()
+        pending = tasks_query.filter(BlogWorkTask.status == 'pending').count()
+        
         total_posts = db.query(BlogPost).count()
         today_posts = db.query(BlogPost).filter(
-            func.date(BlogPost.created_at) == today
+            func.date(BlogPost.created_at) == target_date
         ).count()
     else:
+        tasks_query = db.query(BlogWorkTask).filter(
+            BlogWorkTask.task_date == target_date,
+            BlogWorkTask.worker_id == blog_worker.id
+        )
+        
+        total_tasks = tasks_query.count()
+        completed = tasks_query.filter(BlogWorkTask.status == 'completed').count()
+        in_progress = tasks_query.filter(BlogWorkTask.status == 'in_progress').count()
+        pending = tasks_query.filter(BlogWorkTask.status == 'pending').count()
+        
         total_posts = db.query(BlogPost).filter(
             BlogPost.worker_id == blog_worker.id
         ).count()
         today_posts = db.query(BlogPost).filter(
             BlogPost.worker_id == blog_worker.id,
-            func.date(BlogPost.created_at) == today
+            func.date(BlogPost.created_at) == target_date
         ).count()
     
-    # 활성 작업자 수
     active_workers = db.query(BlogWorker).filter(
         BlogWorker.status == 'active'
     ).count()
     
+    # ============ ⭐ 작업 목록 가져오기 ============
+    if is_manager:
+        tasks = db.query(BlogWorkTask).filter(
+            BlogWorkTask.task_date == target_date
+        ).order_by(BlogWorkTask.id.desc()).all()
+    else:
+        tasks = db.query(BlogWorkTask).filter(
+            BlogWorkTask.task_date == target_date,
+            BlogWorkTask.worker_id == blog_worker.id
+        ).order_by(BlogWorkTask.id.desc()).all()
+    
+    # ⭐ 작업 목록을 프론트엔드 형식으로 변환
+    schedules = []
+    for task in tasks:
+        # 작업자 정보
+        worker_name = "미할당"
+        if task.worker_id:
+            worker_obj = db.query(BlogWorker).filter(
+                BlogWorker.id == task.worker_id
+            ).first()
+            if worker_obj and worker_obj.user:
+                worker_name = worker_obj.user.username
+        
+        # 계정 정보
+        account_id = "미할당"
+        if task.blog_account_id:
+            account = db.query(BlogAccount).filter(
+                BlogAccount.id == task.blog_account_id
+            ).first()
+            if account:
+                account_id = account.account_id
+        
+        # ⭐ 상품 정보 (MarketingProduct → Product)
+        product_name = "-"
+        if task.marketing_product_id:
+            marketing_product = db.query(MarketingProduct).filter(
+                MarketingProduct.id == task.marketing_product_id
+            ).first()
+            
+            if marketing_product and marketing_product.product_id:
+                product = db.query(Product).filter(
+                    Product.id == marketing_product.product_id
+                ).first()
+                if product:
+                    product_name = product.name
+        
+        # ⭐ 키워드 (직접 필드 사용)
+        keyword_text = task.keyword_text if task.keyword_text else "-"
+        
+        # 작성된 글 정보
+        post_title = None
+        post_url = None
+        char_count = 0
+        keyword_count = 0
+        images = []
+        
+        if task.completed_post_id:
+            post = db.query(BlogPost).filter(
+                BlogPost.id == task.completed_post_id
+            ).first()
+            
+            if post:
+                post_title = post.post_title
+                post_url = post.post_url
+                char_count = post.char_count
+                keyword_count = post.keyword_count
+                
+                # 이미지 목록
+                post_images = db.query(BlogPostImage).filter(
+                    BlogPostImage.blog_post_id == post.id
+                ).all()
+                
+                images = [
+                    {"filename": img.image_filename} 
+                    for img in post_images
+                ]
+        
+        schedules.append({
+            "id": task.id,
+            "scheduled_date": str(task.task_date),
+            "worker_name": worker_name,
+            "account_id": account_id,
+            "product_name": product_name,
+            "keyword": keyword_text,
+            "status": task.status,
+            "is_completed": task.status == 'completed',
+            
+            # 작성된 글 정보
+            "post_id": task.completed_post_id,
+            "post_title": post_title,
+            "post_url": post_url,
+            "char_count": char_count,
+            "keyword_count": keyword_count,
+            "images": images
+        })
+    
     return {
-        "total_tasks": total_tasks,
-        "completed_tasks": completed_tasks,
-        "progress": round(progress, 1),
+        # 통계
+        "total": total_tasks,
+        "completed": completed,
+        "in_progress": in_progress,
+        "pending": pending,
         "total_posts": total_posts,
         "today_posts": today_posts,
-        "active_workers": active_workers
+        "active_workers": active_workers,
+        
+        # 작업 목록
+        "schedules": schedules
     }
 
 @router.get("/blog/api/tasks/today")
