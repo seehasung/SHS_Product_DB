@@ -1137,15 +1137,27 @@ function deleteBlogSchedule(scheduleId) {
 
 // ==================== 전체 현황 (새로운 구조) ====================
 function loadBlogDashboard() {
-    // API 호출 (날짜 파라미터 포함)
+    console.log('🔄 대시보드 로드 시작 - 날짜:', currentSelectedDate);
+    
     fetch(`/blog/api/dashboard?date=${currentSelectedDate}`)
-        .then(r => r.json())
+        .then(r => {
+            console.log('📥 API 응답 상태:', r.status, r.statusText);
+            if (!r.ok) {
+                throw new Error(`API 오류: ${r.status} ${r.statusText}`);
+            }
+            return r.json();
+        })
         .then(data => {
+            console.log('📊 받은 데이터:', data);
+            console.log('📋 스케줄 개수:', data.schedules ? data.schedules.length : 0);
+            
             // 통계 업데이트
             const total = data.total || 0;
             const completed = data.completed || 0;
             const inProgress = data.in_progress || 0;
             const pending = data.pending || 0;
+            
+            console.log('📈 통계:', { total, completed, inProgress, pending });
             
             document.getElementById('statTotal').textContent = total;
             document.getElementById('statCompleted').textContent = completed;
@@ -1157,6 +1169,7 @@ function loadBlogDashboard() {
             
             // 스케줄 저장
             todaySchedules = data.schedules || [];
+            console.log('✅ todaySchedules 저장됨:', todaySchedules.length, '개');
             
             // 테이블 렌더링
             renderScheduleTable();
@@ -1165,14 +1178,23 @@ function loadBlogDashboard() {
             updateFilterCounts();
         })
         .catch(error => {
-            console.error('대시보드 로드 오류:', error);
+            console.error('❌ 대시보드 로드 오류:', error);
+            alert('대시보드를 불러오는데 실패했습니다: ' + error.message);
         });
 }
 
 function renderScheduleTable() {
+    console.log('🎨 테이블 렌더링 시작 - 스케줄 개수:', todaySchedules.length);
+    
     const tbody = document.getElementById('scheduleTableBody');
     
+    if (!tbody) {
+        console.error('❌ scheduleTableBody 요소를 찾을 수 없음!');
+        return;
+    }
+    
     if (todaySchedules.length === 0) {
+        console.log('ℹ️ 스케줄이 없어서 "작업 없음" 메시지 표시');
         tbody.innerHTML = `
             <tr>
                 <td colspan="8">
@@ -1186,7 +1208,12 @@ function renderScheduleTable() {
         return;
     }
     
-    tbody.innerHTML = todaySchedules.map(schedule => `
+    console.log('✅ 스케줄 데이터로 테이블 생성 중...');
+    
+    tbody.innerHTML = todaySchedules.map((schedule, index) => {
+        console.log(`  📝 스케줄 ${index + 1}:`, schedule);
+        
+        return `
         <tr class="schedule-row" data-status="${schedule.status}" data-schedule-id="${schedule.id}">
             <td class="text-center">
                 <input type="checkbox" 
@@ -1242,7 +1269,10 @@ function renderScheduleTable() {
                 </div>
             </td>
         </tr>
-    `).join('');
+    `;
+    }).join('');
+    
+    console.log('✅ 테이블 HTML 생성 완료');
     
     // 툴팁 재초기화
     const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
