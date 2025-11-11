@@ -3,6 +3,7 @@
 from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
+from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
 from datetime import date, datetime  # date와 datetime 한 번에 import
 from sqlalchemy import or_, func
@@ -11,12 +12,24 @@ from websocket_manager import manager
 from contextlib import asynccontextmanager
 from scheduler import start_scheduler, stop_scheduler
 from routers import tasks
+import os
+
 
 from database import (
     Base, engine, SessionLocal, User, PostSchedule, MarketingPost,
     MarketingProduct, Product
 )
 from routers import auth, admin_users, product, marketing, tasks, blog, homepage
+
+# ✅ Render Disk 경로 설정
+STATIC_DIR = "/opt/render/project/src/static"
+UPLOAD_DIR = f"{STATIC_DIR}/uploads"
+
+# 📁 디렉토리 생성
+os.makedirs(f"{UPLOAD_DIR}/homepage_images", exist_ok=True)
+os.makedirs(f"{UPLOAD_DIR}/cafe_images", exist_ok=True)
+os.makedirs(f"{UPLOAD_DIR}/blog_images", exist_ok=True)
+os.makedirs(f"{UPLOAD_DIR}/task_images", exist_ok=True)
 
 
 @asynccontextmanager
@@ -52,6 +65,7 @@ app.include_router(homepage.router, prefix="/marketing")
 app.include_router(marketing.router)
 app.include_router(tasks.router)
 app.include_router(blog.router)
+app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 
 

@@ -24,7 +24,7 @@ router = APIRouter(prefix="/tasks")
 templates = Jinja2Templates(directory="templates")
 
 # 파일 업로드 디렉토리
-UPLOAD_DIR = "static/task_files"
+UPLOAD_DIR = "/opt/render/project/src/static/uploads/task_files" 
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 

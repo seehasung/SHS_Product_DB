@@ -20,6 +20,8 @@ from database import (
 
 router = APIRouter()
 
+UPLOAD_DIR = "/opt/render/project/src/static/uploads"
+
 # ============================================
 # 유틸리티 함수
 # ============================================
@@ -618,7 +620,7 @@ async def create_homepage_post(
     
     # 이미지 저장
     if images:
-        upload_dir = Path("static/uploads/homepage_images")
+        upload_dir = Path(f"{UPLOAD_DIR}/homepage_images")
         upload_dir.mkdir(parents=True, exist_ok=True)
         
         for i, image in enumerate(images):
@@ -773,7 +775,7 @@ async def update_homepage_post(
       
     # 새 이미지 추가
     if images:
-        upload_dir = Path("static/uploads/homepage_images")
+        upload_dir = Path(f"{UPLOAD_DIR}/homepage_images")
         upload_dir.mkdir(parents=True, exist_ok=True)
         
         # 기존 이미지 개수

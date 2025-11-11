@@ -132,16 +132,30 @@ async def marketing_cafe(request: Request, db: Session = Depends(get_db)):
         can_manage_marketing = current_user.can_manage_marketing or False
         can_manage_products = current_user.can_manage_products or False    
         
-        today_schedules_query = db.query(PostSchedule).options(
-            joinedload(PostSchedule.account),
-            joinedload(PostSchedule.cafe),
-            joinedload(PostSchedule.marketing_product).joinedload(MarketingProduct.product),
-            joinedload(PostSchedule.marketing_post),
-            joinedload(PostSchedule.worker)
-        ).filter(
-            PostSchedule.worker_id == current_user.id,
-            PostSchedule.scheduled_date == selected_date
-        )
+        # ✅ 관리자는 전체, 일반 사용자는 본인 것만
+        if is_admin:
+            # 관리자: 모든 작업자의 스케줄 조회
+            today_schedules_query = db.query(PostSchedule).options(
+                joinedload(PostSchedule.account),
+                joinedload(PostSchedule.cafe),
+                joinedload(PostSchedule.marketing_product).joinedload(MarketingProduct.product),
+                joinedload(PostSchedule.marketing_post),
+                joinedload(PostSchedule.worker)
+            ).filter(
+                PostSchedule.scheduled_date == selected_date
+            )
+        else:
+            # 일반 작업자: 본인 스케줄만
+            today_schedules_query = db.query(PostSchedule).options(
+                joinedload(PostSchedule.account),
+                joinedload(PostSchedule.cafe),
+                joinedload(PostSchedule.marketing_product).joinedload(MarketingProduct.product),
+                joinedload(PostSchedule.marketing_post),
+                joinedload(PostSchedule.worker)
+            ).filter(
+                PostSchedule.worker_id == current_user.id,
+                PostSchedule.scheduled_date == selected_date
+            )
         
         today_schedules = today_schedules_query.order_by(PostSchedule.status.desc(), PostSchedule.id).all()
         completed_count = sum(1 for s in today_schedules if s.status == 'completed')
