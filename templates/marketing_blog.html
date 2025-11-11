@@ -944,6 +944,9 @@ let todaySchedules = []; // 현재 날짜의 스케줄 저장
 // ==================== 페이지 로드 시 초기화 ====================
 document.addEventListener('DOMContentLoaded', function() {
 
+    const todayObj = new Date();
+    currentSelectedDate = `${todayObj.getFullYear()}-${String(todayObj.getMonth() + 1).padStart(2, '0')}-${String(todayObj.getDate()).padStart(2, '0')}`;
+
     document.getElementById('dateSelector').value = currentSelectedDate;
     updateDateDisplay();
 
@@ -1042,7 +1045,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
 function updateDateDisplay() {
     const dateObj = new Date(currentSelectedDate);
-    const today = new Date().toISOString().split('T')[0];
+    const todayObj = new Date();
+    const today = `${todayObj.getFullYear()}-${String(todayObj.getMonth() + 1).padStart(2, '0')}-${String(todayObj.getDate()).padStart(2, '0')}`;
+
     
     // 날짜 포맷팅
     const year = dateObj.getFullYear();
@@ -1053,6 +1058,13 @@ function updateDateDisplay() {
     document.getElementById('displayDate').textContent = dateStr;
     document.getElementById('selectedDateText').textContent = dateStr;
     
+    // ⭐ 디버깅 로그 추가
+    console.log('📅 날짜 비교:', {
+        currentSelectedDate: currentSelectedDate,
+        today: today,
+        isToday: currentSelectedDate === today
+    });
+
     // 오늘 배지 표시/숨김
     if (currentSelectedDate === today) {
         document.getElementById('todayBadge').style.display = 'inline';
