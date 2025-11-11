@@ -1258,16 +1258,27 @@ function assignDailyTasks() {
     if (!confirm('오늘 작업을 자동으로 배정하시겠습니까?')) return;
     
     const formData = new FormData();
+    formData.append('date', currentSelectedDateHomepage);  // ⭐ 날짜 추가
+    
     fetch('/marketing/homepage/api/schedule/auto-assign', {
         method: 'POST',
         body: formData
     })
-    .then(r => r.json())
+    .then(r => {
+        if (!r.ok) {
+            // ✅ 에러 응답 처리
+            return r.json().then(errorData => {
+                throw new Error(errorData.detail || errorData.message || '작업 배정에 실패했습니다.');
+            });
+        }
+        return r.json();
+    })
     .then(data => {
         alert(data.message);
         loadHomepageDashboard();
     })
     .catch(err => {
+        console.error('작업 배정 오류:', err);
         alert('오류: ' + err.message);
     });
 }
