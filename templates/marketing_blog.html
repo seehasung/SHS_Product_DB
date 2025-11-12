@@ -80,7 +80,18 @@
         margin-bottom: 30px;
     }
     
+    @media (max-width: 992px) {
+        .stats-grid {
+            grid-template-columns: repeat(2, 1fr);
+        }
+    }
 
+    @media (max-width: 576px) {
+        .stats-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+    
     .stat-card {
         background: rgba(255, 255, 255, 0.95);
         backdrop-filter: blur(20px);
