@@ -1956,7 +1956,7 @@ async def get_product_posts(
     all_cafes = db.query(TargetCafe).all()
     all_workers = db.query(User).filter(or_(User.can_manage_marketing == True, User.is_admin == True)).all()
     
-    all_references = db.query(Reference).options(joinedload(Reference.comments)).order_by(Reference.ref_type, Reference.title).all()
+    all_references = db.query(Reference).options(joinedload(Reference.comments)).order_by(Comment.created_at).all()
     references_by_type = {"대안": [], "정보": [], "기타": []}
     
     references_json = []

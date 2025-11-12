@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=1400, initial-scale=1.0">
     <title>{% block title %}💲S.CORP💲{% endblock %}</title>
     
     <!-- Bootstrap 5 CSS -->
@@ -15,6 +15,94 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Noto+Sans+KR:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     
     <style>
+        /* ==================== 
+       🔒 레이아웃 고정 (최우선 적용)
+       ==================== */
+        
+        /* HTML/Body 최소 너비 */
+        html, body {
+            min-width: 1400px !important;
+            overflow-x: auto !important;  /* ⭐ 기존 overflow-x: hidden 덮어쓰기 */
+        }
+        
+        /* 컨테이너 최소 너비 */
+        .container, .container-fluid {
+            min-width: 1400px;
+        }
+        
+        /* 테이블 고정 */
+        .table-responsive {
+            overflow-x: auto;
+        }
+        
+        table {
+            min-width: 1000px;
+            table-layout: fixed;
+        }
+        
+        /* 반응형 미디어 쿼리 무효화 */
+        @media (max-width: 1200px) {
+            .container, .container-fluid {
+                max-width: none !important;
+                width: 100% !important;
+            }
+        }
+        
+        @media (max-width: 992px) {
+            .row {
+                flex-wrap: nowrap !important;
+            }
+            
+            [class*="col-"] {
+                flex: 0 0 auto !important;
+            }
+        }
+        
+        @media (max-width: 768px) {
+            .navbar-toggler {
+                display: none !important;
+            }
+            
+            .navbar-collapse {
+                display: flex !important;
+            }
+            
+            /* ⭐ 기존 반응형 스타일 덮어쓰기 */
+            .navbar-custom {
+                margin: 20px auto !important;
+                border-radius: 20px !important;
+            }
+            
+            .footer {
+                margin: 40px auto 20px auto !important;
+            }
+        }
+        
+        /* 그리드 레이아웃 고정 */
+        .row {
+            flex-wrap: nowrap;
+            min-width: fit-content;
+        }
+        
+        /* 카드 최소 너비 */
+        .card {
+            min-width: 200px;
+        }
+        
+        /* 버튼 그룹 줄바꿈 방지 */
+        .btn-group, .action-buttons {
+            flex-wrap: nowrap !important;
+            white-space: nowrap !important;
+        }
+        
+        /* 테이블 열 줄바꿈 방지 */
+        table th, table td {
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        } 
+
+
         * {
             font-family: 'Inter', 'Noto Sans KR', -apple-system, BlinkMacSystemFont, sans-serif;
             font-weight: 400;
@@ -24,7 +112,6 @@
             min-height: 100vh;
             background: #f8f9fa;
             position: relative;
-            overflow-x: hidden;
         }
         
         /* 메인 컨테이너 래퍼 */
