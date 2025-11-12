@@ -2082,7 +2082,10 @@ function loadReferenceStatus(refId) {
         document.getElementById('edit_post_title_status').value = ref.title || '';
         document.getElementById('edit_post_body_status').value = ref.content || '';
         
-        const commentsData = ref.comments.map(c => ({
+        // ✅ 댓글을 id 순서대로 정렬 (생성 순서 = 레퍼런스 페이지 순서)
+        const sortedComments = [...ref.comments].sort((a, b) => a.id - b.id);
+        
+        const commentsData = sortedComments.map(c => ({
             id: c.id,
             account_sequence: c.account_sequence,
             text: c.text,
