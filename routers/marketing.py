@@ -1956,9 +1956,12 @@ async def get_product_posts(
     all_cafes = db.query(TargetCafe).all()
     all_workers = db.query(User).filter(or_(User.can_manage_marketing == True, User.is_admin == True)).all()
     
-    all_references = db.query(Reference).options(joinedload(Reference.comments)).order_by(Comment.created_at).all()
+    all_references = db.query(Reference).options(
+        joinedload(Reference.comments)
+    ).order_by(Reference.ref_type, Reference.title).all()
+
     references_by_type = {"대안": [], "정보": [], "기타": []}
-    
+
     references_json = []
     for ref in all_references:
         ref_type_str = ref.ref_type or "기타"
@@ -1967,8 +1970,14 @@ async def get_product_posts(
         else:
             references_by_type["기타"].append(ref)
         
+        # ⭐ 댓글을 ID 순서로 정렬
+        sorted_comments = sorted(
+            ref.comments or [], 
+            key=lambda c: c.id
+        )
+        
         comments_list = []
-        for comment in ref.comments:
+        for comment in sorted_comments:  # ⭐ 정렬된 댓글 사용
             comments_list.append({
                 "id": comment.id,
                 "account_sequence": comment.account_sequence,
