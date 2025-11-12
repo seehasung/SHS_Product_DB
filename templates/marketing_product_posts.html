@@ -505,6 +505,27 @@
         background: linear-gradient(135deg, rgba(250, 82, 82, 0.05) 0%, rgba(250, 82, 82, 0.1) 100%);
     }
 
+    /* ========================================
+       🔥 키워드 박스 2열 레이아웃 강제
+       ======================================== */
+    .row {
+        display: flex !important;
+        flex-wrap: wrap !important;
+    }
+    
+    .col-md-6 {
+        flex: 0 0 50% !important;
+        max-width: 50% !important;
+    }
+    
+    @media (max-width: 768px) {
+        .col-md-6 {
+            flex: 0 0 100% !important;
+            max-width: 100% !important;
+        }
+    }
+
+
     /* 아이콘 애니메이션 */
     .stat-card:hover .stat-icon {
         transform: scale(1.2) rotate(5deg);
