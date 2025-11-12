@@ -324,6 +324,12 @@ async def marketing_cafe(request: Request, db: Session = Depends(get_db)):
     # ✅ JSON 직렬화 가능한 형태로 변환
     references_json = []
     for ref in all_references:
+        # ⭐ 댓글을 ID 순서로 정렬 (생성 순서)
+        sorted_comments = sorted(
+            ref.comments or [], 
+            key=lambda c: c.id
+        )
+        
         ref_dict = {
             'id': ref.id,
             'title': ref.title,
@@ -336,7 +342,7 @@ async def marketing_cafe(request: Request, db: Session = Depends(get_db)):
                     'text': c.text,
                     'parent_id': c.parent_id
                 }
-                for c in (ref.comments or [])
+                for c in sorted_comments  # ⭐ 정렬된 댓글 사용
             ]
         }
         references_json.append(ref_dict)
