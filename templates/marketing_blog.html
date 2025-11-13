@@ -1847,14 +1847,6 @@ function submitPost() {
     console.log('  - title:', title);
     console.log('  - body length:', body.length);
     
-    // 파일도 포함
-    const filesInput = document.getElementById('postImages');
-    const files = filesInput ? filesInput.files : [];
-    console.log('  - images:', files.length, '개');
-    
-    for (let file of files) {
-        formData.append('images', file);
-    }
     
     console.log('🚀 [SUBMIT] POST 요청 시작...');
     
