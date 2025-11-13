@@ -1840,7 +1840,7 @@
                                 <i class="bi bi-file-text"></i> 업무 내용
                             </h6>
                             <div style="background: #f8f9fa; padding: 16px; border-radius: 12px; white-space: pre-wrap; line-height: 1.6;">
-                                ${task.content.trim()}
+                                ${task.content.trim().split('\n').map(line => line.trim()).join('\n')}
                             </div>
                         </div>
                         
@@ -1906,7 +1906,7 @@
                                             </span>
                                         </div>
                                         <div style="color: #495057; line-height: 1.6; white-space: pre-wrap;">
-                                            ${comment.content.trim()}
+                                            ${comment.content.trim().split('\n').map(line => line.trim()).join('\n')}
                                         </div>
                                         ${comment.files.length > 0 ? `
                                             <div style="margin-top: 8px; display: flex; flex-wrap: wrap; gap: 6px;">
@@ -2142,7 +2142,7 @@
                                 <i class="bi bi-file-text"></i> 업무 내용
                             </h6>
                             <div style="background: #f8f9fa; padding: 16px; border-radius: 12px; white-space: pre-wrap; line-height: 1.6;">
-                                ${task.content.trim()}
+                                ${task.content.trim().split('\n').map(line => line.trim()).join('\n')}
                             </div>
                         </div>
                         
@@ -2192,7 +2192,7 @@
                                             </span>
                                         </div>
                                         <div style="color: #495057; line-height: 1.6; white-space: pre-wrap;">
-                                                ${comment.content.trim()}
+                                            ${comment.content.trim().split('\n').map(line => line.trim()).join('\n')}
                                         </div>
                                         ${comment.files.length > 0 ? `
                                             <div style="margin-top: 8px; display: flex; flex-wrap: wrap; gap: 6px;">
