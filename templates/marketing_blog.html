@@ -2012,14 +2012,7 @@ function submitPostEdit(postId) {
     const formData = new FormData(form);
     
     // 새로 추가된 파일들
-    const filesInput = document.getElementById('postImages');
-    if (filesInput && filesInput.files) {
-        const files = filesInput.files;
-        for (let file of files) {
-            formData.append('images', file);
-        }
-    }
-    
+
     fetch(`/blog/api/posts/${postId}`, {
         method: 'PUT',
         body: formData
