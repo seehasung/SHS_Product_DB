@@ -1510,16 +1510,23 @@ function openCreatePostModal(taskId, keyword) {
                 return;
             }
             
-            const pendingTasks = tasks.filter(t => t.status === 'pending');
+            // ⭐⭐⭐ 핵심 수정: pending과 in_progress 모두 포함 ⭐⭐⭐
+            const availableTasks = tasks.filter(t => 
+                t.status === 'pending' || t.status === 'in_progress'
+            );
             
-            console.log('⏳ [MODAL] 대기중 작업:', pendingTasks.length, '개');
+            console.log('⏳ [MODAL] 작업 가능한 작업:', availableTasks.length, '개');
+            console.log('   - pending:', tasks.filter(t => t.status === 'pending').length, '개');
+            console.log('   - in_progress:', tasks.filter(t => t.status === 'in_progress').length, '개');
             
             select.innerHTML = '<option value="">작업을 선택하세요</option>' +
-                pendingTasks.map(t => 
-                    `<option value="${t.id}" data-keyword="${t.keyword}" ${t.id === taskId ? 'selected' : ''}>
-                        ${t.product_name} - ${t.keyword}
-                    </option>`
-                ).join('');
+                availableTasks.map(t => {
+                    // ⭐ 진행중인 작업은 표시 추가
+                    const statusLabel = t.status === 'in_progress' ? ' [진행중]' : '';
+                    return `<option value="${t.id}" data-keyword="${t.keyword}" ${t.id === taskId ? 'selected' : ''}>
+                        ${t.product_name} - ${t.keyword}${statusLabel}
+                    </option>`;
+                }).join('');
             
             // ⭐ taskId가 있고, 실제로 option에 존재할 때만 설정
             if (taskId) {
@@ -1539,7 +1546,7 @@ function openCreatePostModal(taskId, keyword) {
                     
                     console.log('✅ [MODAL] 작업 선택됨:', taskId, keyword);
                 } else {
-                    console.warn('⚠️ [MODAL] taskId', taskId, '가 작업 목록에 없음');
+                    console.warn('⚠️ [MODAL] taskId', taskId, '가 작업 목록에 없음 (완료 또는 건너뜀 상태일 수 있음)');
                 }
             }
             
