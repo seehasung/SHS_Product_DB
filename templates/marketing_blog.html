@@ -379,7 +379,25 @@
         font-size: 0.9em;
         margin-left: 0.3em;
     }
-    
+
+        /* 작성된 글 개수 배지 스타일 */
+    .post-count-badge {
+        font-size: 0.9rem;
+        padding: 4px 10px;
+        border-radius: 12px;
+        font-weight: 600;
+    }
+
+    .post-count-0 {
+        background: linear-gradient(135deg, #e9ecef 0%, #dee2e6 100%);
+        color: #6c757d;
+    }
+
+    .post-count-positive {
+        background: linear-gradient(135deg, #d3f9d8 0%, #b2f2bb 100%);
+        color: #2b8a3e;
+    }
+        
     #workersTable th:nth-child(6) {
         min-width: 120px;
     }
@@ -1622,6 +1640,8 @@ function loadProducts() {
                 // ⭐ 활성화된 키워드만 카운트
                 const activeCount = product.blog_keywords.filter(kw => kw.is_active).length;
                 const totalCount = product.blog_keywords.length;
+                // ⭐ 작성된 글 총 개수
+                const totalPosts = product.blog_keywords.reduce((sum, kw) => sum + kw.post_count, 0);
                 
                 return `
                     <div class="card mb-3">
@@ -1631,6 +1651,9 @@ function loadProducts() {
                                 ${hasKeywords ? `
                                     <span class="badge bg-primary">
                                         키워드: ${activeCount}/${totalCount}개
+                                    </span>
+                                    <span class="badge bg-success">
+                                        작성된 글: ${totalPosts}개
                                     </span>
                                 ` : ''}
                             </div>
@@ -1659,6 +1682,7 @@ function loadProducts() {
                                             <tr>
                                                 <th style="width: 60px;">순서</th>
                                                 <th>키워드</th>
+                                                <th style="width: 100px;">작성된 글</th>
                                                 <th style="width: 120px;">블로그 사용</th>
                                             </tr>
                                         </thead>
@@ -1667,6 +1691,11 @@ function loadProducts() {
                                                 <tr class="${!kw.is_active ? 'table-secondary' : ''}">
                                                     <td>${i + 1}</td>
                                                     <td>${kw.text}</td>
+                                                    <td>
+                                                            <span class="post-count-badge ${kw.post_count > 0 ? 'post-count-positive' : 'post-count-0'}">
+                                                            ${kw.post_count}개
+                                                        </span>
+                                                    </td>
                                                     <td>
                                                         {% if is_manager %}
                                                         <div class="form-check form-switch">

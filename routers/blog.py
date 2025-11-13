@@ -614,11 +614,18 @@ def get_blog_products(request: Request, db: Session = Depends(get_db)):
         
         keywords_info = []
         for bk in blog_keywords:
+            # ⭐⭐⭐ 핵심 추가: 이 키워드로 작성된 글 개수 계산 ⭐⭐⭐
+            post_count = db.query(BlogPost).filter(
+                BlogPost.marketing_product_id == mp.id,
+                BlogPost.keyword_text == bk.keyword_text
+            ).count()
+            
             keywords_info.append({
                 "id": bk.id,
                 "text": bk.keyword_text,
                 "is_active": bk.is_active,
-                "order_index": bk.order_index
+                "order_index": bk.order_index,
+                "post_count": post_count  # ⭐ 추가
             })
         
         result.append({
