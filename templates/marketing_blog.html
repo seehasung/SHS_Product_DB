@@ -1162,7 +1162,6 @@ function toggleCompleteBlog(scheduleId, checkbox) {
     });
 }
 
-// ==================== 🔄 상태 변경 ====================
 function changeBlogStatus(scheduleId, newStatus) {
     const statusNames = {
         'pending': '대기중',
@@ -1172,41 +1171,47 @@ function changeBlogStatus(scheduleId, newStatus) {
     };
     
     if (confirm(`상태를 "${statusNames[newStatus]}"(으)로 변경하시겠습니까?`)) {
-        fetch(`/blog/api/schedule/${scheduleId}/change-status`, {
+        const formData = new FormData();
+        formData.append('status', newStatus);
+        
+        // ⭐ /schedule/ → /tasks/
+        fetch(`/blog/api/tasks/${scheduleId}/change-status`, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                status: newStatus
-            })
+            body: formData
         }).then(response => {
             if (response.ok) {
+                console.log('✅ [STATUS] 상태 변경 성공:', newStatus);
                 loadBlogDashboard();
             } else {
+                console.error('❌ [STATUS] 상태 변경 실패:', response.status);
                 alert('상태 변경에 실패했습니다.');
             }
         }).catch(error => {
-            console.error('Error:', error);
+            console.error('❌ [STATUS] 오류:', error);
             alert('상태 변경 중 오류가 발생했습니다.');
         });
     }
 }
 
-// ==================== ✏️ 스케줄 수정 ====================
 function editBlogSchedule(scheduleId, currentStatus) {
+    console.log('✏️ [EDIT] 작업 수정:', {
+        scheduleId: scheduleId,
+        currentStatus: currentStatus
+    });
+    
     // 진행 중 상태로 변경
     if (currentStatus !== 'completed') {
-        fetch(`/blog/api/schedule/${scheduleId}/change-status`, {
+        const formData = new FormData();
+        formData.append('status', 'in_progress');
+        
+        // ⭐ /schedule/ → /tasks/
+        fetch(`/blog/api/tasks/${scheduleId}/change-status`, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                status: 'in_progress'
-            })
+            body: formData
         }).then(response => {
             if (response.ok) {
+                console.log('✅ [EDIT] 상태 변경 성공');
+                
                 const row = document.querySelector(`tr[data-schedule-id="${scheduleId}"]`);
                 if (row) {
                     const statusBadge = row.querySelector('.status-badge');
@@ -1216,29 +1221,38 @@ function editBlogSchedule(scheduleId, currentStatus) {
                     }
                     row.setAttribute('data-status', 'in_progress');
                 }
+            } else {
+                console.error('❌ [EDIT] 상태 변경 실패:', response.status);
             }
+        }).catch(error => {
+            console.error('❌ [EDIT] 오류:', error);
         });
     }
     
-    // 글 작성 모달 열기 (기존 함수 활용)
+    // 글 작성 모달 열기
     openCreatePostModal(scheduleId, '');
 }
 
 // ==================== 🗑️ 스케줄 삭제 ====================
 function deleteBlogSchedule(scheduleId) {
     if (confirm('이 스케줄을 삭제하시겠습니까?')) {
-        fetch(`/blog/api/schedule/${scheduleId}/delete`, {
+        // ⭐ /schedule/ → /tasks/
+        fetch(`/blog/api/tasks/${scheduleId}/delete`, {
             method: 'POST'
         }).then(response => {
             if (response.ok) {
+                console.log('✅ [DELETE] 작업 삭제 성공');
                 loadBlogDashboard();
             } else {
+                console.error('❌ [DELETE] 작업 삭제 실패:', response.status);
                 alert('삭제에 실패했습니다.');
             }
+        }).catch(error => {
+            console.error('❌ [DELETE] 오류:', error);
+            alert('삭제 중 오류가 발생했습니다.');
         });
     }
 }
-
 // ==================== 전체 현황 (새로운 구조) ====================
 function loadBlogDashboard() {
     console.log('🔄 대시보드 로드 시작 - 날짜:', currentSelectedDate);
@@ -1439,15 +1453,28 @@ function updateFilterCounts() {
     document.getElementById('filterSkippedCount').textContent = skipped;
 }
 
-// 기존 함수들 유지
+// ⭐ openCreatePostModal 함수 수정
 function openCreatePostModal(taskId, keyword) {
     const modal = new bootstrap.Modal(document.getElementById('createPostModal'));
     
-    fetch('/blog/api/tasks/today')
+    // ⭐ 선택된 날짜를 파라미터로 전달
+    const selectedDate = currentSelectedDate || new Date().toISOString().split('T')[0];
+    
+    console.log('🔍 [MODAL] 작업 목록 요청:', {
+        taskId: taskId,
+        selectedDate: selectedDate
+    });
+    
+    // ⭐ /tasks/today → /tasks?date=날짜
+    fetch(`/blog/api/tasks?date=${selectedDate}`)
         .then(r => r.json())
         .then(tasks => {
+            console.log('📥 [MODAL] 받은 작업:', tasks.length, '개');
+            
             const select = document.getElementById('taskSelect');
             const pendingTasks = tasks.filter(t => t.status === 'pending');
+            
+            console.log('⏳ [MODAL] 대기중 작업:', pendingTasks.length, '개');
             
             select.innerHTML = '<option value="">작업을 선택하세요</option>' +
                 pendingTasks.map(t => 
@@ -1460,6 +1487,12 @@ function openCreatePostModal(taskId, keyword) {
                 select.value = taskId;
                 select.dispatchEvent(new Event('change'));
             }
+            
+            console.log('✅ [MODAL] 작업 선택 드롭다운 업데이트 완료');
+        })
+        .catch(error => {
+            console.error('❌ [MODAL] 작업 목록 로드 실패:', error);
+            alert('작업 목록을 불러오는데 실패했습니다.');
         });
     
     modal.show();
