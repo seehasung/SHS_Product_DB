@@ -799,7 +799,14 @@ def get_blog_posts(request: Request, db: Session = Depends(get_db)):
             "char_count": post.char_count,
             "image_count": post.image_count,
             "keyword_count": post.keyword_count,
-            "images": [{"path": img.image_path, "filename": img.image_filename} for img in post.images],
+            "images": [
+                {
+                    "id": img.id,  # ⭐ 추가 (일관성)
+                    "path": img.image_path, 
+                    "filename": img.image_filename
+                } 
+                for img in post.images
+            ],
             "created_at": post.created_at.strftime("%Y-%m-%d %H:%M"),
             "post_url": post.post_url
         })
@@ -971,7 +978,14 @@ def get_blog_post(post_id: int, request: Request, db: Session = Depends(get_db))
         "char_count": post.char_count,
         "image_count": post.image_count,
         "keyword_count": post.keyword_count,
-        "images": [{"path": img.image_path, "filename": img.image_filename} for img in post.images],
+        "images": [
+            {
+                "id": img.id,  # ⭐ 추가 (일관성)
+                "path": img.image_path, 
+                "filename": img.image_filename
+            } 
+            for img in post.images
+        ],
         "product_name": product_name,
         "worker_name": worker_name,
         "account_id": account_id,
