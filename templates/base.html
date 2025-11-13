@@ -1331,6 +1331,17 @@
             const username = '{{ username if username else "" }}';
             
             if (username) {
+                // ⭐ 시스템 알림 권한 요청 추가
+                if ('Notification' in window && Notification.permission === 'default') {
+                    Notification.requestPermission().then(permission => {
+                        if (permission === 'granted') {
+                            console.log('✅ 시스템 알림 권한 허용됨');
+                        } else {
+                            console.log('⚠️ 시스템 알림 권한 거부됨');
+                        }
+                    });
+                }
+                
                 document.getElementById('taskNotificationFloat').style.display = 'block';
                 document.getElementById('taskRequestFloat').style.display = 'block';
                 
@@ -2930,13 +2941,129 @@
             
             toast.innerHTML = content;
             container.appendChild(toast);
-            
+
             console.log('✅ 토스트 추가됨');
-            
+
+            // ⭐⭐⭐ 시스템 알림 추가 (여기부터)
+            if ('Notification' in window && Notification.permission === 'granted') {
+                const type = data.type || 'new_task';
+                const status = data.status || 'new';
+                
+                // 알림 제목 결정
+                let notificationTitle = '💲S.CORP - 업무 알림';
+                
+                // 알림 본문 결정
+                let notificationBody = '';
+                if (type === 'new_comment') {
+                    notificationBody = `💬 ${data.title || '새 댓글'}\n${data.comment_author}: ${(data.comment_content || '').substring(0, 50)}`;
+                } else {
+                    const statusText = config.text || '새 지시';
+                    notificationBody = `${config.icon} ${data.title || '새 업무'}\n지시자: ${data.creator_name || '알 수 없음'}\n상태: ${statusText}`;
+                }
+                
+                // 시스템 알림 생성
+                const systemNotification = new Notification(notificationTitle, {
+                    body: notificationBody,
+                    icon: '/static/favicon.ico',  // 아이콘 경로 (없으면 삭제해도 됨)
+                    tag: `task-${data.task_id}`,  // 같은 업무는 중복 알림 방지
+                    requireInteraction: false,
+                    silent: false,
+                    timestamp: Date.now()
+                });
+                
+                // ⭐ 시스템 알림 클릭 시 동작
+                systemNotification.onclick = async (event) => {
+                    event.preventDefault();
+                    
+                    // 브라우저 창 포커스
+                    window.focus();
+                    systemNotification.close();
+                    
+                    // 업무 상세 정보 가져오기
+                    let finalAssigneeId = data.assignee_id;
+                    let finalCreatorId = data.creator_id;
+                    
+                    if (finalAssigneeId === undefined || finalCreatorId === undefined) {
+                        try {
+                            const response = await fetch(`/tasks/api/${data.task_id}/detail`);
+                            const taskDetail = await response.json();
+                            finalAssigneeId = taskDetail.assignee_id;
+                            finalCreatorId = taskDetail.creator_id;
+                        } catch (error) {
+                            console.error('업무 상세 조회 실패:', error);
+                            return;
+                        }
+                    }
+                    
+                    const isMyAssignedTask = Number(finalAssigneeId) === Number(currentUserId);
+                    const isMyCreatedTask = Number(finalCreatorId) === Number(currentUserId);
+                    
+                    console.log('🖱️ 시스템 알림 클릭:', {
+                        taskId: data.task_id,
+                        isMyAssignedTask: isMyAssignedTask,
+                        isMyCreatedTask: isMyCreatedTask
+                    });
+                    
+                    // 내가 받은 업무
+                    if (isMyAssignedTask && !isMyCreatedTask) {
+                        if (!isDrawerOpen) {
+                            openDrawer();
+                        }
+                        
+                        setTimeout(() => {
+                            const notifElement = document.querySelector(`[data-task-id="${data.task_id}"]`);
+                            if (notifElement) {
+                                notifElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                setTimeout(() => {
+                                    toggleAccordion(data.task_id, data.notif_id || null);
+                                }, 500);
+                            }
+                        }, 300);
+                    } 
+                    // 내가 지시한 업무
+                    else if (isMyCreatedTask && !isMyAssignedTask) {
+                        if (!isRequestDrawerOpen) {
+                            openRequestDrawer();
+                        }
+                        
+                        setTimeout(() => {
+                            const taskElement = document.querySelector(`[data-task-id="${data.task_id}"]`);
+                            if (taskElement) {
+                                taskElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                setTimeout(() => {
+                                    toggleRequestAccordion(data.task_id);
+                                }, 500);
+                            }
+                        }, 300);
+                    }
+                    // 자기 지시 업무
+                    else if (isMyCreatedTask && isMyAssignedTask) {
+                        if (!isDrawerOpen) {
+                            openDrawer();
+                        }
+                        
+                        setTimeout(() => {
+                            const notifElement = document.querySelector(`[data-task-id="${data.task_id}"]`);
+                            if (notifElement) {
+                                notifElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                setTimeout(() => {
+                                    toggleAccordion(data.task_id, data.notif_id || null);
+                                }, 500);
+                            }
+                        }, 300);
+                    }
+                };
+                
+                // 10초 후 자동 닫기
+                setTimeout(() => {
+                    systemNotification.close();
+                }, 10000);
+            }
+            // ⭐⭐⭐ 시스템 알림 추가 (여기까지)
+
             setTimeout(() => {
                 removeToast(toast);
             }, 20000);
-        }
 
         function removeToast(toast) {
             if (!toast) return;

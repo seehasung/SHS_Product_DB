@@ -1392,16 +1392,19 @@ function renderScheduleTable() {
         
         // 이미지 처리
         const images = schedule.images && schedule.images.length > 0 ? `
-            <div class="d-flex gap-1">
-                ${schedule.images.slice(0, 2).map(img => `
-                    <img src="/static/uploads/blog_images/${img.filename}" 
-                         class="img-thumbnail" style="width: 40px; height: 40px; object-fit: cover;">
-                `).join('')}
+            <div class="d-flex flex-column align-items-center gap-1">
                 ${schedule.images.length > 2 ? 
-                    `<span class="badge bg-secondary">+${schedule.images.length - 2}</span>` : ''}
+                    `<span class="badge bg-primary" style="font-size: 0.7rem; padding: 2px 6px;">+${schedule.images.length - 2}개</span>` : ''}
+                <div class="d-flex gap-1">
+                    ${schedule.images.slice(0, 2).map(img => `
+                        <img src="/static/uploads/blog_images/${img.filename}" 
+                            class="img-thumbnail" style="width: 40px; height: 40px; object-fit: cover;">
+                    `).join('')}
+                </div>
             </div>
         ` : '<span class="text-muted">-</span>';
-        
+
+
         // ⭐ 상태별 한글 텍스트
         const statusText = {
             'pending': '대기중',
@@ -1779,13 +1782,15 @@ function loadPosts() {
                     </td>
                     <td>
                         ${post.images.length > 0 ? `
-                            <div class="d-flex gap-1">
-                                ${post.images.slice(0, 2).map(img => `
-                                    <img src="/static/uploads/blog_images/${img.filename}" 
-                                         class="img-thumbnail" style="width: 40px; height: 40px;">
-                                `).join('')}
+                            <div class="d-flex flex-column align-items-center gap-1">
                                 ${post.images.length > 2 ? 
-                                    `<span class="badge bg-secondary">+${post.images.length - 2}</span>` : ''}
+                                    `<span class="badge bg-primary" style="font-size: 0.7rem; padding: 2px 6px;">+${post.images.length - 2}개</span>` : ''}
+                                <div class="d-flex gap-1">
+                                    ${post.images.slice(0, 2).map(img => `
+                                        <img src="/static/uploads/blog_images/${img.filename}" 
+                                            class="img-thumbnail" style="width: 40px; height: 40px; object-fit: cover;">
+                                    `).join('')}
+                                </div>
                             </div>
                         ` : '-'}
                     </td>
@@ -1965,9 +1970,15 @@ function viewPost(postId) {
                                 preview.innerHTML = post.images.map((img, i) => `
                                     <div class="position-relative">
                                         <img src="/static/uploads/blog_images/${img.filename}" 
-                                             class="img-thumbnail" 
-                                             style="width: 100px; height: 100px; object-fit: cover;">
+                                            class="img-thumbnail" 
+                                            style="width: 100px; height: 100px; object-fit: cover;">
                                         <span class="badge bg-secondary position-absolute top-0 start-0">기존</span>
+                                        <button type="button" 
+                                                class="btn btn-sm btn-danger position-absolute top-0 end-0" 
+                                                style="padding: 2px 6px; font-size: 0.8rem;"
+                                                onclick="deleteExistingImage(${img.id}, ${postId}, this)">
+                                            ×
+                                        </button>
                                     </div>
                                 `).join('');
                             }
@@ -2440,6 +2451,47 @@ function collapseAllProducts() {
         }
     });
 }
+
+// ==================== 기존 이미지 삭제 ====================
+function deleteExistingImage(imageId, postId, buttonElement) {
+    if (!confirm('이 이미지를 삭제하시겠습니까?')) {
+        return;
+    }
+    
+    fetch(`/blog/api/posts/${postId}/images/${imageId}`, {
+        method: 'DELETE'
+    })
+    .then(r => {
+        if (!r.ok) throw new Error('삭제 실패');
+        return r.json();
+    })
+    .then(data => {
+        alert('이미지가 삭제되었습니다.');
+        
+        // UI에서 이미지 제거
+        const imageDiv = buttonElement.closest('.position-relative');
+        if (imageDiv) {
+            imageDiv.remove();
+        }
+        
+        // 이미지 개수 업데이트
+        const container = document.getElementById('imagePreviewContainer');
+        const preview = document.getElementById('imagePreview');
+        const count = document.getElementById('imageCount');
+        
+        const remainingImages = preview.querySelectorAll('.position-relative').length;
+        if (count) count.textContent = remainingImages;
+        
+        if (remainingImages === 0 && container) {
+            container.style.display = 'none';
+        }
+    })
+    .catch(err => {
+        console.error('이미지 삭제 오류:', err);
+        alert('이미지 삭제에 실패했습니다: ' + err.message);
+    });
+}
+
 {% endif %}
 </script>
 

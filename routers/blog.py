@@ -1112,6 +1112,73 @@ def delete_blog_post(post_id: int, request: Request, db: Session = Depends(get_d
         raise HTTPException(status_code=500, detail=f"삭제 중 오류 발생: {str(e)}")
 
 
+@router.delete("/blog/api/posts/{post_id}/images/{image_id}")
+def delete_post_image(
+    post_id: int,
+    image_id: int,
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    """블로그 글의 이미지 삭제"""
+    user = get_current_user(request, db)
+    has_access, blog_worker_or_error = check_blog_access(user, db)
+    
+    if not has_access:
+        raise HTTPException(status_code=403)
+    
+    # 글 조회
+    post = db.query(BlogPost).get(post_id)
+    if not post:
+        raise HTTPException(status_code=404, detail="글을 찾을 수 없습니다")
+    
+    # 권한 체크
+    blog_worker = blog_worker_or_error if not user.is_admin else None
+    if not check_is_blog_manager(user, db) and blog_worker and post.worker_id != blog_worker.id:
+        raise HTTPException(status_code=403, detail="권한이 없습니다")
+    
+    # 이미지 조회
+    image = db.query(BlogPostImage).filter(
+        BlogPostImage.id == image_id,
+        BlogPostImage.blog_post_id == post_id
+    ).first()
+    
+    if not image:
+        raise HTTPException(status_code=404, detail="이미지를 찾을 수 없습니다")
+    
+    try:
+        # 파일 삭제
+        if os.path.exists(image.image_path):
+            os.remove(image.image_path)
+            print(f"✅ [DELETE IMAGE] 파일 삭제: {image.image_filename}")
+        else:
+            print(f"⚠️ [DELETE IMAGE] 파일 없음: {image.image_path}")
+        
+        # DB에서 삭제
+        db.delete(image)
+        
+        # 이미지 개수 업데이트
+        remaining_count = db.query(BlogPostImage).filter(
+            BlogPostImage.blog_post_id == post_id
+        ).count() - 1  # 현재 삭제 중인 것 제외
+        
+        post.image_count = max(0, remaining_count)
+        
+        db.commit()
+        
+        print(f"✅ [DELETE IMAGE] 이미지 ID {image_id} 삭제 완료")
+        print(f"   남은 이미지: {post.image_count}개")
+        
+        return {
+            "message": "이미지가 삭제되었습니다",
+            "remaining_images": post.image_count
+        }
+        
+    except Exception as e:
+        db.rollback()
+        print(f"❌ [DELETE IMAGE] 오류 발생: {e}")
+        raise HTTPException(status_code=500, detail=f"이미지 삭제 중 오류 발생: {str(e)}")
+
+
 # ============================================
 # 계정 관리 API
 # ============================================
