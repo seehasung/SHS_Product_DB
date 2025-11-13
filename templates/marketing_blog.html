@@ -1481,10 +1481,16 @@ function updateFilterCounts() {
 function openCreatePostModal(taskId, keyword) {
     const modal = new bootstrap.Modal(document.getElementById('createPostModal'));
     
-    // ⭐ 모달 초기화
-    document.getElementById('createPostForm').reset();
-    document.getElementById('keywordAlert').style.display = 'none';
-    document.getElementById('imagePreviewContainer').style.display = 'none';
+    // ⭐ 모달 초기화 (안전하게)
+    const form = document.getElementById('createPostForm');
+    if (form) form.reset();
+    
+    // ⭐ 요소 존재 확인 후 초기화
+    const keywordAlert = document.getElementById('keywordAlert');
+    if (keywordAlert) keywordAlert.style.display = 'none';
+    
+    const imagePreviewContainer = document.getElementById('imagePreviewContainer');
+    if (imagePreviewContainer) imagePreviewContainer.style.display = 'none';
     
     const selectedDate = currentSelectedDate || new Date().toISOString().split('T')[0];
     
@@ -1499,6 +1505,11 @@ function openCreatePostModal(taskId, keyword) {
             console.log('📥 [MODAL] 받은 작업:', tasks.length, '개');
             
             const select = document.getElementById('taskSelect');
+            if (!select) {
+                console.error('❌ [MODAL] taskSelect 요소를 찾을 수 없음!');
+                return;
+            }
+            
             const pendingTasks = tasks.filter(t => t.status === 'pending');
             
             console.log('⏳ [MODAL] 대기중 작업:', pendingTasks.length, '개');
@@ -1516,11 +1527,15 @@ function openCreatePostModal(taskId, keyword) {
                 if (option) {
                     select.value = taskId;
                     
-                    // ⭐ 키워드 정보 표시
+                    // ⭐ 키워드 정보 표시 (안전하게)
                     const keyword = option.dataset.keyword;
-                    document.getElementById('taskId').value = taskId;
-                    document.getElementById('targetKeyword').textContent = keyword;
-                    document.getElementById('keywordAlert').style.display = 'block';
+                    const taskIdInput = document.getElementById('taskId');
+                    const targetKeyword = document.getElementById('targetKeyword');
+                    const keywordAlert = document.getElementById('keywordAlert');
+                    
+                    if (taskIdInput) taskIdInput.value = taskId;
+                    if (targetKeyword) targetKeyword.textContent = keyword;
+                    if (keywordAlert) keywordAlert.style.display = 'block';
                     
                     console.log('✅ [MODAL] 작업 선택됨:', taskId, keyword);
                 } else {
@@ -1753,6 +1768,11 @@ function loadPosts() {
 
 function submitPost() {
     const form = document.getElementById('createPostForm');
+    if (!form) {
+        alert('⚠️ 폼을 찾을 수 없습니다.');
+        return;
+    }
+    
     const formData = new FormData(form);
     
     // ⭐ 디버깅: FormData 내용 확인
@@ -1762,7 +1782,8 @@ function submitPost() {
     }
     
     // ⭐ task_id 확인
-    const taskId = document.getElementById('taskId').value;
+    const taskIdInput = document.getElementById('taskId');
+    const taskId = taskIdInput ? taskIdInput.value : '';
     console.log('  - taskId (hidden):', taskId);
     
     if (!taskId) {
@@ -1771,8 +1792,11 @@ function submitPost() {
     }
     
     // ⭐ 제목과 본문 확인
-    const title = document.getElementById('postTitle').value;
-    const body = document.getElementById('postBody').value;
+    const titleInput = document.getElementById('postTitle');
+    const bodyInput = document.getElementById('postBody');
+    
+    const title = titleInput ? titleInput.value : '';
+    const body = bodyInput ? bodyInput.value : '';
     
     if (!title || !body) {
         alert('⚠️ 제목과 본문을 입력해주세요!');
@@ -1783,7 +1807,8 @@ function submitPost() {
     console.log('  - body length:', body.length);
     
     // 파일도 포함
-    const files = document.getElementById('postImages').files;
+    const filesInput = document.getElementById('postImages');
+    const files = filesInput ? filesInput.files : [];
     console.log('  - images:', files.length, '개');
     
     for (let file of files) {
@@ -1810,12 +1835,21 @@ function submitPost() {
     .then(data => {
         console.log('✅ [SUBMIT] 성공:', data);
         alert(data.message);
-        bootstrap.Modal.getInstance(document.getElementById('createPostModal')).hide();
+        
+        const modalElement = document.getElementById('createPostModal');
+        if (modalElement) {
+            const modalInstance = bootstrap.Modal.getInstance(modalElement);
+            if (modalInstance) modalInstance.hide();
+        }
+        
         form.reset();
         
-        // ⭐ 폼 초기화
-        document.getElementById('keywordAlert').style.display = 'none';
-        document.getElementById('imagePreviewContainer').style.display = 'none';
+        // ⭐ 폼 초기화 (안전하게)
+        const keywordAlert = document.getElementById('keywordAlert');
+        if (keywordAlert) keywordAlert.style.display = 'none';
+        
+        const imagePreviewContainer = document.getElementById('imagePreviewContainer');
+        if (imagePreviewContainer) imagePreviewContainer.style.display = 'none';
         
         loadBlogDashboard();
         loadPosts();
