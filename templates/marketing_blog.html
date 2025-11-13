@@ -1035,36 +1035,61 @@ document.addEventListener('DOMContentLoaded', function() {
     // 글 작성 - 실시간 글자 수 & 키워드 카운트
     const titleInput = document.getElementById('postTitle');
     const bodyInput = document.getElementById('postBody');
-    
+
     function updateStats() {
         const title = titleInput.value;
         const body = bodyInput.value;
         const charCount = body.length;
-        const keyword = document.getElementById('targetKeyword').textContent;
         
-        document.getElementById('charCount').textContent = charCount;
+        const charCountElem = document.getElementById('charCount');
+        if (charCountElem) {
+            charCountElem.textContent = charCount;
+        }
         
-        if (keyword) {
-            const combined = title + ' ' + body;
-            const count = (combined.toLowerCase().match(new RegExp(keyword.toLowerCase(), 'g')) || []).length;
-            document.getElementById('keywordCount').textContent = count;
+        const keywordElem = document.getElementById('targetKeyword');
+        const keywordCountElem = document.getElementById('keywordCount');
+        
+        if (keywordElem && keywordCountElem) {
+            const keyword = keywordElem.textContent;
+            
+            if (keyword && keyword.trim()) {
+                const combined = title + ' ' + body;
+                const count = (combined.toLowerCase().match(new RegExp(keyword.toLowerCase(), 'g')) || []).length;
+                keywordCountElem.textContent = count;
+            }
         }
     }
-    
+
     titleInput.addEventListener('input', updateStats);
     bodyInput.addEventListener('input', updateStats);
 
+    
     // 작업 선택 시 키워드 표시
     document.getElementById('taskSelect').addEventListener('change', function() {
         const option = this.options[this.selectedIndex];
+        
+        console.log('📝 [SELECT] 작업 선택:', {
+            value: option.value,
+            keyword: option.dataset.keyword
+        });
+        
         if (option.value) {
             const keyword = option.dataset.keyword;
             document.getElementById('taskId').value = option.value;
-            document.getElementById('targetKeyword').textContent = keyword;
-            document.getElementById('keywordAlert').style.display = 'block';
-            updateStats();
+            
+            const targetKeywordElem = document.getElementById('targetKeyword');
+            const keywordAlertElem = document.getElementById('keywordAlert');
+            
+            if (targetKeywordElem && keywordAlertElem) {
+                targetKeywordElem.textContent = keyword;
+                keywordAlertElem.style.display = 'block';
+                updateStats();
+                
+                console.log('✅ [SELECT] 키워드 설정:', keyword);
+            }
         } else {
             document.getElementById('keywordAlert').style.display = 'none';
+            console.log('ℹ️ [SELECT] 작업 선택 해제');
         }
     });
 });
@@ -1453,11 +1478,14 @@ function updateFilterCounts() {
     document.getElementById('filterSkippedCount').textContent = skipped;
 }
 
-// ⭐ openCreatePostModal 함수 수정
 function openCreatePostModal(taskId, keyword) {
     const modal = new bootstrap.Modal(document.getElementById('createPostModal'));
     
-    // ⭐ 선택된 날짜를 파라미터로 전달
+    // ⭐ 모달 초기화
+    document.getElementById('createPostForm').reset();
+    document.getElementById('keywordAlert').style.display = 'none';
+    document.getElementById('imagePreviewContainer').style.display = 'none';
+    
     const selectedDate = currentSelectedDate || new Date().toISOString().split('T')[0];
     
     console.log('🔍 [MODAL] 작업 목록 요청:', {
@@ -1465,7 +1493,6 @@ function openCreatePostModal(taskId, keyword) {
         selectedDate: selectedDate
     });
     
-    // ⭐ /tasks/today → /tasks?date=날짜
     fetch(`/blog/api/tasks?date=${selectedDate}`)
         .then(r => r.json())
         .then(tasks => {
@@ -1483,9 +1510,22 @@ function openCreatePostModal(taskId, keyword) {
                     </option>`
                 ).join('');
             
+            // ⭐ taskId가 있고, 실제로 option에 존재할 때만 설정
             if (taskId) {
-                select.value = taskId;
-                select.dispatchEvent(new Event('change'));
+                const option = select.querySelector(`option[value="${taskId}"]`);
+                if (option) {
+                    select.value = taskId;
+                    
+                    // ⭐ 키워드 정보 표시
+                    const keyword = option.dataset.keyword;
+                    document.getElementById('taskId').value = taskId;
+                    document.getElementById('targetKeyword').textContent = keyword;
+                    document.getElementById('keywordAlert').style.display = 'block';
+                    
+                    console.log('✅ [MODAL] 작업 선택됨:', taskId, keyword);
+                } else {
+                    console.warn('⚠️ [MODAL] taskId', taskId, '가 작업 목록에 없음');
+                }
             }
             
             console.log('✅ [MODAL] 작업 선택 드롭다운 업데이트 완료');
@@ -1715,25 +1755,73 @@ function submitPost() {
     const form = document.getElementById('createPostForm');
     const formData = new FormData(form);
     
+    // ⭐ 디버깅: FormData 내용 확인
+    console.log('📤 [SUBMIT] 제출 데이터:');
+    for (let [key, value] of formData.entries()) {
+        console.log(`  - ${key}:`, value);
+    }
+    
+    // ⭐ task_id 확인
+    const taskId = document.getElementById('taskId').value;
+    console.log('  - taskId (hidden):', taskId);
+    
+    if (!taskId) {
+        alert('⚠️ 작업을 선택해주세요!');
+        return;
+    }
+    
+    // ⭐ 제목과 본문 확인
+    const title = document.getElementById('postTitle').value;
+    const body = document.getElementById('postBody').value;
+    
+    if (!title || !body) {
+        alert('⚠️ 제목과 본문을 입력해주세요!');
+        return;
+    }
+    
+    console.log('  - title:', title);
+    console.log('  - body length:', body.length);
+    
     // 파일도 포함
     const files = document.getElementById('postImages').files;
+    console.log('  - images:', files.length, '개');
+    
     for (let file of files) {
         formData.append('images', file);
     }
+    
+    console.log('🚀 [SUBMIT] POST 요청 시작...');
     
     fetch('/blog/api/posts', {
         method: 'POST',
         body: formData
     })
-    .then(r => r.json())
+    .then(r => {
+        console.log('📥 [SUBMIT] 응답 상태:', r.status);
+        
+        if (!r.ok) {
+            return r.json().then(errorData => {
+                console.error('❌ [SUBMIT] 오류 응답:', errorData);
+                throw new Error(errorData.detail || '글 작성에 실패했습니다.');
+            });
+        }
+        return r.json();
+    })
     .then(data => {
+        console.log('✅ [SUBMIT] 성공:', data);
         alert(data.message);
         bootstrap.Modal.getInstance(document.getElementById('createPostModal')).hide();
         form.reset();
+        
+        // ⭐ 폼 초기화
+        document.getElementById('keywordAlert').style.display = 'none';
+        document.getElementById('imagePreviewContainer').style.display = 'none';
+        
         loadBlogDashboard();
         loadPosts();
     })
     .catch(err => {
+        console.error('❌ [SUBMIT] 오류:', err);
         alert('오류: ' + err.message);
     });
 }
