@@ -12,6 +12,7 @@ import uuid
 import zipfile
 from pathlib import Path
 from io import BytesIO
+from urllib.parse import quote
 
 
 # 기존 database.py에서 import
@@ -1243,10 +1244,17 @@ def download_post_images(
         
         zip_buffer.seek(0)
         
-        # 파일명 생성 (글 제목 사용)
+        # ⭐⭐⭐ 파일명 생성 (한글 지원) ⭐⭐⭐
         safe_title = "".join(c for c in post.post_title if c.isalnum() or c in (' ', '-', '_')).strip()
         safe_title = safe_title[:50]  # 최대 50자
-        filename = f"{safe_title}_images.zip" if safe_title else f"blog_post_{post_id}_images.zip"
+        
+        if safe_title:
+            filename = f"{safe_title}_images.zip"
+        else:
+            filename = f"blog_post_{post_id}_images.zip"
+        
+        # ⭐ RFC 5987 인코딩 (한글 지원)
+        encoded_filename = quote(filename.encode('utf-8'))
         
         print(f"✅ [ZIP] 다운로드 준비 완료: {filename} ({len(images)}개 이미지)")
         
@@ -1254,12 +1262,14 @@ def download_post_images(
             zip_buffer,
             media_type="application/zip",
             headers={
-                "Content-Disposition": f"attachment; filename={filename}"
+                "Content-Disposition": f"attachment; filename*=UTF-8''{encoded_filename}"
             }
         )
         
     except Exception as e:
         print(f"❌ [ZIP] 오류: {e}")
+        import traceback
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"ZIP 생성 중 오류: {str(e)}")
 
 
