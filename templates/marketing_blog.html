@@ -466,6 +466,39 @@
     #postDetailBody img:hover {
         transform: scale(1.05);
     }
+
+    /* 이미지 미리보기 스타일 */
+    #imagePreview {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+    }
+
+    #imagePreview .position-relative {
+        display: inline-block;
+        margin: 0;
+    }
+
+    /* X 버튼 스타일 개선 */
+    #imagePreview .btn-danger {
+        width: 24px;
+        height: 24px;
+        padding: 0 !important;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 16px !important;
+        font-weight: bold;
+        line-height: 1;
+        border-radius: 50% !important;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    }
+
+    #imagePreview .btn-danger:hover {
+        background-color: #c82333 !important;
+        transform: scale(1.1);
+    }
+    
 </style>
 {% endblock %}
 
@@ -1017,41 +1050,18 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 
-    // 글 작성 모달 - 이미지 미리보기
-    document.getElementById('postImages').addEventListener('change', function(e) {
-        const files = Array.from(e.target.files); // ⭐ Array로 변환
-        const preview = document.getElementById('imagePreview');
-        const container = document.getElementById('imagePreviewContainer');
-        const count = document.getElementById('imageCount');
+    // ✅ 새 코드: 파일 선택 핸들러
+    const imageInput = document.getElementById('postImages');
+    if (imageInput) {
+        // 기존 이벤트 리스너 모두 제거
+        const newImageInput = imageInput.cloneNode(true);
+        imageInput.parentNode.replaceChild(newImageInput, imageInput);
         
-        selectedFiles = files; // ⭐ 전역 변수에 저장
-    
-        renderImagePreviews(); // ⭐ 미리보기 렌더링 함수 호출
-        preview.innerHTML = '';
-        count.textContent = files.length;
-        
-        if (files.length > 0) {
-            container.style.display = 'block';
-            
-            Array.from(files).forEach((file, i) => {
-                const reader = new FileReader();
-                reader.onload = function(e) {
-                    const div = document.createElement('div');
-                    div.className = 'position-relative';
-                    div.innerHTML = `
-                        <img src="${e.target.result}" class="img-thumbnail" 
-                             style="width: 100px; height: 100px; object-fit: cover;">
-                        <button type="button" class="btn btn-sm btn-danger position-absolute top-0 end-0"
-                                onclick="removeImage(${i})">×</button>
-                    `;
-                    preview.appendChild(div);
-                };
-                reader.readAsDataURL(file);
-            });
-        } else {
-            container.style.display = 'none';
-        }
-    });
+        // 새로 이벤트 등록
+        newImageInput.addEventListener('change', function(e) {
+            handleImageSelect(e);
+        });
+    }
 
     // 글 작성 - 실시간 글자 수 & 키워드 카운트
     const titleInput = document.getElementById('postTitle');
@@ -1115,6 +1125,24 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 });
 
+// ==================== 이미지 선택 핸들러 ====================
+function handleImageSelect(e) {
+    const files = Array.from(e.target.files);
+    
+    if (files.length === 0) return;
+    
+    console.log('📁 [IMAGE SELECT] 선택된 파일:', files.length, '개');
+    
+    // ⭐⭐⭐ 기존 이미지에 새 이미지 추가 (누적) ⭐⭐⭐
+    selectedFiles = [...selectedFiles, ...files];
+    
+    console.log('📦 [IMAGE SELECT] 총 이미지:', selectedFiles.length, '개');
+    
+    // input 초기화 (같은 파일을 다시 선택할 수 있도록)
+    e.target.value = '';
+    
+    renderImagePreviews();
+}
 // ==================== 이미지 미리보기 렌더링 ====================
 function renderImagePreviews() {
     const preview = document.getElementById('imagePreview');
@@ -1126,26 +1154,42 @@ function renderImagePreviews() {
         return;
     }
     
+    // ⭐ 기존 내용 완전히 비우기
     preview.innerHTML = '';
     count.textContent = selectedFiles.length;
+    
+    console.log('🎨 [RENDER] 렌더링 시작:', selectedFiles.length, '개');
     
     if (selectedFiles.length > 0) {
         container.style.display = 'block';
         
-        selectedFiles.forEach((file, i) => {
+        // ⭐ 한 번에 모든 이미지 처리
+        selectedFiles.forEach((file, index) => {
             const reader = new FileReader();
+            
             reader.onload = function(e) {
+                // div 생성
                 const div = document.createElement('div');
                 div.className = 'position-relative';
+                div.style.display = 'inline-block'; // ⭐ 추가
+                
                 div.innerHTML = `
-                    <img src="${e.target.result}" class="img-thumbnail" 
+                    <img src="${e.target.result}" 
+                         class="img-thumbnail" 
                          style="width: 100px; height: 100px; object-fit: cover;">
-                    <button type="button" class="btn btn-sm btn-danger position-absolute top-0 end-0"
-                            style="padding: 2px 6px; font-size: 0.8rem;"
-                            onclick="removeImage(${i})">×</button>
+                    <button type="button" 
+                            class="btn btn-sm btn-danger position-absolute" 
+                            style="top: 2px; right: 2px; padding: 2px 8px; font-size: 0.75rem; line-height: 1; border-radius: 3px;"
+                            onclick="removeImage(${index})" 
+                            title="이미지 삭제">
+                        ×
+                    </button>
                 `;
+                
                 preview.appendChild(div);
+                console.log(`  ✅ [RENDER] 이미지 ${index + 1} 렌더링 완료`);
             };
+            
             reader.readAsDataURL(file);
         });
     } else {
@@ -1155,14 +1199,20 @@ function renderImagePreviews() {
 
 // ==================== 새 이미지 삭제 (작성 모달용) ====================
 function removeImage(index) {
-    console.log('🗑️ [REMOVE IMAGE] 인덱스:', index);
+    console.log('🗑️ [REMOVE IMAGE] 삭제 요청 - 인덱스:', index);
+    console.log('📦 [REMOVE IMAGE] 삭제 전 개수:', selectedFiles.length);
     
     if (index >= 0 && index < selectedFiles.length) {
         const fileName = selectedFiles[index].name;
-        selectedFiles.splice(index, 1); // 배열에서 제거
-        console.log(`✅ [REMOVE IMAGE] ${fileName} 제거됨. 남은 개수: ${selectedFiles.length}`);
         
-        renderImagePreviews(); // 미리보기 다시 렌더링
+        // 배열에서 제거
+        selectedFiles.splice(index, 1);
+        
+        console.log(`✅ [REMOVE IMAGE] "${fileName}" 삭제됨`);
+        console.log(`📦 [REMOVE IMAGE] 삭제 후 개수: ${selectedFiles.length}`);
+        
+        // 미리보기 다시 렌더링
+        renderImagePreviews();
     } else {
         console.error('❌ [REMOVE IMAGE] 잘못된 인덱스:', index);
     }
@@ -1564,7 +1614,11 @@ function openCreatePostModal(taskId, keyword) {
 
     selectedFiles = []; // ⭐⭐⭐ 파일 배열 초기화 ⭐⭐⭐
 
-    // ⭐ 요소 존재 확인 후 초기화
+    // ⭐ 이미지 input 초기화
+    const imageInput = document.getElementById('postImages');
+    if (imageInput) imageInput.value = '';
+    
+    // 미리보기 숨기기
     const keywordAlert = document.getElementById('keywordAlert');
     if (keywordAlert) keywordAlert.style.display = 'none';
     
