@@ -498,7 +498,7 @@
         background-color: #c82333 !important;
         transform: scale(1.1);
     }
-    
+
 </style>
 {% endblock %}
 
@@ -2620,22 +2620,48 @@ function deleteExistingImage(imageId, postId, buttonElement) {
 }
 
 // ==================== 이미지 일괄 다운로드 ====================
-function downloadAllImages(postId, postTitle) {
+function downloadAllImages(postId, postTitle, buttonElement) {
     console.log('📥 [DOWNLOAD] 이미지 일괄 다운로드 시작:', postId);
     
+    // ⭐ 버튼 요소 확인
+    let btn = buttonElement;
+    if (!btn) {
+        console.error('❌ [DOWNLOAD] 버튼 요소를 찾을 수 없음');
+        alert('다운로드 버튼을 찾을 수 없습니다.');
+        return;
+    }
+    
     // 로딩 표시
-    const originalText = event.target.innerHTML;
-    event.target.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>다운로드 중...';
-    event.target.disabled = true;
+    const originalText = btn.innerHTML;
+    const originalDisabled = btn.disabled;
+    
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>다운로드 중...';
+    btn.disabled = true;
+    
+    // ⭐⭐⭐ 버튼 복구 함수 (안전하게) ⭐⭐⭐
+    const restoreButton = () => {
+        try {
+            if (btn && originalText) {
+                btn.innerHTML = originalText;
+                btn.disabled = originalDisabled;
+                console.log('🔄 [DOWNLOAD] 버튼 복구 완료');
+            }
+        } catch (e) {
+            console.error('⚠️ [DOWNLOAD] 버튼 복구 실패:', e);
+        }
+    };
     
     fetch(`/blog/api/posts/${postId}/images/download`)
         .then(response => {
+            console.log('📥 [DOWNLOAD] 응답 상태:', response.status);
             if (!response.ok) {
-                throw new Error('다운로드 실패');
+                throw new Error(`다운로드 실패 (HTTP ${response.status})`);
             }
             return response.blob();
         })
         .then(blob => {
+            console.log('📦 [DOWNLOAD] Blob 생성 완료:', blob.size, 'bytes');
+            
             // Blob을 다운로드 링크로 변환
             const url = window.URL.createObjectURL(blob);
             const a = document.createElement('a');
@@ -2649,22 +2675,22 @@ function downloadAllImages(postId, postTitle) {
             a.click();
             
             // 정리
-            window.URL.revokeObjectURL(url);
-            document.body.removeChild(a);
+            setTimeout(() => {
+                window.URL.revokeObjectURL(url);
+                document.body.removeChild(a);
+            }, 100);
             
-            console.log('✅ [DOWNLOAD] 다운로드 완료');
+            console.log('✅ [DOWNLOAD] 다운로드 완료:', a.download);
             
             // 버튼 복구
-            event.target.innerHTML = originalText;
-            event.target.disabled = false;
+            restoreButton();
         })
         .catch(err => {
             console.error('❌ [DOWNLOAD] 오류:', err);
-            alert('이미지 다운로드에 실패했습니다: ' + err.message);
+            alert('이미지 다운로드에 실패했습니다.\n' + err.message);
             
             // 버튼 복구
-            event.target.innerHTML = originalText;
-            event.target.disabled = false;
+            restoreButton();
         });
 }
 
