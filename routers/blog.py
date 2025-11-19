@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, File, Form
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import func, and_, or_, desc
 from typing import List, Optional
@@ -9,7 +9,10 @@ import math
 import re
 import os
 import uuid
+import zipfile
 from pathlib import Path
+from io import BytesIO
+
 
 # 기존 database.py에서 import
 from database import (
@@ -1191,6 +1194,73 @@ def delete_post_image(
         db.rollback()
         print(f"❌ [DELETE IMAGE] 오류 발생: {e}")
         raise HTTPException(status_code=500, detail=f"이미지 삭제 중 오류 발생: {str(e)}")
+
+
+@router.get("/blog/api/posts/{post_id}/images/download")
+def download_post_images(
+    post_id: int,
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    """블로그 글의 모든 이미지를 ZIP으로 다운로드"""
+    user = get_current_user(request, db)
+    has_access, blog_worker_or_error = check_blog_access(user, db)
+    
+    if not has_access:
+        raise HTTPException(status_code=403)
+    
+    # 글 조회
+    post = db.query(BlogPost).get(post_id)
+    if not post:
+        raise HTTPException(status_code=404, detail="글을 찾을 수 없습니다")
+    
+    # 권한 체크
+    blog_worker = blog_worker_or_error if not user.is_admin else None
+    if not check_is_blog_manager(user, db) and blog_worker and post.worker_id != blog_worker.id:
+        raise HTTPException(status_code=403, detail="권한이 없습니다")
+    
+    # 이미지 조회
+    images = db.query(BlogPostImage).filter(
+        BlogPostImage.blog_post_id == post_id
+    ).order_by(BlogPostImage.image_order).all()
+    
+    if not images:
+        raise HTTPException(status_code=404, detail="다운로드할 이미지가 없습니다")
+    
+    # ZIP 파일 생성
+    zip_buffer = BytesIO()
+    
+    try:
+        with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
+            for i, image in enumerate(images):
+                if os.path.exists(image.image_path):
+                    # 파일 이름: 순서_원본파일명
+                    arcname = f"{i+1:02d}_{image.image_filename}"
+                    zip_file.write(image.image_path, arcname)
+                    print(f"✅ [ZIP] 추가: {arcname}")
+                else:
+                    print(f"⚠️ [ZIP] 파일 없음: {image.image_path}")
+        
+        zip_buffer.seek(0)
+        
+        # 파일명 생성 (글 제목 사용)
+        safe_title = "".join(c for c in post.post_title if c.isalnum() or c in (' ', '-', '_')).strip()
+        safe_title = safe_title[:50]  # 최대 50자
+        filename = f"{safe_title}_images.zip" if safe_title else f"blog_post_{post_id}_images.zip"
+        
+        print(f"✅ [ZIP] 다운로드 준비 완료: {filename} ({len(images)}개 이미지)")
+        
+        return StreamingResponse(
+            zip_buffer,
+            media_type="application/zip",
+            headers={
+                "Content-Disposition": f"attachment; filename={filename}"
+            }
+        )
+        
+    except Exception as e:
+        print(f"❌ [ZIP] 오류: {e}")
+        raise HTTPException(status_code=500, detail=f"ZIP 생성 중 오류: {str(e)}")
 
 
 # ============================================

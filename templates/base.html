@@ -13,7 +13,9 @@
     
     <!-- Google Fonts - 더 세련된 폰트 -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Noto+Sans+KR:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-    
+
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+
     <style>
         * {
             font-family: 'Inter', 'Noto Sans KR', -apple-system, BlinkMacSystemFont, sans-serif;
@@ -3243,6 +3245,46 @@
             return colors[status] || '#4A90E2';
         }
 
+        // ============================================
+        // 🔥 확장 프로그램 연동 (여기에 추가!)
+        // ============================================
+        document.addEventListener('DOMContentLoaded', function() {
+            const username = '{{ username if username else "" }}';
+            
+            if (username) {
+                // 사용자 ID 가져오기
+                fetch('/tasks/get-current-user-id')
+                    .then(response => response.json())
+                    .then(data => {
+                        console.log('📤 확장 프로그램에 로그인 정보 전송:', data);
+                        
+                        // 확장 프로그램에 메시지 보내기
+                        if (window.chrome && chrome.runtime) {
+                            // 확장 프로그램 ID (나중에 교체)
+                            const extensionId = 'YOUR_EXTENSION_ID';
+                            
+                            chrome.runtime.sendMessage(
+                                extensionId,
+                                {
+                                    action: 'login',
+                                    userId: data.user_id,
+                                    username: username
+                                },
+                                (response) => {
+                                    if (chrome.runtime.lastError) {
+                                        console.log('⚠️ 확장 프로그램 미설치 또는 연결 실패');
+                                    } else {
+                                        console.log('✅ 확장 프로그램 연결 성공');
+                                    }
+                                }
+                            );
+                        }
+                    })
+                    .catch(error => {
+                        console.error('❌ 사용자 ID 가져오기 실패:', error);
+                    });
+            }
+        });
 
     </script>
 
