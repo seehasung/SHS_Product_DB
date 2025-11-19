@@ -2079,7 +2079,10 @@ function viewPost(postId) {
                                 // ⭐⭐⭐ 이미지 미리보기 + 일괄 다운로드 버튼 ⭐⭐⭐
                                 preview.innerHTML = `
                                     <div class="w-100 mb-2">
-                                        <button type="button" class="btn btn-sm btn-success" onclick="downloadAllImages(${postId}, '${post.title.replace(/'/g, "\\'")}')">
+                                        <button type="button" 
+                                                id="downloadBtn_${postId}"
+                                                class="btn btn-sm btn-success" 
+                                                onclick="downloadAllImages(${postId}, \`${post.title.replace(/`/g, '\\`')}\`, 'downloadBtn_${postId}')">
                                             <i class="bi bi-download"></i> 이미지 일괄 다운로드 (${post.images.length}개)
                                         </button>
                                     </div>
@@ -2620,34 +2623,38 @@ function deleteExistingImage(imageId, postId, buttonElement) {
 }
 
 // ==================== 이미지 일괄 다운로드 ====================
-function downloadAllImages(postId, postTitle, buttonElement) {
+function downloadAllImages(postId, postTitle, buttonIdOrElement) {
     console.log('📥 [DOWNLOAD] 이미지 일괄 다운로드 시작:', postId);
     
-    // ⭐ 버튼 요소 확인
-    let btn = buttonElement;
+    // ⭐ 버튼 요소 찾기 (ID 문자열이면 요소 찾기, 아니면 그대로 사용)
+    let btn;
+    if (typeof buttonIdOrElement === 'string') {
+        btn = document.getElementById(buttonIdOrElement);
+        console.log('🔍 [DOWNLOAD] ID로 버튼 찾기:', buttonIdOrElement, btn ? '성공' : '실패');
+    } else {
+        btn = buttonIdOrElement;
+        console.log('🔍 [DOWNLOAD] 요소 직접 사용:', btn ? '성공' : '실패');
+    }
+    
     if (!btn) {
-        console.error('❌ [DOWNLOAD] 버튼 요소를 찾을 수 없음');
+        console.error('❌ [DOWNLOAD] 버튼 요소를 찾을 수 없음:', buttonIdOrElement);
         alert('다운로드 버튼을 찾을 수 없습니다.');
         return;
     }
     
     // 로딩 표시
-    const originalText = btn.innerHTML;
+    const originalHTML = btn.innerHTML;
     const originalDisabled = btn.disabled;
     
     btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>다운로드 중...';
     btn.disabled = true;
     
-    // ⭐⭐⭐ 버튼 복구 함수 (안전하게) ⭐⭐⭐
+    // ⭐ 버튼 복구 함수
     const restoreButton = () => {
-        try {
-            if (btn && originalText) {
-                btn.innerHTML = originalText;
-                btn.disabled = originalDisabled;
-                console.log('🔄 [DOWNLOAD] 버튼 복구 완료');
-            }
-        } catch (e) {
-            console.error('⚠️ [DOWNLOAD] 버튼 복구 실패:', e);
+        if (btn) {
+            btn.innerHTML = originalHTML;
+            btn.disabled = originalDisabled;
+            console.log('🔄 [DOWNLOAD] 버튼 복구 완료');
         }
     };
     
