@@ -983,7 +983,7 @@
 // ==================== 전역 변수 ====================
 let currentSelectedDate = new Date().toISOString().split('T')[0]; // YYYY-MM-DD 형식
 let todaySchedules = []; // 현재 날짜의 스케줄 저장
-
+let selectedFiles = []; // ⭐ 새로 추가: 선택된 이미지 파일들
 
 // ==================== 페이지 로드 시 초기화 ====================
 document.addEventListener('DOMContentLoaded', function() {
@@ -1019,11 +1019,14 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // 글 작성 모달 - 이미지 미리보기
     document.getElementById('postImages').addEventListener('change', function(e) {
-        const files = e.target.files;
+        const files = Array.from(e.target.files); // ⭐ Array로 변환
         const preview = document.getElementById('imagePreview');
         const container = document.getElementById('imagePreviewContainer');
         const count = document.getElementById('imageCount');
         
+        selectedFiles = files; // ⭐ 전역 변수에 저장
+    
+        renderImagePreviews(); // ⭐ 미리보기 렌더링 함수 호출
         preview.innerHTML = '';
         count.textContent = files.length;
         
@@ -1111,6 +1114,59 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 });
+
+// ==================== 이미지 미리보기 렌더링 ====================
+function renderImagePreviews() {
+    const preview = document.getElementById('imagePreview');
+    const container = document.getElementById('imagePreviewContainer');
+    const count = document.getElementById('imageCount');
+    
+    if (!preview || !container || !count) {
+        console.warn('⚠️ 이미지 미리보기 요소를 찾을 수 없음');
+        return;
+    }
+    
+    preview.innerHTML = '';
+    count.textContent = selectedFiles.length;
+    
+    if (selectedFiles.length > 0) {
+        container.style.display = 'block';
+        
+        selectedFiles.forEach((file, i) => {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const div = document.createElement('div');
+                div.className = 'position-relative';
+                div.innerHTML = `
+                    <img src="${e.target.result}" class="img-thumbnail" 
+                         style="width: 100px; height: 100px; object-fit: cover;">
+                    <button type="button" class="btn btn-sm btn-danger position-absolute top-0 end-0"
+                            style="padding: 2px 6px; font-size: 0.8rem;"
+                            onclick="removeImage(${i})">×</button>
+                `;
+                preview.appendChild(div);
+            };
+            reader.readAsDataURL(file);
+        });
+    } else {
+        container.style.display = 'none';
+    }
+}
+
+// ==================== 새 이미지 삭제 (작성 모달용) ====================
+function removeImage(index) {
+    console.log('🗑️ [REMOVE IMAGE] 인덱스:', index);
+    
+    if (index >= 0 && index < selectedFiles.length) {
+        const fileName = selectedFiles[index].name;
+        selectedFiles.splice(index, 1); // 배열에서 제거
+        console.log(`✅ [REMOVE IMAGE] ${fileName} 제거됨. 남은 개수: ${selectedFiles.length}`);
+        
+        renderImagePreviews(); // 미리보기 다시 렌더링
+    } else {
+        console.error('❌ [REMOVE IMAGE] 잘못된 인덱스:', index);
+    }
+}
 
 function updateDateDisplay() {
     const dateObj = new Date(currentSelectedDate);
@@ -1505,7 +1561,9 @@ function openCreatePostModal(taskId, keyword) {
     // ⭐ 모달 초기화 (안전하게)
     const form = document.getElementById('createPostForm');
     if (form) form.reset();
-    
+
+    selectedFiles = []; // ⭐⭐⭐ 파일 배열 초기화 ⭐⭐⭐
+
     // ⭐ 요소 존재 확인 후 초기화
     const keywordAlert = document.getElementById('keywordAlert');
     if (keywordAlert) keywordAlert.style.display = 'none';
@@ -1814,39 +1872,43 @@ function submitPost() {
         return;
     }
     
-    const formData = new FormData(form);
+    // ⭐ FormData 생성 (이미지 제외)
+    const formData = new FormData();
     
-    // ⭐ 디버깅: FormData 내용 확인
-    console.log('📤 [SUBMIT] 제출 데이터:');
-    for (let [key, value] of formData.entries()) {
-        console.log(`  - ${key}:`, value);
-    }
-    
-    // ⭐ task_id 확인
+    // task_id
     const taskIdInput = document.getElementById('taskId');
     const taskId = taskIdInput ? taskIdInput.value : '';
-    console.log('  - taskId (hidden):', taskId);
     
     if (!taskId) {
         alert('⚠️ 작업을 선택해주세요!');
         return;
     }
+    formData.append('task_id', taskId);
     
-    // ⭐ 제목과 본문 확인
+    // 제목과 본문
     const titleInput = document.getElementById('postTitle');
     const bodyInput = document.getElementById('postBody');
+    const urlInput = document.getElementById('postUrl');
     
     const title = titleInput ? titleInput.value : '';
     const body = bodyInput ? bodyInput.value : '';
+    const url = urlInput ? urlInput.value : '';
     
     if (!title || !body) {
         alert('⚠️ 제목과 본문을 입력해주세요!');
         return;
     }
     
-    console.log('  - title:', title);
-    console.log('  - body length:', body.length);
+    formData.append('title', title);
+    formData.append('body', body);
+    if (url) formData.append('post_url', url);
     
+    // ⭐⭐⭐ selectedFiles 배열에서 이미지 추가 ⭐⭐⭐
+    console.log('📤 [SUBMIT] 이미지 개수:', selectedFiles.length);
+    selectedFiles.forEach((file, i) => {
+        formData.append('images', file);
+        console.log(`  - images[${i}]:`, file.name);
+    });
     
     console.log('🚀 [SUBMIT] POST 요청 시작...');
     
@@ -1876,8 +1938,9 @@ function submitPost() {
         }
         
         form.reset();
+        selectedFiles = []; // ⭐ 파일 배열 초기화
         
-        // ⭐ 폼 초기화 (안전하게)
+        // 폼 초기화
         const keywordAlert = document.getElementById('keywordAlert');
         if (keywordAlert) keywordAlert.style.display = 'none';
         
@@ -2016,10 +2079,25 @@ function submitPostEdit(postId) {
         return;
     }
     
-    const formData = new FormData(form);
+    // ⭐ FormData 생성 (이미지 제외)
+    const formData = new FormData();
     
-    // 새로 추가된 파일들
-
+    // 제목, 본문, URL
+    const titleInput = document.getElementById('postTitle');
+    const bodyInput = document.getElementById('postBody');
+    const urlInput = document.getElementById('postUrl');
+    
+    formData.append('title', titleInput.value);
+    formData.append('body', bodyInput.value);
+    if (urlInput.value) formData.append('post_url', urlInput.value);
+    
+    // ⭐⭐⭐ selectedFiles 배열에서 새 이미지 추가 ⭐⭐⭐
+    console.log('📤 [EDIT] 새 이미지 개수:', selectedFiles.length);
+    selectedFiles.forEach((file, i) => {
+        formData.append('images', file);
+        console.log(`  - images[${i}]:`, file.name);
+    });
+    
     fetch(`/blog/api/posts/${postId}`, {
         method: 'PUT',
         body: formData
@@ -2042,6 +2120,7 @@ function submitPostEdit(postId) {
         form.reset();
         form.dataset.editMode = 'false';
         delete form.dataset.postId;
+        selectedFiles = []; // ⭐ 파일 배열 초기화
         
         // 모달 제목 원상복구
         const modalTitle = document.querySelector('#createPostModal .modal-title');
