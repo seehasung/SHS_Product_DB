@@ -1093,6 +1093,33 @@
                 <i class="bi bi-journal-text" style="font-size: 28px; color: white;"></i>
             </div>
         </button>
+        !-- ⭐ 메모 배지 추가 -->
+        <div id="memoBadgeContainer" style="
+            position: fixed;
+            bottom: 85px;
+            right: 180px;
+            display: none;
+            z-index: 10000;
+            pointer-events: none;
+        ">
+            <span id="memoBadge" style="
+                background: linear-gradient(135deg, #eb3349 0%, #f45c43 100%);
+                color: white;
+                border-radius: 14px;
+                min-width: 40px;
+                height: 22px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 12px;
+                font-weight: 700;
+                box-shadow: 0 4px 12px rgba(235, 51, 73, 0.6);
+                animation: pulse 2s infinite;
+                padding: 0 8px;
+                white-space: nowrap;
+                border: 2px solid white;
+            ">0</span>
+        </div>
     </div>
 
     <!-- 메모 오버레이 -->
@@ -1424,6 +1451,8 @@
         let taskWebSocket = null;
         let currentUserId = null;
         let isDrawerOpen = false;
+        let isRequestDrawerOpen = false;
+        let isMemoDrawerOpen = false;
 
         // ============================================
         // 초기화 (페이지 로드 시)
@@ -1461,11 +1490,15 @@
                         connectTaskWebSocket();
                         loadNotifications();
                         updateNotificationBadge();
+                        updateMemoBadge(); // ⭐ 메모 배지 업데이트 추가
+
                     })
                     .catch(error => {
                         console.error('❌ 사용자 ID 가져오기 오류:', error);
                         loadNotifications();
                         updateNotificationBadge();
+                        updateMemoBadge(); // ⭐ 메모 배지 업데이트 추가
+
                     });
             }
 
@@ -1532,9 +1565,13 @@
 
                     showToastNotification(data);
                     updateNotificationBadge();
+                    updateMemoBadge(); // ⭐ 메모 배지 업데이트 추가
 
                     if (isDrawerOpen) {
                         loadNotifications();
+                    }
+                    if (isMemoDrawerOpen) {
+                        loadMemoContent();
                     }
                 } catch (error) {
                     console.error('❌ WebSocket 메시지 처리 오류:', error, 'Raw data:', event.data);
@@ -1552,6 +1589,34 @@
         }
 
         // ============================================
+        // ⭐ 메모 배지 업데이트 (새 함수!)
+        // ============================================
+        async function updateMemoBadge() {
+            if (isMemoDrawerOpen) {
+                console.log('⏸️ 메모 드로어 열림 - 배지 업데이트 생략');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/tasks/api/memos/dashboard');
+                const dashboard = await response.json();
+                
+                const container = document.getElementById('memoBadgeContainer');
+                const badge = document.getElementById('memoBadge');
+                
+                if (dashboard.active > 0) {
+                    badge.textContent = dashboard.active > 99 ? '99+' : dashboard.active;
+                    container.style.display = 'block';
+                } else {
+                    container.style.display = 'none';
+                }
+                
+            } catch (error) {
+                console.error('메모 배지 업데이트 오류:', error);
+            }
+        }
+
+        // ============================================
         // 드로어 열기/닫기
         // ============================================
         function toggleDrawer() {
@@ -1563,19 +1628,21 @@
         }
 
         function openDrawer() {
-            // ⭐ 업무 지시 관리 팝업이 열려있으면 닫기
-            if (isRequestDrawerOpen) {
-                closeRequestDrawer();
-            }
+            // ⭐ 다른 드로어 닫기
+            if (isRequestDrawerOpen) closeRequestDrawer();
+            if (isMemoDrawerOpen) closeMemoDrawer();
             
             isDrawerOpen = true;
             const drawer = document.getElementById('taskNotificationDrawer');
             const overlay = document.getElementById('taskNotificationOverlay');
             const badgeContainer = document.getElementById('taskNotificationBadgeContainer');
             
+            // ⭐ 플로팅 버튼들 숨김
+            document.getElementById('taskRequestFloat').style.display = 'none';
+            document.getElementById('memoFloat').style.display = 'none';
+            
             if (badgeContainer) {
                 badgeContainer.style.display = 'none';
-                console.log('✅ 드로어 열림 - 배지 숨김');
             }
 
             drawer.style.right = '0';
@@ -1611,11 +1678,16 @@
             const drawer = document.getElementById('taskNotificationDrawer');
             const overlay = document.getElementById('taskNotificationOverlay');
             
-            drawer.style.right = window.innerWidth <= 768 ? '-100%' : '-520px';  
+            // ⭐ 플로팅 버튼들 다시 표시
+            document.getElementById('taskRequestFloat').style.display = 'block';
+            document.getElementById('memoFloat').style.display = 'block';
+            
+            drawer.style.right = window.innerWidth <= 768 ? '-100%' : '-520px';
             overlay.style.display = 'none';
             
             setTimeout(() => {
                 updateNotificationBadge();
+                updateMemoBadge(); // ⭐ 메모 배지도 업데이트
             }, 400);
         }
 
@@ -1633,15 +1705,22 @@
         }
 
         function openRequestDrawer() {
+            // ⭐ 다른 드로어 닫기
+            if (isDrawerOpen) closeDrawer();
+            if (isMemoDrawerOpen) closeMemoDrawer();
+            
             isRequestDrawerOpen = true;
             const drawer = document.getElementById('taskRequestDrawer');
             const overlay = document.getElementById('taskRequestOverlay');
             const badgeContainer = document.getElementById('taskNotificationBadgeContainer');
+            const memoBadgeContainer = document.getElementById('memoBadgeContainer');
             
-            if (badgeContainer) {
-                badgeContainer.style.display = 'none';
-                console.log('✅ 드로어 열림 - 배지 숨김');
-            }
+            // ⭐ 플로팅 버튼들 숨김
+            document.getElementById('taskNotificationFloat').style.display = 'none';
+            document.getElementById('memoFloat').style.display = 'none';
+            
+            if (badgeContainer) badgeContainer.style.display = 'none';
+            if (memoBadgeContainer) memoBadgeContainer.style.display = 'none';
 
             drawer.style.right = '0';
             overlay.style.display = 'block';
@@ -1654,14 +1733,30 @@
             const drawer = document.getElementById('taskRequestDrawer');
             const overlay = document.getElementById('taskRequestOverlay');
             
+            // ⭐ 플로팅 버튼들 다시 표시
+            document.getElementById('taskNotificationFloat').style.display = 'block';
+            document.getElementById('memoFloat').style.display = 'block';
+            
             drawer.style.right = window.innerWidth <= 768 ? '-100%' : '-520px';
             overlay.style.display = 'none';
             
             setTimeout(() => {
                 updateNotificationBadge();
+                updateMemoBadge(); // ⭐ 메모 배지도 업데이트
             }, 400);
         }
-        
+
+        // ============================================
+        // 메모/일지 드로어 열기/닫기
+        // ============================================
+        function toggleMemoDrawer() {
+            if (isMemoDrawerOpen) {
+                closeMemoDrawer();
+            } else {
+                openMemoDrawer();
+            }
+        }
+
         // ============================================
         // 업무 지시 내용 로드
         // ============================================
@@ -2886,102 +2981,70 @@
             
             if (type === 'new_comment') {
                 config = statusConfig['comment'];
+            } else if (type === 'new_memo' || status === 'new_memo') {
+                config = statusConfig['new_memo'];
+            } else if (type === 'memo_completed' || status === 'memo_completed') {
+                config = statusConfig['memo_completed'];
             }
-            
+                    
             console.log('✅ config 설정 완료:', config);
             
             const toast = document.createElement('div');
             toast.className = 'task-toast';
             toast.style.borderLeft = `6px solid ${config.color}`;
             
-            // ⭐ 클릭 이벤트
-            toast.onclick = async () => {
-                if (data.task_id) {
-                    const assigneeId = data.assignee_id;
-                    const creatorId = data.creator_id;
-                    
-                    let finalAssigneeId = assigneeId;
-                    let finalCreatorId = creatorId;
-                    
-                    if (assigneeId === undefined || creatorId === undefined) {
-                        try {
-                            const response = await fetch(`/tasks/api/${data.task_id}/detail`);
-                            const taskDetail = await response.json();
-                            finalAssigneeId = taskDetail.assignee_id;
-                            finalCreatorId = taskDetail.creator_id;
-                        } catch (error) {
-                            console.error('업무 상세 조회 실패:', error);
-                            removeToast(toast);
-                            return;
-                        }
-                    }
-                    
-                    const isMyAssignedTask = Number(finalAssigneeId) === Number(currentUserId);
-                    const isMyCreatedTask = Number(finalCreatorId) === Number(currentUserId);
-                    
-                    console.log('🎯 토스트 클릭:', {
-                        taskId: data.task_id,
-                        assignee_id: finalAssigneeId,
-                        creator_id: finalCreatorId,
-                        currentUserId: currentUserId,
-                        isMyAssignedTask: isMyAssignedTask,
-                        isMyCreatedTask: isMyCreatedTask
-                    });
-                    
-                    if (isMyAssignedTask && !isMyCreatedTask) {
-                        console.log('➡️ 업무 알림 팝업 열기');
-                        if (!isDrawerOpen) {
-                            openDrawer();
-                        }
-                        
-                        setTimeout(() => {
-                            const notifElement = document.querySelector(`[data-task-id="${data.task_id}"]`);
-                            if (notifElement) {
-                                notifElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                                setTimeout(() => {
-                                    toggleAccordion(data.task_id, data.notif_id || null);
-                                }, 500);
-                            }
-                        }, 300);
-                    } else if (isMyCreatedTask && !isMyAssignedTask) {
-                        console.log('➡️ 업무 지시 관리 팝업 열기');
-                        if (!isRequestDrawerOpen) {
-                            openRequestDrawer();
-                        }
-                        
-                        setTimeout(() => {
-                            const taskElement = document.querySelector(`[data-task-id="${data.task_id}"]`);
-                            if (taskElement) {
-                                taskElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                                setTimeout(() => {
-                                    toggleRequestAccordion(data.task_id);
-                                }, 500);
-                            }
-                        }, 300);
-                    } else if (isMyCreatedTask && isMyAssignedTask) {
-                        console.log('➡️ 자기 지시 업무 - 업무 알림 팝업 열기');
-                        if (!isDrawerOpen) {
-                            openDrawer();
-                        }
-                        
-                        setTimeout(() => {
-                            const notifElement = document.querySelector(`[data-task-id="${data.task_id}"]`);
-                            if (notifElement) {
-                                notifElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                                setTimeout(() => {
-                                    toggleAccordion(data.task_id, data.notif_id || null);
-                                }, 500);
-                            }
-                        }, 300);
-                    }
-                }
-                removeToast(toast);
-            };
-            
-            // 토스트 내용
-            let content = '';
-            
             if (type === 'new_comment') {
+                config = statusConfig['comment'];
+            } else if (type === 'new_memo' || status === 'new_memo') {
+                config = statusConfig['new_memo'];
+            } else if (type === 'memo_completed' || status === 'memo_completed') {
+                config = statusConfig['memo_completed'];
+            }
+            
+            const toast = document.createElement('div');
+            toast.className = 'task-toast';
+            toast.style.borderLeft = `6px solid ${config.color}`;
+            
+            // ⭐ 메모 타입일 때 다른 내용 표시
+            let content = '';
+            if (type === 'new_memo' || type === 'memo_completed') {
+                content = `
+                    <div style="display: flex; gap: 20px;">
+                        <div style="
+                            width: 56px;
+                            height: 56px;
+                            border-radius: 50%;
+                            background: ${config.gradient};
+                            display: flex;
+                            align-items: center;
+                            justify-content: center;
+                            flex-shrink: 0;
+                            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+                        ">
+                            <i class="bi ${config.iconClass}" style="font-size: 28px; color: white;"></i>
+                        </div>
+                        <div style="flex: 1; padding-top: 4px;">
+                            <div style="font-weight: 700; color: #2d3436; margin-bottom: 8px; font-size: 1.1rem; line-height: 1.4;">
+                                ${config.icon} ${data.title || data.message || '새 메모/일지'}
+                            </div>
+                            <div style="font-size: 0.9rem; color: #636e72; margin-bottom: 6px;">
+                                새 메모/일지 생성
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <span style="
+                                    background: ${config.gradient};
+                                    color: white;
+                                    padding: 4px 12px;
+                                    border-radius: 8px;
+                                    font-size: 0.85rem;
+                                    font-weight: 700;
+                                ">${config.text}</span>
+                                <span style="color: #adb5bd; font-size: 0.85rem;">• 방금 전</span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            } else if (type === 'new_comment') {
                 const commentText = data.comment_content || '';
                 const commentPreview = commentText.length > 80 
                     ? commentText.substring(0, 80).split('\n').slice(0, 2).join('\n') + '...'
@@ -3065,6 +3128,84 @@
             }
             
             toast.innerHTML = content;
+            
+            // ⭐ 클릭 이벤트 (메모는 메모 드로어 열기)
+            toast.onclick = async () => {
+                if (type === 'new_memo' || type === 'memo_completed') {
+                    if (!isMemoDrawerOpen) {
+                        openMemoDrawer();
+                    }
+                } else if (data.task_id) {
+                    // 기존 업무 로직
+                    const assigneeId = data.assignee_id;
+                    const creatorId = data.creator_id;
+                    
+                    let finalAssigneeId = assigneeId;
+                    let finalCreatorId = creatorId;
+                    
+                    if (assigneeId === undefined || creatorId === undefined) {
+                        try {
+                            const response = await fetch(`/tasks/api/${data.task_id}/detail`);
+                            const taskDetail = await response.json();
+                            finalAssigneeId = taskDetail.assignee_id;
+                            finalCreatorId = taskDetail.creator_id;
+                        } catch (error) {
+                            console.error('업무 상세 조회 실패:', error);
+                            removeToast(toast);
+                            return;
+                        }
+                    }
+                    
+                    const isMyAssignedTask = Number(finalAssigneeId) === Number(currentUserId);
+                    const isMyCreatedTask = Number(finalCreatorId) === Number(currentUserId);
+                    
+                    if (isMyAssignedTask && !isMyCreatedTask) {
+                        if (!isDrawerOpen) {
+                            openDrawer();
+                        }
+                        
+                        setTimeout(() => {
+                            const notifElement = document.querySelector(`[data-task-id="${data.task_id}"]`);
+                            if (notifElement) {
+                                notifElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                setTimeout(() => {
+                                    toggleAccordion(data.task_id, data.notif_id || null);
+                                }, 500);
+                            }
+                        }, 300);
+                    } else if (isMyCreatedTask && !isMyAssignedTask) {
+                        if (!isRequestDrawerOpen) {
+                            openRequestDrawer();
+                        }
+                        
+                        setTimeout(() => {
+                            const taskElement = document.querySelector(`[data-task-id="${data.task_id}"]`);
+                            if (taskElement) {
+                                taskElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                setTimeout(() => {
+                                    toggleRequestAccordion(data.task_id);
+                                }, 500);
+                            }
+                        }, 300);
+                    } else if (isMyCreatedTask && isMyAssignedTask) {
+                        if (!isDrawerOpen) {
+                            openDrawer();
+                        }
+                        
+                        setTimeout(() => {
+                            const notifElement = document.querySelector(`[data-task-id="${data.task_id}"]`);
+                            if (notifElement) {
+                                notifElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                setTimeout(() => {
+                                    toggleAccordion(data.task_id, data.notif_id || null);
+                                }, 500);
+                            }
+                        }, 300);
+                    }
+                }
+                removeToast(toast);
+            };
+            
             container.appendChild(toast);
 
             console.log('✅ 토스트 추가됨');
@@ -3423,12 +3564,22 @@
         }
 
         function openMemoDrawer() {
+            // ⭐ 다른 드로어 닫기
             if (isDrawerOpen) closeDrawer();
             if (isRequestDrawerOpen) closeRequestDrawer();
             
             isMemoDrawerOpen = true;
             const drawer = document.getElementById('memoDrawer');
             const overlay = document.getElementById('memoOverlay');
+            const badgeContainer = document.getElementById('taskNotificationBadgeContainer');
+            const memoBadgeContainer = document.getElementById('memoBadgeContainer');
+            
+            // ⭐ 플로팅 버튼들 숨김
+            document.getElementById('taskNotificationFloat').style.display = 'none';
+            document.getElementById('taskRequestFloat').style.display = 'none';
+            
+            if (badgeContainer) badgeContainer.style.display = 'none';
+            if (memoBadgeContainer) memoBadgeContainer.style.display = 'none';
             
             drawer.style.right = '0';
             overlay.style.display = 'block';
@@ -3441,8 +3592,17 @@
             const drawer = document.getElementById('memoDrawer');
             const overlay = document.getElementById('memoOverlay');
             
+            // ⭐ 플로팅 버튼들 다시 표시
+            document.getElementById('taskNotificationFloat').style.display = 'block';
+            document.getElementById('taskRequestFloat').style.display = 'block';
+            
             drawer.style.right = window.innerWidth <= 768 ? '-100%' : '-520px';
             overlay.style.display = 'none';
+            
+            setTimeout(() => {
+                updateNotificationBadge();
+                updateMemoBadge(); // ⭐ 메모 배지 업데이트
+            }, 400);
         }
 
         // ============================================
