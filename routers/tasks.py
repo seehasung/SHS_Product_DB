@@ -17,7 +17,8 @@ import asyncio
 
 from database import (
     SessionLocal, User, TaskAssignment, TaskComment, 
-    TaskFile, TaskNotification, get_kst_now, KST
+    TaskFile, TaskNotification, PersonalMemo, MemoFile,
+    get_kst_now, KST
 )
 
 router = APIRouter(prefix="/tasks")
@@ -1484,4 +1485,392 @@ async def delete_task(
     
     return {"success": True, "message": "업무가 삭제되었습니다"}
 
+# ============================================
+# 개인 메모 시스템 (데일리 일지)
+# ============================================
 
+@router.get("/api/memos/dashboard")
+def get_memos_dashboard(request: Request, db: Session = Depends(get_db)):
+    """메모 대시보드 (상태별 개수)"""
+    username = request.session.get("user")
+    if not username:
+        raise HTTPException(status_code=401, detail="로그인이 필요합니다")
+    
+    current_user = db.query(User).filter(User.username == username).first()
+    if not current_user:
+        raise HTTPException(status_code=404, detail="사용자를 찾을 수 없습니다")
+    
+    # 관리자는 전체 메모, 일반 사용자는 자기 메모만
+    if current_user.is_admin:
+        base_query = db.query(PersonalMemo)
+    else:
+        base_query = db.query(PersonalMemo).filter(PersonalMemo.user_id == current_user.id)
+    
+    total = base_query.count()
+    active = base_query.filter(PersonalMemo.status == 'active').count()
+    completed = base_query.filter(
+        PersonalMemo.status == 'completed',
+        func.date(PersonalMemo.completed_at) == datetime.now().date()
+    ).count()
+    
+    today_active = base_query.filter(
+        PersonalMemo.status == 'active',
+        func.date(PersonalMemo.created_at) == datetime.now().date()
+    ).count()
+    
+    return {
+        "total": total,
+        "active": active,
+        "completed": completed,
+        "today_active": today_active,
+        "is_admin": current_user.is_admin
+    }
+
+
+@router.get("/api/memos/list")
+def get_memos_list(
+    request: Request,
+    filter_type: str = Query("all"),  # all, today, week, month
+    db: Session = Depends(get_db)
+):
+    """메모 목록 조회 (날짜별 필터링)"""
+    username = request.session.get("user")
+    if not username:
+        raise HTTPException(status_code=401, detail="로그인이 필요합니다")
+    
+    current_user = db.query(User).filter(User.username == username).first()
+    if not current_user:
+        raise HTTPException(status_code=404, detail="사용자를 찾을 수 없습니다")
+    
+    # 기본 쿼리 (관리자는 전체, 일반 사용자는 자기 것만)
+    if current_user.is_admin:
+        query = db.query(PersonalMemo).options(joinedload(PersonalMemo.user))
+    else:
+        query = db.query(PersonalMemo).filter(PersonalMemo.user_id == current_user.id)
+    
+    # 완료된 메모 제외
+    query = query.filter(PersonalMemo.status.in_(['active']))
+    
+    # 날짜 필터링
+    now = get_kst_now()
+    today = now.date()
+    
+    if filter_type == "today":
+        query = query.filter(func.date(PersonalMemo.created_at) == today)
+    elif filter_type == "week":
+        week_start = today - timedelta(days=today.weekday())
+        query = query.filter(func.date(PersonalMemo.created_at) >= week_start)
+    elif filter_type == "month":
+        month_start = today.replace(day=1)
+        query = query.filter(func.date(PersonalMemo.created_at) >= month_start)
+    
+    memos = query.order_by(PersonalMemo.created_at.desc()).all()
+    
+    result = []
+    for memo in memos:
+        result.append({
+            "id": memo.id,
+            "title": memo.title,
+            "content": memo.content,
+            "priority": memo.priority,
+            "status": memo.status,
+            "user_id": memo.user_id,
+            "username": memo.user.username if memo.user else "알 수 없음",
+            "created_at": memo.created_at.isoformat(),
+            "updated_at": memo.updated_at.isoformat(),
+            "completed_at": memo.completed_at.isoformat() if memo.completed_at else None
+        })
+    
+    return result
+
+
+@router.get("/api/memos/{memo_id}/detail")
+def get_memo_detail(
+    memo_id: int,
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    """메모 상세 정보 조회"""
+    username = request.session.get("user")
+    if not username:
+        raise HTTPException(status_code=401, detail="로그인이 필요합니다")
+    
+    current_user = db.query(User).filter(User.username == username).first()
+    if not current_user:
+        raise HTTPException(status_code=404, detail="사용자를 찾을 수 없습니다")
+    
+    memo = db.query(PersonalMemo).options(
+        joinedload(PersonalMemo.user),
+        joinedload(PersonalMemo.files)
+    ).filter(PersonalMemo.id == memo_id).first()
+    
+    if not memo:
+        raise HTTPException(status_code=404, detail="메모를 찾을 수 없습니다")
+    
+    # 권한 확인 (본인 또는 관리자)
+    if memo.user_id != current_user.id and not current_user.is_admin:
+        raise HTTPException(status_code=403, detail="권한이 없습니다")
+    
+    # 첨부파일 리스트
+    files = []
+    for file in memo.files:
+        files.append({
+            "id": file.id,
+            "filename": file.filename,
+            "filepath": file.filepath,
+            "filesize": file.filesize,
+            "uploaded_at": file.uploaded_at.isoformat()
+        })
+    
+    return {
+        "id": memo.id,
+        "title": memo.title,
+        "content": memo.content,
+        "priority": memo.priority,
+        "status": memo.status,
+        "user_id": memo.user_id,
+        "username": memo.user.username if memo.user else "알 수 없음",
+        "created_at": memo.created_at.isoformat(),
+        "updated_at": memo.updated_at.isoformat(),
+        "completed_at": memo.completed_at.isoformat() if memo.completed_at else None,
+        "files": files,
+        "is_owner": memo.user_id == current_user.id
+    }
+
+
+@router.post("/api/memos/create")
+async def create_memo(
+    request: Request,
+    title: str = Form(...),
+    content: str = Form(...),
+    priority: str = Form("normal"),
+    files: List[UploadFile] = File(None),
+    db: Session = Depends(get_db)
+):
+    """메모 생성"""
+    username = request.session.get("user")
+    if not username:
+        raise HTTPException(status_code=401, detail="로그인이 필요합니다")
+    
+    current_user = db.query(User).filter(User.username == username).first()
+    if not current_user:
+        raise HTTPException(status_code=404, detail="사용자를 찾을 수 없습니다")
+    
+    # 메모 생성
+    new_memo = PersonalMemo(
+        title=title,
+        content=content,
+        user_id=current_user.id,
+        priority=priority,
+        status='active'
+    )
+    db.add(new_memo)
+    db.flush()
+    
+    # 파일 업로드 처리
+    uploaded_files = []
+    if files:
+        for file in files:
+            if file.filename:
+                file_ext = os.path.splitext(file.filename)[1]
+                unique_filename = f"{uuid.uuid4()}{file_ext}"
+                filepath = os.path.join(UPLOAD_DIR, unique_filename)
+                
+                with open(filepath, "wb") as f:
+                    f.write(await file.read())
+                
+                memo_file = MemoFile(
+                    memo_id=new_memo.id,
+                    filename=file.filename,
+                    filepath=filepath,
+                    filesize=os.path.getsize(filepath)
+                )
+                db.add(memo_file)
+                db.flush()
+                
+                uploaded_files.append({
+                    "id": memo_file.id,
+                    "filename": memo_file.filename,
+                    "filepath": memo_file.filepath
+                })
+    
+    db.commit()
+    
+    # ⭐ WebSocket 알림 (자기 자신에게)
+    try:
+        await manager.send_personal_message({
+            'type': 'new_memo',
+            'memo_id': new_memo.id,
+            'title': title,
+            'message': f"새 메모: {title}",
+            'priority': priority,
+            'status': 'active',
+            'user_id': current_user.id,
+            'username': current_user.username,
+            'timestamp': get_kst_now().isoformat()
+        }, current_user.id)
+    except Exception as e:
+        print(f"WebSocket 전송 오류: {e}")
+    
+    return {
+        "success": True,
+        "memo_id": new_memo.id,
+        "message": "메모가 생성되었습니다",
+        "files": uploaded_files
+    }
+
+
+@router.post("/api/memos/{memo_id}/complete")
+async def complete_memo(
+    memo_id: int,
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    """메모 완료 처리"""
+    username = request.session.get("user")
+    if not username:
+        raise HTTPException(status_code=401, detail="로그인이 필요합니다")
+    
+    current_user = db.query(User).filter(User.username == username).first()
+    memo = db.query(PersonalMemo).filter(PersonalMemo.id == memo_id).first()
+    
+    if not memo:
+        raise HTTPException(status_code=404, detail="메모를 찾을 수 없습니다")
+    
+    # 권한 확인
+    if memo.user_id != current_user.id and not current_user.is_admin:
+        raise HTTPException(status_code=403, detail="권한이 없습니다")
+    
+    # 완료 처리
+    memo.status = 'completed'
+    memo.completed_at = get_kst_now()
+    memo.updated_at = get_kst_now()
+    
+    db.commit()
+    
+    # WebSocket 알림
+    try:
+        await manager.send_personal_message({
+            'type': 'memo_completed',
+            'memo_id': memo.id,
+            'title': memo.title,
+            'message': f"메모 완료: {memo.title}",
+            'status': 'completed',
+            'user_id': current_user.id,
+            'username': current_user.username,
+            'timestamp': get_kst_now().isoformat()
+        }, current_user.id)
+    except Exception as e:
+        print(f"WebSocket 전송 오류: {e}")
+    
+    return {
+        "success": True,
+        "message": "메모가 완료 처리되었습니다"
+    }
+
+
+@router.post("/api/memos/{memo_id}/update")
+async def update_memo(
+    memo_id: int,
+    request: Request,
+    title: str = Form(None),
+    content: str = Form(None),
+    priority: str = Form(None),
+    files: List[UploadFile] = File(None),
+    db: Session = Depends(get_db)
+):
+    """메모 수정"""
+    username = request.session.get("user")
+    if not username:
+        raise HTTPException(status_code=401, detail="로그인이 필요합니다")
+    
+    current_user = db.query(User).filter(User.username == username).first()
+    memo = db.query(PersonalMemo).filter(PersonalMemo.id == memo_id).first()
+    
+    if not memo:
+        raise HTTPException(status_code=404, detail="메모를 찾을 수 없습니다")
+    
+    # 권한 확인
+    if memo.user_id != current_user.id and not current_user.is_admin:
+        raise HTTPException(status_code=403, detail="권한이 없습니다")
+    
+    # 수정
+    if title:
+        memo.title = title
+    if content:
+        memo.content = content
+    if priority:
+        memo.priority = priority
+    
+    memo.updated_at = get_kst_now()
+    
+    # 파일 추가
+    uploaded_files = []
+    if files:
+        for file in files:
+            if file.filename:
+                file_ext = os.path.splitext(file.filename)[1]
+                unique_filename = f"{uuid.uuid4()}{file_ext}"
+                filepath = os.path.join(UPLOAD_DIR, unique_filename)
+                
+                with open(filepath, "wb") as f:
+                    f.write(await file.read())
+                
+                memo_file = MemoFile(
+                    memo_id=memo.id,
+                    filename=file.filename,
+                    filepath=filepath,
+                    filesize=os.path.getsize(filepath)
+                )
+                db.add(memo_file)
+                db.flush()
+                
+                uploaded_files.append({
+                    "id": memo_file.id,
+                    "filename": memo_file.filename,
+                    "filepath": memo_file.filepath
+                })
+    
+    db.commit()
+    
+    return {
+        "success": True,
+        "message": "메모가 수정되었습니다",
+        "files": uploaded_files
+    }
+
+
+@router.post("/api/memos/{memo_id}/delete")
+async def delete_memo(
+    memo_id: int,
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    """메모 삭제"""
+    username = request.session.get("user")
+    if not username:
+        raise HTTPException(status_code=401, detail="로그인이 필요합니다")
+    
+    current_user = db.query(User).filter(User.username == username).first()
+    memo = db.query(PersonalMemo).filter(PersonalMemo.id == memo_id).first()
+    
+    if not memo:
+        raise HTTPException(status_code=404, detail="메모를 찾을 수 없습니다")
+    
+    # 권한 확인
+    if memo.user_id != current_user.id and not current_user.is_admin:
+        raise HTTPException(status_code=403, detail="권한이 없습니다")
+    
+    # 파일 먼저 삭제
+    files = db.query(MemoFile).filter(MemoFile.memo_id == memo_id).all()
+    for file in files:
+        db.delete(file)
+    
+    # 메모 삭제
+    db.delete(memo)
+    db.commit()
+    
+    return {
+        "success": True,
+        "message": "메모가 삭제되었습니다"
+    }

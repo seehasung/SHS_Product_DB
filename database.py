@@ -800,6 +800,56 @@ class HomepagePostSchedule(Base):
     homepage_account = relationship("HomepageAccount", foreign_keys=[homepage_account_id])
     marketing_product = relationship("MarketingProduct", foreign_keys=[marketing_product_id])
     homepage_post = relationship("HomepagePost", foreign_keys=[homepage_post_id])
+    
+# ============================================
+# 개인 메모 시스템 모델 (데일리 일지)
+# ============================================
+
+class PersonalMemo(Base):
+    """개인 메모/데일리 일지 테이블"""
+    __tablename__ = "personal_memos"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    
+    # 메모 정보
+    title = Column(String(500), nullable=False)
+    content = Column(Text, nullable=False)
+    
+    # 작성자 (자기 자신에게 작성)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    
+    # 우선순위
+    priority = Column(String(20), default="normal")  # urgent, important, normal
+    
+    # 상태 관리
+    status = Column(String(20), default="active")  # active, completed, archived
+    
+    # 완료 정보
+    completed_at = Column(DateTime(timezone=True), nullable=True)
+    
+    # 타임스탬프
+    created_at = Column(DateTime(timezone=True), default=get_kst_now, nullable=False)
+    updated_at = Column(DateTime(timezone=True), default=get_kst_now, onupdate=get_kst_now)
+    
+    # 관계 설정
+    user = relationship("User", backref="personal_memos")
+    files = relationship("MemoFile", back_populates="memo", cascade="all, delete-orphan")
+
+
+class MemoFile(Base):
+    """메모 첨부파일 테이블"""
+    __tablename__ = "memo_files"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    memo_id = Column(Integer, ForeignKey("personal_memos.id", ondelete="CASCADE"), nullable=False)
+    
+    filename = Column(String(500), nullable=False)
+    filepath = Column(String(1000), nullable=False)
+    filesize = Column(Integer, nullable=True)  # bytes
+    uploaded_at = Column(DateTime(timezone=True), default=get_kst_now, nullable=False)
+    
+    # 관계
+    memo = relationship("PersonalMemo", back_populates="files")
 
 def get_db():
     """데이터베이스 세션 의존성"""
@@ -816,6 +866,7 @@ __all__ = [
     "MarketingProduct", "Reference", "PostLog", "Comment", "MarketingPost",
     "WorkTask", "PostSchedule", "AccountCafeUsage", "PostingRound", "LoginLog",
     "TaskAssignment", "TaskComment", "TaskFile", "TaskNotification",
+    "PersonalMemo", "MemoFile",
     "SessionLocal", "Base", "engine",
     "get_db", "HomepageWorker", "HomepageAccount", "HomepageProductKeyword", "HomepagePost",
     "HomepagePostImage", "HomepageKeywordProgress", "HomepageWorkTask", "HomepagePostSchedule",

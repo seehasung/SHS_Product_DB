@@ -1064,6 +1064,105 @@
         gap: 16px;
     "></div>
 
+    <!-- ============================================ -->
+    <!-- 📝 메모/일지 버튼 (추가!) -->
+    <!-- ============================================ -->
+    <div id="memoFloat" style="display: none;">
+        <button id="memoBtn" class="btn shadow-lg" style="
+            position: fixed;
+            bottom: 30px;
+            right: 190px;
+            width: 70px;
+            height: 70px;
+            border-radius: 50%;
+            border: none;
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            box-shadow: 0 8px 32px rgba(240, 147, 251, 0.45);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            z-index: 9999;
+            padding: 0;
+        " onmouseover="this.style.transform='translateY(-4px) scale(1.1)'" 
+        onmouseout="this.style.transform='translateY(0) scale(1)'">
+            <div style="
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                width: 100%;
+                height: 100%;
+            ">
+                <i class="bi bi-journal-text" style="font-size: 28px; color: white;"></i>
+            </div>
+        </button>
+    </div>
+
+    <!-- 메모 오버레이 -->
+    <div id="memoOverlay" style="
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: transparent;
+        z-index: 9998;
+        display: none;
+    "></div>
+
+    <!-- 메모 사이드 패널 (Drawer) -->
+    <div id="memoDrawer" style="
+        position: fixed;
+        top: 0;
+        right: -520px;
+        width: 520px;
+        height: 100vh;
+        background: rgba(255, 255, 255, 0.98);
+        backdrop-filter: blur(20px);
+        box-shadow: -8px 0 32px rgba(0, 0, 0, 0.2);
+        z-index: 9999;
+        transition: right 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        overflow-y: auto;
+        border-radius: 24px 0 0 24px;
+    ">
+        <!-- 헤더 -->
+        <div style="
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            padding: 28px 24px;
+            border-radius: 24px 0 0 0;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            box-shadow: 0 4px 20px rgba(240, 147, 251, 0.25);
+        ">
+            <div class="d-flex justify-content-between align-items-center">
+                <h4 style="color: white; margin: 0; font-weight: 800; font-size: 1.5rem;">
+                    <i class="bi bi-journal-text me-2"></i>나의 메모/일지
+                </h4>
+                <button id="closeMemoDrawerBtn" class="btn btn-light" style="
+                    border-radius: 50%;
+                    width: 40px;
+                    height: 40px;
+                    padding: 0;
+                    border: none;
+                    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+                    transition: all 0.3s ease;
+                " onmouseover="this.style.transform='rotate(90deg) scale(1.1)'" 
+                onmouseout="this.style.transform='rotate(0) scale(1)'">
+                    <i class="bi bi-x-lg" style="font-size: 1.2rem;"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- 내용 -->
+        <div id="memoContent" style="padding: 24px;">
+            <!-- 로딩 표시 -->
+            <div class="text-center py-5">
+                <div class="spinner-border" style="width: 3rem; height: 3rem; color: #f093fb;">
+                    <span class="visually-hidden">로딩 중...</span>
+                </div>
+                <p class="mt-3 text-muted">메모를 불러오는 중...</p>
+            </div>
+        </div>
+    </div>
+
     <!-- 스타일 -->
     <style>
         /* 알림 아이템 스타일 */
@@ -1346,7 +1445,8 @@
                 
                 document.getElementById('taskNotificationFloat').style.display = 'block';
                 document.getElementById('taskRequestFloat').style.display = 'block';
-                
+                document.getElementById('memoFloat').style.display = 'block';  // ⭐ 추가!
+
                 fetch('/tasks/get-current-user-id')
                     .then(response => {
                         if (!response.ok) {
@@ -1369,12 +1469,17 @@
                     });
             }
 
+
+
             const notificationBtn = document.getElementById('taskNotificationBtn');
             const closeDrawerBtn = document.getElementById('closeDrawerBtn');
             const notificationOverlay = document.getElementById('taskNotificationOverlay');
             const requestBtn = document.getElementById('taskRequestBtn');
             const closeRequestBtn = document.getElementById('closeRequestDrawerBtn');
             const requestOverlay = document.getElementById('taskRequestOverlay');
+            const memoBtn = document.getElementById('memoBtn');
+            const closeMemoBtn = document.getElementById('closeMemoDrawerBtn');
+            const memoOverlay = document.getElementById('memoOverlay');
             
             if (notificationBtn) notificationBtn.addEventListener('click', toggleDrawer);
             if (closeDrawerBtn) closeDrawerBtn.addEventListener('click', closeDrawer);
@@ -1383,6 +1488,10 @@
             if (requestBtn) requestBtn.addEventListener('click', toggleRequestDrawer);
             if (closeRequestBtn) closeRequestBtn.addEventListener('click', closeRequestDrawer);
             if (requestOverlay) requestOverlay.addEventListener('click', closeRequestDrawer);
+
+            if (memoBtn) memoBtn.addEventListener('click', toggleMemoDrawer);
+            if (closeMemoBtn) closeMemoBtn.addEventListener('click', closeMemoDrawer);
+            if (memoOverlay) memoOverlay.addEventListener('click', closeMemoDrawer);
         });
 
         
@@ -2755,6 +2864,20 @@
                     iconClass: 'bi-chat-dots-fill',
                     text: '댓글 추가'
                 }
+                'new_memo': {  // ⭐ 추가!
+                    color: '#f093fb',
+                    gradient: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
+                    icon: '📝',
+                    iconClass: 'bi-journal-text',
+                    text: '새 메모'
+                },
+                'memo_completed': {  // ⭐ 추가!
+                    color: '#00b894',
+                    gradient: 'linear-gradient(135deg, #00b894 0%, #55efc4 100%)',
+                    icon: '✅',
+                    iconClass: 'bi-check-circle-fill',
+                    text: '메모 완료'
+                }
             };
             
             const type = data.type || 'new_task';
@@ -3285,6 +3408,418 @@
                     });
             }
         });
+
+        // ============================================
+        // 메모/일지 드로어 열기/닫기
+        // ============================================
+        let isMemoDrawerOpen = false;
+
+        function toggleMemoDrawer() {
+            if (isMemoDrawerOpen) {
+                closeMemoDrawer();
+            } else {
+                openMemoDrawer();
+            }
+        }
+
+        function openMemoDrawer() {
+            // ⭐ 다른 팝업 닫기
+            if (isDrawerOpen) closeDrawer();
+            if (isRequestDrawerOpen) closeRequestDrawer();
+            
+            isMemoDrawerOpen = true;
+            const drawer = document.getElementById('memoDrawer');
+            const overlay = document.getElementById('memoOverlay');
+            
+            drawer.style.right = '0';
+            overlay.style.display = 'block';
+            
+            loadMemoContent();
+        }
+
+        function closeMemoDrawer() {
+            isMemoDrawerOpen = false;
+            const drawer = document.getElementById('memoDrawer');
+            const overlay = document.getElementById('memoOverlay');
+            
+            drawer.style.right = window.innerWidth <= 768 ? '-100%' : '-520px';
+            overlay.style.display = 'none';
+        }
+
+        // ============================================
+        // 메모 내용 로드
+        // ============================================
+        async function loadMemoContent() {
+            const container = document.getElementById('memoContent');
+            
+            try {
+                const dashboardResponse = await fetch('/tasks/api/memos/dashboard');
+                const dashboard = await dashboardResponse.json();
+                
+                const memosResponse = await fetch('/tasks/api/memos/list?filter_type=all');
+                const memos = await memosResponse.json();
+                
+                let html = `
+                    <div class="mb-4" style="background: linear-gradient(135deg, rgba(240, 147, 251, 0.1) 0%, rgba(245, 87, 108, 0.1) 100%); padding: 20px; border-radius: 16px;">
+                        <h6 style="font-weight: 700; color: #2d3436; margin-bottom: 16px;">
+                            <i class="bi bi-bar-chart-fill"></i> 메모 현황
+                        </h6>
+                        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px;">
+                            <div style="text-align: center; background: white; padding: 12px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.05);">
+                                <div style="font-size: 1.8rem; font-weight: 800; color: #f093fb;">${dashboard.active}</div>
+                                <div style="font-size: 0.85rem; color: #636e72; font-weight: 600;">진행중</div>
+                            </div>
+                            <div style="text-align: center; background: white; padding: 12px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.05);">
+                                <div style="font-size: 1.8rem; font-weight: 800; color: #00b894;">${dashboard.completed}</div>
+                                <div style="font-size: 0.85rem; color: #636e72; font-weight: 600;">오늘 완료</div>
+                            </div>
+                            <div style="text-align: center; background: white; padding: 12px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.05);">
+                                <div style="font-size: 1.8rem; font-weight: 800; color: #fdcb6e;">${dashboard.today_active}</div>
+                                <div style="font-size: 0.85rem; color: #636e72; font-weight: 600;">오늘 작성</div>
+                            </div>
+                            <div style="text-align: center; background: white; padding: 12px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.05);">
+                                <div style="font-size: 1.8rem; font-weight: 800; color: #2d3436;">${dashboard.total}</div>
+                                <div style="font-size: 0.85rem; color: #636e72; font-weight: 600;">전체</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-4">
+                        <button onclick="toggleNewMemoForm()" class="btn w-100" style="
+                            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+                            color: white;
+                            border-radius: 16px;
+                            padding: 16px;
+                            font-weight: 700;
+                            font-size: 1.1rem;
+                            box-shadow: 0 4px 16px rgba(240, 147, 251, 0.3);
+                        ">
+                            <i class="bi bi-plus-circle-fill me-2"></i>새 메모 작성
+                        </button>
+                        
+                        <div id="newMemoForm" style="display: none; margin-top: 16px; background: white; padding: 20px; border-radius: 16px; box-shadow: 0 4px 16px rgba(0,0,0,0.08);">
+                            <form id="createMemoForm" onsubmit="submitNewMemo(event)">
+                                <div class="mb-3">
+                                    <label class="form-label" style="font-weight: 600;">제목 *</label>
+                                    <input type="text" name="title" class="form-control" required style="border-radius: 12px;">
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label" style="font-weight: 600;">우선순위</label>
+                                    <select name="priority" class="form-select" style="border-radius: 12px;">
+                                        <option value="normal">보통</option>
+                                        <option value="important">중요</option>
+                                        <option value="urgent">긴급</option>
+                                    </select>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label" style="font-weight: 600;">내용 *</label>
+                                    <textarea name="content" class="form-control" rows="4" required style="border-radius: 12px; resize: none;"></textarea>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label" style="font-weight: 600;">첨부파일</label>
+                                    <input type="file" name="files" class="form-control" multiple style="border-radius: 12px;">
+                                </div>
+                                <div class="d-flex gap-2">
+                                    <button type="button" onclick="toggleNewMemoForm()" class="btn btn-secondary flex-fill" style="border-radius: 12px;">취소</button>
+                                    <button type="submit" class="btn flex-fill" style="border-radius: 12px; background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white;">
+                                        <i class="bi bi-check2"></i> 작성
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-4">
+                        <h6 style="font-weight: 700; color: #2d3436; margin-bottom: 12px;">
+                            <i class="bi bi-funnel-fill"></i> 날짜 필터
+                        </h6>
+                        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                            <button onclick="filterMemos('all')" class="btn btn-sm btn-outline-primary" style="border-radius: 10px;">
+                                전체
+                            </button>
+                            <button onclick="filterMemos('today')" class="btn btn-sm btn-outline-primary" style="border-radius: 10px;">
+                                오늘
+                            </button>
+                            <button onclick="filterMemos('week')" class="btn btn-sm btn-outline-primary" style="border-radius: 10px;">
+                                이번주
+                            </button>
+                            <button onclick="filterMemos('month')" class="btn btn-sm btn-outline-primary" style="border-radius: 10px;">
+                                이번달
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-4">
+                        <h6 style="font-weight: 700; color: #2d3436; margin-bottom: 12px;">
+                            <i class="bi bi-journal-text"></i> 나의 메모 (${memos.length})
+                        </h6>
+                        <div id="memosList">
+                            ${memos.length > 0 ? memos.map(memo => `
+                                <div class="memo-item" data-memo-id="${memo.id}">
+                                    <div class="task-notification-item" 
+                                        style="border-left: 5px solid ${getMemoColor(memo.priority)};"
+                                        onclick="toggleMemoAccordion(${memo.id})">
+                                        <div class="task-notification-title">
+                                            ${getMemoBadge(memo.priority)}
+                                            <span style="margin-left: 8px; font-size: 1rem;">${memo.title}</span>
+                                        </div>
+                                        <div class="task-notification-meta">
+                                            <span><i class="bi bi-clock"></i> ${formatTimeAgo(memo.created_at)}</span>
+                                        </div>
+                                    </div>
+                                    <div class="task-accordion-content" id="memo-accordion-${memo.id}" style="display: none;">
+                                        <div class="text-center py-3">
+                                            <div class="spinner-border" style="color: #f093fb;" role="status">
+                                                <span class="visually-hidden">로딩 중...</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            `).join('') : '<p style="text-align: center; color: #adb5bd; padding: 40px;">작성한 메모가 없습니다</p>'}
+                        </div>
+                    </div>
+                `;
+                
+                container.innerHTML = html;
+                
+            } catch (error) {
+                console.error('메모 내용 로드 오류:', error);
+                container.innerHTML = `
+                    <div style="padding: 40px; text-align: center; color: #dc3545;">
+                        <i class="bi bi-exclamation-triangle" style="font-size: 3rem;"></i>
+                        <p class="mt-3">정보를 불러오는데 실패했습니다.</p>
+                    </div>
+                `;
+            }
+        }
+
+        function toggleNewMemoForm() {
+            const form = document.getElementById('newMemoForm');
+            if (form.style.display === 'none' || form.style.display === '') {
+                form.style.display = 'block';
+                form.style.animation = 'slideDown 0.3s ease-out';
+            } else {
+                form.style.display = 'none';
+            }
+        }
+
+        async function submitNewMemo(event) {
+            event.preventDefault();
+            
+            const form = event.target;
+            const formData = new FormData(form);
+            
+            try {
+                const response = await fetch('/tasks/api/memos/create', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                if (response.ok) {
+                    showToast('메모가 작성되었습니다', 'success');
+                    form.reset();
+                    toggleNewMemoForm();
+                    loadMemoContent();
+                } else {
+                    showToast('메모 작성에 실패했습니다', 'error');
+                }
+            } catch (error) {
+                console.error('메모 작성 오류:', error);
+                showToast('메모 작성 중 오류가 발생했습니다', 'error');
+            }
+        }
+
+        async function filterMemos(filterType) {
+            try {
+                const response = await fetch(`/tasks/api/memos/list?filter_type=${filterType}`);
+                const memos = await response.json();
+                
+                const container = document.getElementById('memosList');
+                
+                if (memos.length > 0) {
+                    container.innerHTML = memos.map(memo => `
+                        <div class="memo-item" data-memo-id="${memo.id}">
+                            <div class="task-notification-item" 
+                                style="border-left: 5px solid ${getMemoColor(memo.priority)};"
+                                onclick="toggleMemoAccordion(${memo.id})">
+                                <div class="task-notification-title">
+                                    ${getMemoBadge(memo.priority)}
+                                    <span style="margin-left: 8px; font-size: 1rem;">${memo.title}</span>
+                                </div>
+                                <div class="task-notification-meta">
+                                    <span><i class="bi bi-clock"></i> ${formatTimeAgo(memo.created_at)}</span>
+                                </div>
+                            </div>
+                            <div class="task-accordion-content" id="memo-accordion-${memo.id}" style="display: none;">
+                                <div class="text-center py-3">
+                                    <div class="spinner-border" style="color: #f093fb;" role="status">
+                                        <span class="visually-hidden">로딩 중...</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    `).join('');
+                } else {
+                    container.innerHTML = '<p style="text-align: center; color: #adb5bd; padding: 40px;">메모가 없습니다</p>';
+                }
+            } catch (error) {
+                console.error('메모 필터링 오류:', error);
+            }
+        }
+
+        let openedMemoAccordion = null;
+
+        async function toggleMemoAccordion(memoId) {
+            const accordion = document.getElementById(`memo-accordion-${memoId}`);
+            
+            if (accordion.style.display === 'block') {
+                accordion.style.display = 'none';
+                openedMemoAccordion = null;
+                return;
+            }
+            
+            if (openedMemoAccordion && openedMemoAccordion !== accordion) {
+                openedMemoAccordion.style.display = 'none';
+            }
+            
+            accordion.style.display = 'block';
+            openedMemoAccordion = accordion;
+            
+            await loadMemoDetail(memoId);
+        }
+
+        async function loadMemoDetail(memoId) {
+            const accordion = document.getElementById(`memo-accordion-${memoId}`);
+            
+            try {
+                const response = await fetch(`/tasks/api/memos/${memoId}/detail`);
+                const memo = await response.json();
+                
+                let html = `
+                    <div style="padding: 20px; background: rgba(255, 255, 255, 0.98); border-radius: 0 0 20px 20px;">
+                        <div class="mb-4">
+                            <h6 style="font-weight: 700; color: #2d3436; margin-bottom: 12px;">
+                                <i class="bi bi-file-text"></i> 메모 내용
+                            </h6>
+                            <div style="background: #f8f9fa; padding: 16px; border-radius: 12px; white-space: pre-wrap; line-height: 1.6;">
+                                ${memo.content.trim().split('\n').map(line => line.trim()).join('\n')}
+                            </div>
+                        </div>
+                        
+                        ${memo.files.length > 0 ? `
+                        <div class="mb-4">
+                            <h6 style="font-weight: 700; color: #2d3436; margin-bottom: 12px;">
+                                <i class="bi bi-paperclip"></i> 첨부파일 (${memo.files.length})
+                            </h6>
+                            <div style="display: flex; flex-direction: column; gap: 8px;">
+                                ${memo.files.map(file => `
+                                    <a href="/${file.filepath}" download="${file.filename}" 
+                                    style="display: flex; align-items: center; gap: 8px; padding: 10px; background: white; border-radius: 8px; text-decoration: none; color: #f093fb; border: 1px solid #e1e8ed;">
+                                        <i class="bi bi-file-earmark"></i>
+                                        <span style="flex: 1;">${file.filename}</span>
+                                        <span style="font-size: 0.85rem; color: #636e72;">${formatFileSize(file.filesize)}</span>
+                                        <i class="bi bi-download"></i>
+                                    </a>
+                                `).join('')}
+                            </div>
+                        </div>
+                        ` : ''}
+                        
+                        <div class="mb-3">
+                            <button onclick="completeMemo(${memoId})" class="btn w-100" style="
+                                border-radius: 12px;
+                                padding: 12px;
+                                font-weight: 600;
+                                background: linear-gradient(135deg, #00b894 0%, #55efc4 100%);
+                                color: white;
+                            ">
+                                <i class="bi bi-check-circle-fill"></i> 완료 처리
+                            </button>
+                        </div>
+                        
+                        ${memo.is_owner ? `
+                            <div class="mb-3">
+                                <button onclick="deleteMemo(${memoId})" class="btn btn-danger w-100" style="
+                                    border-radius: 12px;
+                                    padding: 12px;
+                                    font-weight: 600;
+                                ">
+                                    <i class="bi bi-trash-fill"></i> 삭제
+                                </button>
+                            </div>
+                        ` : ''}
+                    </div>
+                `;
+                
+                accordion.innerHTML = html;
+                
+            } catch (error) {
+                console.error('메모 상세 로드 오류:', error);
+                accordion.innerHTML = `
+                    <div style="padding: 20px; text-align: center; color: #dc3545;">
+                        <i class="bi bi-exclamation-triangle"></i> 정보를 불러오는데 실패했습니다.
+                    </div>
+                `;
+            }
+        }
+
+        async function completeMemo(memoId) {
+            if (!confirm('이 메모를 완료 처리하시겠습니까?')) return;
+            
+            try {
+                const response = await fetch(`/tasks/api/memos/${memoId}/complete`, {
+                    method: 'POST'
+                });
+                
+                if (response.ok) {
+                    showToast('메모가 완료 처리되었습니다', 'success');
+                    loadMemoContent();
+                } else {
+                    showToast('완료 처리에 실패했습니다', 'error');
+                }
+            } catch (error) {
+                console.error('완료 처리 오류:', error);
+                showToast('완료 처리 중 오류가 발생했습니다', 'error');
+            }
+        }
+
+        async function deleteMemo(memoId) {
+            if (!confirm('정말로 이 메모를 삭제하시겠습니까?')) return;
+            
+            try {
+                const response = await fetch(`/tasks/api/memos/${memoId}/delete`, {
+                    method: 'POST'
+                });
+                
+                if (response.ok) {
+                    showToast('메모가 삭제되었습니다', 'success');
+                    loadMemoContent();
+                } else {
+                    showToast('삭제에 실패했습니다', 'error');
+                }
+            } catch (error) {
+                console.error('삭제 오류:', error);
+                showToast('삭제 중 오류가 발생했습니다', 'error');
+            }
+        }
+
+        function getMemoColor(priority) {
+            const colors = {
+                'urgent': '#eb3349',
+                'important': '#fdcb6e',
+                'normal': '#f093fb'
+            };
+            return colors[priority] || '#f093fb';
+        }
+
+        function getMemoBadge(priority) {
+            const badges = {
+                'urgent': '<span class="badge" style="background: linear-gradient(135deg, #eb3349 0%, #f45c43 100%); color: white; padding: 6px 12px; border-radius: 8px; font-size: 0.75rem; font-weight: 700;">긴급</span>',
+                'important': '<span class="badge" style="background: linear-gradient(135deg, #fdcb6e 0%, #ffeaa7 100%); color: #2d3436; padding: 6px 12px; border-radius: 8px; font-size: 0.75rem; font-weight: 700;">중요</span>',
+                'normal': '<span class="badge" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white; padding: 6px 12px; border-radius: 8px; font-size: 0.75rem; font-weight: 700;">보통</span>'
+            };
+            return badges[priority] || badges['normal'];
+        }
 
     </script>
 
