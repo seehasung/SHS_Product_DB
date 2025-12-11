@@ -2995,25 +2995,13 @@
             } else if (type === 'memo_completed' || status === 'memo_completed') {
                 config = statusConfig['memo_completed'];
             }
-                    
+            
             console.log('✅ config 설정 완료:', config);
             
             const toast = document.createElement('div');
             toast.className = 'task-toast';
             toast.style.borderLeft = `6px solid ${config.color}`;
-            
-            if (type === 'new_comment') {
-                config = statusConfig['comment'];
-            } else if (type === 'new_memo' || status === 'new_memo') {
-                config = statusConfig['new_memo'];
-            } else if (type === 'memo_completed' || status === 'memo_completed') {
-                config = statusConfig['memo_completed'];
-            }
-            
-            const toast = document.createElement('div');
-            toast.className = 'task-toast';
-            toast.style.borderLeft = `6px solid ${config.color}`;
-            
+                    
             // ⭐ 메모 타입일 때 다른 내용 표시
             let content = '';
             if (type === 'new_memo' || type === 'memo_completed') {
