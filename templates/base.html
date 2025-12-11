@@ -1628,7 +1628,6 @@
         }
 
         function openDrawer() {
-            // ⭐ 다른 드로어 닫기
             if (isRequestDrawerOpen) closeRequestDrawer();
             if (isMemoDrawerOpen) closeMemoDrawer();
             
@@ -1637,7 +1636,6 @@
             const overlay = document.getElementById('taskNotificationOverlay');
             const badgeContainer = document.getElementById('taskNotificationBadgeContainer');
             
-            // ⭐ 플로팅 버튼들 숨김
             document.getElementById('taskRequestFloat').style.display = 'none';
             document.getElementById('memoFloat').style.display = 'none';
             
@@ -1651,34 +1649,11 @@
             loadNotifications();
         }
 
-        function openRequestDrawer() {
-            // ⭐ 업무 알림 팝업이 열려있으면 닫기
-            if (isDrawerOpen) {
-                closeDrawer();
-            }
-            
-            isRequestDrawerOpen = true;
-            const drawer = document.getElementById('taskRequestDrawer');
-            const overlay = document.getElementById('taskRequestOverlay');
-            const badgeContainer = document.getElementById('taskNotificationBadgeContainer');
-            
-            if (badgeContainer) {
-                badgeContainer.style.display = 'none';
-                console.log('✅ 드로어 열림 - 배지 숨김');
-            }
-
-            drawer.style.right = '0';
-            overlay.style.display = 'block';
-            
-            loadTaskRequestContent();
-        }
-
         function closeDrawer() {
             isDrawerOpen = false;
             const drawer = document.getElementById('taskNotificationDrawer');
             const overlay = document.getElementById('taskNotificationOverlay');
             
-            // ⭐ 플로팅 버튼들 다시 표시
             document.getElementById('taskRequestFloat').style.display = 'block';
             document.getElementById('memoFloat').style.display = 'block';
             
@@ -1687,15 +1662,13 @@
             
             setTimeout(() => {
                 updateNotificationBadge();
-                updateMemoBadge(); // ⭐ 메모 배지도 업데이트
+                updateMemoBadge();
             }, 400);
         }
 
         // ============================================
         // 업무 지시 드로어 열기/닫기
         // ============================================
-        let isRequestDrawerOpen = false;
-
         function toggleRequestDrawer() {
             if (isRequestDrawerOpen) {
                 closeRequestDrawer();
@@ -1705,7 +1678,6 @@
         }
 
         function openRequestDrawer() {
-            // ⭐ 다른 드로어 닫기
             if (isDrawerOpen) closeDrawer();
             if (isMemoDrawerOpen) closeMemoDrawer();
             
@@ -1715,7 +1687,6 @@
             const badgeContainer = document.getElementById('taskNotificationBadgeContainer');
             const memoBadgeContainer = document.getElementById('memoBadgeContainer');
             
-            // ⭐ 플로팅 버튼들 숨김
             document.getElementById('taskNotificationFloat').style.display = 'none';
             document.getElementById('memoFloat').style.display = 'none';
             
@@ -1733,7 +1704,6 @@
             const drawer = document.getElementById('taskRequestDrawer');
             const overlay = document.getElementById('taskRequestOverlay');
             
-            // ⭐ 플로팅 버튼들 다시 표시
             document.getElementById('taskNotificationFloat').style.display = 'block';
             document.getElementById('memoFloat').style.display = 'block';
             
@@ -1742,7 +1712,7 @@
             
             setTimeout(() => {
                 updateNotificationBadge();
-                updateMemoBadge(); // ⭐ 메모 배지도 업데이트
+                updateMemoBadge();
             }, 400);
         }
 
@@ -1755,6 +1725,45 @@
             } else {
                 openMemoDrawer();
             }
+        }
+
+        function openMemoDrawer() {
+            if (isDrawerOpen) closeDrawer();
+            if (isRequestDrawerOpen) closeRequestDrawer();
+            
+            isMemoDrawerOpen = true;
+            const drawer = document.getElementById('memoDrawer');
+            const overlay = document.getElementById('memoOverlay');
+            const badgeContainer = document.getElementById('taskNotificationBadgeContainer');
+            const memoBadgeContainer = document.getElementById('memoBadgeContainer');
+            
+            document.getElementById('taskNotificationFloat').style.display = 'none';
+            document.getElementById('taskRequestFloat').style.display = 'none';
+            
+            if (badgeContainer) badgeContainer.style.display = 'none';
+            if (memoBadgeContainer) memoBadgeContainer.style.display = 'none';
+            
+            drawer.style.right = '0';
+            overlay.style.display = 'block';
+            
+            loadMemoContent();
+        }
+
+        function closeMemoDrawer() {
+            isMemoDrawerOpen = false;
+            const drawer = document.getElementById('memoDrawer');
+            const overlay = document.getElementById('memoOverlay');
+            
+            document.getElementById('taskNotificationFloat').style.display = 'block';
+            document.getElementById('taskRequestFloat').style.display = 'block';
+            
+            drawer.style.right = window.innerWidth <= 768 ? '-100%' : '-520px';
+            overlay.style.display = 'none';
+            
+            setTimeout(() => {
+                updateNotificationBadge();
+                updateMemoBadge();
+            }, 400);
         }
 
         // ============================================
