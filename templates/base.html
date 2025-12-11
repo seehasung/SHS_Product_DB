@@ -2863,7 +2863,7 @@
                     icon: '💬',
                     iconClass: 'bi-chat-dots-fill',
                     text: '댓글 추가'
-                }
+                },
                 'new_memo': {  // ⭐ 추가!
                     color: '#f093fb',
                     gradient: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
@@ -3423,7 +3423,6 @@
         }
 
         function openMemoDrawer() {
-            // ⭐ 다른 팝업 닫기
             if (isDrawerOpen) closeDrawer();
             if (isRequestDrawerOpen) closeRequestDrawer();
             
@@ -3459,7 +3458,35 @@
                 const memosResponse = await fetch('/tasks/api/memos/list?filter_type=all');
                 const memos = await memosResponse.json();
                 
-                let html = `
+                let memoListHtml = '';
+                if (memos.length > 0) {
+                    memoListHtml = memos.map(memo => `
+                        <div class="memo-item" data-memo-id="${memo.id}">
+                            <div class="task-notification-item" 
+                                style="border-left: 5px solid ${getMemoColor(memo.priority)};"
+                                onclick="toggleMemoAccordion(${memo.id})">
+                                <div class="task-notification-title">
+                                    ${getMemoBadge(memo.priority)}
+                                    <span style="margin-left: 8px; font-size: 1rem;">${escapeHtml(memo.title)}</span>
+                                </div>
+                                <div class="task-notification-meta">
+                                    <span><i class="bi bi-clock"></i> ${formatTimeAgo(memo.created_at)}</span>
+                                </div>
+                            </div>
+                            <div class="task-accordion-content" id="memo-accordion-${memo.id}" style="display: none;">
+                                <div class="text-center py-3">
+                                    <div class="spinner-border" style="color: #f093fb;" role="status">
+                                        <span class="visually-hidden">로딩 중...</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    `).join('');
+                } else {
+                    memoListHtml = '<p style="text-align: center; color: #adb5bd; padding: 40px;">작성한 메모가 없습니다</p>';
+                }
+                
+                container.innerHTML = `
                     <div class="mb-4" style="background: linear-gradient(135deg, rgba(240, 147, 251, 0.1) 0%, rgba(245, 87, 108, 0.1) 100%); padding: 20px; border-radius: 16px;">
                         <h6 style="font-weight: 700; color: #2d3436; margin-bottom: 16px;">
                             <i class="bi bi-bar-chart-fill"></i> 메모 현황
@@ -3485,15 +3512,7 @@
                     </div>
                     
                     <div class="mb-4">
-                        <button onclick="toggleNewMemoForm()" class="btn w-100" style="
-                            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-                            color: white;
-                            border-radius: 16px;
-                            padding: 16px;
-                            font-weight: 700;
-                            font-size: 1.1rem;
-                            box-shadow: 0 4px 16px rgba(240, 147, 251, 0.3);
-                        ">
+                        <button onclick="toggleNewMemoForm()" class="btn w-100" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white; border-radius: 16px; padding: 16px; font-weight: 700; font-size: 1.1rem; box-shadow: 0 4px 16px rgba(240, 147, 251, 0.3);">
                             <i class="bi bi-plus-circle-fill me-2"></i>새 메모 작성
                         </button>
                         
@@ -3534,18 +3553,10 @@
                             <i class="bi bi-funnel-fill"></i> 날짜 필터
                         </h6>
                         <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-                            <button onclick="filterMemos('all')" class="btn btn-sm btn-outline-primary" style="border-radius: 10px;">
-                                전체
-                            </button>
-                            <button onclick="filterMemos('today')" class="btn btn-sm btn-outline-primary" style="border-radius: 10px;">
-                                오늘
-                            </button>
-                            <button onclick="filterMemos('week')" class="btn btn-sm btn-outline-primary" style="border-radius: 10px;">
-                                이번주
-                            </button>
-                            <button onclick="filterMemos('month')" class="btn btn-sm btn-outline-primary" style="border-radius: 10px;">
-                                이번달
-                            </button>
+                            <button onclick="filterMemos('all')" class="btn btn-sm btn-outline-primary" style="border-radius: 10px;">전체</button>
+                            <button onclick="filterMemos('today')" class="btn btn-sm btn-outline-primary" style="border-radius: 10px;">오늘</button>
+                            <button onclick="filterMemos('week')" class="btn btn-sm btn-outline-primary" style="border-radius: 10px;">이번주</button>
+                            <button onclick="filterMemos('month')" class="btn btn-sm btn-outline-primary" style="border-radius: 10px;">이번달</button>
                         </div>
                     </div>
                     
@@ -3554,33 +3565,10 @@
                             <i class="bi bi-journal-text"></i> 나의 메모 (${memos.length})
                         </h6>
                         <div id="memosList">
-                            ${memos.length > 0 ? memos.map(memo => `
-                                <div class="memo-item" data-memo-id="${memo.id}">
-                                    <div class="task-notification-item" 
-                                        style="border-left: 5px solid ${getMemoColor(memo.priority)};"
-                                        onclick="toggleMemoAccordion(${memo.id})">
-                                        <div class="task-notification-title">
-                                            ${getMemoBadge(memo.priority)}
-                                            <span style="margin-left: 8px; font-size: 1rem;">${memo.title}</span>
-                                        </div>
-                                        <div class="task-notification-meta">
-                                            <span><i class="bi bi-clock"></i> ${formatTimeAgo(memo.created_at)}</span>
-                                        </div>
-                                    </div>
-                                    <div class="task-accordion-content" id="memo-accordion-${memo.id}" style="display: none;">
-                                        <div class="text-center py-3">
-                                            <div class="spinner-border" style="color: #f093fb;" role="status">
-                                                <span class="visually-hidden">로딩 중...</span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            `).join('') : '<p style="text-align: center; color: #adb5bd; padding: 40px;">작성한 메모가 없습니다</p>'}
+                            ${memoListHtml}
                         </div>
                     </div>
                 `;
-                
-                container.innerHTML = html;
                 
             } catch (error) {
                 console.error('메모 내용 로드 오류:', error);
@@ -3591,6 +3579,17 @@
                     </div>
                 `;
             }
+        }
+
+        function escapeHtml(text) {
+            const map = {
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#039;'
+            };
+            return text.replace(/[&<>"']/g, m => map[m]);
         }
 
         function toggleNewMemoForm() {
@@ -3631,7 +3630,7 @@
 
         async function filterMemos(filterType) {
             try {
-                const response = await fetch(`/tasks/api/memos/list?filter_type=${filterType}`);
+                const response = await fetch('/tasks/api/memos/list?filter_type=' + filterType);
                 const memos = await response.json();
                 
                 const container = document.getElementById('memosList');
@@ -3644,7 +3643,7 @@
                                 onclick="toggleMemoAccordion(${memo.id})">
                                 <div class="task-notification-title">
                                     ${getMemoBadge(memo.priority)}
-                                    <span style="margin-left: 8px; font-size: 1rem;">${memo.title}</span>
+                                    <span style="margin-left: 8px; font-size: 1rem;">${escapeHtml(memo.title)}</span>
                                 </div>
                                 <div class="task-notification-meta">
                                     <span><i class="bi bi-clock"></i> ${formatTimeAgo(memo.created_at)}</span>
@@ -3670,7 +3669,7 @@
         let openedMemoAccordion = null;
 
         async function toggleMemoAccordion(memoId) {
-            const accordion = document.getElementById(`memo-accordion-${memoId}`);
+            const accordion = document.getElementById('memo-accordion-' + memoId);
             
             if (accordion.style.display === 'block') {
                 accordion.style.display = 'none';
@@ -3689,24 +3688,15 @@
         }
 
         async function loadMemoDetail(memoId) {
-            const accordion = document.getElementById(`memo-accordion-${memoId}`);
+            const accordion = document.getElementById('memo-accordion-' + memoId);
             
             try {
-                const response = await fetch(`/tasks/api/memos/${memoId}/detail`);
+                const response = await fetch('/tasks/api/memos/' + memoId + '/detail');
                 const memo = await response.json();
                 
-                let html = `
-                    <div style="padding: 20px; background: rgba(255, 255, 255, 0.98); border-radius: 0 0 20px 20px;">
-                        <div class="mb-4">
-                            <h6 style="font-weight: 700; color: #2d3436; margin-bottom: 12px;">
-                                <i class="bi bi-file-text"></i> 메모 내용
-                            </h6>
-                            <div style="background: #f8f9fa; padding: 16px; border-radius: 12px; white-space: pre-wrap; line-height: 1.6;">
-                                ${memo.content.trim().split('\n').map(line => line.trim()).join('\n')}
-                            </div>
-                        </div>
-                        
-                        ${memo.files.length > 0 ? `
+                let filesHtml = '';
+                if (memo.files.length > 0) {
+                    filesHtml = `
                         <div class="mb-4">
                             <h6 style="font-weight: 700; color: #2d3436; margin-bottom: 12px;">
                                 <i class="bi bi-paperclip"></i> 첨부파일 (${memo.files.length})
@@ -3716,42 +3706,49 @@
                                     <a href="/${file.filepath}" download="${file.filename}" 
                                     style="display: flex; align-items: center; gap: 8px; padding: 10px; background: white; border-radius: 8px; text-decoration: none; color: #f093fb; border: 1px solid #e1e8ed;">
                                         <i class="bi bi-file-earmark"></i>
-                                        <span style="flex: 1;">${file.filename}</span>
+                                        <span style="flex: 1;">${escapeHtml(file.filename)}</span>
                                         <span style="font-size: 0.85rem; color: #636e72;">${formatFileSize(file.filesize)}</span>
                                         <i class="bi bi-download"></i>
                                     </a>
                                 `).join('')}
                             </div>
                         </div>
-                        ` : ''}
+                    `;
+                }
+                
+                let deleteBtn = '';
+                if (memo.is_owner) {
+                    deleteBtn = `
+                        <div class="mb-3">
+                            <button onclick="deleteMemo(${memoId})" class="btn btn-danger w-100" style="border-radius: 12px; padding: 12px; font-weight: 600;">
+                                <i class="bi bi-trash-fill"></i> 삭제
+                            </button>
+                        </div>
+                    `;
+                }
+                
+                accordion.innerHTML = `
+                    <div style="padding: 20px; background: rgba(255, 255, 255, 0.98); border-radius: 0 0 20px 20px;">
+                        <div class="mb-4">
+                            <h6 style="font-weight: 700; color: #2d3436; margin-bottom: 12px;">
+                                <i class="bi bi-file-text"></i> 메모 내용
+                            </h6>
+                            <div style="background: #f8f9fa; padding: 16px; border-radius: 12px; white-space: pre-wrap; line-height: 1.6;">
+        ${escapeHtml(memo.content)}
+                            </div>
+                        </div>
+                        
+                        ${filesHtml}
                         
                         <div class="mb-3">
-                            <button onclick="completeMemo(${memoId})" class="btn w-100" style="
-                                border-radius: 12px;
-                                padding: 12px;
-                                font-weight: 600;
-                                background: linear-gradient(135deg, #00b894 0%, #55efc4 100%);
-                                color: white;
-                            ">
+                            <button onclick="completeMemo(${memoId})" class="btn w-100" style="border-radius: 12px; padding: 12px; font-weight: 600; background: linear-gradient(135deg, #00b894 0%, #55efc4 100%); color: white;">
                                 <i class="bi bi-check-circle-fill"></i> 완료 처리
                             </button>
                         </div>
                         
-                        ${memo.is_owner ? `
-                            <div class="mb-3">
-                                <button onclick="deleteMemo(${memoId})" class="btn btn-danger w-100" style="
-                                    border-radius: 12px;
-                                    padding: 12px;
-                                    font-weight: 600;
-                                ">
-                                    <i class="bi bi-trash-fill"></i> 삭제
-                                </button>
-                            </div>
-                        ` : ''}
+                        ${deleteBtn}
                     </div>
                 `;
-                
-                accordion.innerHTML = html;
                 
             } catch (error) {
                 console.error('메모 상세 로드 오류:', error);
@@ -3767,7 +3764,7 @@
             if (!confirm('이 메모를 완료 처리하시겠습니까?')) return;
             
             try {
-                const response = await fetch(`/tasks/api/memos/${memoId}/complete`, {
+                const response = await fetch('/tasks/api/memos/' + memoId + '/complete', {
                     method: 'POST'
                 });
                 
@@ -3787,7 +3784,7 @@
             if (!confirm('정말로 이 메모를 삭제하시겠습니까?')) return;
             
             try {
-                const response = await fetch(`/tasks/api/memos/${memoId}/delete`, {
+                const response = await fetch('/tasks/api/memos/' + memoId + '/delete', {
                     method: 'POST'
                 });
                 
@@ -3820,6 +3817,7 @@
             };
             return badges[priority] || badges['normal'];
         }
+
 
     </script>
 
