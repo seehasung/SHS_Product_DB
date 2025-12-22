@@ -852,64 +852,86 @@ class MemoFile(Base):
     memo = relationship("PersonalMemo", back_populates="files")
     
 class Order(Base):
-    """주문 정보 테이블 (엑셀 업로드) - 모든 필드 문자열"""
+    """주문 정보 테이블 (모든 필드 TEXT - 크기 제한 없음)"""
     __tablename__ = "orders"
     
     id = Column(Integer, primary_key=True, index=True)
     
+    # ============================================
     # 주문 기본 정보
-    order_status = Column(String(100))  # 주문상태
-    order_date = Column(String(50), nullable=True)  # 주문일자
-    claim_date = Column(String(50), nullable=True)  # 클레임일자
+    # ============================================
+    order_status = Column(Text, nullable=True)  # 주문상태
+    order_date = Column(Text, nullable=True)  # 주문일자
+    claim_date = Column(Text, nullable=True)  # 클레임일자
     claim_reason = Column(Text, nullable=True)  # 클레임사유
     
+    # ============================================
     # 판매/고객 정보
-    sales_channel = Column(String(200), nullable=True)  # 판매처/계정
-    order_number = Column(String(100), unique=True, index=True)  # 주문번호
-    buyer_name = Column(String(100), nullable=True)  # 구매자
-    recipient_name = Column(String(100), nullable=True)  # 수령자
+    # ============================================
+    sales_channel = Column(Text, nullable=True)  # 판매처/계정
+    order_number = Column(Text, unique=True, index=True)  # 주문번호
+    buyer_name = Column(Text, nullable=True)  # 구매자
+    recipient_name = Column(Text, nullable=True)  # 수령자
     
+    # ============================================
     # 배송 정보
-    courier_company = Column(String(100), nullable=True)  # 택배사
-    tracking_number = Column(String(100), nullable=True)  # 송장번호
+    # ============================================
+    courier_company = Column(Text, nullable=True)  # 택배사
+    tracking_number = Column(Text, nullable=True)  # 송장번호
     
+    # ============================================
     # 상품 정보
+    # ============================================
     product_name = Column(Text, nullable=True)  # 제품명
     product_option = Column(Text, nullable=True)  # 옵션
-    quantity = Column(String(50), nullable=True)  # 수량 (문자열)
+    quantity = Column(Text, nullable=True)  # 수량
     
+    # ============================================
     # 연락처/주소
-    contact_number = Column(String(100), nullable=True)  # 연락처
-    customs_number = Column(String(100), nullable=True)  # 통관번호
-    postal_code = Column(String(50), nullable=True)  # 우편번호
+    # ============================================
+    contact_number = Column(Text, nullable=True)  # 연락처
+    customs_number = Column(Text, nullable=True)  # 통관번호
+    postal_code = Column(Text, nullable=True)  # 우편번호
     address = Column(Text, nullable=True)  # 주소
     
-    # 금액 정보 (모두 문자열)
-    payment_amount = Column(String(50), nullable=True)  # 결제금액
-    customer_shipping_fee = Column(String(50), nullable=True)  # 배송비(고객)
-    market_commission = Column(String(50), nullable=True)  # 마켓수수료
-    settlement_amount = Column(String(50), nullable=True)  # 정산예정금
+    # ============================================
+    # 금액 정보
+    # ============================================
+    payment_amount = Column(Text, nullable=True)  # 결제금액
+    customer_shipping_fee = Column(Text, nullable=True)  # 배송비(고객)
+    market_commission = Column(Text, nullable=True)  # 마켓수수료
+    settlement_amount = Column(Text, nullable=True)  # 정산예정금
     
+    # ============================================
     # 타오바오 정보
-    taobao_order_number = Column(String(100), nullable=True)  # 타바-주문번호
-    taobao_yuan = Column(String(50), nullable=True)  # 타바-위안
+    # ============================================
+    taobao_order_number = Column(Text, nullable=True)  # 타바-주문번호
+    taobao_yuan = Column(Text, nullable=True)  # 타바-위안
     
+    # ============================================
     # ⭐ 특수 파싱 필드
-    order_processing_date = Column(String(100), nullable=True)  # 주문처리일 (원본)
-    exchange_rate = Column(String(50), nullable=True)  # 환율 (파싱된 값)
+    # ============================================
+    order_processing_date = Column(Text, nullable=True)  # 주문처리일 (원본)
+    exchange_rate = Column(Text, nullable=True)  # 환율 (파싱된 값)
     
+    # ============================================
     # 비용 정보
-    customs_prepayment = Column(String(50), nullable=True)  # 관세대납
-    freight_prepayment = Column(String(50), nullable=True)  # 화물대납
+    # ============================================
+    customs_prepayment = Column(Text, nullable=True)  # 관세대납
+    freight_prepayment = Column(Text, nullable=True)  # 화물대납
     warehouse_fee = Column(Text, nullable=True)  # 배대지
-    profit_margin = Column(String(50), nullable=True)  # 마진
-    profit_margin_rate = Column(String(50), nullable=True)  # 마진율
+    profit_margin = Column(Text, nullable=True)  # 마진
+    profit_margin_rate = Column(Text, nullable=True)  # 마진율
     
+    # ============================================
     # 타임스탬프
+    # ============================================
     created_at = Column(DateTime, default=get_kst_now)
     updated_at = Column(DateTime, default=get_kst_now, onupdate=get_kst_now)
     
-    # 인덱스 추가 (검색 성능 향상)
+    # ============================================
+    # 인덱스 (검색 성능 향상)
+    # ============================================
     __table_args__ = (
         Index('idx_order_date', 'order_date'),
         Index('idx_order_status', 'order_status'),
