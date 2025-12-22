@@ -288,10 +288,13 @@ async def upload_orders(
             db.commit()
         
         # DB에 저장 (각 행을 개별 처리)
+        print("6. DB 저장 시작...")
         success_count = 0
+        skip_count = 0
         error_count = 0
         errors = []
-        
+        processed_order_numbers = set()  # ⭐ 엑셀 파일 내 중복 추적
+
         for idx, row in df.iterrows():
             try:
                 # 주문번호 확인
@@ -301,54 +304,51 @@ async def upload_orders(
                     errors.append(f"행 {idx+2}: 주문번호 누락")
                     continue
                 
-                # 기존 주문 확인
-                existing_order = db.query(Order).filter(
+                # ⭐ 1. 엑셀 파일 내 중복 체크
+                if order_number in processed_order_numbers:
+                    skip_count += 1
+                    continue  # 조용히 건너뛰기
+                
+                # ⭐ 2. DB에 이미 있는지 체크
+                existing = db.query(Order).filter(
                     Order.order_number == order_number
                 ).first()
                 
-                if existing_order:
-                    if update_mode == "skip":
-                        continue
-                    elif update_mode == "update":
-                        # 업데이트
-                        for key, value in row.items():
-                            if key in column_mapping.values():
-                                setattr(existing_order, key, value)
-                        existing_order.updated_at = datetime.now()
-                        success_count += 1
-                else:
-                    # 새 주문 생성
-                    order_data = {}
-                    for key, value in row.items():
-                        if key in column_mapping.values():
-                            order_data[key] = value
-                    
-                    new_order = Order(**order_data)
-                    db.add(new_order)
-                    success_count += 1
-                    
+                if existing:
+                    skip_count += 1
+                    continue  # 조용히 건너뛰기
+                
+                # ⭐ 3. 중복 아니면 등록
+                processed_order_numbers.add(order_number)
+                
+                order_data = {}
+                for key, value in row.items():
+                    if key in column_mapping.values() or key == "is_kyungdong_transferred":
+                        order_data[key] = value
+                
+                new_order = Order(**order_data)
+                db.add(new_order)
+                success_count += 1
                 
             except Exception as e:
                 error_count += 1
                 error_msg = str(e)
-                # 오류 메시지 정리
-                if "duplicate key" in error_msg.lower():
-                    errors.append(f"행 {idx+2}: 중복된 주문번호 ({order_number})")
-                else:
-                    errors.append(f"행 {idx+2}: {error_msg[:100]}")
-                continue  # 오류 발생해도 다음 행 계속 처리
-        
-        # ⭐ 최종 커밋 (한 번만!)
+                print(f"❌ 행 {idx+2} 오류: {error_msg[:200]}")
+                errors.append(f"행 {idx+2}: {error_msg[:100]}")
+                continue
+
+        # 최종 커밋
         db.commit()
         print("=" * 50)
-        print(f"✅ 업로드 완료: 성공 {success_count}건, 실패 {error_count}건")
-        
+        print(f"✅ 업로드 완료: 성공 {success_count}건, 중복 건너뛰기 {skip_count}건, 오류 {error_count}건")
+
         return JSONResponse({
             "success": True,
-            "message": f"업로드 완료: 성공 {success_count}건, 실패 {error_count}건",
+            "message": f"업로드 완료: 성공 {success_count}건, 중복 건너뛰기 {skip_count}건, 오류 {error_count}건",
             "success_count": success_count,
+            "skip_count": skip_count,
             "error_count": error_count,
-            "errors": errors[:20]  # 최대 20개만 표시
+            "errors": errors[:20]
         })
         
     except Exception as e:
