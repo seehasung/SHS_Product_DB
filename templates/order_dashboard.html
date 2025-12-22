@@ -410,7 +410,6 @@
                         <th>수령자</th>
                         <th>제품명</th>
                         <th>결제금액</th>
-                        <th>마진</th>
                         <th>액션</th>
                     </tr>
                 </thead>
@@ -433,16 +432,15 @@
                                 <span class="status-badge pending">미확인</span>
                             {% endif %}
                         </td>
-                        <td>{{ order.order_date.strftime('%Y-%m-%d') if order.order_date else '-' }}</td>
+                        <!-- ⭐ 수정: strftime() 제거 -->
+                        <td>{{ order.order_date[:10] if order.order_date else '-' }}</td>
                         <td>{{ order.buyer_name or '-' }}</td>
                         <td>{{ order.recipient_name or '-' }}</td>
                         <td style="max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
                             {{ order.product_name or '-' }}
                         </td>
-                        <td><strong>{{ "{:,.0f}".format(order.payment_amount) if order.payment_amount else '-' }}원</strong></td>
-                        <td style="color: #00b894; font-weight: 700;">
-                            {{ "{:,.0f}".format(order.profit_margin) if order.profit_margin else '-' }}원
-                        </td>
+                        <!-- ⭐ 수정: float 변환 제거 -->
+                        <td><strong>{{ order.payment_amount or '-' }}원</strong></td>
                         <td>
                             <button class="btn-action btn-view" onclick="viewOrder({{ order.id }})">
                                 <i class="bi bi-eye"></i> 상세
@@ -552,19 +550,11 @@ async function viewOrder(orderId) {
                 </div>
                 <div class="col-md-6 mb-3">
                     <label class="form-label fw-bold">결제금액</label>
-                    <input type="text" class="form-control" value="${order.payment_amount ? order.payment_amount.toLocaleString() + '원' : '-'}" readonly>
-                </div>
-                <div class="col-md-6 mb-3">
-                    <label class="form-label fw-bold">마진</label>
-                    <input type="text" class="form-control" value="${order.profit_margin ? order.profit_margin.toLocaleString() + '원' : '-'}" readonly style="color: #00b894; font-weight: 700;">
+                    <input type="text" class="form-control" value="${order.payment_amount || '-'}원" readonly>
                 </div>
                 <div class="col-md-6 mb-3">
                     <label class="form-label fw-bold">환율</label>
                     <input type="text" class="form-control" value="${order.exchange_rate || '-'}" readonly>
-                </div>
-                <div class="col-md-6 mb-3">
-                    <label class="form-label fw-bold">마진율</label>
-                    <input type="text" class="form-control" value="${order.profit_margin_rate ? order.profit_margin_rate + '%' : '-'}" readonly>
                 </div>
             </div>
         `;
