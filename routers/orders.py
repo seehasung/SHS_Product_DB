@@ -326,10 +326,7 @@ async def upload_orders(
                     new_order = Order(**order_data)
                     db.add(new_order)
                     success_count += 1
-                
-                # 100행마다 커밋 (메모리 절약)
-                if (idx + 1) % 100 == 0:
-                    db.commit()
+                    
                 
             except Exception as e:
                 error_count += 1
@@ -341,8 +338,10 @@ async def upload_orders(
                     errors.append(f"행 {idx+2}: {error_msg[:100]}")
                 continue  # 오류 발생해도 다음 행 계속 처리
         
-        # 최종 커밋
+        # ⭐ 최종 커밋 (한 번만!)
         db.commit()
+        print("=" * 50)
+        print(f"✅ 업로드 완료: 성공 {success_count}건, 실패 {error_count}건")
         
         return JSONResponse({
             "success": True,
