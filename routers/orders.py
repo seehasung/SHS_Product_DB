@@ -787,3 +787,89 @@ def kyungdong_tracking(request: Request):
         "is_admin": user_info["is_admin"],
         "can_manage_orders": user_info["can_manage_orders"]
     })
+    
+# ============================================
+# 10. 주문 상세 정보 API
+# ============================================
+@router.get("/api/{order_id}/detail")
+def get_order_detail(
+    request: Request,
+    order_id: int,
+    db: Session = Depends(get_db)
+):
+    """주문 상세 정보 조회"""
+    user_info = check_order_permission(request)
+    if not user_info:
+        raise HTTPException(status_code=401, detail="권한 없음")
+    
+    order = db.query(Order).filter(Order.id == order_id).first()
+    
+    if not order:
+        raise HTTPException(status_code=404, detail="주문을 찾을 수 없습니다")
+    
+    return {
+        "id": order.id,
+        "order_number": order.order_number,
+        "order_status": order.order_status,
+        "order_date": order.order_date,
+        "claim_date": order.claim_date,
+        "claim_reason": order.claim_reason,
+        "sales_channel": order.sales_channel,
+        "buyer_name": order.buyer_name,
+        "recipient_name": order.recipient_name,
+        "contact_number": order.contact_number,
+        "postal_code": order.postal_code,
+        "address": order.address,
+        "product_name": order.product_name,
+        "product_option": order.product_option,
+        "quantity": order.quantity,
+        "payment_amount": order.payment_amount,
+        "customer_shipping_fee": order.customer_shipping_fee,
+        "market_commission": order.market_commission,
+        "settlement_amount": order.settlement_amount,
+        "courier_company": order.courier_company,
+        "tracking_number": order.tracking_number,
+        "customs_number": order.customs_number,
+        "taobao_order_number": order.taobao_order_number,
+        "taobao_yuan": order.taobao_yuan,
+        "order_processing_date": order.order_processing_date,
+        "exchange_rate": order.exchange_rate,
+        "customs_prepayment": order.customs_prepayment,
+        "freight_prepayment": order.freight_prepayment,
+        "warehouse_fee": order.warehouse_fee,
+        "profit_margin": order.profit_margin,
+        "profit_margin_rate": order.profit_margin_rate,
+        "is_kyungdong_transferred": order.is_kyungdong_transferred
+    }
+
+
+# ============================================
+# 11. 주문 삭제 API (관리자 전용)
+# ============================================
+@router.post("/api/{order_id}/delete")
+def delete_order(
+    request: Request,
+    order_id: int,
+    db: Session = Depends(get_db)
+):
+    """주문 삭제 (관리자 전용)"""
+    user_info = check_order_permission(request)
+    if not user_info:
+        raise HTTPException(status_code=401, detail="권한 없음")
+    
+    # 관리자만 삭제 가능
+    if not user_info["is_admin"]:
+        raise HTTPException(status_code=403, detail="관리자만 삭제할 수 있습니다")
+    
+    order = db.query(Order).filter(Order.id == order_id).first()
+    
+    if not order:
+        raise HTTPException(status_code=404, detail="주문을 찾을 수 없습니다")
+    
+    try:
+        db.delete(order)
+        db.commit()
+        return {"success": True, "message": "삭제되었습니다"}
+    except Exception as e:
+        db.rollback()
+        return {"success": False, "message": f"삭제 실패: {str(e)}"}
