@@ -65,7 +65,7 @@ app.include_router(homepage.router, prefix="/marketing")
 app.include_router(marketing.router)
 app.include_router(tasks.router)
 app.include_router(blog.router)
-#app.include_router(orders.router)
+app.include_router(orders.router)
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 
