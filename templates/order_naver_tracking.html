@@ -1,0 +1,633 @@
+{% extends "base.html" %}
+{% block title %}네이버 송장 팔로우 - 주문조회{% endblock %}
+
+{% block head %}
+{{ super() }}
+<style>
+    .tracking-container {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 20px;
+    }
+    
+    .tracking-card {
+        background: rgba(255, 255, 255, 0.95);
+        backdrop-filter: blur(20px);
+        border: 1px solid rgba(255, 255, 255, 0.3);
+        border-radius: 20px;
+        padding: 30px;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
+        margin-bottom: 20px;
+    }
+    
+    .tracking-header {
+        border-bottom: 2px solid #00c73c;
+        padding-bottom: 15px;
+        margin-bottom: 25px;
+    }
+    
+    .tracking-header h2 {
+        font-size: 1.8rem;
+        font-weight: 800;
+        color: #2d3436;
+        margin: 0;
+    }
+    
+    .tracking-header .naver-logo {
+        color: #00c73c;
+        font-weight: 900;
+    }
+    
+    /* 입력 영역 */
+    .input-section {
+        margin-bottom: 30px;
+    }
+    
+    .input-group-custom {
+        display: grid;
+        grid-template-columns: 1fr 200px 150px;
+        gap: 15px;
+        margin-bottom: 15px;
+    }
+    
+    .form-control-custom {
+        padding: 15px 20px;
+        border: 2px solid #e1e8ed;
+        border-radius: 12px;
+        font-size: 1rem;
+        transition: all 0.3s ease;
+    }
+    
+    .form-control-custom:focus {
+        outline: none;
+        border-color: #00c73c;
+        box-shadow: 0 0 0 4px rgba(0, 199, 60, 0.1);
+    }
+    
+    .btn-naver {
+        background: linear-gradient(135deg, #00c73c 0%, #00e047 100%);
+        color: white;
+        border: none;
+        padding: 15px 30px;
+        border-radius: 12px;
+        font-weight: 600;
+        font-size: 1rem;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+    
+    .btn-naver:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0, 199, 60, 0.3);
+        color: white;
+    }
+    
+    .btn-add {
+        background: #4A90E2;
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 10px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+    
+    .btn-add:hover {
+        background: #3a7bc8;
+    }
+    
+    .btn-remove {
+        background: #eb3349;
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 10px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+    
+    .btn-remove:hover {
+        background: #d62839;
+    }
+    
+    /* 택배사 선택 */
+    .courier-select {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 10px;
+        margin-bottom: 20px;
+    }
+    
+    .courier-option {
+        position: relative;
+    }
+    
+    .courier-option input[type="radio"] {
+        position: absolute;
+        opacity: 0;
+    }
+    
+    .courier-label {
+        display: block;
+        padding: 15px;
+        border: 2px solid #e1e8ed;
+        border-radius: 10px;
+        text-align: center;
+        cursor: pointer;
+        transition: all 0.2s;
+        background: white;
+        font-weight: 600;
+    }
+    
+    .courier-option input[type="radio"]:checked + .courier-label {
+        border-color: #00c73c;
+        background: linear-gradient(135deg, rgba(0, 199, 60, 0.1) 0%, rgba(0, 224, 71, 0.1) 100%);
+        color: #00c73c;
+    }
+    
+    .courier-label:hover {
+        border-color: #00c73c;
+    }
+    
+    /* 결과 영역 */
+    .tracking-result {
+        margin-top: 30px;
+    }
+    
+    .result-card {
+        background: white;
+        border: 2px solid #e1e8ed;
+        border-radius: 12px;
+        padding: 20px;
+        margin-bottom: 15px;
+        transition: all 0.3s ease;
+    }
+    
+    .result-card:hover {
+        border-color: #00c73c;
+        box-shadow: 0 4px 12px rgba(0, 199, 60, 0.1);
+    }
+    
+    .result-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 15px;
+        padding-bottom: 15px;
+        border-bottom: 2px solid #f1f3f5;
+    }
+    
+    .tracking-number {
+        font-size: 1.2rem;
+        font-weight: 700;
+        color: #2d3436;
+    }
+    
+    .delivery-status {
+        padding: 8px 16px;
+        border-radius: 20px;
+        font-weight: 600;
+        font-size: 0.9rem;
+    }
+    
+    .status-delivered {
+        background: #d4edda;
+        color: #155724;
+    }
+    
+    .status-shipping {
+        background: #cce5ff;
+        color: #004085;
+    }
+    
+    .status-ready {
+        background: #fff3cd;
+        color: #856404;
+    }
+    
+    /* 배송 타임라인 */
+    .timeline {
+        position: relative;
+        padding-left: 40px;
+    }
+    
+    .timeline-item {
+        position: relative;
+        padding-bottom: 20px;
+    }
+    
+    .timeline-item::before {
+        content: '';
+        position: absolute;
+        left: -29px;
+        top: 8px;
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        background: #00c73c;
+        border: 3px solid white;
+        box-shadow: 0 0 0 2px #00c73c;
+    }
+    
+    .timeline-item::after {
+        content: '';
+        position: absolute;
+        left: -24px;
+        top: 20px;
+        width: 2px;
+        height: calc(100% - 12px);
+        background: #e1e8ed;
+    }
+    
+    .timeline-item:last-child::after {
+        display: none;
+    }
+    
+    .timeline-date {
+        font-size: 0.85rem;
+        color: #636e72;
+        margin-bottom: 5px;
+    }
+    
+    .timeline-content {
+        font-size: 0.95rem;
+        color: #2d3436;
+        font-weight: 600;
+    }
+    
+    .timeline-location {
+        font-size: 0.85rem;
+        color: #636e72;
+    }
+    
+    /* 일괄 입력 */
+    .bulk-input {
+        width: 100%;
+        min-height: 150px;
+        padding: 15px;
+        border: 2px solid #e1e8ed;
+        border-radius: 12px;
+        font-family: monospace;
+        font-size: 0.95rem;
+        resize: vertical;
+    }
+    
+    .bulk-input:focus {
+        outline: none;
+        border-color: #00c73c;
+        box-shadow: 0 0 0 4px rgba(0, 199, 60, 0.1);
+    }
+    
+    /* 탭 스타일 */
+    .nav-tabs-custom {
+        border-bottom: 3px solid #e1e8ed;
+        margin-bottom: 25px;
+    }
+    
+    .nav-tabs-custom .nav-link {
+        border: none;
+        border-bottom: 3px solid transparent;
+        color: #636e72;
+        font-weight: 600;
+        font-size: 1.1rem;
+        padding: 15px 30px;
+        transition: all 0.3s ease;
+        margin-bottom: -3px;
+    }
+    
+    .nav-tabs-custom .nav-link:hover {
+        color: #00c73c;
+        border-bottom-color: rgba(0, 199, 60, 0.3);
+    }
+    
+    .nav-tabs-custom .nav-link.active {
+        color: #00c73c;
+        border-bottom-color: #00c73c;
+        background: transparent;
+    }
+    
+    .loading-spinner {
+        text-align: center;
+        padding: 40px;
+    }
+    
+    .loading-spinner .spinner-border {
+        width: 3rem;
+        height: 3rem;
+        color: #00c73c;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="tracking-container">
+    <!-- 페이지 헤더 -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 style="font-weight: 800; color: #2d3436;">
+            <i class="bi bi-truck"></i> 네이버 송장 팔로우
+        </h1>
+        <a href="/orders/dashboard" class="btn btn-secondary">
+            <i class="bi bi-arrow-left"></i> 전체 현황으로
+        </a>
+    </div>
+    
+    <!-- 추적 카드 -->
+    <div class="tracking-card">
+        <div class="tracking-header">
+            <h2>
+                <span class="naver-logo">NAVER</span> 스마트스토어 배송 조회
+            </h2>
+        </div>
+        
+        <!-- 탭 메뉴 -->
+        <ul class="nav nav-tabs-custom" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="single-tab" data-bs-toggle="tab" data-bs-target="#single" type="button" role="tab">
+                    <i class="bi bi-search"></i> 단건 조회
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="bulk-tab" data-bs-toggle="tab" data-bs-target="#bulk" type="button" role="tab">
+                    <i class="bi bi-list-ul"></i> 일괄 조회
+                </button>
+            </li>
+        </ul>
+        
+        <!-- 탭 컨텐츠 -->
+        <div class="tab-content">
+            <!-- 단건 조회 탭 -->
+            <div class="tab-pane fade show active" id="single" role="tabpanel">
+                <!-- 택배사 선택 -->
+                <div class="mb-4">
+                    <label class="form-label fw-bold mb-3">
+                        <i class="bi bi-truck"></i> 택배사 선택
+                    </label>
+                    <div class="courier-select">
+                        <div class="courier-option">
+                            <input type="radio" id="cj" name="courier" value="cj" checked>
+                            <label for="cj" class="courier-label">CJ대한통운</label>
+                        </div>
+                        <div class="courier-option">
+                            <input type="radio" id="hanjin" name="courier" value="hanjin">
+                            <label for="hanjin" class="courier-label">한진택배</label>
+                        </div>
+                        <div class="courier-option">
+                            <input type="radio" id="lotte" name="courier" value="lotte">
+                            <label for="lotte" class="courier-label">롯데택배</label>
+                        </div>
+                        <div class="courier-option">
+                            <input type="radio" id="logen" name="courier" value="logen">
+                            <label for="logen" class="courier-label">로젠택배</label>
+                        </div>
+                        <div class="courier-option">
+                            <input type="radio" id="kyungdong" name="courier" value="kyungdong">
+                            <label for="kyungdong" class="courier-label">경동택배</label>
+                        </div>
+                        <div class="courier-option">
+                            <input type="radio" id="epost" name="courier" value="epost">
+                            <label for="epost" class="courier-label">우체국택배</label>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 송장번호 입력 -->
+                <div id="trackingInputs">
+                    <div class="input-group-custom">
+                        <input type="text" class="form-control-custom tracking-input" placeholder="송장번호를 입력하세요 (예: 123456789012)">
+                        <input type="text" class="form-control-custom recipient-input" placeholder="수령자명 (선택)">
+                        <button class="btn-add" onclick="addTrackingInput()">
+                            <i class="bi bi-plus-circle"></i> 추가
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- 조회 버튼 -->
+                <div class="text-center">
+                    <button class="btn-naver" onclick="trackSingle()">
+                        <i class="bi bi-search"></i> 배송 조회
+                    </button>
+                </div>
+            </div>
+            
+            <!-- 일괄 조회 탭 -->
+            <div class="tab-pane fade" id="bulk" role="tabpanel">
+                <!-- 택배사 선택 -->
+                <div class="mb-4">
+                    <label class="form-label fw-bold mb-3">
+                        <i class="bi bi-truck"></i> 택배사 선택
+                    </label>
+                    <div class="courier-select">
+                        <div class="courier-option">
+                            <input type="radio" id="cj_bulk" name="courier_bulk" value="cj" checked>
+                            <label for="cj_bulk" class="courier-label">CJ대한통운</label>
+                        </div>
+                        <div class="courier-option">
+                            <input type="radio" id="hanjin_bulk" name="courier_bulk" value="hanjin">
+                            <label for="hanjin_bulk" class="courier-label">한진택배</label>
+                        </div>
+                        <div class="courier-option">
+                            <input type="radio" id="lotte_bulk" name="courier_bulk" value="lotte">
+                            <label for="lotte_bulk" class="courier-label">롯데택배</label>
+                        </div>
+                        <div class="courier-option">
+                            <input type="radio" id="logen_bulk" name="courier_bulk" value="logen">
+                            <label for="logen_bulk" class="courier-label">로젠택배</label>
+                        </div>
+                        <div class="courier-option">
+                            <input type="radio" id="kyungdong_bulk" name="courier_bulk" value="kyungdong">
+                            <label for="kyungdong_bulk" class="courier-label">경동택배</label>
+                        </div>
+                        <div class="courier-option">
+                            <input type="radio" id="epost_bulk" name="courier_bulk" value="epost">
+                            <label for="epost_bulk" class="courier-label">우체국택배</label>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 일괄 입력 -->
+                <div class="mb-3">
+                    <label class="form-label fw-bold">
+                        <i class="bi bi-list-ol"></i> 송장번호 입력 (한 줄에 하나씩)
+                    </label>
+                    <textarea id="bulkInput" class="bulk-input" placeholder="송장번호를 한 줄에 하나씩 입력하세요&#10;예시:&#10;123456789012&#10;234567890123&#10;345678901234"></textarea>
+                    <small class="text-muted">
+                        <i class="bi bi-info-circle"></i> 한 번에 최대 50개까지 조회 가능합니다
+                    </small>
+                </div>
+                
+                <!-- 조회 버튼 -->
+                <div class="text-center">
+                    <button class="btn-naver" onclick="trackBulk()">
+                        <i class="bi bi-search"></i> 일괄 조회
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 결과 영역 -->
+        <div id="trackingResults" class="tracking-result"></div>
+    </div>
+    
+    <!-- 안내 -->
+    <div class="tracking-card">
+        <h4 style="font-weight: 700; color: #2d3436; margin-bottom: 15px;">
+            <i class="bi bi-info-circle"></i> 사용 안내
+        </h4>
+        <ul style="color: #636e72; line-height: 1.8;">
+            <li><strong>단건 조회:</strong> 송장번호를 하나씩 입력하여 상세한 배송 정보를 확인할 수 있습니다.</li>
+            <li><strong>일괄 조회:</strong> 여러 송장번호를 한 번에 입력하여 배송 상태를 빠르게 확인할 수 있습니다.</li>
+            <li><strong>택배사 선택:</strong> 조회 전에 택배사를 정확히 선택해야 합니다.</li>
+            <li><strong>송장번호 형식:</strong> 숫자만 입력하며, 하이픈(-)은 제거하고 입력하세요.</li>
+            <li><strong>실시간 조회:</strong> 택배사 API를 통해 실시간 배송 정보를 조회합니다.</li>
+        </ul>
+    </div>
+</div>
+
+<script>
+// 추가 입력 필드
+function addTrackingInput() {
+    const container = document.getElementById('trackingInputs');
+    const newInput = document.createElement('div');
+    newInput.className = 'input-group-custom';
+    newInput.innerHTML = `
+        <input type="text" class="form-control-custom tracking-input" placeholder="송장번호를 입력하세요">
+        <input type="text" class="form-control-custom recipient-input" placeholder="수령자명 (선택)">
+        <button class="btn-remove" onclick="removeTrackingInput(this)">
+            <i class="bi bi-trash"></i> 삭제
+        </button>
+    `;
+    container.appendChild(newInput);
+}
+
+// 입력 필드 삭제
+function removeTrackingInput(btn) {
+    btn.parentElement.remove();
+}
+
+// 단건 조회
+function trackSingle() {
+    const courier = document.querySelector('input[name="courier"]:checked').value;
+    const inputs = document.querySelectorAll('.tracking-input');
+    const trackingNumbers = [];
+    
+    inputs.forEach(input => {
+        if (input.value.trim()) {
+            trackingNumbers.push(input.value.trim());
+        }
+    });
+    
+    if (trackingNumbers.length === 0) {
+        alert('송장번호를 입력하세요.');
+        return;
+    }
+    
+    performTracking(courier, trackingNumbers);
+}
+
+// 일괄 조회
+function trackBulk() {
+    const courier = document.querySelector('input[name="courier_bulk"]:checked').value;
+    const bulkInput = document.getElementById('bulkInput').value;
+    const trackingNumbers = bulkInput.split('\n')
+        .map(line => line.trim())
+        .filter(line => line.length > 0);
+    
+    if (trackingNumbers.length === 0) {
+        alert('송장번호를 입력하세요.');
+        return;
+    }
+    
+    if (trackingNumbers.length > 50) {
+        alert('최대 50개까지만 조회 가능합니다.');
+        return;
+    }
+    
+    performTracking(courier, trackingNumbers);
+}
+
+// 배송 조회 수행 (시뮬레이션)
+function performTracking(courier, trackingNumbers) {
+    const resultsDiv = document.getElementById('trackingResults');
+    
+    // 로딩 표시
+    resultsDiv.innerHTML = `
+        <div class="loading-spinner">
+            <div class="spinner-border" role="status">
+                <span class="visually-hidden">조회 중...</span>
+            </div>
+            <p style="margin-top: 15px; color: #636e72;">배송 정보를 조회하는 중...</p>
+        </div>
+    `;
+    
+    // 시뮬레이션 (실제로는 API 호출)
+    setTimeout(() => {
+        const courierNames = {
+            'cj': 'CJ대한통운',
+            'hanjin': '한진택배',
+            'lotte': '롯데택배',
+            'logen': '로젠택배',
+            'kyungdong': '경동택배',
+            'epost': '우체국택배'
+        };
+        
+        resultsDiv.innerHTML = trackingNumbers.map((number, index) => {
+            const statuses = ['배송완료', '배송중', '상품인수'];
+            const status = statuses[Math.floor(Math.random() * statuses.length)];
+            const statusClass = status === '배송완료' ? 'status-delivered' : 
+                              status === '배송중' ? 'status-shipping' : 'status-ready';
+            
+            return `
+                <div class="result-card">
+                    <div class="result-header">
+                        <div>
+                            <div class="tracking-number">
+                                <i class="bi bi-box-seam"></i> ${number}
+                            </div>
+                            <div style="color: #636e72; font-size: 0.9rem; margin-top: 5px;">
+                                ${courierNames[courier]}
+                            </div>
+                        </div>
+                        <span class="delivery-status ${statusClass}">${status}</span>
+                    </div>
+                    
+                    ${status !== '상품인수' ? `
+                    <div class="timeline">
+                        <div class="timeline-item">
+                            <div class="timeline-date">2024-12-${20 + index} 14:30</div>
+                            <div class="timeline-content">배송완료</div>
+                            <div class="timeline-location">서울시 강남구 테헤란로</div>
+                        </div>
+                        <div class="timeline-item">
+                            <div class="timeline-date">2024-12-${20 + index} 08:15</div>
+                            <div class="timeline-content">배송출발</div>
+                            <div class="timeline-location">서울 강남터미널</div>
+                        </div>
+                        <div class="timeline-item">
+                            <div class="timeline-date">2024-12-${19 + index} 22:00</div>
+                            <div class="timeline-content">간선상차</div>
+                            <div class="timeline-location">경기 안양터미널</div>
+                        </div>
+                        <div class="timeline-item">
+                            <div class="timeline-date">2024-12-${19 + index} 18:30</div>
+                            <div class="timeline-content">상품인수</div>
+                            <div class="timeline-location">경기 화성</div>
+                        </div>
+                    </div>
+                    ` : `
+                    <div class="timeline">
+                        <div class="timeline-item">
+                            <div class="timeline-date">2024-12-${19 + index} 18:30</div>
+                            <div class="timeline-content">상품인수</div>
+                            <div class="timeline-location">경기 화성</div>
+                        </div>
+                    </div>
+                    `}
+                </div>
+            `;
+        }).join('');
+    }, 1500);
+}
+</script>
+{% endblock %}

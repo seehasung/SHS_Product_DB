@@ -1,0 +1,430 @@
+{% extends "base.html" %}
+{% block title %}데이터 업로드 - 주문조회{% endblock %}
+
+{% block head %}
+{{ super() }}
+<style>
+    .upload-container {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 20px;
+    }
+    
+    .upload-card {
+        background: rgba(255, 255, 255, 0.95);
+        backdrop-filter: blur(20px);
+        border: 1px solid rgba(255, 255, 255, 0.3);
+        border-radius: 20px;
+        padding: 30px;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
+        margin-bottom: 20px;
+    }
+    
+    .upload-header {
+        border-bottom: 2px solid #4A90E2;
+        padding-bottom: 15px;
+        margin-bottom: 25px;
+    }
+    
+    .upload-header h2 {
+        font-size: 1.8rem;
+        font-weight: 800;
+        color: #2d3436;
+        margin: 0;
+    }
+    
+    .upload-area {
+        border: 3px dashed #4A90E2;
+        border-radius: 16px;
+        padding: 50px;
+        text-align: center;
+        background: linear-gradient(135deg, rgba(74, 144, 226, 0.05) 0%, rgba(91, 163, 245, 0.05) 100%);
+        transition: all 0.3s ease;
+        cursor: pointer;
+    }
+    
+    .upload-area:hover {
+        border-color: #5BA3F5;
+        background: linear-gradient(135deg, rgba(74, 144, 226, 0.1) 0%, rgba(91, 163, 245, 0.1) 100%);
+        transform: translateY(-2px);
+    }
+    
+    .upload-area.dragging {
+        border-color: #00b894;
+        background: linear-gradient(135deg, rgba(0, 184, 148, 0.1) 0%, rgba(85, 239, 196, 0.1) 100%);
+    }
+    
+    .upload-icon {
+        font-size: 4rem;
+        color: #4A90E2;
+        margin-bottom: 20px;
+    }
+    
+    .file-name {
+        font-size: 1.1rem;
+        font-weight: 600;
+        color: #2d3436;
+        margin-top: 15px;
+        padding: 10px 20px;
+        background: white;
+        border-radius: 10px;
+        display: inline-block;
+    }
+    
+    .mode-selector {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 15px;
+        margin-top: 25px;
+    }
+    
+    .mode-option {
+        position: relative;
+    }
+    
+    .mode-option input[type="radio"] {
+        position: absolute;
+        opacity: 0;
+    }
+    
+    .mode-label {
+        display: block;
+        padding: 20px;
+        border: 2px solid #e1e8ed;
+        border-radius: 12px;
+        text-align: center;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        background: white;
+    }
+    
+    .mode-option input[type="radio"]:checked + .mode-label {
+        border-color: #4A90E2;
+        background: linear-gradient(135deg, rgba(74, 144, 226, 0.1) 0%, rgba(91, 163, 245, 0.1) 100%);
+        font-weight: 600;
+    }
+    
+    .mode-label:hover {
+        border-color: #4A90E2;
+    }
+    
+    .mode-label i {
+        font-size: 2rem;
+        color: #4A90E2;
+        margin-bottom: 10px;
+        display: block;
+    }
+    
+    .result-area {
+        margin-top: 20px;
+        padding: 20px;
+        border-radius: 12px;
+        display: none;
+    }
+    
+    .result-area.success {
+        background: linear-gradient(135deg, rgba(0, 184, 148, 0.1) 0%, rgba(85, 239, 196, 0.1) 100%);
+        border: 2px solid #00b894;
+    }
+    
+    .result-area.error {
+        background: linear-gradient(135deg, rgba(235, 51, 73, 0.1) 0%, rgba(244, 92, 67, 0.1) 100%);
+        border: 2px solid #eb3349;
+    }
+    
+    .instruction-list {
+        background: #f8f9fa;
+        padding: 20px;
+        border-radius: 12px;
+        margin-top: 20px;
+    }
+    
+    .instruction-list h4 {
+        font-weight: 700;
+        color: #2d3436;
+        margin-bottom: 15px;
+    }
+    
+    .instruction-list ul {
+        padding-left: 25px;
+        margin: 0;
+    }
+    
+    .instruction-list li {
+        margin-bottom: 10px;
+        color: #636e72;
+        line-height: 1.6;
+    }
+    
+    .btn-upload {
+        background: linear-gradient(135deg, #4A90E2 0%, #5BA3F5 100%);
+        color: white;
+        border: none;
+        padding: 15px 40px;
+        border-radius: 12px;
+        font-weight: 600;
+        font-size: 1.1rem;
+        box-shadow: 0 4px 16px rgba(74, 144, 226, 0.35);
+        transition: all 0.3s ease;
+    }
+    
+    .btn-upload:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(74, 144, 226, 0.45);
+        color: white;
+    }
+    
+    .btn-upload:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+    
+    .spinner-border-sm {
+        width: 1rem;
+        height: 1rem;
+        border-width: 0.15rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="upload-container">
+    <!-- 페이지 헤더 -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 style="font-weight: 800; color: #2d3436;">
+            <i class="bi bi-cloud-upload-fill"></i> 데이터 업로드
+        </h1>
+        <a href="/orders/dashboard" class="btn btn-secondary">
+            <i class="bi bi-arrow-left"></i> 전체 현황으로
+        </a>
+    </div>
+    
+    <!-- 업로드 카드 -->
+    <div class="upload-card">
+        <div class="upload-header">
+            <h2><i class="bi bi-file-earmark-excel"></i> 엑셀 파일 업로드</h2>
+        </div>
+        
+        <!-- 파일 선택 영역 -->
+        <div class="upload-area" id="uploadArea" onclick="document.getElementById('fileInput').click()">
+            <i class="bi bi-cloud-upload upload-icon"></i>
+            <h3>클릭하거나 파일을 드래그하세요</h3>
+            <p style="color: #636e72; margin-top: 10px;">Excel 파일 (.xlsx, .xls) 지원</p>
+            <input type="file" id="fileInput" accept=".xlsx, .xls" style="display: none;" onchange="handleFileSelect(event)">
+            <div id="fileName" class="file-name" style="display: none;"></div>
+        </div>
+        
+        <!-- 업로드 모드 선택 -->
+        <div class="mode-selector">
+            <div class="mode-option">
+                <input type="radio" id="mode_append" name="update_mode" value="append" checked>
+                <label for="mode_append" class="mode-label">
+                    <i class="bi bi-plus-circle"></i>
+                    <div>새로 추가</div>
+                    <small style="color: #636e72;">기존 데이터 유지</small>
+                </label>
+            </div>
+            
+            <div class="mode-option">
+                <input type="radio" id="mode_update" name="update_mode" value="update">
+                <label for="mode_update" class="mode-label">
+                    <i class="bi bi-arrow-repeat"></i>
+                    <div>중복 시 업데이트</div>
+                    <small style="color: #636e72;">같은 주문번호 덮어쓰기</small>
+                </label>
+            </div>
+            
+            <div class="mode-option">
+                <input type="radio" id="mode_skip" name="update_mode" value="skip">
+                <label for="mode_skip" class="mode-label">
+                    <i class="bi bi-skip-forward"></i>
+                    <div>중복 시 건너뛰기</div>
+                    <small style="color: #636e72;">중복 데이터 무시</small>
+                </label>
+            </div>
+            
+            <div class="mode-option">
+                <input type="radio" id="mode_replace" name="update_mode" value="replace">
+                <label for="mode_replace" class="mode-label">
+                    <i class="bi bi-arrow-clockwise"></i>
+                    <div>전체 교체</div>
+                    <small style="color: #636e72; font-weight: 600; color: #eb3349;">기존 데이터 삭제</small>
+                </label>
+            </div>
+        </div>
+        
+        <!-- 업로드 버튼 -->
+        <div class="text-center mt-4">
+            <button id="uploadBtn" class="btn-upload" onclick="uploadFile()" disabled>
+                <i class="bi bi-upload"></i> 업로드 시작
+            </button>
+        </div>
+        
+        <!-- 결과 영역 -->
+        <div id="resultArea" class="result-area"></div>
+    </div>
+    
+    <!-- 사용 안내 -->
+    <div class="upload-card">
+        <div class="instruction-list">
+            <h4><i class="bi bi-info-circle"></i> 사용 안내</h4>
+            <ul>
+                <li><strong>엑셀 파일 형식:</strong> .xlsx 또는 .xls 파일만 업로드 가능합니다.</li>
+                <li><strong>필수 컬럼:</strong> 주문번호는 필수입니다. 주문번호가 없는 행은 업로드되지 않습니다.</li>
+                <li><strong>컬럼 순서:</strong> 주문상태, 주문일자, 클레임일자, 클레임사유, 판매처／계정, 주문번호, 구매자, 수령자, 택배사, 송장번호, 제품명, 옵션, 수량, 연락처, 통관번호, 우편번호, 주소, 결제금액, 배송비（고객）, 마켓수수료, 정산예정금, 타바－주문번호, 타바－위안, 주문처리일, 환율, 관세대납, 화물대납, 배대지, 마진, 마진율</li>
+                <li><strong>주문처리일 → 환율 자동 파싱:</strong> 주문처리일 컬럼에서 "-" 뒤의 값을 자동으로 환율로 추출합니다. (예: "2024-01-15-190.5" → 환율 190.5)</li>
+                <li><strong>업데이트 모드:</strong>
+                    <ul>
+                        <li><strong>새로 추가:</strong> 기존 데이터를 유지하고 새로운 데이터만 추가</li>
+                        <li><strong>중복 시 업데이트:</strong> 같은 주문번호가 있으면 덮어쓰기</li>
+                        <li><strong>중복 시 건너뛰기:</strong> 같은 주문번호가 있으면 무시</li>
+                        <li><strong>전체 교체:</strong> 기존 모든 데이터를 삭제하고 새로 업로드 (⚠️ 주의)</li>
+                    </ul>
+                </li>
+                <li><strong>대용량 파일:</strong> 수천 건 이상의 데이터도 처리 가능하지만, 시간이 다소 걸릴 수 있습니다.</li>
+            </ul>
+        </div>
+    </div>
+</div>
+
+<script>
+let selectedFile = null;
+
+// 파일 선택 처리
+function handleFileSelect(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    
+    // 파일 확장자 체크
+    const fileName = file.name;
+    const fileExt = fileName.split('.').pop().toLowerCase();
+    
+    if (!['xlsx', 'xls'].includes(fileExt)) {
+        alert('⚠️ Excel 파일(.xlsx, .xls)만 업로드 가능합니다.');
+        return;
+    }
+    
+    selectedFile = file;
+    
+    // 파일명 표시
+    const fileNameDiv = document.getElementById('fileName');
+    fileNameDiv.textContent = `📄 ${fileName}`;
+    fileNameDiv.style.display = 'inline-block';
+    
+    // 업로드 버튼 활성화
+    document.getElementById('uploadBtn').disabled = false;
+}
+
+// 드래그 앤 드롭
+const uploadArea = document.getElementById('uploadArea');
+
+uploadArea.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    uploadArea.classList.add('dragging');
+});
+
+uploadArea.addEventListener('dragleave', () => {
+    uploadArea.classList.remove('dragging');
+});
+
+uploadArea.addEventListener('drop', (e) => {
+    e.preventDefault();
+    uploadArea.classList.remove('dragging');
+    
+    const files = e.dataTransfer.files;
+    if (files.length > 0) {
+        document.getElementById('fileInput').files = files;
+        handleFileSelect({ target: { files } });
+    }
+});
+
+// 파일 업로드
+async function uploadFile() {
+    if (!selectedFile) {
+        alert('⚠️ 파일을 선택해주세요.');
+        return;
+    }
+    
+    const updateMode = document.querySelector('input[name="update_mode"]:checked').value;
+    
+    // 전체 교체 확인
+    if (updateMode === 'replace') {
+        if (!confirm('⚠️ 기존 모든 데이터가 삭제됩니다. 계속하시겠습니까?')) {
+            return;
+        }
+    }
+    
+    const uploadBtn = document.getElementById('uploadBtn');
+    const resultArea = document.getElementById('resultArea');
+    
+    // 버튼 비활성화 및 로딩 표시
+    uploadBtn.disabled = true;
+    uploadBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>업로드 중...';
+    
+    // FormData 생성
+    const formData = new FormData();
+    formData.append('file', selectedFile);
+    formData.append('update_mode', updateMode);
+    
+    try {
+        const response = await fetch('/orders/api/upload', {
+            method: 'POST',
+            body: formData
+        });
+        
+        const result = await response.json();
+        
+        // 결과 표시
+        resultArea.style.display = 'block';
+        
+        if (result.success) {
+            resultArea.className = 'result-area success';
+            resultArea.innerHTML = `
+                <h4 style="color: #00b894; margin-bottom: 15px;">
+                    <i class="bi bi-check-circle-fill"></i> ${result.message}
+                </h4>
+                <div style="font-size: 1.1rem; margin-bottom: 10px;">
+                    ✅ 성공: <strong>${result.success_count}건</strong>
+                    ${result.error_count > 0 ? `<br>❌ 실패: <strong>${result.error_count}건</strong>` : ''}
+                </div>
+                ${result.errors && result.errors.length > 0 ? `
+                    <div style="margin-top: 15px;">
+                        <strong>오류 내역:</strong>
+                        <ul style="margin-top: 10px; text-align: left;">
+                            ${result.errors.map(err => `<li>${err}</li>`).join('')}
+                        </ul>
+                    </div>
+                ` : ''}
+                <div style="margin-top: 20px;">
+                    <a href="/orders/dashboard" class="btn btn-primary">
+                        <i class="bi bi-bar-chart"></i> 전체 현황 보기
+                    </a>
+                </div>
+            `;
+        } else {
+            resultArea.className = 'result-area error';
+            resultArea.innerHTML = `
+                <h4 style="color: #eb3349; margin-bottom: 15px;">
+                    <i class="bi bi-x-circle-fill"></i> 업로드 실패
+                </h4>
+                <p>${result.message}</p>
+            `;
+        }
+        
+    } catch (error) {
+        resultArea.style.display = 'block';
+        resultArea.className = 'result-area error';
+        resultArea.innerHTML = `
+            <h4 style="color: #eb3349; margin-bottom: 15px;">
+                <i class="bi bi-x-circle-fill"></i> 업로드 실패
+            </h4>
+            <p>서버 오류가 발생했습니다: ${error.message}</p>
+        `;
+    } finally {
+        // 버튼 복구
+        uploadBtn.disabled = false;
+        uploadBtn.innerHTML = '<i class="bi bi-upload"></i> 업로드 시작';
+    }
+}
+</script>
+{% endblock %}

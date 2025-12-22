@@ -1,0 +1,586 @@
+{% extends "base.html" %}
+{% block title %}주문조회 - 주문조회{% endblock %}
+
+{% block head %}
+{{ super() }}
+<style>
+    .search-container {
+        max-width: 1400px;
+        margin: 0 auto;
+        padding: 20px;
+    }
+    
+    .search-card {
+        background: rgba(255, 255, 255, 0.95);
+        backdrop-filter: blur(20px);
+        border: 1px solid rgba(255, 255, 255, 0.3);
+        border-radius: 20px;
+        padding: 30px;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
+    }
+    
+    /* 탭 스타일 */
+    .nav-tabs {
+        border-bottom: 3px solid #e1e8ed;
+        margin-bottom: 30px;
+    }
+    
+    .nav-tabs .nav-link {
+        border: none;
+        border-bottom: 3px solid transparent;
+        color: #636e72;
+        font-weight: 600;
+        font-size: 1.1rem;
+        padding: 15px 30px;
+        transition: all 0.3s ease;
+        margin-bottom: -3px;
+    }
+    
+    .nav-tabs .nav-link:hover {
+        color: #4A90E2;
+        border-bottom-color: rgba(74, 144, 226, 0.3);
+    }
+    
+    .nav-tabs .nav-link.active {
+        color: #4A90E2;
+        border-bottom-color: #4A90E2;
+        background: transparent;
+    }
+    
+    .nav-tabs .nav-link i {
+        margin-right: 8px;
+        font-size: 1.2rem;
+    }
+    
+    /* 검색 바 */
+    .search-bar {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 30px;
+    }
+    
+    .search-input {
+        flex: 1;
+        padding: 15px 20px;
+        border: 2px solid #e1e8ed;
+        border-radius: 12px;
+        font-size: 1rem;
+        transition: all 0.3s ease;
+    }
+    
+    .search-input:focus {
+        outline: none;
+        border-color: #4A90E2;
+        box-shadow: 0 0 0 4px rgba(74, 144, 226, 0.1);
+    }
+    
+    .btn-search {
+        padding: 15px 40px;
+        background: linear-gradient(135deg, #4A90E2 0%, #5BA3F5 100%);
+        color: white;
+        border: none;
+        border-radius: 12px;
+        font-weight: 600;
+        font-size: 1rem;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+    
+    .btn-search:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(74, 144, 226, 0.3);
+    }
+    
+    /* 결과 테이블 */
+    .result-table {
+        width: 100%;
+        border-collapse: separate;
+        border-spacing: 0;
+        margin-top: 20px;
+    }
+    
+    .result-table thead th {
+        background: linear-gradient(135deg, rgba(74, 144, 226, 0.1) 0%, rgba(91, 163, 245, 0.1) 100%);
+        padding: 15px;
+        text-align: left;
+        font-weight: 700;
+        color: #2d3436;
+        font-size: 0.9rem;
+        border-bottom: 2px solid #e1e8ed;
+        white-space: nowrap;
+    }
+    
+    .result-table thead th:first-child {
+        border-radius: 10px 0 0 0;
+    }
+    
+    .result-table thead th:last-child {
+        border-radius: 0 10px 0 0;
+    }
+    
+    .result-table tbody tr {
+        transition: all 0.2s;
+        background: white;
+    }
+    
+    .result-table tbody tr:hover {
+        background: rgba(74, 144, 226, 0.05);
+        transform: scale(1.005);
+    }
+    
+    .result-table tbody td {
+        padding: 15px;
+        border-bottom: 1px solid #f1f3f5;
+        color: #495057;
+        font-size: 0.9rem;
+    }
+    
+    /* 상태 배지 */
+    .status-badge {
+        padding: 6px 12px;
+        border-radius: 20px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        display: inline-block;
+    }
+    
+    .status-completed {
+        background: #d4edda;
+        color: #155724;
+    }
+    
+    .status-shipping {
+        background: #cce5ff;
+        color: #004085;
+    }
+    
+    .status-pending {
+        background: #fff3cd;
+        color: #856404;
+    }
+    
+    .status-cancelled {
+        background: #f8d7da;
+        color: #721c24;
+    }
+    
+    /* 로딩 */
+    .loading {
+        text-align: center;
+        padding: 60px 20px;
+        color: #636e72;
+    }
+    
+    .loading .spinner-border {
+        width: 3rem;
+        height: 3rem;
+    }
+    
+    /* 빈 결과 */
+    .no-results {
+        text-align: center;
+        padding: 60px 20px;
+        color: #adb5bd;
+    }
+    
+    .no-results i {
+        font-size: 4rem;
+        margin-bottom: 20px;
+        opacity: 0.5;
+    }
+    
+    /* 카드 스타일 (고객 정보) */
+    .customer-card {
+        background: white;
+        border: 2px solid #e1e8ed;
+        border-radius: 12px;
+        padding: 20px;
+        margin-bottom: 15px;
+        transition: all 0.2s;
+    }
+    
+    .customer-card:hover {
+        border-color: #4A90E2;
+        box-shadow: 0 4px 12px rgba(74, 144, 226, 0.15);
+        transform: translateY(-2px);
+    }
+    
+    .customer-name {
+        font-size: 1.2rem;
+        font-weight: 700;
+        color: #2d3436;
+        margin-bottom: 10px;
+    }
+    
+    .customer-info {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 10px;
+        color: #636e72;
+        font-size: 0.9rem;
+    }
+    
+    .customer-info div {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    
+    .customer-info i {
+        color: #4A90E2;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="search-container">
+    <!-- 페이지 헤더 -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 style="font-weight: 800; color: #2d3436;">
+            <i class="bi bi-search"></i> 주문조회
+        </h1>
+        <a href="/orders/dashboard" class="btn btn-secondary">
+            <i class="bi bi-arrow-left"></i> 전체 현황으로
+        </a>
+    </div>
+    
+    <!-- 검색 카드 -->
+    <div class="search-card">
+        <!-- 탭 메뉴 -->
+        <ul class="nav nav-tabs" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="customers-tab" data-bs-toggle="tab" data-bs-target="#customers" type="button" role="tab">
+                    <i class="bi bi-people-fill"></i> 고객 조회
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="delivery-tab" data-bs-toggle="tab" data-bs-target="#delivery" type="button" role="tab">
+                    <i class="bi bi-truck"></i> 배송 조회
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="customs-tab" data-bs-toggle="tab" data-bs-target="#customs" type="button" role="tab">
+                    <i class="bi bi-file-earmark-check"></i> 통관 조회
+                </button>
+            </li>
+        </ul>
+        
+        <!-- 탭 컨텐츠 -->
+        <div class="tab-content">
+            <!-- 고객 조회 탭 -->
+            <div class="tab-pane fade show active" id="customers" role="tabpanel">
+                <div class="search-bar">
+                    <input type="text" id="customerSearch" class="search-input" placeholder="고객명, 수령자명, 연락처로 검색...">
+                    <button class="btn-search" onclick="searchCustomers()">
+                        <i class="bi bi-search"></i> 검색
+                    </button>
+                </div>
+                
+                <div id="customerResults">
+                    <div class="no-results">
+                        <i class="bi bi-search"></i>
+                        <p style="font-size: 1.1rem; margin-top: 10px;">검색어를 입력하세요</p>
+                        <p style="color: #636e72;">고객명, 수령자명, 연락처로 검색할 수 있습니다</p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 배송 조회 탭 -->
+            <div class="tab-pane fade" id="delivery" role="tabpanel">
+                <div class="search-bar">
+                    <input type="text" id="deliverySearch" class="search-input" placeholder="송장번호, 주문번호, 수령자명으로 검색...">
+                    <button class="btn-search" onclick="searchDelivery()">
+                        <i class="bi bi-search"></i> 검색
+                    </button>
+                </div>
+                
+                <div id="deliveryResults">
+                    <div class="no-results">
+                        <i class="bi bi-search"></i>
+                        <p style="font-size: 1.1rem; margin-top: 10px;">검색어를 입력하세요</p>
+                        <p style="color: #636e72;">송장번호, 주문번호, 수령자명으로 검색할 수 있습니다</p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 통관 조회 탭 -->
+            <div class="tab-pane fade" id="customs" role="tabpanel">
+                <div class="search-bar">
+                    <input type="text" id="customsSearch" class="search-input" placeholder="통관번호, 주문번호, 수령자명으로 검색...">
+                    <button class="btn-search" onclick="searchCustoms()">
+                        <i class="bi bi-search"></i> 검색
+                    </button>
+                </div>
+                
+                <div id="customsResults">
+                    <div class="no-results">
+                        <i class="bi bi-search"></i>
+                        <p style="font-size: 1.1rem; margin-top: 10px;">검색어를 입력하세요</p>
+                        <p style="color: #636e72;">통관번호, 주문번호, 수령자명으로 검색할 수 있습니다</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Enter 키 검색
+document.getElementById('customerSearch').addEventListener('keypress', function(e) {
+    if (e.key === 'Enter') searchCustomers();
+});
+
+document.getElementById('deliverySearch').addEventListener('keypress', function(e) {
+    if (e.key === 'Enter') searchDelivery();
+});
+
+document.getElementById('customsSearch').addEventListener('keypress', function(e) {
+    if (e.key === 'Enter') searchCustoms();
+});
+
+// 고객 조회
+async function searchCustomers() {
+    const search = document.getElementById('customerSearch').value.trim();
+    const resultsDiv = document.getElementById('customerResults');
+    
+    if (!search) {
+        resultsDiv.innerHTML = `
+            <div class="no-results">
+                <i class="bi bi-search"></i>
+                <p style="font-size: 1.1rem; margin-top: 10px;">검색어를 입력하세요</p>
+            </div>
+        `;
+        return;
+    }
+    
+    // 로딩 표시
+    resultsDiv.innerHTML = `
+        <div class="loading">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">검색 중...</span>
+            </div>
+            <p style="margin-top: 15px;">검색 중...</p>
+        </div>
+    `;
+    
+    try {
+        const response = await fetch(`/orders/api/search/customers?search=${encodeURIComponent(search)}`);
+        const data = await response.json();
+        
+        if (data.customers && data.customers.length > 0) {
+            resultsDiv.innerHTML = data.customers.map(customer => `
+                <div class="customer-card">
+                    <div class="customer-name">
+                        <i class="bi bi-person-circle"></i> ${customer.buyer_name || '-'}
+                    </div>
+                    <div class="customer-info">
+                        <div>
+                            <i class="bi bi-person-badge"></i>
+                            <span><strong>수령자:</strong> ${customer.recipient_name || '-'}</span>
+                        </div>
+                        <div>
+                            <i class="bi bi-telephone"></i>
+                            <span><strong>연락처:</strong> ${customer.contact_number || '-'}</span>
+                        </div>
+                        <div>
+                            <i class="bi bi-box-seam"></i>
+                            <span><strong>주문 건수:</strong> ${customer.order_count}건</span>
+                        </div>
+                        <div>
+                            <i class="bi bi-cash-stack"></i>
+                            <span><strong>총 결제액:</strong> ${customer.total_amount.toLocaleString()}원</span>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        } else {
+            resultsDiv.innerHTML = `
+                <div class="no-results">
+                    <i class="bi bi-inbox"></i>
+                    <p style="font-size: 1.1rem; margin-top: 10px;">검색 결과가 없습니다</p>
+                    <p style="color: #636e72;">다른 검색어로 다시 시도해보세요</p>
+                </div>
+            `;
+        }
+    } catch (error) {
+        resultsDiv.innerHTML = `
+            <div class="alert alert-danger">
+                <i class="bi bi-exclamation-triangle"></i> 검색 중 오류가 발생했습니다.
+            </div>
+        `;
+    }
+}
+
+// 배송 조회
+async function searchDelivery() {
+    const search = document.getElementById('deliverySearch').value.trim();
+    const resultsDiv = document.getElementById('deliveryResults');
+    
+    if (!search) {
+        resultsDiv.innerHTML = `
+            <div class="no-results">
+                <i class="bi bi-search"></i>
+                <p style="font-size: 1.1rem; margin-top: 10px;">검색어를 입력하세요</p>
+            </div>
+        `;
+        return;
+    }
+    
+    // 로딩 표시
+    resultsDiv.innerHTML = `
+        <div class="loading">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">검색 중...</span>
+            </div>
+            <p style="margin-top: 15px;">검색 중...</p>
+        </div>
+    `;
+    
+    try {
+        const response = await fetch(`/orders/api/search/delivery?search=${encodeURIComponent(search)}`);
+        const data = await response.json();
+        
+        if (data.deliveries && data.deliveries.length > 0) {
+            resultsDiv.innerHTML = `
+                <table class="result-table">
+                    <thead>
+                        <tr>
+                            <th>주문번호</th>
+                            <th>송장번호</th>
+                            <th>택배사</th>
+                            <th>수령자</th>
+                            <th>주문일자</th>
+                            <th>상태</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${data.deliveries.map(delivery => `
+                            <tr>
+                                <td><strong>${delivery.order_number}</strong></td>
+                                <td>
+                                    <span style="color: #4A90E2; font-weight: 600;">
+                                        ${delivery.tracking_number || '-'}
+                                    </span>
+                                </td>
+                                <td>${delivery.courier_company || '-'}</td>
+                                <td>${delivery.recipient_name || '-'}</td>
+                                <td>${delivery.order_date || '-'}</td>
+                                <td>
+                                    ${delivery.order_status ? 
+                                        `<span class="status-badge ${getStatusClass(delivery.order_status)}">${delivery.order_status}</span>` 
+                                        : '-'}
+                                </td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            `;
+        } else {
+            resultsDiv.innerHTML = `
+                <div class="no-results">
+                    <i class="bi bi-inbox"></i>
+                    <p style="font-size: 1.1rem; margin-top: 10px;">검색 결과가 없습니다</p>
+                    <p style="color: #636e72;">다른 검색어로 다시 시도해보세요</p>
+                </div>
+            `;
+        }
+    } catch (error) {
+        resultsDiv.innerHTML = `
+            <div class="alert alert-danger">
+                <i class="bi bi-exclamation-triangle"></i> 검색 중 오류가 발생했습니다.
+            </div>
+        `;
+    }
+}
+
+// 통관 조회
+async function searchCustoms() {
+    const search = document.getElementById('customsSearch').value.trim();
+    const resultsDiv = document.getElementById('customsResults');
+    
+    if (!search) {
+        resultsDiv.innerHTML = `
+            <div class="no-results">
+                <i class="bi bi-search"></i>
+                <p style="font-size: 1.1rem; margin-top: 10px;">검색어를 입력하세요</p>
+            </div>
+        `;
+        return;
+    }
+    
+    // 로딩 표시
+    resultsDiv.innerHTML = `
+        <div class="loading">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">검색 중...</span>
+            </div>
+            <p style="margin-top: 15px;">검색 중...</p>
+        </div>
+    `;
+    
+    try {
+        const response = await fetch(`/orders/api/search/customs?search=${encodeURIComponent(search)}`);
+        const data = await response.json();
+        
+        if (data.customs && data.customs.length > 0) {
+            resultsDiv.innerHTML = `
+                <table class="result-table">
+                    <thead>
+                        <tr>
+                            <th>주문번호</th>
+                            <th>통관번호</th>
+                            <th>수령자</th>
+                            <th>주문일자</th>
+                            <th>관세대납</th>
+                            <th>상태</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${data.customs.map(customs => `
+                            <tr>
+                                <td><strong>${customs.order_number}</strong></td>
+                                <td>
+                                    <span style="color: #00b894; font-weight: 600;">
+                                        ${customs.customs_number || '-'}
+                                    </span>
+                                </td>
+                                <td>${customs.recipient_name || '-'}</td>
+                                <td>${customs.order_date || '-'}</td>
+                                <td><strong>${customs.customs_prepayment.toLocaleString()}원</strong></td>
+                                <td>
+                                    ${customs.order_status ? 
+                                        `<span class="status-badge ${getStatusClass(customs.order_status)}">${customs.order_status}</span>` 
+                                        : '-'}
+                                </td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            `;
+        } else {
+            resultsDiv.innerHTML = `
+                <div class="no-results">
+                    <i class="bi bi-inbox"></i>
+                    <p style="font-size: 1.1rem; margin-top: 10px;">검색 결과가 없습니다</p>
+                    <p style="color: #636e72;">다른 검색어로 다시 시도해보세요</p>
+                </div>
+            `;
+        }
+    } catch (error) {
+        resultsDiv.innerHTML = `
+            <div class="alert alert-danger">
+                <i class="bi bi-exclamation-triangle"></i> 검색 중 오류가 발생했습니다.
+            </div>
+        `;
+    }
+}
+
+// 상태 클래스 반환
+function getStatusClass(status) {
+    if (status.includes('완료') || status.includes('배송')) return 'status-completed';
+    if (status.includes('취소') || status.includes('반품')) return 'status-cancelled';
+    if (status.includes('대기') || status.includes('준비')) return 'status-pending';
+    return 'status-shipping';
+}
+</script>
+{% endblock %}

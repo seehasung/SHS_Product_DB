@@ -662,6 +662,32 @@
                             </a>
                         </li>
                         {% endif %}
+
+                        {% if can_manage_orders %}
+                        <li class="nav-item dropdown">
+                            <a class="nav-link-custom dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
+                                <i class="bi bi-box-seam-fill"></i> 주문조회
+                            </a>
+                            <ul class="dropdown-menu">
+                                <li><a class="dropdown-item" href="/orders/dashboard">
+                                    <i class="bi bi-speedometer2"></i> 전체 현황
+                                </a></li>
+                                <li><a class="dropdown-item" href="/orders/upload">
+                                    <i class="bi bi-cloud-upload-fill"></i> 데이터 업로드
+                                </a></li>
+                                <li><a class="dropdown-item" href="/orders/search">
+                                    <i class="bi bi-search"></i> 주문조회
+                                </a></li>
+                                <li><hr class="dropdown-divider"></li>
+                                <li><a class="dropdown-item" href="/orders/naver-tracking">
+                                    <i class="bi bi-truck"></i> 네이버 송장 팔로우
+                                </a></li>
+                                <li><a class="dropdown-item" href="/orders/kyungdong-tracking">
+                                    <i class="bi bi-truck"></i> 경동 송장 팔로우
+                                </a></li>
+                            </ul>
+                        </li>
+                        {% endif %}
                         
                         <!-- 관리자 권한 -->
                         {% if is_admin %}

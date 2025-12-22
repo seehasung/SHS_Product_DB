@@ -850,6 +850,64 @@ class MemoFile(Base):
     
     # 관계
     memo = relationship("PersonalMemo", back_populates="files")
+    
+class Order(Base):
+    """주문 정보 테이블 (엑셀 업로드)"""
+    __tablename__ = "orders"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    
+    # 주문 기본 정보
+    order_status = Column(String(50))  # 주문상태
+    order_date = Column(Date, nullable=True)  # 주문일자
+    claim_date = Column(Date, nullable=True)  # 클레임일자
+    claim_reason = Column(Text, nullable=True)  # 클레임사유
+    
+    # 판매/고객 정보
+    sales_channel = Column(String(100), nullable=True)  # 판매처/계정
+    order_number = Column(String(100), unique=True, index=True)  # 주문번호
+    buyer_name = Column(String(100), nullable=True)  # 구매자
+    recipient_name = Column(String(100), nullable=True)  # 수령자
+    
+    # 배송 정보
+    courier_company = Column(String(100), nullable=True)  # 택배사
+    tracking_number = Column(String(100), nullable=True)  # 송장번호
+    
+    # 상품 정보
+    product_name = Column(String(500), nullable=True)  # 제품명
+    product_option = Column(String(500), nullable=True)  # 옵션
+    quantity = Column(Integer, nullable=True)  # 수량
+    
+    # 연락처/주소
+    contact_number = Column(String(50), nullable=True)  # 연락처
+    customs_number = Column(String(100), nullable=True)  # 통관번호
+    postal_code = Column(String(20), nullable=True)  # 우편번호
+    address = Column(Text, nullable=True)  # 주소
+    
+    # 금액 정보
+    payment_amount = Column(Float, nullable=True)  # 결제금액
+    customer_shipping_fee = Column(Float, nullable=True)  # 배송비(고객)
+    market_commission = Column(Float, nullable=True)  # 마켓수수료
+    settlement_amount = Column(Float, nullable=True)  # 정산예정금
+    
+    # 타오바오 정보
+    taobao_order_number = Column(String(100), nullable=True)  # 타바-주문번호
+    taobao_yuan = Column(Float, nullable=True)  # 타바-위안
+    
+    # ⭐ 특수 파싱 필드
+    order_processing_date = Column(String(100), nullable=True)  # 주문처리일 (원본)
+    exchange_rate = Column(Float, nullable=True)  # 환율 (파싱된 값)
+    
+    # 비용 정보
+    customs_prepayment = Column(Float, nullable=True)  # 관세대납
+    freight_prepayment = Column(Float, nullable=True)  # 화물대납
+    warehouse_fee = Column(String(100), nullable=True)  # 배대지
+    profit_margin = Column(Float, nullable=True)  # 마진
+    profit_margin_rate = Column(Float, nullable=True)  # 마진율
+    
+    # 타임스탬프
+    created_at = Column(DateTime, default=get_kst_now)
+    updated_at = Column(DateTime, default=get_kst_now, onupdate=get_kst_now)
 
 def get_db():
     """데이터베이스 세션 의존성"""
@@ -867,6 +925,7 @@ __all__ = [
     "WorkTask", "PostSchedule", "AccountCafeUsage", "PostingRound", "LoginLog",
     "TaskAssignment", "TaskComment", "TaskFile", "TaskNotification",
     "PersonalMemo", "MemoFile",
+    "Order",  # ⭐ 추가!
     "SessionLocal", "Base", "engine",
     "get_db", "HomepageWorker", "HomepageAccount", "HomepageProductKeyword", "HomepagePost",
     "HomepagePostImage", "HomepageKeywordProgress", "HomepageWorkTask", "HomepagePostSchedule",
