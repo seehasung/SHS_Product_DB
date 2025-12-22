@@ -878,7 +878,8 @@ class Order(Base):
     # ============================================
     courier_company = Column(Text, nullable=True)  # 택배사
     tracking_number = Column(Text, nullable=True)  # 송장번호
-    
+    is_kyungdong_transferred = Column(Boolean, default=False, nullable=True)  # 경동이관여부 ⭐
+
     # ============================================
     # 상품 정보
     # ============================================
@@ -936,6 +937,7 @@ class Order(Base):
         Index('idx_order_date', 'order_date'),
         Index('idx_order_status', 'order_status'),
         Index('idx_recipient_name', 'recipient_name'),
+        Index('idx_kyungdong_transferred', 'is_kyungdong_transferred'),  # ⭐
     )
     
     

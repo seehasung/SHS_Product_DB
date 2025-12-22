@@ -40,6 +40,8 @@ def check_order_permission(request: Request):
 # ============================================
 # 1. 전체 현황 (대시보드)
 # ============================================
+# routers/orders.py - order_dashboard 함수 (완전 교체)
+
 @router.get("/dashboard", response_class=HTMLResponse)
 def order_dashboard(
     request: Request,
@@ -50,10 +52,105 @@ def order_dashboard(
     if not user_info:
         return RedirectResponse(url="/login", status_code=302)
     
-    # 통계 데이터
+    from datetime import timedelta
+    
+    # 기본 통계
     total_orders = db.query(Order).count()
+    today_str = date.today().strftime('%Y-%m-%d')
     today_orders = db.query(Order).filter(
-        func.date(Order.order_date) == date.today()
+        Order.order_date.like(f'{today_str}%')
+    ).count()
+    
+    # ============================================
+    # ⭐ 1. 가송장 사용 건 (앞 6자리만 확인)
+    # ============================================
+    valid_couriers = [
+        'CJ대한통운', 'CJ택배', '대한통운', '로젠택배', '롯데택배',
+        '우체국택배', '천일택배', '편의점택배(GS25)', '한진택배'
+    ]
+    
+    all_orders = db.query(Order).all()
+    fake_tracking_count = 0
+    
+    for order in all_orders:
+        # 택배사 확인
+        courier = order.courier_company or ''
+        is_valid_courier = any(valid in courier for valid in valid_couriers)
+        
+        # 송장번호 앞 6자리가 날짜 형식인지 확인
+        tracking = order.tracking_number or ''
+        is_date_format = False
+        
+        if len(tracking) >= 6:
+            prefix = tracking[:6]  # ⭐ 무조건 앞 6자리만
+            
+            if prefix.isdigit():
+                # YYMMDD 또는 YYYYMM 형식 체크
+                try:
+                    # 251220 형식 (YYMMDD)
+                    year_part = int(prefix[:2])
+                    month = int(prefix[2:4])
+                    day = int(prefix[4:6])
+                    
+                    # 유효한 날짜인지 확인
+                    if 1 <= month <= 12 and 1 <= day <= 31:
+                        is_date_format = True
+                    # 또는 202512 형식 (YYYYMM)
+                    elif 20 <= year_part <= 30:  # 2020~2030년대
+                        month_check = int(prefix[4:6])
+                        if 1 <= month_check <= 12:
+                            is_date_format = True
+                except (ValueError, IndexError):
+                    pass
+        
+        # 가송장 조건: 정상 택배사 아님 AND 날짜 형식 송장번호
+        if not is_valid_courier and is_date_format and tracking:
+            fake_tracking_count += 1
+    
+    # ============================================
+    # ⭐ 2. 네이버 송장 흐름 (TODO: 외부 API 연동 필요)
+    # ============================================
+    naver_delivery_count = 0  # 일단 0으로 표시
+    
+    # ============================================
+    # ⭐ 3. 경동 이관 (DB 컬럼 기반)
+    # ============================================
+    kyungdong_count = db.query(Order).filter(
+        Order.is_kyungdong_transferred == True
+    ).count()
+    
+    # ============================================
+    # ⭐ 4. 통관 절차 이상
+    # ============================================
+    customs_issue_count = db.query(Order).filter(
+        or_(
+            Order.customs_number.like('%알수없음%'),
+            Order.customs_number.like('%반출취소%'),
+            Order.customs_number.like('%반출불가%'),
+            Order.customs_number.like('%불가%'),
+            Order.customs_number.like('%취소%'),
+            Order.customs_number.like('%이상%'),
+            Order.customs_number.like('%오류%'),
+            Order.customs_number.like('%문제%'),
+            Order.customs_number.like('%지연%')
+        )
+    ).count()
+    
+    # ============================================
+    # ⭐ 5. 장기 미배송 (2주 = 14일)
+    # ============================================
+    two_weeks_ago = (date.today() - timedelta(days=14)).strftime('%Y-%m-%d')
+    
+    long_undelivered_count = db.query(Order).filter(
+        and_(
+            Order.order_date < two_weeks_ago,
+            or_(
+                Order.order_status == '발송대기',
+                Order.order_status == '발송대기(발주확인)',
+                Order.order_status == '배송중',
+                Order.order_status == '배송지시'
+            )
+        )
     ).count()
     
     # 상태별 통계
@@ -65,10 +162,6 @@ def order_dashboard(
     # 최근 주문 10개
     recent_orders = db.query(Order).order_by(desc(Order.created_at)).limit(10).all()
     
-    # 금액 통계
-    total_amount = db.query(func.sum(Order.payment_amount)).scalar() or 0
-    total_profit = db.query(func.sum(Order.profit_margin)).scalar() or 0
-    
     return templates.TemplateResponse("order_dashboard.html", {
         "request": request,
         "username": user_info["username"],
@@ -78,8 +171,11 @@ def order_dashboard(
         "today_orders": today_orders,
         "status_stats": status_stats,
         "recent_orders": recent_orders,
-        "total_amount": total_amount,
-        "total_profit": total_profit
+        "fake_tracking_count": fake_tracking_count,
+        "naver_delivery_count": naver_delivery_count,  # 0
+        "kyungdong_count": kyungdong_count,
+        "customs_issue_count": customs_issue_count,
+        "long_undelivered_count": long_undelivered_count
     })
 
 
@@ -105,6 +201,8 @@ def order_upload_page(request: Request):
 # 3. 엑셀 업로드 처리
 # ============================================
 # routers/orders.py - 엑셀 업로드 부분만 (오류 처리 개선)
+
+# routers/orders.py - 엑셀 업로드 함수 업데이트
 
 @router.post("/api/upload")
 async def upload_orders(
@@ -134,6 +232,7 @@ async def upload_orders(
             "수령자": "recipient_name",
             "택배사": "courier_company",
             "송장번호": "tracking_number",
+            "경동이관여부": "is_kyungdong_transferred",  # ⭐ 추가
             "제품명": "product_name",
             "옵션": "product_option",
             "수량": "quantity",
@@ -171,8 +270,16 @@ async def upload_orders(
             
             df["exchange_rate"] = df["order_processing_date"].apply(parse_exchange_rate)
         
+        # ⭐ 경동이관여부 처리 (TRUE/FALSE → Boolean)
+        if "is_kyungdong_transferred" in df.columns:
+            df["is_kyungdong_transferred"] = df["is_kyungdong_transferred"].apply(
+                lambda x: True if str(x).upper() in ['TRUE', 'T', '1', 'YES', 'Y', '예', 'O'] else False
+            )
+        
         # 모든 값을 문자열로 변환 (NaN은 None으로)
         for col in df.columns:
+            if col == "is_kyungdong_transferred":  # Boolean은 제외
+                continue
             df[col] = df[col].apply(lambda x: str(x) if pd.notna(x) and str(x) != 'nan' else None)
         
         # 업데이트 모드 처리
@@ -205,12 +312,12 @@ async def upload_orders(
                     elif update_mode == "update":
                         # 업데이트
                         for key, value in row.items():
-                            if key in column_mapping.values() and value is not None:
+                            if key in column_mapping.values():
                                 setattr(existing_order, key, value)
                         existing_order.updated_at = datetime.now()
                         success_count += 1
                 else:
-                    # 새 주문 생성 (모든 값을 문자열로 저장)
+                    # 새 주문 생성
                     order_data = {}
                     for key, value in row.items():
                         if key in column_mapping.values():
