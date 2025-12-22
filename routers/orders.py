@@ -37,14 +37,61 @@ def check_order_permission(request: Request):
     return None
 
 
-# ============================================
-# 1. 전체 현황 (대시보드)
-# ============================================
-# routers/orders.py - order_dashboard 함수 (완전 교체)
+# routers/orders.py - 추가할 코드
 
+# ============================================
+# 주문 상태 통합 함수
+# ============================================
+def normalize_order_status(status):
+    """주문 상태를 5가지 카테고리로 통합"""
+    if not status:
+        return "기타"
+    
+    status = str(status).strip()
+    
+    # 배송중
+    if any(keyword in status for keyword in [
+        '배송중', '배송지시', '발송대기', '발주확인', '상품준비', 
+        '출고', '판매자 직접배송', '직접 배송'
+    ]):
+        return "배송중"
+    
+    # 배송완료
+    if any(keyword in status for keyword in [
+        '배송완료', '배송 완료', '구매확정', '구매 확정', '확정', 
+        '정산완료', '정산예정'
+    ]):
+        return "배송완료"
+    
+    # 취소
+    if any(keyword in status for keyword in [
+        '취소', '직권취소', '주문취소', '미결제'
+    ]):
+        return "취소"
+    
+    # 반품
+    if any(keyword in status for keyword in [
+        '반품', '수거', '환불'
+    ]):
+        return "반품"
+    
+    # 교환
+    if any(keyword in status for keyword in [
+        '교환'
+    ]):
+        return "교환"
+    
+    return "기타"
+
+
+# ============================================
+# 1. 전체 현황 (대시보드) - 개선 버전
+# ============================================
 @router.get("/dashboard", response_class=HTMLResponse)
 def order_dashboard(
     request: Request,
+    start_date: str = None,
+    end_date: str = None,
     db: Session = Depends(get_db)
 ):
     """주문 전체 현황 대시보드"""
@@ -54,7 +101,13 @@ def order_dashboard(
     
     from datetime import timedelta
     
-    # 기본 통계
+    # ⭐ 기간 기본값 설정
+    if not start_date or not end_date:
+        today = date.today()
+        start_date = today.replace(day=1).strftime('%Y-%m-%d')
+        end_date = today.strftime('%Y-%m-%d')
+    
+    # 기본 통계 (전체)
     total_orders = db.query(Order).count()
     today_str = date.today().strftime('%Y-%m-%d')
     today_orders = db.query(Order).filter(
@@ -62,8 +115,10 @@ def order_dashboard(
     ).count()
     
     # ============================================
-    # ⭐ 1. 가송장 사용 건 (앞 6자리만 확인)
+    # ⭐ 통계 카드 (그대로 유지)
     # ============================================
+    
+    # 1. 가송장 사용 건
     valid_couriers = [
         'CJ대한통운', 'CJ택배', '대한통운', '로젠택배', '롯데택배',
         '우체국택배', '천일택배', '편의점택배(GS25)', '한진택배'
@@ -73,55 +128,34 @@ def order_dashboard(
     fake_tracking_count = 0
     
     for order in all_orders:
-        # 택배사 확인
         courier = order.courier_company or ''
         is_valid_courier = any(valid in courier for valid in valid_couriers)
-        
-        # 송장번호 앞 6자리가 날짜 형식인지 확인
         tracking = order.tracking_number or ''
         is_date_format = False
         
         if len(tracking) >= 6:
-            prefix = tracking[:6]  # ⭐ 무조건 앞 6자리만
-            
+            prefix = tracking[:6]
             if prefix.isdigit():
-                # YYMMDD 또는 YYYYMM 형식 체크
                 try:
-                    # 251220 형식 (YYMMDD)
-                    year_part = int(prefix[:2])
                     month = int(prefix[2:4])
                     day = int(prefix[4:6])
-                    
-                    # 유효한 날짜인지 확인
                     if 1 <= month <= 12 and 1 <= day <= 31:
                         is_date_format = True
-                    # 또는 202512 형식 (YYYYMM)
-                    elif 20 <= year_part <= 30:  # 2020~2030년대
-                        month_check = int(prefix[4:6])
-                        if 1 <= month_check <= 12:
-                            is_date_format = True
                 except (ValueError, IndexError):
                     pass
         
-        # 가송장 조건: 정상 택배사 아님 AND 날짜 형식 송장번호
         if not is_valid_courier and is_date_format and tracking:
             fake_tracking_count += 1
     
-    # ============================================
-    # ⭐ 2. 네이버 송장 흐름 (TODO: 외부 API 연동 필요)
-    # ============================================
-    naver_delivery_count = 0  # 일단 0으로 표시
+    # 2. 네이버 송장 흐름
+    naver_delivery_count = 0
     
-    # ============================================
-    # ⭐ 3. 경동 이관 (DB 컬럼 기반)
-    # ============================================
+    # 3. 경동 이관
     kyungdong_count = db.query(Order).filter(
         Order.is_kyungdong_transferred == True
     ).count()
     
-    # ============================================
-    # ⭐ 4. 통관 절차 이상
-    # ============================================
+    # 4. 통관 절차 이상
     customs_issue_count = db.query(Order).filter(
         or_(
             Order.customs_number.like('%알수없음%'),
@@ -136,9 +170,7 @@ def order_dashboard(
         )
     ).count()
     
-    # ============================================
-    # ⭐ 5. 장기 미배송 (2주 = 14일)
-    # ============================================
+    # 5. 장기 미배송 (2주 = 14일)
     two_weeks_ago = (date.today() - timedelta(days=14)).strftime('%Y-%m-%d')
     
     long_undelivered_count = db.query(Order).filter(
@@ -153,14 +185,34 @@ def order_dashboard(
         )
     ).count()
     
-    # 상태별 통계
-    status_stats = db.query(
-        Order.order_status,
-        func.count(Order.id).label("count")
-    ).group_by(Order.order_status).all()
+    # ============================================
+    # ⭐ 상태별 통계 (선택한 기간, 통합된 상태)
+    # ============================================
     
-    # 최근 주문 10개
-    recent_orders = db.query(Order).order_by(desc(Order.created_at)).limit(10).all()
+    # 선택한 기간의 주문만 조회
+    month_orders = db.query(Order).filter(
+        Order.order_date >= start_date,
+        Order.order_date <= end_date + ' 23:59:59'
+    ).all()
+    
+    # 상태별 집계 (통합된 상태)
+    status_counts = {}
+    for order in month_orders:
+        normalized_status = normalize_order_status(order.order_status)
+        status_counts[normalized_status] = status_counts.get(normalized_status, 0) + 1
+    
+    # 정렬 (배송중 > 배송완료 > 취소 > 반품 > 교환 순)
+    status_order = ["배송중", "배송완료", "취소", "반품", "교환", "기타"]
+    status_stats = [(status, status_counts.get(status, 0)) for status in status_order if status_counts.get(status, 0) > 0]
+    
+    # 기간 표시 텍스트
+    start_dt = datetime.strptime(start_date, '%Y-%m-%d')
+    end_dt = datetime.strptime(end_date, '%Y-%m-%d')
+    
+    if start_dt.month == end_dt.month and start_dt.year == end_dt.year:
+        period_text = start_dt.strftime('%Y년 %m월')
+    else:
+        period_text = f"{start_dt.strftime('%Y.%m.%d')} ~ {end_dt.strftime('%Y.%m.%d')}"
     
     return templates.TemplateResponse("order_dashboard.html", {
         "request": request,
@@ -170,14 +222,175 @@ def order_dashboard(
         "total_orders": total_orders,
         "today_orders": today_orders,
         "status_stats": status_stats,
-        "recent_orders": recent_orders,
         "fake_tracking_count": fake_tracking_count,
-        "naver_delivery_count": naver_delivery_count,  # 0
+        "naver_delivery_count": naver_delivery_count,
         "kyungdong_count": kyungdong_count,
         "customs_issue_count": customs_issue_count,
-        "long_undelivered_count": long_undelivered_count
+        "long_undelivered_count": long_undelivered_count,
+        "current_month": period_text,
+        "start_date": start_date,
+        "end_date": end_date
     })
 
+
+# ============================================
+# 2. 특정 조건별 주문 목록 API
+# ============================================
+@router.get("/api/orders/by-condition")
+def get_orders_by_condition(
+    request: Request,
+    condition: str,
+    db: Session = Depends(get_db)
+):
+    """조건별 주문 목록 조회"""
+    user_info = check_order_permission(request)
+    if not user_info:
+        raise HTTPException(status_code=401, detail="권한 없음")
+    
+    from datetime import timedelta
+    
+    orders = []
+    
+    if condition == "fake_tracking":
+        # 가송장 사용 건
+        valid_couriers = [
+            'CJ대한통운', 'CJ택배', '대한통운', '로젠택배', '롯데택배',
+            '우체국택배', '천일택배', '편의점택배(GS25)', '한진택배'
+        ]
+        
+        all_orders = db.query(Order).all()
+        for order in all_orders:
+            courier = order.courier_company or ''
+            is_valid_courier = any(valid in courier for valid in valid_couriers)
+            tracking = order.tracking_number or ''
+            is_date_format = False
+            
+            if len(tracking) >= 6:
+                prefix = tracking[:6]
+                if prefix.isdigit():
+                    try:
+                        month = int(prefix[2:4])
+                        day = int(prefix[4:6])
+                        if 1 <= month <= 12 and 1 <= day <= 31:
+                            is_date_format = True
+                    except:
+                        pass
+            
+            if not is_valid_courier and is_date_format and tracking:
+                orders.append(order)
+    
+    elif condition == "kyungdong":
+        # 경동 이관
+        orders = db.query(Order).filter(
+            Order.is_kyungdong_transferred == True
+        ).all()
+    
+    elif condition == "customs_issue":
+        # 통관 절차 이상
+        orders = db.query(Order).filter(
+            or_(
+                Order.customs_number.like('%알수없음%'),
+                Order.customs_number.like('%반출취소%'),
+                Order.customs_number.like('%반출불가%'),
+                Order.customs_number.like('%불가%'),
+                Order.customs_number.like('%취소%'),
+                Order.customs_number.like('%이상%'),
+                Order.customs_number.like('%오류%'),
+                Order.customs_number.like('%문제%'),
+                Order.customs_number.like('%지연%')
+            )
+        ).all()
+    
+    elif condition == "long_undelivered":
+        # 장기 미배송
+        two_weeks_ago = (date.today() - timedelta(days=14)).strftime('%Y-%m-%d')
+        orders = db.query(Order).filter(
+            and_(
+                Order.order_date < two_weeks_ago,
+                or_(
+                    Order.order_status == '발송대기',
+                    Order.order_status == '발송대기(발주확인)',
+                    Order.order_status == '배송중',
+                    Order.order_status == '배송지시'
+                )
+            )
+        ).all()
+    
+    # JSON 응답
+    return {
+        "orders": [
+            {
+                "id": o.id,
+                "order_number": o.order_number,
+                "order_status": o.order_status,
+                "order_date": o.order_date[:10] if o.order_date else '-',
+                "buyer_name": o.buyer_name,
+                "recipient_name": o.recipient_name,
+                "product_name": o.product_name,
+                "payment_amount": o.payment_amount,
+                "tracking_number": o.tracking_number,
+                "courier_company": o.courier_company
+            }
+            for o in orders[:100]  # 최대 100개
+        ]
+    }
+
+
+# ============================================
+# 3. 상태별 주문 목록 API (기간 필터 포함)
+# ============================================
+@router.get("/api/orders/by-status")
+def get_orders_by_status(
+    request: Request,
+    status: str,
+    start_date: str = None,
+    end_date: str = None,
+    db: Session = Depends(get_db)
+):
+    """상태별 주문 목록 조회 (기간 필터)"""
+    user_info = check_order_permission(request)
+    if not user_info:
+        raise HTTPException(status_code=401, detail="권한 없음")
+    
+    # 기본값: 이번 달
+    if not start_date:
+        today = date.today()
+        start_date = today.replace(day=1).strftime('%Y-%m-%d')
+    if not end_date:
+        end_date = date.today().strftime('%Y-%m-%d')
+    
+    # 모든 주문 조회 (기간 필터)
+    query = db.query(Order).filter(
+        Order.order_date >= start_date,
+        Order.order_date <= end_date + ' 23:59:59'
+    )
+    
+    all_orders = query.all()
+    
+    # 상태로 필터링
+    filtered_orders = [
+        o for o in all_orders 
+        if normalize_order_status(o.order_status) == status
+    ]
+    
+    return {
+        "orders": [
+            {
+                "id": o.id,
+                "order_number": o.order_number,
+                "order_status": o.order_status,
+                "normalized_status": normalize_order_status(o.order_status),
+                "order_date": o.order_date[:10] if o.order_date else '-',
+                "buyer_name": o.buyer_name,
+                "recipient_name": o.recipient_name,
+                "product_name": o.product_name,
+                "payment_amount": o.payment_amount,
+                "tracking_number": o.tracking_number,
+                "courier_company": o.courier_company
+            }
+            for o in filtered_orders[:100]
+        ]
+    }
 
 # ============================================
 # 2. 데이터 업로드 페이지

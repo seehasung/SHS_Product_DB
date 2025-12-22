@@ -46,6 +46,15 @@
         box-shadow: 0 12px 40px rgba(0, 0, 0, 0.12);
     }
     
+    .stat-card.clickable {
+        cursor: pointer;
+    }
+    
+    .stat-card.clickable:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 8px 20px rgba(0,0,0,0.15);
+    }
+    
     .stat-icon {
         width: 50px;
         height: 50px;
@@ -98,42 +107,37 @@
         margin: 0;
     }
     
-    /* 검색 바 */
-    .search-bar {
+    /* 상태 그리드 */
+    .status-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+        gap: 15px;
+        padding: 20px;
+    }
+    
+    .status-item {
         display: flex;
+        flex-direction: column;
+        align-items: center;
         gap: 10px;
-        margin-bottom: 20px;
-    }
-    
-    .search-input {
-        flex: 1;
-        padding: 12px 20px;
-        border: 2px solid #e1e8ed;
-        border-radius: 12px;
-        font-size: 1rem;
-        transition: all 0.3s ease;
-    }
-    
-    .search-input:focus {
-        outline: none;
-        border-color: #4A90E2;
-        box-shadow: 0 0 0 4px rgba(74, 144, 226, 0.1);
-    }
-    
-    .btn-search {
-        padding: 12px 30px;
-        background: linear-gradient(135deg, #4A90E2 0%, #5BA3F5 100%);
-        color: white;
-        border: none;
-        border-radius: 12px;
-        font-weight: 600;
+        padding: 20px;
+        background: white;
+        border-radius: 10px;
         cursor: pointer;
         transition: all 0.3s ease;
+        border: 2px solid #e0e0e0;
     }
     
-    .btn-search:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 4px 12px rgba(74, 144, 226, 0.3);
+    .status-item:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        border-color: #4834d4;
+    }
+    
+    .status-count {
+        font-size: 1.5rem;
+        font-weight: bold;
+        color: #2d3436;
     }
     
     /* 테이블 */
@@ -237,36 +241,6 @@
         background: #d62839;
     }
     
-    /* 페이지네이션 */
-    .pagination {
-        display: flex;
-        justify-content: center;
-        gap: 5px;
-        margin-top: 30px;
-    }
-    
-    .page-btn {
-        padding: 10px 15px;
-        border: 2px solid #e1e8ed;
-        background: white;
-        border-radius: 8px;
-        cursor: pointer;
-        transition: all 0.2s;
-        font-weight: 600;
-        color: #636e72;
-    }
-    
-    .page-btn:hover {
-        border-color: #4A90E2;
-        color: #4A90E2;
-    }
-    
-    .page-btn.active {
-        background: linear-gradient(135deg, #4A90E2 0%, #5BA3F5 100%);
-        color: white;
-        border-color: transparent;
-    }
-    
     .no-data {
         text-align: center;
         padding: 60px 20px;
@@ -277,36 +251,6 @@
         font-size: 4rem;
         margin-bottom: 20px;
         opacity: 0.5;
-    }
-    
-    /* 필터 */
-    .filter-group {
-        display: flex;
-        gap: 10px;
-        margin-bottom: 20px;
-        flex-wrap: wrap;
-    }
-    
-    .filter-btn {
-        padding: 8px 16px;
-        border: 2px solid #e1e8ed;
-        background: white;
-        border-radius: 20px;
-        font-weight: 600;
-        cursor: pointer;
-        transition: all 0.2s;
-        font-size: 0.9rem;
-    }
-    
-    .filter-btn:hover {
-        border-color: #4A90E2;
-        color: #4A90E2;
-    }
-    
-    .filter-btn.active {
-        background: linear-gradient(135deg, #4A90E2 0%, #5BA3F5 100%);
-        color: white;
-        border-color: transparent;
     }
 </style>
 {% endblock %}
@@ -328,10 +272,11 @@
         </div>
     </div>
     
-    <!-- 통계 카드 -->
+    <!-- 통계 카드 (클릭 가능) -->
     <div class="stats-grid">
         <!-- 1. 가송장 사용 건 -->
-        <div class="stat-card" style="--stat-gradient: linear-gradient(90deg, #fd79a8 0%, #fdcb6e 100%);">
+        <div class="stat-card clickable" onclick="showOrdersByCondition('fake_tracking', '가송장 사용')" 
+             style="--stat-gradient: linear-gradient(90deg, #fd79a8 0%, #fdcb6e 100%);">
             <div class="stat-icon" style="background: linear-gradient(135deg, #fd79a8 0%, #fdcb6e 100%); color: white;">
                 <i class="bi bi-receipt-cutoff"></i>
             </div>
@@ -349,7 +294,8 @@
         </div>
         
         <!-- 3. 경동 이관 -->
-        <div class="stat-card" style="--stat-gradient: linear-gradient(90deg, #6c5ce7 0%, #a29bfe 100%);">
+        <div class="stat-card clickable" onclick="showOrdersByCondition('kyungdong', '경동 이관')"
+             style="--stat-gradient: linear-gradient(90deg, #6c5ce7 0%, #a29bfe 100%);">
             <div class="stat-icon" style="background: linear-gradient(135deg, #6c5ce7 0%, #a29bfe 100%); color: white;">
                 <i class="bi bi-arrow-left-right"></i>
             </div>
@@ -358,7 +304,8 @@
         </div>
         
         <!-- 4. 통관 절차 이상 -->
-        <div class="stat-card" style="--stat-gradient: linear-gradient(90deg, #e17055 0%, #fab1a0 100%);">
+        <div class="stat-card clickable" onclick="showOrdersByCondition('customs_issue', '통관 절차 이상')"
+             style="--stat-gradient: linear-gradient(90deg, #e17055 0%, #fab1a0 100%);">
             <div class="stat-icon" style="background: linear-gradient(135deg, #e17055 0%, #fab1a0 100%); color: white;">
                 <i class="bi bi-exclamation-triangle"></i>
             </div>
@@ -367,7 +314,8 @@
         </div>
         
         <!-- 5. 장기 미배송 -->
-        <div class="stat-card" style="--stat-gradient: linear-gradient(90deg, #d63031 0%, #ff7675 100%);">
+        <div class="stat-card clickable" onclick="showOrdersByCondition('long_undelivered', '장기 미배송')"
+             style="--stat-gradient: linear-gradient(90deg, #d63031 0%, #ff7675 100%);">
             <div class="stat-icon" style="background: linear-gradient(135deg, #d63031 0%, #ff7675 100%); color: white;">
                 <i class="bi bi-clock-history"></i>
             </div>
@@ -376,96 +324,58 @@
         </div>
     </div>
     
-    <!-- 상태별 통계 -->
-    {% if status_stats %}
-    <div class="table-card">
-        <h3 style="font-weight: 800; color: #2d3436; margin-bottom: 20px;">
-            <i class="bi bi-pie-chart"></i> 상태별 현황
-        </h3>
-        <div class="filter-group">
-            {% for stat in status_stats %}
-            <div class="filter-btn">
-                <strong>{{ stat.order_status or '미분류' }}:</strong> {{ "{:,}".format(stat.count) }}건
-            </div>
-            {% endfor %}
-        </div>
-    </div>
-    {% endif %}
-    
-    <!-- 최근 주문 테이블 -->
+    <!-- 상태별 현황 (기간 설정 + 클릭 가능 버튼) -->
     <div class="table-card">
         <div class="table-header">
-            <h3><i class="bi bi-clock-history"></i> 최근 주문 내역</h3>
+            <h3><i class="bi bi-bar-chart-fill"></i> 상태별 현황 ({{ current_month }})</h3>
+            <div style="display: flex; gap: 10px; align-items: center;">
+                <input type="date" id="statusStartDate" class="form-control" style="width: 150px;">
+                <span>~</span>
+                <input type="date" id="statusEndDate" class="form-control" style="width: 150px;">
+                <button class="btn btn-primary btn-sm" onclick="updateStatusPeriod()">
+                    <i class="bi bi-search"></i> 조회
+                </button>
+            </div>
         </div>
         
-        {% if recent_orders %}
-        <div style="overflow-x: auto;">
-            <table class="order-table">
-                <thead>
-                    <tr>
-                        <th>주문번호</th>
-                        <th>주문상태</th>
-                        <th>주문일자</th>
-                        <th>구매자</th>
-                        <th>수령자</th>
-                        <th>제품명</th>
-                        <th>결제금액</th>
-                        <th>액션</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for order in recent_orders %}
-                    <tr>
-                        <td><strong>{{ order.order_number }}</strong></td>
-                        <td>
-                            {% if order.order_status %}
-                                {% if '완료' in order.order_status or '배송' in order.order_status %}
-                                    <span class="status-badge completed">{{ order.order_status }}</span>
-                                {% elif '취소' in order.order_status or '반품' in order.order_status %}
-                                    <span class="status-badge cancelled">{{ order.order_status }}</span>
-                                {% elif '대기' in order.order_status or '준비' in order.order_status %}
-                                    <span class="status-badge pending">{{ order.order_status }}</span>
-                                {% else %}
-                                    <span class="status-badge shipping">{{ order.order_status }}</span>
-                                {% endif %}
-                            {% else %}
-                                <span class="status-badge pending">미확인</span>
-                            {% endif %}
-                        </td>
-                        <!-- ⭐ 수정: strftime() 제거 -->
-                        <td>{{ order.order_date[:10] if order.order_date else '-' }}</td>
-                        <td>{{ order.buyer_name or '-' }}</td>
-                        <td>{{ order.recipient_name or '-' }}</td>
-                        <td style="max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-                            {{ order.product_name or '-' }}
-                        </td>
-                        <!-- ⭐ 수정: float 변환 제거 -->
-                        <td><strong>{{ order.payment_amount or '-' }}원</strong></td>
-                        <td>
-                            <button class="btn-action btn-view" onclick="viewOrder({{ order.id }})">
-                                <i class="bi bi-eye"></i> 상세
-                            </button>
-                            {% if is_admin %}
-                            <button class="btn-action btn-delete" onclick="deleteOrder({{ order.id }})">
-                                <i class="bi bi-trash"></i>
-                            </button>
-                            {% endif %}
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+        <div class="status-grid" id="statusGrid">
+            {% if status_stats %}
+                {% for status, count in status_stats %}
+                <div class="status-item" onclick="showOrdersByStatus('{{ status }}')">
+                    <div class="status-badge 
+                        {% if status == '배송중' %}shipping
+                        {% elif status == '배송완료' %}completed
+                        {% elif status == '취소' %}cancelled
+                        {% elif status == '반품' %}cancelled
+                        {% elif status == '교환' %}pending
+                        {% else %}pending{% endif %}">
+                        {{ status }}
+                    </div>
+                    <div class="status-count">{{ "{:,}".format(count) }}건</div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <p style="color: #636e72; text-align: center; padding: 20px;">데이터가 없습니다</p>
+            {% endif %}
         </div>
-        {% else %}
-        <div class="no-data">
-            <i class="bi bi-inbox"></i>
-            <p style="font-size: 1.1rem; margin-top: 10px;">주문 데이터가 없습니다</p>
-            <p style="color: #636e72;">엑셀 파일을 업로드하여 데이터를 등록하세요</p>
-            <a href="/orders/upload" class="btn btn-primary mt-3">
-                <i class="bi bi-cloud-upload"></i> 데이터 업로드하기
-            </a>
+    </div>
+    
+    <!-- 주문 목록 테이블 (동적) -->
+    <div class="table-card">
+        <div class="table-header">
+            <h3 id="ordersTableTitle"><i class="bi bi-list-ul"></i> 주문 목록</h3>
+            <div>
+                <span id="ordersCount" style="color: #636e72;"></span>
+            </div>
         </div>
-        {% endif %}
+        
+        <div id="ordersTableContainer">
+            <div class="no-data">
+                <i class="bi bi-mouse"></i>
+                <p style="font-size: 1.1rem; margin-top: 10px;">통계 카드 또는 상태를 클릭하세요</p>
+                <p style="color: #636e72;">해당 조건의 주문 목록이 표시됩니다</p>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -489,6 +399,10 @@
 </div>
 
 <script>
+// ============================================
+// 기존 함수들
+// ============================================
+
 // 주문 상세보기
 async function viewOrder(orderId) {
     const modal = new bootstrap.Modal(document.getElementById('orderDetailModal'));
@@ -587,6 +501,152 @@ async function deleteOrder(orderId) {
     } catch (error) {
         alert('삭제 중 오류가 발생했습니다.');
     }
+}
+
+// ============================================
+// 새로운 기능들
+// ============================================
+
+// 날짜 초기화 (이번 달)
+document.addEventListener('DOMContentLoaded', function() {
+    const today = new Date();
+    const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+    
+    const startInput = document.getElementById('statusStartDate');
+    const endInput = document.getElementById('statusEndDate');
+    
+    if (startInput && endInput) {
+        startInput.valueAsDate = firstDay;
+        endInput.valueAsDate = today;
+    }
+});
+
+// 조건별 주문 목록 표시
+async function showOrdersByCondition(condition, title) {
+    document.getElementById('ordersTableTitle').innerHTML = `<i class="bi bi-filter"></i> ${title} 주문 목록`;
+    document.getElementById('ordersTableContainer').innerHTML = '<div style="text-align: center; padding: 40px;"><div class="spinner-border text-primary"></div></div>';
+    
+    try {
+        const response = await fetch(`/orders/api/orders/by-condition?condition=${condition}`);
+        const data = await response.json();
+        
+        displayOrders(data.orders, title);
+    } catch (error) {
+        document.getElementById('ordersTableContainer').innerHTML = `
+            <div class="alert alert-danger">
+                <i class="bi bi-exclamation-triangle"></i> 주문 목록을 불러오는데 실패했습니다.
+            </div>
+        `;
+    }
+}
+
+// 상태별 주문 목록 표시
+async function showOrdersByStatus(status) {
+    const startDate = document.getElementById('statusStartDate').value;
+    const endDate = document.getElementById('statusEndDate').value;
+    
+    document.getElementById('ordersTableTitle').innerHTML = `<i class="bi bi-filter"></i> ${status} 주문 목록`;
+    document.getElementById('ordersTableContainer').innerHTML = '<div style="text-align: center; padding: 40px;"><div class="spinner-border text-primary"></div></div>';
+    
+    try {
+        const response = await fetch(`/orders/api/orders/by-status?status=${encodeURIComponent(status)}&start_date=${startDate}&end_date=${endDate}`);
+        const data = await response.json();
+        
+        displayOrders(data.orders, status);
+    } catch (error) {
+        document.getElementById('ordersTableContainer').innerHTML = `
+            <div class="alert alert-danger">
+                <i class="bi bi-exclamation-triangle"></i> 주문 목록을 불러오는데 실패했습니다.
+            </div>
+        `;
+    }
+}
+
+// 주문 목록 표시
+function displayOrders(orders, title) {
+    document.getElementById('ordersCount').textContent = `총 ${orders.length}건`;
+    
+    if (orders.length === 0) {
+        document.getElementById('ordersTableContainer').innerHTML = `
+            <div class="no-data">
+                <i class="bi bi-inbox"></i>
+                <p style="font-size: 1.1rem; margin-top: 10px;">주문이 없습니다</p>
+            </div>
+        `;
+        return;
+    }
+    
+    let html = `
+        <div style="overflow-x: auto;">
+            <table class="order-table">
+                <thead>
+                    <tr>
+                        <th>주문번호</th>
+                        <th>주문상태</th>
+                        <th>주문일자</th>
+                        <th>구매자</th>
+                        <th>수령자</th>
+                        <th>제품명</th>
+                        <th>결제금액</th>
+                        <th>액션</th>
+                    </tr>
+                </thead>
+                <tbody>
+    `;
+    
+    orders.forEach(order => {
+        let statusClass = 'pending';
+        if (order.order_status.includes('완료') || order.order_status.includes('배송')) {
+            statusClass = 'completed';
+        } else if (order.order_status.includes('취소') || order.order_status.includes('반품')) {
+            statusClass = 'cancelled';
+        } else if (order.order_status.includes('대기') || order.order_status.includes('준비')) {
+            statusClass = 'pending';
+        } else {
+            statusClass = 'shipping';
+        }
+        
+        html += `
+            <tr>
+                <td><strong>${order.order_number}</strong></td>
+                <td><span class="status-badge ${statusClass}">${order.order_status}</span></td>
+                <td>${order.order_date}</td>
+                <td>${order.buyer_name || '-'}</td>
+                <td>${order.recipient_name || '-'}</td>
+                <td style="max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                    ${order.product_name || '-'}
+                </td>
+                <td><strong>${order.payment_amount || '-'}원</strong></td>
+                <td>
+                    <button class="btn-action btn-view" onclick="viewOrder(${order.id})">
+                        <i class="bi bi-eye"></i> 상세
+                    </button>
+                </td>
+            </tr>
+        `;
+    });
+    
+    html += `
+                </tbody>
+            </table>
+        </div>
+    `;
+    
+    document.getElementById('ordersTableContainer').innerHTML = html;
+}
+
+// 기간 업데이트
+async function updateStatusPeriod() {
+    const startDate = document.getElementById('statusStartDate').value;
+    const endDate = document.getElementById('statusEndDate').value;
+    
+    if (!startDate || !endDate) {
+        alert('시작일과 종료일을 모두 선택해주세요.');
+        return;
+    }
+    
+    // 페이지 새로고침으로 상태 통계 업데이트
+    window.location.href = `/orders/dashboard?start_date=${startDate}&end_date=${endDate}`;
 }
 </script>
 {% endblock %}
