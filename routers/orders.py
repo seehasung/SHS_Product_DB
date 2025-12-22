@@ -104,6 +104,8 @@ def order_upload_page(request: Request):
 # ============================================
 # 3. 엑셀 업로드 처리
 # ============================================
+# routers/orders.py - 엑셀 업로드 부분만 (오류 처리 개선)
+
 @router.post("/api/upload")
 async def upload_orders(
     request: Request,
@@ -111,7 +113,7 @@ async def upload_orders(
     update_mode: str = Form("append"),
     db: Session = Depends(get_db)
 ):
-    """엑셀 파일 업로드 및 DB 저장"""
+    """엑셀 파일 업로드 및 DB 저장 (오류 행 건너뛰기)"""
     user_info = check_order_permission(request)
     if not user_info:
         raise HTTPException(status_code=401, detail="권한 없음")
@@ -159,31 +161,40 @@ async def upload_orders(
         
         # ⭐ 특수 파싱: 주문처리일 → 환율
         if "order_processing_date" in df.columns:
-            df["exchange_rate"] = df["order_processing_date"].apply(
-                lambda x: float(str(x).split("-")[-1]) if pd.notna(x) and "-" in str(x) else None
-            )
+            def parse_exchange_rate(x):
+                try:
+                    if pd.notna(x) and "-" in str(x):
+                        return str(x).split("-")[-1]
+                    return None
+                except:
+                    return None
+            
+            df["exchange_rate"] = df["order_processing_date"].apply(parse_exchange_rate)
         
-        # NaN 값 처리
-        df = df.where(pd.notna(df), None)
+        # 모든 값을 문자열로 변환 (NaN은 None으로)
+        for col in df.columns:
+            df[col] = df[col].apply(lambda x: str(x) if pd.notna(x) and str(x) != 'nan' else None)
         
         # 업데이트 모드 처리
         if update_mode == "replace":
             db.query(Order).delete()
             db.commit()
         
-        # DB에 저장
+        # DB에 저장 (각 행을 개별 처리)
         success_count = 0
         error_count = 0
         errors = []
         
         for idx, row in df.iterrows():
             try:
+                # 주문번호 확인
                 order_number = row.get("order_number")
-                if not order_number:
+                if not order_number or order_number == "None":
                     error_count += 1
                     errors.append(f"행 {idx+2}: 주문번호 누락")
                     continue
                 
+                # 기존 주문 확인
                 existing_order = db.query(Order).filter(
                     Order.order_number == order_number
                 ).first()
@@ -192,32 +203,38 @@ async def upload_orders(
                     if update_mode == "skip":
                         continue
                     elif update_mode == "update":
+                        # 업데이트
                         for key, value in row.items():
                             if key in column_mapping.values() and value is not None:
                                 setattr(existing_order, key, value)
                         existing_order.updated_at = datetime.now()
                         success_count += 1
                 else:
-                    order_data = {
-                        key: value for key, value in row.items()
-                        if key in column_mapping.values()
-                    }
-                    
-                    for date_field in ["order_date", "claim_date"]:
-                        if date_field in order_data and order_data[date_field]:
-                            try:
-                                order_data[date_field] = pd.to_datetime(order_data[date_field]).date()
-                            except:
-                                order_data[date_field] = None
+                    # 새 주문 생성 (모든 값을 문자열로 저장)
+                    order_data = {}
+                    for key, value in row.items():
+                        if key in column_mapping.values():
+                            order_data[key] = value
                     
                     new_order = Order(**order_data)
                     db.add(new_order)
                     success_count += 1
                 
+                # 100행마다 커밋 (메모리 절약)
+                if (idx + 1) % 100 == 0:
+                    db.commit()
+                
             except Exception as e:
                 error_count += 1
-                errors.append(f"행 {idx+2}: {str(e)}")
+                error_msg = str(e)
+                # 오류 메시지 정리
+                if "duplicate key" in error_msg.lower():
+                    errors.append(f"행 {idx+2}: 중복된 주문번호 ({order_number})")
+                else:
+                    errors.append(f"행 {idx+2}: {error_msg[:100]}")
+                continue  # 오류 발생해도 다음 행 계속 처리
         
+        # 최종 커밋
         db.commit()
         
         return JSONResponse({
@@ -225,7 +242,7 @@ async def upload_orders(
             "message": f"업로드 완료: 성공 {success_count}건, 실패 {error_count}건",
             "success_count": success_count,
             "error_count": error_count,
-            "errors": errors[:10]
+            "errors": errors[:20]  # 최대 20개만 표시
         })
         
     except Exception as e:
