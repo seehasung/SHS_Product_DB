@@ -19,7 +19,7 @@ from database import (
     Base, engine, SessionLocal, User, PostSchedule, MarketingPost,
     MarketingProduct, Product
 )
-from routers import auth, admin_users, product, marketing, tasks, blog, homepage, orders  
+from routers import auth, admin_users, product, marketing, tasks, blog, homepage #orders  
 
 # ✅ Render Disk 경로 설정
 STATIC_DIR = "/opt/render/project/src/static"
