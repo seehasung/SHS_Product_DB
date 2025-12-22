@@ -65,7 +65,7 @@ app.include_router(homepage.router, prefix="/marketing")
 app.include_router(marketing.router)
 app.include_router(tasks.router)
 app.include_router(blog.router)
-app.include_router(orders.router)
+#app.include_router(orders.router)
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 
@@ -81,13 +81,13 @@ def read_root(request: Request):
     is_admin = request.session.get("is_admin", False)
     can_manage_products = request.session.get("can_manage_products", False)
     can_manage_marketing = request.session.get("can_manage_marketing", False)
-    can_manage_orders = request.session.get("can_manage_orders", False)  # ⭐ 추가
+    #can_manage_orders = request.session.get("can_manage_orders", False)  # ⭐ 추가
 
     # 관리자는 모든 권한 자동 부여
     if is_admin:
         can_manage_products = True
         can_manage_marketing = True
-        can_manage_orders = True  # ⭐ 추가
+        #can_manage_orders = True  # ⭐ 추가
 
     
     # --- 마케팅 통계 데이터 추가 (마케팅 권한이 있을 때만) ---
@@ -242,7 +242,7 @@ def read_root(request: Request):
         "is_admin": is_admin,
         "can_manage_products": can_manage_products,
         "can_manage_marketing": can_manage_marketing,
-        "can_manage_orders": can_manage_orders,  # ⭐ 추가
+        #"can_manage_orders": can_manage_orders,  # ⭐ 추가
         "today": date.today().isoformat(),
         "today_stats": today_stats,
         "today_schedules": today_schedules,
