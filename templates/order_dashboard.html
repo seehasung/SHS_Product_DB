@@ -330,36 +330,49 @@
     
     <!-- 통계 카드 -->
     <div class="stats-grid">
-        <div class="stat-card" style="--stat-gradient: linear-gradient(90deg, #4A90E2 0%, #5BA3F5 100%);">
-            <div class="stat-icon" style="background: linear-gradient(135deg, #4A90E2 0%, #5BA3F5 100%); color: white;">
-                <i class="bi bi-box-seam"></i>
+        <!-- 1. 가송장 사용 건 -->
+        <div class="stat-card" style="--stat-gradient: linear-gradient(90deg, #fd79a8 0%, #fdcb6e 100%);">
+            <div class="stat-icon" style="background: linear-gradient(135deg, #fd79a8 0%, #fdcb6e 100%); color: white;">
+                <i class="bi bi-receipt-cutoff"></i>
             </div>
-            <div class="stat-value">{{ "{:,}".format(total_orders) }}</div>
-            <div class="stat-label">총 주문 건수</div>
+            <div class="stat-value">{{ "{:,}".format(fake_tracking_count) }}</div>
+            <div class="stat-label">가송장 사용 건</div>
         </div>
         
+        <!-- 2. 네이버 송장 흐름 -->
         <div class="stat-card" style="--stat-gradient: linear-gradient(90deg, #00b894 0%, #55efc4 100%);">
             <div class="stat-icon" style="background: linear-gradient(135deg, #00b894 0%, #55efc4 100%); color: white;">
-                <i class="bi bi-calendar-check"></i>
+                <i class="bi bi-truck"></i>
             </div>
-            <div class="stat-value">{{ "{:,}".format(today_orders) }}</div>
-            <div class="stat-label">오늘 주문</div>
+            <div class="stat-value">{{ "{:,}".format(naver_delivery_count) }}</div>
+            <div class="stat-label">네이버 송장 흐름</div>
         </div>
         
-        <div class="stat-card" style="--stat-gradient: linear-gradient(90deg, #fdcb6e 0%, #ffeaa7 100%);">
-            <div class="stat-icon" style="background: linear-gradient(135deg, #fdcb6e 0%, #ffeaa7 100%); color: white;">
-                <i class="bi bi-cash-stack"></i>
+        <!-- 3. 경동 이관 -->
+        <div class="stat-card" style="--stat-gradient: linear-gradient(90deg, #6c5ce7 0%, #a29bfe 100%);">
+            <div class="stat-icon" style="background: linear-gradient(135deg, #6c5ce7 0%, #a29bfe 100%); color: white;">
+                <i class="bi bi-arrow-left-right"></i>
             </div>
-            <div class="stat-value">{{ "{:,.0f}".format(total_amount) }}원</div>
-            <div class="stat-label">총 결제 금액</div>
+            <div class="stat-value">{{ "{:,}".format(kyungdong_count) }}</div>
+            <div class="stat-label">경동 이관</div>
         </div>
         
+        <!-- 4. 통관 절차 이상 -->
         <div class="stat-card" style="--stat-gradient: linear-gradient(90deg, #e17055 0%, #fab1a0 100%);">
             <div class="stat-icon" style="background: linear-gradient(135deg, #e17055 0%, #fab1a0 100%); color: white;">
-                <i class="bi bi-graph-up-arrow"></i>
+                <i class="bi bi-exclamation-triangle"></i>
             </div>
-            <div class="stat-value">{{ "{:,.0f}".format(total_profit) }}원</div>
-            <div class="stat-label">총 마진</div>
+            <div class="stat-value">{{ "{:,}".format(customs_issue_count) }}</div>
+            <div class="stat-label">통관 절차 이상</div>
+        </div>
+        
+        <!-- 5. 장기 미배송 -->
+        <div class="stat-card" style="--stat-gradient: linear-gradient(90deg, #d63031 0%, #ff7675 100%);">
+            <div class="stat-icon" style="background: linear-gradient(135deg, #d63031 0%, #ff7675 100%); color: white;">
+                <i class="bi bi-clock-history"></i>
+            </div>
+            <div class="stat-value">{{ "{:,}".format(long_undelivered_count) }}</div>
+            <div class="stat-label">장기 미배송 (2주+)</div>
         </div>
     </div>
     
@@ -576,7 +589,7 @@ async function deleteOrder(orderId) {
         const result = await response.json();
         
         if (result.success) {
-            alert('삭제되었습니다.');
+            alert('삭제되었습니다.'); 
             location.reload();
         } else {
             alert('삭제 실패: ' + result.message);
