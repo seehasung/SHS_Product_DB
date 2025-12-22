@@ -395,37 +395,57 @@ def search_customers(
     if not user_info:
         raise HTTPException(status_code=401, detail="권한 없음")
     
-    query = db.query(
-        Order.buyer_name,
-        Order.recipient_name,
-        Order.contact_number,
-        func.count(Order.id).label("order_count"),
-        func.sum(Order.payment_amount).label("total_amount")
-    ).group_by(Order.buyer_name, Order.recipient_name, Order.contact_number)
-    
+    # 검색 조건
+    query = db.query(Order)
     if search:
         query = query.filter(
             or_(
-                Order.buyer_name.ilike(f"%{search}%"),
-                Order.recipient_name.ilike(f"%{search}%"),
-                Order.contact_number.ilike(f"%{search}%")
+                Order.buyer_name.like(f"%{search}%"),
+                Order.recipient_name.like(f"%{search}%"),
+                Order.contact_number.like(f"%{search}%")
             )
         )
     
-    customers = query.all()
+    orders = query.all()
     
-    return {
-        "customers": [
-            {
-                "buyer_name": c.buyer_name,
-                "recipient_name": c.recipient_name,
-                "contact_number": c.contact_number,
-                "order_count": c.order_count,
-                "total_amount": float(c.total_amount) if c.total_amount else 0
+    # ⭐ Python에서 고객별로 그룹화 및 집계
+    customer_dict = {}
+    
+    for order in orders:
+        key = (order.buyer_name, order.recipient_name, order.contact_number)
+        
+        if key not in customer_dict:
+            customer_dict[key] = {
+                "buyer_name": order.buyer_name,
+                "recipient_name": order.recipient_name,
+                "contact_number": order.contact_number,
+                "order_count": 0,
+                "total_amount": 0
             }
-            for c in customers
-        ]
-    }
+        
+        customer_dict[key]["order_count"] += 1
+        
+        # 금액 합계
+        try:
+            if order.payment_amount:
+                amount_str = str(order.payment_amount).replace(',', '')
+                customer_dict[key]["total_amount"] += float(amount_str)
+        except (ValueError, AttributeError):
+            pass
+    
+    # 리스트로 변환
+    result = [
+        {
+            "buyer_name": v["buyer_name"],
+            "recipient_name": v["recipient_name"],
+            "contact_number": v["contact_number"],
+            "order_count": v["order_count"],
+            "total_amount": round(v["total_amount"], 2)
+        }
+        for v in customer_dict.values()
+    ]
+    
+    return {"customers": result}
 
 
 # ============================================
@@ -442,18 +462,22 @@ def search_delivery(
     if not user_info:
         raise HTTPException(status_code=401, detail="권한 없음")
     
-    query = db.query(Order).filter(Order.tracking_number.isnot(None))
+    # 송장번호가 있는 주문만
+    query = db.query(Order).filter(
+        Order.tracking_number.isnot(None),
+        Order.tracking_number != ''
+    )
     
     if search:
         query = query.filter(
             or_(
-                Order.tracking_number.ilike(f"%{search}%"),
-                Order.order_number.ilike(f"%{search}%"),
-                Order.recipient_name.ilike(f"%{search}%")
+                Order.tracking_number.like(f"%{search}%"),
+                Order.order_number.like(f"%{search}%"),
+                Order.recipient_name.like(f"%{search}%")
             )
         )
     
-    deliveries = query.order_by(desc(Order.order_date)).limit(100).all()
+    deliveries = query.order_by(desc(Order.created_at)).limit(100).all()
     
     return {
         "deliveries": [
@@ -463,7 +487,7 @@ def search_delivery(
                 "tracking_number": d.tracking_number,
                 "courier_company": d.courier_company,
                 "recipient_name": d.recipient_name,
-                "order_date": d.order_date.isoformat() if d.order_date else None,
+                "order_date": d.order_date,
                 "order_status": d.order_status
             }
             for d in deliveries
@@ -485,18 +509,22 @@ def search_customs(
     if not user_info:
         raise HTTPException(status_code=401, detail="권한 없음")
     
-    query = db.query(Order).filter(Order.customs_number.isnot(None))
+    # 통관번호가 있는 주문만
+    query = db.query(Order).filter(
+        Order.customs_number.isnot(None),
+        Order.customs_number != ''
+    )
     
     if search:
         query = query.filter(
             or_(
-                Order.customs_number.ilike(f"%{search}%"),
-                Order.order_number.ilike(f"%{search}%"),
-                Order.recipient_name.ilike(f"%{search}%")
+                Order.customs_number.like(f"%{search}%"),
+                Order.order_number.like(f"%{search}%"),
+                Order.recipient_name.like(f"%{search}%")
             )
         )
     
-    customs = query.order_by(desc(Order.order_date)).limit(100).all()
+    customs = query.order_by(desc(Order.created_at)).limit(100).all()
     
     return {
         "customs": [
@@ -505,14 +533,13 @@ def search_customs(
                 "order_number": c.order_number,
                 "customs_number": c.customs_number,
                 "recipient_name": c.recipient_name,
-                "order_date": c.order_date.isoformat() if c.order_date else None,
+                "order_date": c.order_date,
                 "order_status": c.order_status,
-                "customs_prepayment": float(c.customs_prepayment) if c.customs_prepayment else 0
+                "customs_prepayment": c.customs_prepayment or "0"
             }
             for c in customs
         ]
     }
-
 
 # ============================================
 # 8. 네이버 송장 팔로우
