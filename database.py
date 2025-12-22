@@ -869,7 +869,7 @@ class Order(Base):
     # 판매/고객 정보
     # ============================================
     sales_channel = Column(Text, nullable=True)  # 판매처/계정
-    order_number = Column(Text, index=True)  # 주문번호
+    order_number = Column(Text, unique=True, index=True)  # 주문번호
     buyer_name = Column(Text, nullable=True)  # 구매자
     recipient_name = Column(Text, nullable=True)  # 수령자
     
