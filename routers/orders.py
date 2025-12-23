@@ -1205,250 +1205,543 @@ def get_kdexp_tracking(tracking_number, order):
             "message": f"조회 중 오류가 발생했습니다: {str(e)}"
         }
         
-# 한진택배 조회
-def get_hanjin_tracking(tracking_number: str, order: Order):
-    """한진택배 배송 조회"""
+
+        
+# ===== 한진택배 파싱 함수 =====
+def parse_hanjin_tracking(html_content: str):
+    """
+    한진택배 HTML 응답을 파싱하여 배송 정보를 추출합니다.
+    """
+    soup = BeautifulSoup(html_content, 'html.parser')
+    
+    result = {
+        "tracking_number": "",
+        "sender_name": "-",
+        "receiver_name": "-",
+        "product_name": "-",
+        "details": []
+    }
+    
     try:
-        url = f"https://www.hanjin.com/kor/CMS/DeliveryMgr/WaybillResult.do?mCode=MN038&schLang=KR&wblnum={tracking_number}"
+        # 1. 기본 정보 테이블 파싱 (table.board-list-table.delivery-tbl)
+        basic_table = soup.select_one('table.board-list-table.delivery-tbl')
+        if basic_table:
+            tbody = basic_table.select_one('tbody')
+            if tbody:
+                tds = tbody.select('td')
+                if len(tds) >= 5:
+                    result["product_name"] = tds[0].get_text(strip=True)
+                    result["sender_name"] = tds[1].get_text(strip=True)
+                    result["receiver_name"] = tds[2].get_text(strip=True)
+                    # 받는 주소: tds[3], 운임: tds[4]
         
+        # 2. 배송 상세 정보 테이블 파싱 (div.waybill-tbl > table)
+        waybill_div = soup.select_one('div.waybill-tbl')
+        
+        if waybill_div:
+            detail_table = waybill_div.select_one('table.board-list-table')
+            
+            if detail_table:
+                tbody = detail_table.select_one('tbody')
+                
+                if tbody:
+                    rows = tbody.select('tr')
+                    
+                    for row in rows:
+                        # 날짜
+                        date_td = row.select_one('td.w-date')
+                        date_part = date_td.get_text(strip=True) if date_td else ""
+                        
+                        # 시간
+                        time_td = row.select_one('td.w-time')
+                        time_part = time_td.get_text(strip=True) if time_td else ""
+                        
+                        # 위치
+                        org_td = row.select_one('td.w-org')
+                        location = org_td.get_text(strip=True) if org_td else ""
+                        
+                        # 상태 및 설명
+                        process_td = row.select_one('td.w-preocess')
+                        if process_td:
+                            # stateDesc에서 상태 추출
+                            state_span = process_td.select_one('span.stateDesc')
+                            if state_span:
+                                # <strong> 태그 제거하고 텍스트 추출
+                                for strong in state_span.find_all('strong'):
+                                    strong.unwrap()  # strong 태그만 제거하고 내용은 유지
+                                description = state_span.get_text(strip=True)
+                                
+                                # <br> 이후의 담당자 정보 추출
+                                br_tag = process_td.find('br')
+                                if br_tag and br_tag.next_sibling:
+                                    contact_info = br_tag.next_sibling
+                                    if isinstance(contact_info, str):
+                                        contact_text = contact_info.strip()
+                                        if contact_text:
+                                            description += " " + contact_text
+                            else:
+                                description = process_td.get_text(strip=True)
+                            
+                            # 상태 추출 (간단하게)
+                            status = "진행중"
+                            if "접수" in description:
+                                status = "상품접수"
+                            elif "입고" in description:
+                                status = "터미널 입고"
+                            elif "이동" in description:
+                                status = "상품 이동중"
+                            elif "도착" in description:
+                                status = "터미널 도착"
+                            elif "배송출발" in description:
+                                status = "배송 출발"
+                            elif "배송완료" in description:
+                                status = "배송 완료"
+                        else:
+                            status = ""
+                            description = ""
+                        
+                        detail = {
+                            "date": date_part,
+                            "time": time_part,
+                            "location": location,
+                            "status": status,
+                            "description": description
+                        }
+                        
+                        result["details"].append(detail)
+        
+        print(f"✅ 한진택배 파싱 완료: {len(result['details'])}개 이벤트")
+        
+    except Exception as e:
+        print(f"❌ 한진택배 파싱 오류: {e}")
+        import traceback
+        traceback.print_exc()
+    
+    return result
+
+
+# ===== 한진택배 조회 함수 =====
+def get_hanjin_tracking(tracking_number: str, order):
+    """
+    한진택배 배송 조회
+    """
+    try:
+        print(f"🔍 한진택배 조회 시작: {tracking_number}")
+        
+        # 한진택배 조회 URL
+        hanjin_url = f"https://www.hanjin.com/kor/CMS/DeliveryMgr/WaybillResult.do?mCode=MN038&schLang=KR&wblnumText2={tracking_number}"
+        
+        # HTML 가져오기
         headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-            'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
         }
-        
-        response = requests.get(url, headers=headers, timeout=10)
+        response = requests.get(hanjin_url, headers=headers, timeout=10)
         response.encoding = 'utf-8'
         
         if response.status_code != 200:
-            return {"success": False, "message": "한진택배 조회 실패"}
+            print(f"❌ 한진택배 HTTP 오류: {response.status_code}")
+            return {
+                "success": False,
+                "message": f"한진택배 조회 실패 (HTTP {response.status_code})"
+            }
         
-        soup = BeautifulSoup(response.text, 'html.parser')
+        # HTML 파싱
+        parsed_data = parse_hanjin_tracking(response.text)
         
-        # 기본 정보 추출
-        basic_info = {}
+        # details가 비어있으면 경고
+        if not parsed_data.get("details"):
+            print("⚠️ 경고: 한진택배 배송 이력이 없습니다")
         
-        # 일반적으로 한진택배는 테이블 구조로 되어 있음
-        info_table = soup.find('table', class_='table_vertical')
-        if info_table:
-            rows = info_table.find_all('tr')
-            for row in rows:
-                th = row.find('th')
-                td = row.find('td')
-                if th and td:
-                    key = th.get_text(strip=True)
-                    value = td.get_text(strip=True)
-                    
-                    if '송장번호' in key or '운송장' in key:
-                        basic_info['tracking_number'] = value
-                    elif '보내시는' in key or '송화인' in key:
-                        basic_info['sender_name'] = value
-                    elif '받으시는' in key or '수화인' in key:
-                        basic_info['receiver_name'] = value
-                    elif '제품명' in key or '품목' in key:
-                        basic_info['product_name'] = value
-        
-        # 기본값 설정
-        basic_info.setdefault('sender_name', '-')
-        basic_info.setdefault('receiver_name', order.recipient_name or '-')
-        basic_info.setdefault('product_name', order.product_name or '-')
-        basic_info.setdefault('quantity', str(order.quantity or '-'))
-        
-        # 배송 추적 정보 추출
-        details = []
-        
-        tracking_table = soup.find('table', class_='table_horizontal')
-        if tracking_table:
-            tbody = tracking_table.find('tbody')
-            if tbody:
-                rows = tbody.find_all('tr')
-                for row in rows:
-                    cols = row.find_all('td')
-                    if len(cols) >= 4:
-                        detail = {
-                            'date': cols[0].get_text(strip=True),
-                            'time': cols[1].get_text(strip=True) if len(cols) > 1 else '',
-                            'location': cols[2].get_text(strip=True) if len(cols) > 2 else '',
-                            'status': cols[3].get_text(strip=True) if len(cols) > 3 else '',
-                            'phone': cols[4].get_text(strip=True) if len(cols) > 4 else ''
-                        }
-                        details.append(detail)
-        
-        return {
+        # 결과 구성
+        result = {
             "success": True,
             "courier": "한진택배",
             "tracking_number": tracking_number,
-            "basic_info": basic_info,
-            "details": details,
+            "basic_info": {
+                "sender_name": parsed_data.get("sender_name", "-"),
+                "receiver_name": parsed_data.get("receiver_name") or order.recipient_name or "-",
+                "product_name": parsed_data.get("product_name") or order.product_name or "-",
+                "quantity": str(order.quantity) if order.quantity else "-"
+            },
+            "details": parsed_data.get("details", []),
             "order_info": {
                 "order_number": order.order_number,
                 "buyer_name": order.buyer_name,
                 "recipient_name": order.recipient_name
             }
         }
-    
-    except Exception as e:
+        
+        print(f"✅ 한진택배 조회 성공: {len(result['details'])}개 이벤트")
+        return result
+        
+    except requests.Timeout:
+        print(f"❌ 한진택배 타임아웃")
         return {
             "success": False,
-            "message": f"한진택배 조회 실패: {str(e)}"
+            "message": "한진택배 서버 응답 시간 초과"
+        }
+        
+    except Exception as e:
+        print(f"❌ 한진택배 조회 오류: {e}")
+        import traceback
+        traceback.print_exc()
+        return {
+            "success": False,
+            "message": f"한진택배 조회 중 오류 발생: {str(e)}"
         }
 
-# 우체국택배 조회
-def get_epost_tracking(tracking_number: str, order: Order):
-    """우체국택배 배송 조회"""
+# ===== 우체국택배 파싱 함수 =====
+def parse_epost_tracking(html_content: str):
+    """
+    우체국택배 HTML 응답을 파싱하여 배송 정보를 추출합니다.
+    """
+    soup = BeautifulSoup(html_content, 'html.parser')
+    
+    result = {
+        "tracking_number": "",
+        "sender_name": "-",
+        "receiver_name": "-",
+        "details": []
+    }
+    
     try:
-        url = f"https://service.epost.go.kr/trace.RetrieveDomRigiTraceList.comm?sid1={tracking_number}"
+        # 1. 기본 정보 테이블 파싱 (첫 번째 table.table_col)
+        basic_tables = soup.select('table.table_col')
+        if basic_tables:
+            basic_table = basic_tables[0]  # 첫 번째 테이블
+            tbody = basic_table.select_one('tbody')
+            if tbody:
+                tr = tbody.select_one('tr')
+                if tr:
+                    th = tr.select_one('th')
+                    tds = tr.select('td')
+                    
+                    if th:
+                        result["tracking_number"] = th.get_text(strip=True)
+                    
+                    if len(tds) >= 2:
+                        # 보내는 분 (td[0])
+                        sender_text = tds[0].get_text(strip=True).split('\n')[0].split('<br')[0]
+                        result["sender_name"] = sender_text.split('/')[0].strip()
+                        
+                        # 받는 분 (td[1])
+                        receiver_text = tds[1].get_text(strip=True).split('\n')[0].split('<br')[0]
+                        result["receiver_name"] = receiver_text.strip()
         
+        # 2. 배송 상세 정보 테이블 파싱 (table#processTable)
+        detail_table = soup.select_one('table#processTable')
+        
+        if detail_table:
+            tbody = detail_table.select_one('tbody')
+            
+            if tbody:
+                rows = tbody.select('tr')
+                
+                for row in rows:
+                    tds = row.select('td')
+                    
+                    if len(tds) >= 4:
+                        # 날짜
+                        date_part = tds[0].get_text(strip=True)
+                        
+                        # 시간
+                        time_part = tds[1].get_text(strip=True)
+                        
+                        # 발생국 (location)
+                        location_td = tds[2]
+                        location_link = location_td.select_one('a')
+                        if location_link:
+                            location = location_link.get_text(strip=True)
+                        else:
+                            location = location_td.get_text(strip=True)
+                        
+                        # 처리현황
+                        status_td = tds[3]
+                        evtnm_span = status_td.select_one('span.evtnm')
+                        
+                        if evtnm_span:
+                            status = evtnm_span.get_text(strip=True)
+                            
+                            # 전체 텍스트에서 추가 정보 추출
+                            full_text = status_td.get_text(separator=' ', strip=True)
+                            # evtnm 이후의 텍스트를 description으로
+                            description = full_text.replace(status, '', 1).strip()
+                            
+                            # 괄호 안의 정보 정리
+                            if '(' in description:
+                                description = description.replace('\n', ' ').replace('  ', ' ')
+                        else:
+                            status = status_td.get_text(strip=True)
+                            description = ""
+                        
+                        detail = {
+                            "date": date_part,
+                            "time": time_part,
+                            "location": location,
+                            "status": status,
+                            "description": description
+                        }
+                        
+                        result["details"].append(detail)
+        
+        print(f"✅ 우체국택배 파싱 완료: {len(result['details'])}개 이벤트")
+        
+    except Exception as e:
+        print(f"❌ 우체국택배 파싱 오류: {e}")
+        import traceback
+        traceback.print_exc()
+    
+    return result
+
+
+# ===== 우체국택배 조회 함수 =====
+def get_epost_tracking(tracking_number: str, order):
+    """
+    우체국택배 배송 조회
+    """
+    try:
+        print(f"🔍 우체국택배 조회 시작: {tracking_number}")
+        
+        # 우체국택배 조회 URL
+        epost_url = f"https://service.epost.go.kr/trace.RetrieveDomRigiTrace6789List.comm?sid1={tracking_number}&displayHeader=N"
+        
+        # HTML 가져오기
         headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-            'Accept': 'text/html,application/xhtml+xml,application/xml',
-            'Accept-Language': 'ko-KR,ko;q=0.9',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
         }
-        
-        response = requests.get(url, headers=headers, timeout=10)
+        response = requests.get(epost_url, headers=headers, timeout=10)
         response.encoding = 'utf-8'
         
         if response.status_code != 200:
-            return {"success": False, "message": "우체국택배 조회 실패"}
+            print(f"❌ 우체국택배 HTTP 오류: {response.status_code}")
+            return {
+                "success": False,
+                "message": f"우체국택배 조회 실패 (HTTP {response.status_code})"
+            }
         
-        soup = BeautifulSoup(response.text, 'html.parser')
+        # HTML 파싱
+        parsed_data = parse_epost_tracking(response.text)
         
-        # 기본 정보
-        basic_info = {
-            'sender_name': '-',
-            'receiver_name': order.recipient_name or '-',
-            'product_name': order.product_name or '-',
-            'quantity': str(order.quantity or '-')
-        }
+        # details가 비어있으면 경고
+        if not parsed_data.get("details"):
+            print("⚠️ 경고: 우체국택배 배송 이력이 없습니다")
         
-        # 상세 정보 추출
-        details = []
-        
-        # 우체국택배 테이블 구조 파싱
-        table = soup.find('table', class_='table_col')
-        if table:
-            tbody = table.find('tbody')
-            if tbody:
-                rows = tbody.find_all('tr')
-                for row in rows:
-                    cols = row.find_all('td')
-                    if len(cols) >= 3:
-                        detail = {
-                            'date': cols[0].get_text(strip=True).split()[0] if cols[0].get_text(strip=True) else '',
-                            'time': cols[0].get_text(strip=True).split()[1] if len(cols[0].get_text(strip=True).split()) > 1 else '',
-                            'location': cols[1].get_text(strip=True),
-                            'status': cols[2].get_text(strip=True),
-                            'phone': cols[3].get_text(strip=True) if len(cols) > 3 else ''
-                        }
-                        details.append(detail)
-        
-        return {
+        # 결과 구성
+        result = {
             "success": True,
             "courier": "우체국택배",
             "tracking_number": tracking_number,
-            "basic_info": basic_info,
-            "details": details,
+            "basic_info": {
+                "sender_name": parsed_data.get("sender_name", "-"),
+                "receiver_name": parsed_data.get("receiver_name") or order.recipient_name or "-",
+                "product_name": order.product_name or "-",
+                "quantity": str(order.quantity) if order.quantity else "-"
+            },
+            "details": parsed_data.get("details", []),
             "order_info": {
                 "order_number": order.order_number,
                 "buyer_name": order.buyer_name,
                 "recipient_name": order.recipient_name
             }
         }
-    
-    except Exception as e:
+        
+        print(f"✅ 우체국택배 조회 성공: {len(result['details'])}개 이벤트")
+        return result
+        
+    except requests.Timeout:
+        print(f"❌ 우체국택배 타임아웃")
         return {
             "success": False,
-            "message": f"우체국택배 조회 실패: {str(e)}"
+            "message": "우체국택배 서버 응답 시간 초과"
+        }
+        
+    except Exception as e:
+        print(f"❌ 우체국택배 조회 오류: {e}")
+        import traceback
+        traceback.print_exc()
+        return {
+            "success": False,
+            "message": f"우체국택배 조회 중 오류 발생: {str(e)}"
         }
 
-# 로젠택배 조회
-def get_logen_tracking(tracking_number: str, order: Order):
-    """로젠택배 배송 조회"""
+# ===== 로젠택배 파싱 함수 =====
+def parse_logen_tracking(html_content: str):
+    """
+    로젠택배 HTML 응답을 파싱하여 배송 정보를 추출합니다.
+    """
+    soup = BeautifulSoup(html_content, 'html.parser')
+    
+    result = {
+        "tracking_number": "",
+        "sender_name": "-",
+        "receiver_name": "-",
+        "product_name": "-",
+        "details": []
+    }
+    
     try:
-        url = f"https://www.ilogen.com/web/personal/trace/{tracking_number}"
+        # 1. 기본 정보 테이블 파싱 (table.horizon.pdInfo)
+        basic_table = soup.select_one('table.horizon.pdInfo')
+        if basic_table:
+            tbody = basic_table.select_one('tbody')
+            if tbody:
+                rows = tbody.select('tr')
+                for row in rows:
+                    tds = row.select('td')
+                    for i in range(0, len(tds), 2):
+                        if i + 1 < len(tds):
+                            label = tds[i].get_text(strip=True)
+                            value = tds[i + 1].get_text(strip=True)
+                            
+                            if label == "송장번호":
+                                result["tracking_number"] = value
+                            elif label == "상품명":
+                                result["product_name"] = value
+                            elif label == "보내시는 분":
+                                result["sender_name"] = value
+                            elif label == "받으시는 분":
+                                result["receiver_name"] = value
         
+        # 2. 배송 상세 정보 테이블 파싱 (table.data.tkInfo)
+        detail_table = soup.select_one('table.data.tkInfo')
+        
+        if detail_table:
+            tbody = detail_table.select_one('tbody')
+            
+            if tbody:
+                rows = tbody.select('tr')
+                
+                for row in rows:
+                    tds = row.select('td')
+                    
+                    if len(tds) >= 8:
+                        # 날짜 및 시간 파싱
+                        datetime_text = tds[0].get_text(strip=True)
+                        date_part = ""
+                        time_part = ""
+                        
+                        if ' ' in datetime_text:
+                            parts = datetime_text.split(' ', 1)
+                            date_part = parts[0]
+                            time_part = parts[1] if len(parts) > 1 else ""
+                        else:
+                            date_part = datetime_text
+                        
+                        # 사업장
+                        location = tds[1].get_text(strip=True)
+                        
+                        # 배송상태
+                        status = tds[2].get_text(strip=True)
+                        
+                        # 배송내용
+                        description = tds[3].get_text(strip=True)
+                        
+                        # 담당직원 + 영업소 + 연락처
+                        staff = tds[4].get_text(strip=True)
+                        office = tds[6].get_text(strip=True)
+                        contact = tds[7].get_text(strip=True)
+                        
+                        # 추가 정보 결합
+                        if staff or office or contact:
+                            extra_info = []
+                            if staff:
+                                extra_info.append(f"담당: {staff}")
+                            if office:
+                                extra_info.append(f"영업소: {office}")
+                            if contact:
+                                extra_info.append(f"연락처: {contact}")
+                            if extra_info:
+                                description += " (" + ", ".join(extra_info) + ")"
+                        
+                        detail = {
+                            "date": date_part,
+                            "time": time_part,
+                            "location": location,
+                            "status": status,
+                            "description": description
+                        }
+                        
+                        result["details"].append(detail)
+        
+        print(f"✅ 로젠택배 파싱 완료: {len(result['details'])}개 이벤트")
+        
+    except Exception as e:
+        print(f"❌ 로젠택배 파싱 오류: {e}")
+        import traceback
+        traceback.print_exc()
+    
+    return result
+
+
+# ===== 로젠택배 조회 함수 =====
+def get_logen_tracking(tracking_number: str, order):
+    """
+    로젠택배 배송 조회
+    """
+    try:
+        print(f"🔍 로젠택배 조회 시작: {tracking_number}")
+        
+        # 로젠택배 조회 URL
+        logen_url = f"https://www.ilogen.com/web/personal/trace/{tracking_number}"
+        
+        # HTML 가져오기
         headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-            'Accept': 'text/html,application/xhtml+xml,application/xml',
-            'Accept-Language': 'ko-KR,ko;q=0.9',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
         }
-        
-        response = requests.get(url, headers=headers, timeout=10)
+        response = requests.get(logen_url, headers=headers, timeout=10)
         response.encoding = 'utf-8'
         
         if response.status_code != 200:
-            return {"success": False, "message": "로젠택배 조회 실패"}
+            print(f"❌ 로젠택배 HTTP 오류: {response.status_code}")
+            return {
+                "success": False,
+                "message": f"로젠택배 조회 실패 (HTTP {response.status_code})"
+            }
         
-        soup = BeautifulSoup(response.text, 'html.parser')
+        # HTML 파싱
+        parsed_data = parse_logen_tracking(response.text)
         
-        # 기본 정보
-        basic_info = {
-            'sender_name': '-',
-            'receiver_name': order.recipient_name or '-',
-            'product_name': order.product_name or '-',
-            'quantity': str(order.quantity or '-')
-        }
+        # details가 비어있으면 경고
+        if not parsed_data.get("details"):
+            print("⚠️ 경고: 로젠택배 배송 이력이 없습니다")
         
-        # 테이블에서 기본 정보 추출
-        info_table = soup.find('table', class_='invoice_table')
-        if info_table:
-            rows = info_table.find_all('tr')
-            for row in rows:
-                th = row.find('th')
-                td = row.find('td')
-                if th and td:
-                    key = th.get_text(strip=True)
-                    value = td.get_text(strip=True)
-                    
-                    if '보내는분' in key:
-                        basic_info['sender_name'] = value
-                    elif '받는분' in key:
-                        basic_info['receiver_name'] = value
-                    elif '상품명' in key:
-                        basic_info['product_name'] = value
-        
-        # 배송 추적 정보
-        details = []
-        
-        tracking_table = soup.find('table', class_='dataTable')
-        if tracking_table:
-            tbody = tracking_table.find('tbody')
-            if tbody:
-                rows = tbody.find_all('tr')
-                for row in rows:
-                    cols = row.find_all('td')
-                    if len(cols) >= 3:
-                        datetime_text = cols[0].get_text(strip=True)
-                        date_time = datetime_text.split()
-                        
-                        detail = {
-                            'date': date_time[0] if len(date_time) > 0 else '',
-                            'time': date_time[1] if len(date_time) > 1 else '',
-                            'location': cols[1].get_text(strip=True),
-                            'status': cols[2].get_text(strip=True),
-                            'phone': cols[3].get_text(strip=True) if len(cols) > 3 else ''
-                        }
-                        details.append(detail)
-        
-        return {
+        # 결과 구성
+        result = {
             "success": True,
             "courier": "로젠택배",
             "tracking_number": tracking_number,
-            "basic_info": basic_info,
-            "details": details,
+            "basic_info": {
+                "sender_name": parsed_data.get("sender_name", "-"),
+                "receiver_name": parsed_data.get("receiver_name") or order.recipient_name or "-",
+                "product_name": parsed_data.get("product_name") or order.product_name or "-",
+                "quantity": str(order.quantity) if order.quantity else "-"
+            },
+            "details": parsed_data.get("details", []),
             "order_info": {
                 "order_number": order.order_number,
                 "buyer_name": order.buyer_name,
                 "recipient_name": order.recipient_name
             }
         }
-    
-    except Exception as e:
+        
+        print(f"✅ 로젠택배 조회 성공: {len(result['details'])}개 이벤트")
+        return result
+        
+    except requests.Timeout:
+        print(f"❌ 로젠택배 타임아웃")
         return {
             "success": False,
-            "message": f"로젠택배 조회 실패: {str(e)}"
+            "message": "로젠택배 서버 응답 시간 초과"
         }
-
+        
+    except Exception as e:
+        print(f"❌ 로젠택배 조회 오류: {e}")
+        import traceback
+        traceback.print_exc()
+        return {
+            "success": False,
+            "message": f"로젠택배 조회 중 오류 발생: {str(e)}"
+        }
 
 
 # ===== 롯데택배 파싱 함수 =====
