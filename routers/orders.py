@@ -123,28 +123,28 @@ def order_dashboard(
         'CJ대한통운', 'CJ택배', '대한통운', '로젠택배', '롯데택배',
         '우체국택배', '천일택배', '편의점택배(GS25)', '한진택배'
     ]
-    
+
     all_orders = db.query(Order).all()
     fake_tracking_count = 0
-    
+
     for order in all_orders:
         courier = order.courier_company or ''
         is_valid_courier = any(valid in courier for valid in valid_couriers)
         tracking = order.tracking_number or ''
-        is_date_format = False
         
-        if len(tracking) >= 6:
-            prefix = tracking[:6]
-            if prefix.isdigit():
-                try:
-                    month = int(prefix[2:4])
-                    day = int(prefix[4:6])
-                    if 1 <= month <= 12 and 1 <= day <= 31:
-                        is_date_format = True
-                except (ValueError, IndexError):
-                    pass
+        # ⭐ 송장번호 .0 제거
+        if tracking.endswith('.0'):
+            tracking = tracking[:-2]
         
-        if not is_valid_courier and is_date_format and tracking:
+        # ⭐ 송장번호 앞 4자리가 2025~2030인지 확인
+        is_fake_tracking = False
+        if len(tracking) >= 4:
+            prefix = tracking[:4]
+            if prefix in ['2025', '2026', '2027', '2028', '2029', '2030']:
+                is_fake_tracking = True
+        
+        # 유효하지 않은 택배사 + 가송장 형식 = 가송장
+        if not is_valid_courier and is_fake_tracking:
             fake_tracking_count += 1
     
     # 2. 네이버 송장 흐름
@@ -263,22 +263,22 @@ def get_orders_by_condition(
             courier = order.courier_company or ''
             is_valid_courier = any(valid in courier for valid in valid_couriers)
             tracking = order.tracking_number or ''
-            is_date_format = False
             
-            if len(tracking) >= 6:
-                prefix = tracking[:6]
-                if prefix.isdigit():
-                    try:
-                        month = int(prefix[2:4])
-                        day = int(prefix[4:6])
-                        if 1 <= month <= 12 and 1 <= day <= 31:
-                            is_date_format = True
-                    except:
-                        pass
+            # ⭐ 송장번호 .0 제거
+            if tracking.endswith('.0'):
+                tracking = tracking[:-2]
             
-            if not is_valid_courier and is_date_format and tracking:
+            # ⭐ 송장번호 앞 4자리가 2025~2030인지 확인
+            is_fake_tracking = False
+            if len(tracking) >= 4:
+                prefix = tracking[:4]
+                if prefix in ['2025', '2026', '2027', '2028', '2029', '2030']:
+                    is_fake_tracking = True
+            
+            # 유효하지 않은 택배사 + 가송장 형식 = 가송장
+            if not is_valid_courier and is_fake_tracking:
                 orders.append(order)
-    
+        
     elif condition == "kyungdong":
         # 경동 이관
         orders = db.query(Order).filter(
@@ -322,13 +322,14 @@ def get_orders_by_condition(
             {
                 "id": o.id,
                 "order_number": o.order_number,
+                "sales_channel": o.sales_channel,  # ⭐ 추가
                 "order_status": o.order_status,
                 "order_date": o.order_date[:10] if o.order_date else '-',
                 "buyer_name": o.buyer_name,
                 "recipient_name": o.recipient_name,
                 "product_name": o.product_name,
                 "payment_amount": o.payment_amount,
-                "tracking_number": o.tracking_number,
+                "tracking_number": o.tracking_number[:-2] if o.tracking_number and o.tracking_number.endswith('.0') else o.tracking_number,  # ⭐ .0 제거
                 "courier_company": o.courier_company
             }
             for o in orders[:100]  # 최대 100개
@@ -378,6 +379,7 @@ def get_orders_by_status(
             {
                 "id": o.id,
                 "order_number": o.order_number,
+                "sales_channel": o.sales_channel,  # ⭐ 추가
                 "order_status": o.order_status,
                 "normalized_status": normalize_order_status(o.order_status),
                 "order_date": o.order_date[:10] if o.order_date else '-',
@@ -385,7 +387,7 @@ def get_orders_by_status(
                 "recipient_name": o.recipient_name,
                 "product_name": o.product_name,
                 "payment_amount": o.payment_amount,
-                "tracking_number": o.tracking_number,
+                "tracking_number": o.tracking_number[:-2] if o.tracking_number and o.tracking_number.endswith('.0') else o.tracking_number,  # ⭐ .0 제거
                 "courier_company": o.courier_company
             }
             for o in filtered_orders[:100]
