@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+order_naver_tracking.html{% extends "base.html" %}
 {% block title %}주문조회 - 주문조회{% endblock %}
 
 {% block head %}
@@ -288,18 +288,34 @@
             <!-- 배송 조회 탭 -->
             <div class="tab-pane fade" id="delivery" role="tabpanel">
                 <div class="search-bar">
-                    <input type="text" id="deliverySearch" class="search-input" placeholder="송장번호, 주문번호, 수령자명으로 검색...">
+                    <input type="text" 
+                        id="deliverySearch" 
+                        class="search-input" 
+                        placeholder="송장번호, 주문번호, 수령자명으로 검색...">
                     <button class="btn-search" onclick="searchDelivery()">
                         <i class="bi bi-search"></i> 검색
                     </button>
                 </div>
                 
-                <div id="deliveryResults">
-                    <div class="no-results">
-                        <i class="bi bi-search"></i>
-                        <p style="font-size: 1.1rem; margin-top: 10px;">검색어를 입력하세요</p>
-                        <p style="color: #636e72;">송장번호, 주문번호, 수령자명으로 검색할 수 있습니다</p>
-                    </div>
+                <div class="table-responsive mt-4">
+                    <table class="result-table">
+                        <thead>
+                            <tr>
+                                <th>주문번호</th>
+                                <th>송장번호</th>
+                                <th>택배사</th>
+                                <th>수령자</th>
+                                <th>주문일자</th>
+                                <th>주문상태</th>
+                                <th>액션</th>
+                            </tr>
+                        </thead>
+                        <tbody id="deliveryResults">
+                            <tr>
+                                <td colspan="7" class="text-center">검색어를 입력하세요</td>
+                            </tr>
+                        </tbody>
+                    </table>
                 </div>
             </div>
             
@@ -325,19 +341,6 @@
 </div>
 
 <script>
-// Enter 키 검색
-document.getElementById('customerSearch').addEventListener('keypress', function(e) {
-    if (e.key === 'Enter') searchCustomers();
-});
-
-document.getElementById('deliverySearch').addEventListener('keypress', function(e) {
-    if (e.key === 'Enter') searchDelivery();
-});
-
-document.getElementById('customsSearch').addEventListener('keypress', function(e) {
-    if (e.key === 'Enter') searchCustoms();
-});
-
 // 고객 조회
 async function searchCustomers() {
     const search = document.getElementById('customerSearch').value.trim();
@@ -353,12 +356,9 @@ async function searchCustomers() {
         return;
     }
     
-    // 로딩 표시
     resultsDiv.innerHTML = `
         <div class="loading">
-            <div class="spinner-border text-primary" role="status">
-                <span class="visually-hidden">검색 중...</span>
-            </div>
+            <div class="spinner-border text-primary"></div>
             <p style="margin-top: 15px;">검색 중...</p>
         </div>
     `;
@@ -398,7 +398,6 @@ async function searchCustomers() {
                 <div class="no-results">
                     <i class="bi bi-inbox"></i>
                     <p style="font-size: 1.1rem; margin-top: 10px;">검색 결과가 없습니다</p>
-                    <p style="color: #636e72;">다른 검색어로 다시 시도해보세요</p>
                 </div>
             `;
         }
@@ -414,82 +413,47 @@ async function searchCustomers() {
 // 배송 조회
 async function searchDelivery() {
     const search = document.getElementById('deliverySearch').value.trim();
-    const resultsDiv = document.getElementById('deliveryResults');
+    const tbody = document.getElementById('deliveryResults');
     
     if (!search) {
-        resultsDiv.innerHTML = `
-            <div class="no-results">
-                <i class="bi bi-search"></i>
-                <p style="font-size: 1.1rem; margin-top: 10px;">검색어를 입력하세요</p>
-            </div>
-        `;
+        tbody.innerHTML = '<tr><td colspan="7" class="text-center">검색어를 입력하세요</td></tr>';
         return;
     }
     
-    // 로딩 표시
-    resultsDiv.innerHTML = `
-        <div class="loading">
-            <div class="spinner-border text-primary" role="status">
-                <span class="visually-hidden">검색 중...</span>
-            </div>
-            <p style="margin-top: 15px;">검색 중...</p>
-        </div>
-    `;
+    tbody.innerHTML = '<tr><td colspan="7" class="text-center"><div class="spinner-border text-primary"></div><p class="mt-2">검색 중...</p></td></tr>';
     
     try {
         const response = await fetch(`/orders/api/search/delivery?search=${encodeURIComponent(search)}`);
         const data = await response.json();
         
-        if (data.deliveries && data.deliveries.length > 0) {
-            resultsDiv.innerHTML = `
-                <table class="result-table">
-                    <thead>
-                        <tr>
-                            <th>주문번호</th>
-                            <th>송장번호</th>
-                            <th>택배사</th>
-                            <th>수령자</th>
-                            <th>주문일자</th>
-                            <th>상태</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${data.deliveries.map(delivery => `
-                            <tr>
-                                <td><strong>${delivery.order_number}</strong></td>
-                                <td>
-                                    <span style="color: #4A90E2; font-weight: 600;">
-                                        ${delivery.tracking_number || '-'}
-                                    </span>
-                                </td>
-                                <td>${delivery.courier_company || '-'}</td>
-                                <td>${delivery.recipient_name || '-'}</td>
-                                <td>${delivery.order_date || '-'}</td>
-                                <td>
-                                    ${delivery.order_status ? 
-                                        `<span class="status-badge ${getStatusClass(delivery.order_status)}">${delivery.order_status}</span>` 
-                                        : '-'}
-                                </td>
-                            </tr>
-                        `).join('')}
-                    </tbody>
-                </table>
-            `;
-        } else {
-            resultsDiv.innerHTML = `
-                <div class="no-results">
-                    <i class="bi bi-inbox"></i>
-                    <p style="font-size: 1.1rem; margin-top: 10px;">검색 결과가 없습니다</p>
-                    <p style="color: #636e72;">다른 검색어로 다시 시도해보세요</p>
-                </div>
-            `;
+        if (data.deliveries.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="7" class="text-center">검색 결과가 없습니다</td></tr>';
+            return;
         }
+        
+        let html = '';
+        data.deliveries.forEach(delivery => {
+            html += `
+                <tr>
+                    <td><strong>${delivery.order_number}</strong></td>
+                    <td><span style="color: #4A90E2; font-weight: 600;">${delivery.tracking_number || '-'}</span></td>
+                    <td>${delivery.courier_company || '-'}</td>
+                    <td>${delivery.recipient_name || '-'}</td>
+                    <td>${delivery.order_date || '-'}</td>
+                    <td><span class="badge ${getStatusBadgeClass(delivery.order_status)}">${delivery.order_status}</span></td>
+                    <td>
+                        <button class="btn btn-sm btn-primary" onclick="viewTracking(${delivery.id})">
+                            <i class="bi bi-truck"></i> 배송조회
+                        </button>
+                    </td>
+                </tr>
+            `;
+        });
+        
+        tbody.innerHTML = html;
+        
     } catch (error) {
-        resultsDiv.innerHTML = `
-            <div class="alert alert-danger">
-                <i class="bi bi-exclamation-triangle"></i> 검색 중 오류가 발생했습니다.
-            </div>
-        `;
+        tbody.innerHTML = '<tr><td colspan="7" class="text-center text-danger">검색 중 오류가 발생했습니다</td></tr>';
     }
 }
 
@@ -508,12 +472,9 @@ async function searchCustoms() {
         return;
     }
     
-    // 로딩 표시
     resultsDiv.innerHTML = `
         <div class="loading">
-            <div class="spinner-border text-primary" role="status">
-                <span class="visually-hidden">검색 중...</span>
-            </div>
+            <div class="spinner-border text-primary"></div>
             <p style="margin-top: 15px;">검색 중...</p>
         </div>
     `;
@@ -539,19 +500,11 @@ async function searchCustoms() {
                         ${data.customs.map(customs => `
                             <tr>
                                 <td><strong>${customs.order_number}</strong></td>
-                                <td>
-                                    <span style="color: #00b894; font-weight: 600;">
-                                        ${customs.customs_number || '-'}
-                                    </span>
-                                </td>
+                                <td><span style="color: #00b894; font-weight: 600;">${customs.customs_number || '-'}</span></td>
                                 <td>${customs.recipient_name || '-'}</td>
                                 <td>${customs.order_date || '-'}</td>
                                 <td><strong>${customs.customs_prepayment.toLocaleString()}원</strong></td>
-                                <td>
-                                    ${customs.order_status ? 
-                                        `<span class="status-badge ${getStatusClass(customs.order_status)}">${customs.order_status}</span>` 
-                                        : '-'}
-                                </td>
+                                <td><span class="status-badge ${getStatusClass(customs.order_status)}">${customs.order_status}</span></td>
                             </tr>
                         `).join('')}
                     </tbody>
@@ -562,7 +515,6 @@ async function searchCustoms() {
                 <div class="no-results">
                     <i class="bi bi-inbox"></i>
                     <p style="font-size: 1.1rem; margin-top: 10px;">검색 결과가 없습니다</p>
-                    <p style="color: #636e72;">다른 검색어로 다시 시도해보세요</p>
                 </div>
             `;
         }
@@ -575,12 +527,223 @@ async function searchCustoms() {
     }
 }
 
-// 상태 클래스 반환
+// 배송 추적 조회
+async function viewTracking(orderId) {
+    const modal = new bootstrap.Modal(document.getElementById('trackingModal'));
+    modal.show();
+    
+    document.getElementById('trackingContent').innerHTML = `
+        <div class="text-center py-5">
+            <div class="spinner-border text-primary"></div>
+            <p class="mt-3">배송 정보를 조회 중입니다...</p>
+        </div>
+    `;
+    
+    try {
+        const response = await fetch(`/orders/api/tracking/${orderId}`);
+        const data = await response.json();
+        
+        if (!data.success) {
+            document.getElementById('trackingContent').innerHTML = `
+                <div class="alert alert-warning">
+                    <i class="bi bi-exclamation-triangle"></i> ${data.message}
+                </div>
+            `;
+            return;
+        }
+        
+        document.getElementById('trackingTitle').textContent = 
+            `배송 조회 - ${data.courier} (${data.tracking_number})`;
+        
+        if (data.courier === 'CJ대한통운') {
+            renderCJTracking(data);
+        } else if (data.courier === '경동택배') {
+            renderKDTracking(data);
+        }
+        
+    } catch (error) {
+        document.getElementById('trackingContent').innerHTML = `
+            <div class="alert alert-danger">
+                <i class="bi bi-exclamation-triangle"></i> 조회 중 오류가 발생했습니다.
+            </div>
+        `;
+    }
+}
+
+// CJ대한통운 렌더링
+function renderCJTracking(data) {
+    const info = data.basic_info;
+    const order = data.order_info;
+    
+    let html = `
+        <div class="container-fluid">
+            <div class="card mb-3">
+                <div class="card-header bg-primary text-white">
+                    <h6 class="mb-0"><i class="bi bi-box"></i> 주문 정보</h6>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-4"><strong>주문번호:</strong> ${order.order_number}</div>
+                        <div class="col-md-4"><strong>구매자:</strong> ${order.buyer_name || '-'}</div>
+                        <div class="col-md-4"><strong>수령자:</strong> ${order.recipient_name || '-'}</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card mb-3">
+                <div class="card-header bg-success text-white">
+                    <h6 class="mb-0"><i class="bi bi-info-circle"></i> 기본정보</h6>
+                </div>
+                <div class="card-body">
+                    <table class="table table-bordered">
+                        <tr><th width="20%" class="table-light">운송장번호</th><td colspan="3">${data.tracking_number}</td></tr>
+                        <tr><th class="table-light">송화인</th><td>${info.sender_name}</td><th width="20%" class="table-light">송화인 전화번호</th><td>${info.sender_phone}</td></tr>
+                        <tr><th class="table-light">송화인 주소</th><td colspan="3">${info.sender_address}</td></tr>
+                        <tr><th class="table-light">수화인</th><td>${info.receiver_name}</td><th class="table-light">수화인 전화번호</th><td>${info.receiver_phone}</td></tr>
+                        <tr><th class="table-light">수화인 주소</th><td colspan="3">${info.receiver_address}</td></tr>
+                        <tr><th class="table-light">품목</th><td>${info.product_name}</td><th class="table-light">수량</th><td>${info.quantity}</td></tr>
+                        <tr><th class="table-light">인수자명</th><td>${info.receiver}</td><th class="table-light">인수자 관계</th><td>${info.receiver_relation}</td></tr>
+                    </table>
+                </div>
+            </div>
+            
+            <div class="card">
+                <div class="card-header bg-info text-white">
+                    <h6 class="mb-0"><i class="bi bi-list-ul"></i> 상세정보</h6>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead class="table-light">
+                                <tr><th>처리점소</th><th>전화번호</th><th>처리일자</th><th>처리시각</th><th>상품상태</th><th>상세</th><th>상대점소</th></tr>
+                            </thead>
+                            <tbody>
+                                ${data.details.map(d => `
+                                    <tr>
+                                        <td>${d.location}</td><td>${d.phone}</td><td>${d.date}</td><td>${d.time}</td>
+                                        <td><span class="badge bg-primary">${d.status}</span></td><td>${d.detail}</td><td>${d.partner}</td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    document.getElementById('trackingContent').innerHTML = html;
+}
+
+// 경동택배 렌더링
+function renderKDTracking(data) {
+    const info = data.basic_info;
+    const order = data.order_info;
+    
+    let html = `
+        <div class="container-fluid">
+            <div class="card mb-3">
+                <div class="card-header bg-primary text-white">
+                    <h6 class="mb-0"><i class="bi bi-box"></i> 주문 정보</h6>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-4"><strong>주문번호:</strong> ${order.order_number}</div>
+                        <div class="col-md-4"><strong>구매자:</strong> ${order.buyer_name || '-'}</div>
+                        <div class="col-md-4"><strong>수령자:</strong> ${order.recipient_name || '-'}</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card mb-3">
+                <div class="card-header bg-success text-white">
+                    <h6 class="mb-0"><i class="bi bi-info-circle"></i> 기본정보</h6>
+                </div>
+                <div class="card-body">
+                    <table class="table table-bordered">
+                        <tr><th width="20%" class="table-light">운송장번호</th><td colspan="3">${data.tracking_number}</td></tr>
+                        <tr><th class="table-light">발송영업소</th><td>${info.send_branch}</td><th width="20%" class="table-light">도착영업소</th><td>${info.arrival_branch}</td></tr>
+                        <tr><th class="table-light">보낸분</th><td>${info.sender_name}</td><th class="table-light">받는분</th><td>${info.receiver_name}</td></tr>
+                        <tr><th class="table-light">물품명</th><td>${info.product_name}</td><th class="table-light">수량</th><td>${info.quantity}</td></tr>
+                    </table>
+                </div>
+            </div>
+            
+            <div class="card">
+                <div class="card-header bg-info text-white">
+                    <h6 class="mb-0"><i class="bi bi-list-ul"></i> 배송정보</h6>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead class="table-light">
+                                <tr><th>날짜</th><th>처리점소</th><th>연락처</th><th>처리현황</th></tr>
+                            </thead>
+                            <tbody>
+                                ${data.details.map(d => `
+                                    <tr>
+                                        <td>${d.date} ${d.time}</td><td>${d.location}</td><td>${d.phone}</td>
+                                        <td><span class="badge bg-primary">${d.status}</span></td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    document.getElementById('trackingContent').innerHTML = html;
+}
+
+// 헬퍼 함수
+function getStatusBadgeClass(status) {
+    if (!status) return 'bg-secondary';
+    if (status.includes('완료') || status.includes('배송')) return 'bg-success';
+    if (status.includes('취소') || status.includes('반품')) return 'bg-danger';
+    if (status.includes('대기') || status.includes('준비')) return 'bg-warning';
+    return 'bg-info';
+}
+
 function getStatusClass(status) {
     if (status.includes('완료') || status.includes('배송')) return 'status-completed';
     if (status.includes('취소') || status.includes('반품')) return 'status-cancelled';
     if (status.includes('대기') || status.includes('준비')) return 'status-pending';
     return 'status-shipping';
 }
+
+// Enter 키 검색
+document.getElementById('customerSearch').addEventListener('keypress', function(e) {
+    if (e.key === 'Enter') searchCustomers();
+});
+
+document.getElementById('deliverySearch').addEventListener('keypress', function(e) {
+    if (e.key === 'Enter') searchDelivery();
+});
+
+document.getElementById('customsSearch').addEventListener('keypress', function(e) {
+    if (e.key === 'Enter') searchCustoms();
+});
 </script>
+
+<!-- 배송 조회 모달 -->
+<div class="modal fade" id="trackingModal" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="bi bi-truck"></i> <span id="trackingTitle">배송 조회</span>
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="trackingContent">
+                <div class="text-center py-5">
+                    <div class="spinner-border text-primary"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 {% endblock %}

@@ -9,7 +9,9 @@ from datetime import datetime, date
 import pandas as pd
 import os
 from typing import Optional
+import requests
 
+from bs4 import BeautifulSoup
 from database import get_db, Order, User
 
 router = APIRouter(prefix="/orders", tags=["orders"])
@@ -1065,3 +1067,185 @@ def delete_mapping(
     db.commit()
     
     return {"success": True, "message": "삭제되었습니다"}
+
+
+import requests
+from bs4 import BeautifulSoup
+
+# ============================================
+# 배송 조회 API
+# ============================================
+@router.get("/api/tracking/{order_id}")
+def get_tracking_info(
+    request: Request,
+    order_id: int,
+    db: Session = Depends(get_db)
+):
+    """배송 조회 (CJ대한통운, 경동택배)"""
+    user_info = check_order_permission(request)
+    if not user_info:
+        raise HTTPException(status_code=401, detail="권한 없음")
+    
+    # 주문 조회
+    order = db.query(Order).filter(Order.id == order_id).first()
+    
+    if not order:
+        raise HTTPException(status_code=404, detail="주문을 찾을 수 없습니다")
+    
+    tracking_number = order.tracking_number
+    courier_company = order.courier_company or ""
+    
+    if not tracking_number:
+        return {
+            "success": False,
+            "message": "송장번호가 없습니다."
+        }
+    
+    # 송장번호 .0 제거
+    if tracking_number.endswith('.0'):
+        tracking_number = tracking_number[:-2]
+    
+    # 택배사 구분
+    if 'CJ' in courier_company or '대한통운' in courier_company:
+        return get_cj_tracking(tracking_number, order)
+    elif '경동' in courier_company:
+        return get_kdexp_tracking(tracking_number, order)
+    else:
+        return {
+            "success": False,
+            "message": f"지원하지 않는 택배사입니다: {courier_company}"
+        }
+
+
+def get_cj_tracking(tracking_number, order):
+    """CJ대한통운 배송 조회"""
+    try:
+        # CJ 대한통운 API 호출
+        url = "https://trace.cjlogistics.com/next/rest/selectTrackingWaybil.do"
+        
+        response = requests.post(url, data={"wblNo": tracking_number}, timeout=10)
+        data = response.json()
+        
+        if data.get("resultCode") != 200 or not data.get("data"):
+            return {
+                "success": False,
+                "message": "유효하지 않은 운송장번호입니다."
+            }
+        
+        waybill = data["data"]
+        
+        # 배송 상세 정보 조회
+        detail_url = "https://trace.cjlogistics.com/next/rest/selectTrackingDetailList.do"
+        detail_response = requests.post(detail_url, data={"wblNo": tracking_number}, timeout=10)
+        detail_data = detail_response.json()
+        
+        details = []
+        if detail_data.get("resultCode") == 200 and detail_data.get("data"):
+            for item in detail_data["data"].get("svcOutList", []):
+                details.append({
+                    "location": item.get("branNm", "-"),
+                    "phone": item.get("procBranTelNo", "-"),
+                    "date": item.get("workDt", "-"),
+                    "time": item.get("workHms", "-"),
+                    "status": item.get("crgStDnm", "-"),
+                    "detail": item.get("crgStDcdVal", "-"),
+                    "partner": item.get("patnBranNm", "-")
+                })
+        
+        return {
+            "success": True,
+            "courier": "CJ대한통운",
+            "tracking_number": tracking_number,
+            "basic_info": {
+                "sender_name": waybill.get("sndrNm", "-"),
+                "sender_phone": waybill.get("sndrClphno", "-"),
+                "sender_address": waybill.get("sndrAddr", "-"),
+                "receiver_name": waybill.get("rcvrNm", "-"),
+                "receiver_phone": waybill.get("rcvrClphno", "-"),
+                "receiver_address": waybill.get("rcvrAddr", "-"),
+                "product_name": f"{waybill.get('repGoodsNm', '')} {waybill.get('goodsDtlNm', '')}".strip(),
+                "quantity": waybill.get("qty", "-"),
+                "receiver": waybill.get("acprNm", "-"),
+                "receiver_relation": waybill.get("acprRlpDnm", "-")
+            },
+            "details": details,
+            "order_info": {
+                "order_number": order.order_number,
+                "buyer_name": order.buyer_name,
+                "recipient_name": order.recipient_name
+            }
+        }
+        
+    except Exception as e:
+        return {
+            "success": False,
+            "message": f"조회 중 오류가 발생했습니다: {str(e)}"
+        }
+
+
+def get_kdexp_tracking(tracking_number, order):
+    """경동택배 배송 조회"""
+    try:
+        # 경동택배 API 호출
+        url = "https://kdexp.com/service/delivery/new/ajax_basic.do"
+        
+        response = requests.get(url, params={"barcode": tracking_number}, timeout=10)
+        data = response.json()
+        
+        if data.get("result") != "suc" or not data.get("data"):
+            return {
+                "success": False,
+                "message": "배송 정보가 없습니다."
+            }
+        
+        info = data["data"]
+        scan_list = info.get("scanList", [])
+        
+        # 역순 정렬 (최신순)
+        scan_list.reverse()
+        
+        details = []
+        for item in scan_list:
+            # 날짜/시간 파싱
+            scan_dt = item.get("scanDt", "")
+            if scan_dt:
+                parts = scan_dt.split(" ")
+                date_part = parts[0] if len(parts) > 0 else "-"
+                time_part = parts[1][:5] if len(parts) > 1 else "-"
+            else:
+                date_part = "-"
+                time_part = "-"
+            
+            details.append({
+                "date": date_part,
+                "time": time_part,
+                "location": item.get("strtPointNm", "-"),
+                "phone": item.get("strtPointTelno", "-"),
+                "status": item.get("scanTypeNm", "-")
+            })
+        
+        return {
+            "success": True,
+            "courier": "경동택배",
+            "tracking_number": tracking_number,
+            "basic_info": {
+                "send_branch": info.get("branSndnNm", "-"),
+                "arrival_branch": info.get("branArvlNm", "-"),
+                "sender_name": info.get("snCustNm", "-"),
+                "receiver_name": info.get("rvCustNm", "-"),
+                "product_name": info.get("prodName", "-"),
+                "quantity": f"{info.get('count', '')} {info.get('wrapStatus', '')}".strip() or "-"
+            },
+            "details": details,
+            "order_info": {
+                "order_number": order.order_number,
+                "buyer_name": order.buyer_name,
+                "recipient_name": order.recipient_name
+            }
+        }
+        
+    except Exception as e:
+        return {
+            "success": False,
+            "message": f"조회 중 오류가 발생했습니다: {str(e)}"
+        }
