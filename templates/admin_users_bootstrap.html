@@ -644,9 +644,9 @@
                     <th width="5%">ID</th>
                     <th width="15%">사용자명</th>
                     <th width="10%" class="text-center">관리자</th>
-                    <th width="10%" class="text-center">상품 관리</th>
-                    <th width="10%" class="text-center">마케팅 관리</th>
-                    <th width="10%" class="text-center">일일 할당량</th>
+                    <th width="12%" class="text-center">상품 관리</th>
+                    <th width="12%" class="text-center">마케팅 관리</th>
+                    <th width="12%" class="text-center">CS 관리</th>
                     <th width="25%" class="text-center">관리</th>
                 </tr>
             </thead>
@@ -663,48 +663,36 @@
                         {% endif %}
                     </td>
                     <td class="text-center">
-                        <form method="post" action="/admin/users/toggle-admin/{{ user.id }}" style
-                        
-                        >
+                        <form method="post" action="/admin/users/toggle-admin/{{ user.id }}" style="display: inline;">
                             <input type="checkbox" 
-                                   class="form-check-input permission-checkbox" 
-                                   {{ 'checked' if user.is_admin else '' }}
-                                   onchange="this.form.submit()"
-                                   {{ 'disabled' if user.username == 'shsboss274' else '' }}>
+                                class="form-check-input permission-checkbox" 
+                                {{ 'checked' if user.is_admin else '' }}
+                                onchange="this.form.submit()"
+                                {{ 'disabled' if user.username == 'shsboss274' else '' }}>
                         </form>
                     </td>
                     <td class="text-center">
-                        <form method="post" action="/admin/users/toggle-products/{{ user.id }}" st
-                        
-                        e;">
+                        <form method="post" action="/admin/users/toggle-products/{{ user.id }}" style="display: inline;">
                             <input type="checkbox" 
-                                   class="form-check-input permission-checkbox" 
-                                   {{ 'checked' if user.can_manage_products else '' }}
-                                   onchange="this.form.submit()">
+                                class="form-check-input permission-checkbox" 
+                                {{ 'checked' if user.can_manage_products else '' }}
+                                onchange="this.form.submit()">
                         </form>
                     </td>
                     <td class="text-center">
-                        <form method="post" action="/admin/users/toggle-marketing/{{ user.id }}" s
-                        
-                        ne;">
+                        <form method="post" action="/admin/users/toggle-marketing/{{ user.id }}" style="display: inline;">
                             <input type="checkbox" 
-                                   class="form-check-input permission-checkbox" 
-                                   {{ 'checked' if user.can_manage_marketing else '' }}
-                                   onchange="this.form.submit()">
+                                class="form-check-input permission-checkbox" 
+                                {{ 'checked' if user.can_manage_marketing else '' }}
+                                onchange="this.form.submit()">
                         </form>
                     </td>
                     <td class="text-center">
-                        <form method="post" action="/admin/users/set-quota/{{ user.id }}" style="d
-                        
-                        
-                            <input type="number" 
-                                   name="daily_quota" 
-                                   class="quota-input" 
-                                   value="{{ user.daily_quota or 0 }}"
-                                   min="0"
-                                   max="50"
-                                   {{ 'disabled' if not user.can_manage_marketing else '' }}
-                                   onchange="this.form.submit()">
+                        <form method="post" action="/admin/users/toggle-orders/{{ user.id }}" style="display: inline;">
+                            <input type="checkbox" 
+                                class="form-check-input permission-checkbox" 
+                                {{ 'checked' if user.can_manage_orders else '' }}
+                                onchange="this.form.submit()">
                         </form>
                     </td>
                     <td class="text-center">
@@ -719,9 +707,7 @@
                             
                             <!-- 비밀번호 초기화 버튼 -->
                             {% if user.username != 'shsboss274' %}
-                            <form method="post" action="/admin/users/reset-password" style="displa
-                            
-                            t="return confirm('{{ user.username }}의 비밀번호를 1234로 초기화하시겠습니까?');">
+                            <form method="post" action="/admin/users/reset-password" style="display: inline;" onsubmit="return confirm('{{ user.username }}의 비밀번호를 1234로 초기화하시겠습니까?');">
                                 <input type="hidden" name="user_id" value="{{ user.id }}">
                                 <button type="submit" class="btn-action btn-warning-custom">
                                     <i class="bi bi-key"></i> PW 초기화
@@ -729,9 +715,7 @@
                             </form>
                             
                             <!-- 삭제 버튼 -->
-                            <form method="post" action="/admin/users/delete" style="display: inlin
-                            
-                            n confirm('{{ user.username }}를 정말 삭제하시겠습니까?');">
+                            <form method="post" action="/admin/users/delete" style="display: inline;" onsubmit="return confirm('{{ user.username }}를 정말 삭제하시겠습니까?');">
                                 <input type="hidden" name="user_id" value="{{ user.id }}">
                                 <button type="submit" class="btn-action btn-danger-custom">
                                     <i class="bi bi-trash"></i> 삭제
@@ -748,9 +732,7 @@
                         <div class="modal-content">
                             <div class="modal-header">
                                 <h5 class="modal-title">사용자 이름 수정</h5>
-                                <button type="button" class="btn-close" data-bs-dismiss="modal"></
-                                    
-                                    
+                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                             </div>
                             <form method="post" action="/admin/users/update">
                                 <div class="modal-body">
@@ -758,16 +740,14 @@
                                     <div class="mb-3">
                                         <label class="form-label">새 사용자명</label>
                                         <input type="text" 
-                                               name="new_username" 
-                                               class="form-control" 
-                                               value="{{ user.username }}" 
-                                               required>
+                                            name="new_username" 
+                                            class="form-control" 
+                                            value="{{ user.username }}" 
+                                            required>
                                     </div>
                                 </div>
                                 <div class="modal-footer">
-                                    <button type="button" class="btn btn-secondary" data-bs-dismis
-                                    
-                                    ton>
+                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">취소</button>
                                     <button type="submit" class="btn btn-primary">저장</button>
                                 </div>
                             </form>
@@ -780,9 +760,7 @@
                 <tr>
                     <td colspan="7" class="text-center" style="padding: 60px;">
                         <div style="color: #adb5bd;">
-                            <i class="bi bi-inbox" style="font-size: 3rem; margin-bottom: 15px;"><
-                                
-                                
+                            <i class="bi bi-inbox" style="font-size: 3rem; margin-bottom: 15px;"></i>
                             <p style="font-size: 1.1rem;">사용자가 없습니다.</p>
                         </div>
                     </td>

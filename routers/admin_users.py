@@ -102,6 +102,31 @@ async def toggle_marketing(user_id: int, db: Session = Depends(get_db)):
     # db.close() # <--- 삭제
     return RedirectResponse("/admin/users", status_code=303)
 
+@router.post("/users/toggle-orders/{user_id}")
+def toggle_orders_permission(
+    request: Request, 
+    user_id: int,
+    db: Session = Depends(get_db)
+):
+    """CS 관리(주문조회) 권한 토글"""
+    # 관리자 체크
+    admin_username = request.session.get("user")
+    admin_user = db.query(User).filter(User.username == admin_username).first()
+    
+    if not admin_user or not admin_user.is_admin:
+        return RedirectResponse(url="/login", status_code=302)
+    
+    # 대상 사용자 조회
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        return RedirectResponse(url="/admin/users", status_code=302)
+    
+    # CS 관리 권한 토글
+    user.can_manage_orders = not user.can_manage_orders
+    db.commit()
+    
+    return RedirectResponse(url="/admin/users", status_code=302)
+
 # --- ▼▼▼ 신규 할당량 관리 라우트 (get_db 적용) ▼▼▼ ---
 @router.post("/users/set-quota/{user_id}", response_class=RedirectResponse)
 async def set_user_quota(
