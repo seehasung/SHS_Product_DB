@@ -35,6 +35,8 @@ def login(request: Request, username: str = Form(...), password: str = Form(...)
         is_admin = user.is_admin
         can_manage_products = user.can_manage_products
         can_manage_marketing = user.can_manage_marketing
+        can_manage_orders = user.can_manage_orders  # ⭐ 추가!
+
         
         # 로그인 성공 - 기록 저장
         login_log = LoginLog(
@@ -54,6 +56,7 @@ def login(request: Request, username: str = Form(...), password: str = Form(...)
         request.session["is_admin"] = is_admin
         request.session["can_manage_products"] = can_manage_products
         request.session["can_manage_marketing"] = can_manage_marketing
+        request.session["can_manage_orders"] = can_manage_orders  # ⭐ 변수 사용
         request.session["login_date"] = date.today().isoformat()
         return RedirectResponse("/", status_code=303)
     else:
