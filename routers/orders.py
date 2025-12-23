@@ -1249,3 +1249,387 @@ def get_kdexp_tracking(tracking_number, order):
             "success": False,
             "message": f"조회 중 오류가 발생했습니다: {str(e)}"
         }
+        
+# 한진택배 조회
+def get_hanjin_tracking(tracking_number: str, order: Order):
+    """한진택배 배송 조회"""
+    try:
+        url = f"https://www.hanjin.com/kor/CMS/DeliveryMgr/WaybillResult.do?mCode=MN038&schLang=KR&wblnum={tracking_number}"
+        
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+            'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7',
+        }
+        
+        response = requests.get(url, headers=headers, timeout=10)
+        response.encoding = 'utf-8'
+        
+        if response.status_code != 200:
+            return {"success": False, "message": "한진택배 조회 실패"}
+        
+        soup = BeautifulSoup(response.text, 'html.parser')
+        
+        # 기본 정보 추출
+        basic_info = {}
+        
+        # 일반적으로 한진택배는 테이블 구조로 되어 있음
+        info_table = soup.find('table', class_='table_vertical')
+        if info_table:
+            rows = info_table.find_all('tr')
+            for row in rows:
+                th = row.find('th')
+                td = row.find('td')
+                if th and td:
+                    key = th.get_text(strip=True)
+                    value = td.get_text(strip=True)
+                    
+                    if '송장번호' in key or '운송장' in key:
+                        basic_info['tracking_number'] = value
+                    elif '보내시는' in key or '송화인' in key:
+                        basic_info['sender_name'] = value
+                    elif '받으시는' in key or '수화인' in key:
+                        basic_info['receiver_name'] = value
+                    elif '제품명' in key or '품목' in key:
+                        basic_info['product_name'] = value
+        
+        # 기본값 설정
+        basic_info.setdefault('sender_name', '-')
+        basic_info.setdefault('receiver_name', order.recipient_name or '-')
+        basic_info.setdefault('product_name', order.product_name or '-')
+        basic_info.setdefault('quantity', str(order.quantity or '-'))
+        
+        # 배송 추적 정보 추출
+        details = []
+        
+        tracking_table = soup.find('table', class_='table_horizontal')
+        if tracking_table:
+            tbody = tracking_table.find('tbody')
+            if tbody:
+                rows = tbody.find_all('tr')
+                for row in rows:
+                    cols = row.find_all('td')
+                    if len(cols) >= 4:
+                        detail = {
+                            'date': cols[0].get_text(strip=True),
+                            'time': cols[1].get_text(strip=True) if len(cols) > 1 else '',
+                            'location': cols[2].get_text(strip=True) if len(cols) > 2 else '',
+                            'status': cols[3].get_text(strip=True) if len(cols) > 3 else '',
+                            'phone': cols[4].get_text(strip=True) if len(cols) > 4 else ''
+                        }
+                        details.append(detail)
+        
+        return {
+            "success": True,
+            "courier": "한진택배",
+            "tracking_number": tracking_number,
+            "basic_info": basic_info,
+            "details": details,
+            "order_info": {
+                "order_number": order.order_number,
+                "buyer_name": order.buyer_name,
+                "recipient_name": order.recipient_name
+            }
+        }
+    
+    except Exception as e:
+        return {
+            "success": False,
+            "message": f"한진택배 조회 실패: {str(e)}"
+        }
+
+# 우체국택배 조회
+def get_epost_tracking(tracking_number: str, order: Order):
+    """우체국택배 배송 조회"""
+    try:
+        url = f"https://service.epost.go.kr/trace.RetrieveDomRigiTraceList.comm?sid1={tracking_number}"
+        
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            'Accept': 'text/html,application/xhtml+xml,application/xml',
+            'Accept-Language': 'ko-KR,ko;q=0.9',
+        }
+        
+        response = requests.get(url, headers=headers, timeout=10)
+        response.encoding = 'utf-8'
+        
+        if response.status_code != 200:
+            return {"success": False, "message": "우체국택배 조회 실패"}
+        
+        soup = BeautifulSoup(response.text, 'html.parser')
+        
+        # 기본 정보
+        basic_info = {
+            'sender_name': '-',
+            'receiver_name': order.recipient_name or '-',
+            'product_name': order.product_name or '-',
+            'quantity': str(order.quantity or '-')
+        }
+        
+        # 상세 정보 추출
+        details = []
+        
+        # 우체국택배 테이블 구조 파싱
+        table = soup.find('table', class_='table_col')
+        if table:
+            tbody = table.find('tbody')
+            if tbody:
+                rows = tbody.find_all('tr')
+                for row in rows:
+                    cols = row.find_all('td')
+                    if len(cols) >= 3:
+                        detail = {
+                            'date': cols[0].get_text(strip=True).split()[0] if cols[0].get_text(strip=True) else '',
+                            'time': cols[0].get_text(strip=True).split()[1] if len(cols[0].get_text(strip=True).split()) > 1 else '',
+                            'location': cols[1].get_text(strip=True),
+                            'status': cols[2].get_text(strip=True),
+                            'phone': cols[3].get_text(strip=True) if len(cols) > 3 else ''
+                        }
+                        details.append(detail)
+        
+        return {
+            "success": True,
+            "courier": "우체국택배",
+            "tracking_number": tracking_number,
+            "basic_info": basic_info,
+            "details": details,
+            "order_info": {
+                "order_number": order.order_number,
+                "buyer_name": order.buyer_name,
+                "recipient_name": order.recipient_name
+            }
+        }
+    
+    except Exception as e:
+        return {
+            "success": False,
+            "message": f"우체국택배 조회 실패: {str(e)}"
+        }
+
+# 로젠택배 조회
+def get_logen_tracking(tracking_number: str, order: Order):
+    """로젠택배 배송 조회"""
+    try:
+        url = f"https://www.ilogen.com/web/personal/trace/{tracking_number}"
+        
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            'Accept': 'text/html,application/xhtml+xml,application/xml',
+            'Accept-Language': 'ko-KR,ko;q=0.9',
+        }
+        
+        response = requests.get(url, headers=headers, timeout=10)
+        response.encoding = 'utf-8'
+        
+        if response.status_code != 200:
+            return {"success": False, "message": "로젠택배 조회 실패"}
+        
+        soup = BeautifulSoup(response.text, 'html.parser')
+        
+        # 기본 정보
+        basic_info = {
+            'sender_name': '-',
+            'receiver_name': order.recipient_name or '-',
+            'product_name': order.product_name or '-',
+            'quantity': str(order.quantity or '-')
+        }
+        
+        # 테이블에서 기본 정보 추출
+        info_table = soup.find('table', class_='invoice_table')
+        if info_table:
+            rows = info_table.find_all('tr')
+            for row in rows:
+                th = row.find('th')
+                td = row.find('td')
+                if th and td:
+                    key = th.get_text(strip=True)
+                    value = td.get_text(strip=True)
+                    
+                    if '보내는분' in key:
+                        basic_info['sender_name'] = value
+                    elif '받는분' in key:
+                        basic_info['receiver_name'] = value
+                    elif '상품명' in key:
+                        basic_info['product_name'] = value
+        
+        # 배송 추적 정보
+        details = []
+        
+        tracking_table = soup.find('table', class_='dataTable')
+        if tracking_table:
+            tbody = tracking_table.find('tbody')
+            if tbody:
+                rows = tbody.find_all('tr')
+                for row in rows:
+                    cols = row.find_all('td')
+                    if len(cols) >= 3:
+                        datetime_text = cols[0].get_text(strip=True)
+                        date_time = datetime_text.split()
+                        
+                        detail = {
+                            'date': date_time[0] if len(date_time) > 0 else '',
+                            'time': date_time[1] if len(date_time) > 1 else '',
+                            'location': cols[1].get_text(strip=True),
+                            'status': cols[2].get_text(strip=True),
+                            'phone': cols[3].get_text(strip=True) if len(cols) > 3 else ''
+                        }
+                        details.append(detail)
+        
+        return {
+            "success": True,
+            "courier": "로젠택배",
+            "tracking_number": tracking_number,
+            "basic_info": basic_info,
+            "details": details,
+            "order_info": {
+                "order_number": order.order_number,
+                "buyer_name": order.buyer_name,
+                "recipient_name": order.recipient_name
+            }
+        }
+    
+    except Exception as e:
+        return {
+            "success": False,
+            "message": f"로젠택배 조회 실패: {str(e)}"
+        }
+
+
+# 롯데택배 조회
+def get_lotte_tracking(tracking_number: str, order: Order):
+    """롯데택배 배송 조회"""
+    try:
+        # 세션 생성
+        session = requests.Session()
+        
+        # 먼저 메인 페이지 접속 (쿠키 받기)
+        session.get('https://www.lotteglogis.com/home/reservation/tracking/index', 
+                   headers={'User-Agent': 'Mozilla/5.0'})
+        
+        # POST 요청으로 조회
+        url = "https://www.lotteglogis.com/home/reservation/tracking/invoiceView"
+        
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'Referer': 'https://www.lotteglogis.com/home/reservation/tracking/index',
+            'Accept': 'text/html,application/xhtml+xml,application/xml',
+        }
+        
+        data = {
+            'InvNo': tracking_number
+        }
+        
+        response = session.post(url, headers=headers, data=data, timeout=10)
+        response.encoding = 'utf-8'
+        
+        if response.status_code != 200:
+            return {"success": False, "message": "롯데택배 조회 실패"}
+        
+        soup = BeautifulSoup(response.text, 'html.parser')
+        
+        # 기본 정보
+        basic_info = {
+            'sender_name': '-',
+            'receiver_name': order.recipient_name or '-',
+            'product_name': order.product_name or '-',
+            'quantity': str(order.quantity or '-')
+        }
+        
+        # 테이블에서 기본 정보 추출
+        info_table = soup.find('table', class_='tblV')
+        if info_table:
+            rows = info_table.find_all('tr')
+            for row in rows:
+                th = row.find('th')
+                td = row.find('td')
+                if th and td:
+                    key = th.get_text(strip=True)
+                    value = td.get_text(strip=True)
+                    
+                    if '보내시는' in key:
+                        basic_info['sender_name'] = value
+                    elif '받으시는' in key:
+                        basic_info['receiver_name'] = value
+                    elif '상품' in key:
+                        basic_info['product_name'] = value
+        
+        # 배송 추적 정보
+        details = []
+        
+        tracking_table = soup.find('table', class_='tblH')
+        if tracking_table:
+            tbody = tracking_table.find('tbody')
+            if tbody:
+                rows = tbody.find_all('tr')
+                for row in rows:
+                    cols = row.find_all('td')
+                    if len(cols) >= 3:
+                        detail = {
+                            'date': cols[0].get_text(strip=True),
+                            'time': cols[1].get_text(strip=True) if len(cols) > 1 else '',
+                            'location': cols[2].get_text(strip=True) if len(cols) > 2 else '',
+                            'status': cols[3].get_text(strip=True) if len(cols) > 3 else '',
+                            'phone': cols[4].get_text(strip=True) if len(cols) > 4 else ''
+                        }
+                        details.append(detail)
+        
+        return {
+            "success": True,
+            "courier": "롯데택배",
+            "tracking_number": tracking_number,
+            "basic_info": basic_info,
+            "details": details,
+            "order_info": {
+                "order_number": order.order_number,
+                "buyer_name": order.buyer_name,
+                "recipient_name": order.recipient_name
+            }
+        }
+    
+    except Exception as e:
+        return {
+            "success": False,
+            "message": f"롯데택배 조회 실패: {str(e)}"
+        }
+
+# 기존 /orders/api/tracking/{order_id} 엔드포인트 수정
+@router.get("/api/tracking/{order_id}")
+def get_tracking(order_id: int, db: Session = Depends(get_db)):
+    order = db.query(Order).filter(Order.id == order_id).first()
+    
+    if not order or not order.tracking_number:
+        return {"success": False, "message": "송장번호가 없습니다"}
+    
+    tracking_number = str(order.tracking_number).replace('.0', '')
+    courier_company = (order.courier_company or "").lower()
+    
+    # CJ대한통운
+    if any(keyword in courier_company for keyword in ['cj', '대한통운', 'cjgls']):
+        return get_cj_tracking(tracking_number, order)
+    
+    # 경동택배
+    elif any(keyword in courier_company for keyword in ['경동', 'kdexp']):
+        return get_kdexp_tracking(tracking_number, order)
+    
+    # 한진택배
+    elif any(keyword in courier_company for keyword in ['한진', 'hanjin']):
+        return get_hanjin_tracking(tracking_number, order)
+    
+    # 우체국택배
+    elif any(keyword in courier_company for keyword in ['우체국', 'epost', '우편']):
+        return get_epost_tracking(tracking_number, order)
+    
+    # 로젠택배
+    elif any(keyword in courier_company for keyword in ['로젠', 'logen', '일로젠']):
+        return get_logen_tracking(tracking_number, order)
+    
+    # 롯데택배
+    elif any(keyword in courier_company for keyword in ['롯데', 'lotte']):
+        return get_lotte_tracking(tracking_number, order)
+    
+    else:
+        return {
+            "success": False,
+            "message": f"지원하지 않는 택배사입니다: {order.courier_company}"
+        }

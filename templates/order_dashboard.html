@@ -817,6 +817,7 @@ function setQuickPeriod(period) {
 }
 
 // 배송 추적 조회
+// 배송 추적 조회
 async function viewTracking(orderId) {
     const modal = new bootstrap.Modal(document.getElementById('trackingModal'));
     modal.show();
@@ -844,10 +845,19 @@ async function viewTracking(orderId) {
         document.getElementById('trackingTitle').textContent = 
             `배송 조회 - ${data.courier} (${data.tracking_number})`;
         
+        // 택배사별 렌더링
         if (data.courier === 'CJ대한통운') {
             renderCJTracking(data);
         } else if (data.courier === '경동택배') {
             renderKDTracking(data);
+        } else if (data.courier === '한진택배') {
+            renderGenericTracking(data);
+        } else if (data.courier === '우체국택배') {
+            renderGenericTracking(data);
+        } else if (data.courier === '로젠택배') {
+            renderGenericTracking(data);
+        } else if (data.courier === '롯데택배') {
+            renderGenericTracking(data);
         }
         
     } catch (error) {
@@ -859,8 +869,8 @@ async function viewTracking(orderId) {
     }
 }
 
-// CJ대한통운 렌더링
-function renderCJTracking(data) {
+// 일반 택배사 렌더링 (한진, 우체국, 로젠, 롯데)
+function renderGenericTracking(data) {
     const info = data.basic_info;
     const order = data.order_info;
     
@@ -886,74 +896,8 @@ function renderCJTracking(data) {
                 <div class="card-body">
                     <table class="table table-bordered">
                         <tr><th width="20%" class="table-light">운송장번호</th><td colspan="3">${data.tracking_number}</td></tr>
-                        <tr><th class="table-light">송화인</th><td>${info.sender_name}</td><th width="20%" class="table-light">송화인 전화번호</th><td>${info.sender_phone}</td></tr>
-                        <tr><th class="table-light">송화인 주소</th><td colspan="3">${info.sender_address}</td></tr>
-                        <tr><th class="table-light">수화인</th><td>${info.receiver_name}</td><th class="table-light">수화인 전화번호</th><td>${info.receiver_phone}</td></tr>
-                        <tr><th class="table-light">수화인 주소</th><td colspan="3">${info.receiver_address}</td></tr>
-                        <tr><th class="table-light">품목</th><td>${info.product_name}</td><th class="table-light">수량</th><td>${info.quantity}</td></tr>
-                        <tr><th class="table-light">인수자명</th><td>${info.receiver}</td><th class="table-light">인수자 관계</th><td>${info.receiver_relation}</td></tr>
-                    </table>
-                </div>
-            </div>
-            
-            <div class="card">
-                <div class="card-header bg-info text-white">
-                    <h6 class="mb-0"><i class="bi bi-list-ul"></i> 상세정보</h6>
-                </div>
-                <div class="card-body">
-                    <div class="table-responsive">
-                        <table class="table table-hover">
-                            <thead class="table-light">
-                                <tr><th>처리점소</th><th>전화번호</th><th>처리일자</th><th>처리시각</th><th>상품상태</th><th>상세</th><th>상대점소</th></tr>
-                            </thead>
-                            <tbody>
-                                ${data.details.map(d => `
-                                    <tr>
-                                        <td>${d.location}</td><td>${d.phone}</td><td>${d.date}</td><td>${d.time}</td>
-                                        <td><span class="badge bg-primary">${d.status}</span></td><td>${d.detail}</td><td>${d.partner}</td>
-                                    </tr>
-                                `).join('')}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-        </div>
-    `;
-    
-    document.getElementById('trackingContent').innerHTML = html;
-}
-
-// 경동택배 렌더링
-function renderKDTracking(data) {
-    const info = data.basic_info;
-    const order = data.order_info;
-    
-    let html = `
-        <div class="container-fluid">
-            <div class="card mb-3">
-                <div class="card-header bg-primary text-white">
-                    <h6 class="mb-0"><i class="bi bi-box"></i> 주문 정보</h6>
-                </div>
-                <div class="card-body">
-                    <div class="row">
-                        <div class="col-md-4"><strong>주문번호:</strong> ${order.order_number}</div>
-                        <div class="col-md-4"><strong>구매자:</strong> ${order.buyer_name || '-'}</div>
-                        <div class="col-md-4"><strong>수령자:</strong> ${order.recipient_name || '-'}</div>
-                    </div>
-                </div>
-            </div>
-            
-            <div class="card mb-3">
-                <div class="card-header bg-success text-white">
-                    <h6 class="mb-0"><i class="bi bi-info-circle"></i> 기본정보</h6>
-                </div>
-                <div class="card-body">
-                    <table class="table table-bordered">
-                        <tr><th width="20%" class="table-light">운송장번호</th><td colspan="3">${data.tracking_number}</td></tr>
-                        <tr><th class="table-light">발송영업소</th><td>${info.send_branch}</td><th width="20%" class="table-light">도착영업소</th><td>${info.arrival_branch}</td></tr>
-                        <tr><th class="table-light">보낸분</th><td>${info.sender_name}</td><th class="table-light">받는분</th><td>${info.receiver_name}</td></tr>
-                        <tr><th class="table-light">물품명</th><td>${info.product_name}</td><th class="table-light">수량</th><td>${info.quantity}</td></tr>
+                        <tr><th class="table-light">보내는분</th><td>${info.sender_name || '-'}</td><th width="20%" class="table-light">받는분</th><td>${info.receiver_name || '-'}</td></tr>
+                        <tr><th class="table-light">상품명</th><td>${info.product_name || '-'}</td><th class="table-light">수량</th><td>${info.quantity || '-'}</td></tr>
                     </table>
                 </div>
             </div>
@@ -966,13 +910,16 @@ function renderKDTracking(data) {
                     <div class="table-responsive">
                         <table class="table table-hover">
                             <thead class="table-light">
-                                <tr><th>날짜</th><th>처리점소</th><th>연락처</th><th>처리현황</th></tr>
+                                <tr><th>날짜</th><th>시간</th><th>처리점소</th><th>처리현황</th><th>연락처</th></tr>
                             </thead>
                             <tbody>
                                 ${data.details.map(d => `
                                     <tr>
-                                        <td>${d.date} ${d.time}</td><td>${d.location}</td><td>${d.phone}</td>
-                                        <td><span class="badge bg-primary">${d.status}</span></td>
+                                        <td>${d.date || '-'}</td>
+                                        <td>${d.time || '-'}</td>
+                                        <td>${d.location || '-'}</td>
+                                        <td><span class="badge bg-primary">${d.status || '-'}</span></td>
+                                        <td>${d.phone || '-'}</td>
                                     </tr>
                                 `).join('')}
                             </tbody>
