@@ -10,6 +10,8 @@ import pandas as pd
 import os
 from typing import Optional
 import requests
+from utils.courier_parsers import parse_lotte_tracking
+
 
 from bs4 import BeautifulSoup
 from database import get_db, Order, User
@@ -1069,9 +1071,6 @@ def delete_mapping(
     return {"success": True, "message": "삭제되었습니다"}
 
 
-import requests
-from bs4 import BeautifulSoup
-
 
 def get_cj_tracking(tracking_number, order):
     """CJ대한통운 배송 조회"""
@@ -1451,102 +1450,155 @@ def get_logen_tracking(tracking_number: str, order: Order):
         }
 
 
-# 롯데택배 조회
-def get_lotte_tracking(tracking_number: str, order: Order):
-    """롯데택배 배송 조회"""
+
+# ===== 롯데택배 파싱 함수 =====
+def parse_lotte_tracking(html_content: str):
+    """
+    롯데택배 HTML 응답을 파싱하여 배송 정보를 추출합니다.
+    """
+    soup = BeautifulSoup(html_content, 'html.parser')
+    
+    result = {
+        "tracking_number": "",
+        "sender_name": "-",
+        "receiver_name": "-",
+        "details": []
+    }
+    
     try:
-        # 세션 생성
-        session = requests.Session()
+        # 1. 기본 정보 테이블 파싱 (table.tblH.mt60)
+        basic_table = soup.select_one('table.tblH.mt60')
+        if basic_table:
+            tbody = basic_table.select_one('tbody')
+            if tbody:
+                tds = tbody.select('td')
+                if len(tds) >= 4:
+                    result["tracking_number"] = tds[0].get_text(strip=True)
         
-        # 먼저 메인 페이지 접속 (쿠키 받기)
-        session.get('https://www.lotteglogis.com/home/reservation/tracking/index', 
-                   headers={'User-Agent': 'Mozilla/5.0'})
+        # 2. 배송 상세 정보 테이블 파싱 (두 번째 table.tblH)
+        all_tables = soup.select('table.tblH')
         
-        # POST 요청으로 조회
-        url = "https://www.lotteglogis.com/home/reservation/tracking/invoiceView"
+        if len(all_tables) >= 2:
+            detail_table = all_tables[1]  # 두 번째 테이블
+            tbody = detail_table.select_one('tbody')
+            
+            if tbody:
+                rows = tbody.select('tr')
+                
+                for row in rows:
+                    tds = row.select('td')
+                    
+                    if len(tds) >= 4:
+                        # 시간 텍스트 추출 및 정리
+                        time_text = tds[1].get_text(strip=True)
+                        time_text = time_text.replace('\xa0', ' ').replace('&nbsp;', ' ')
+                        
+                        # 날짜와 시간 분리
+                        date_part = ""
+                        time_part = ""
+                        
+                        if ' ' in time_text and '--:--' not in time_text:
+                            parts = time_text.split(' ', 1)
+                            date_part = parts[0]
+                            time_part = parts[1] if len(parts) > 1 else ""
+                        elif '--:--' in time_text:
+                            date_part = time_text.split(' ')[0] if ' ' in time_text else time_text
+                            time_part = ""
+                        else:
+                            date_part = time_text
+                            time_part = ""
+                        
+                        # 처리현황에서 <br> 태그를 공백으로 변환
+                        description_td = tds[3]
+                        for br in description_td.find_all('br'):
+                            br.replace_with(' ')
+                        description = description_td.get_text(strip=True)
+                        
+                        detail = {
+                            "date": date_part,
+                            "time": time_part,
+                            "location": tds[2].get_text(strip=True),
+                            "status": tds[0].get_text(strip=True),
+                            "description": description
+                        }
+                        
+                        result["details"].append(detail)
         
-        headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-            'Content-Type': 'application/x-www-form-urlencoded',
-            'Referer': 'https://www.lotteglogis.com/home/reservation/tracking/index',
-            'Accept': 'text/html,application/xhtml+xml,application/xml',
-        }
+        print(f"✅ 롯데택배 파싱 완료: 송장 {result['tracking_number']}, {len(result['details'])}개 이벤트")
         
-        data = {
-            'InvNo': tracking_number
-        }
+    except Exception as e:
+        print(f"❌ 롯데택배 파싱 오류: {e}")
+        import traceback
+        traceback.print_exc()
+    
+    return result
+
+
+# ===== 롯데택배 조회 함수 =====
+def get_lotte_tracking(tracking_number: str, order):
+    """
+    롯데택배 배송 조회
+    """
+    try:
+        print(f"🔍 롯데택배 조회 시작: {tracking_number}")
         
-        response = session.post(url, headers=headers, data=data, timeout=10)
+        # 롯데택배 조회 URL
+        lotte_url = f"https://www.lotteglogis.com/home/reservation/tracking/linkView?InvNo={tracking_number}"
+        
+        # HTML 가져오기
+        response = requests.get(lotte_url, timeout=10)
         response.encoding = 'utf-8'
         
         if response.status_code != 200:
-            return {"success": False, "message": "롯데택배 조회 실패"}
+            print(f"❌ 롯데택배 HTTP 오류: {response.status_code}")
+            return {
+                "success": False,
+                "message": f"롯데택배 조회 실패 (HTTP {response.status_code})"
+            }
         
-        soup = BeautifulSoup(response.text, 'html.parser')
+        # HTML 파싱
+        parsed_data = parse_lotte_tracking(response.text)
         
-        # 기본 정보
-        basic_info = {
-            'sender_name': '-',
-            'receiver_name': order.recipient_name or '-',
-            'product_name': order.product_name or '-',
-            'quantity': str(order.quantity or '-')
-        }
+        # details가 비어있으면 경고
+        if not parsed_data.get("details"):
+            print("⚠️ 경고: 롯데택배 배송 이력이 없습니다")
         
-        # 테이블에서 기본 정보 추출
-        info_table = soup.find('table', class_='tblV')
-        if info_table:
-            rows = info_table.find_all('tr')
-            for row in rows:
-                th = row.find('th')
-                td = row.find('td')
-                if th and td:
-                    key = th.get_text(strip=True)
-                    value = td.get_text(strip=True)
-                    
-                    if '보내시는' in key:
-                        basic_info['sender_name'] = value
-                    elif '받으시는' in key:
-                        basic_info['receiver_name'] = value
-                    elif '상품' in key:
-                        basic_info['product_name'] = value
-        
-        # 배송 추적 정보
-        details = []
-        
-        tracking_table = soup.find('table', class_='tblH')
-        if tracking_table:
-            tbody = tracking_table.find('tbody')
-            if tbody:
-                rows = tbody.find_all('tr')
-                for row in rows:
-                    cols = row.find_all('td')
-                    if len(cols) >= 3:
-                        detail = {
-                            'date': cols[0].get_text(strip=True),
-                            'time': cols[1].get_text(strip=True) if len(cols) > 1 else '',
-                            'location': cols[2].get_text(strip=True) if len(cols) > 2 else '',
-                            'status': cols[3].get_text(strip=True) if len(cols) > 3 else '',
-                            'phone': cols[4].get_text(strip=True) if len(cols) > 4 else ''
-                        }
-                        details.append(detail)
-        
-        return {
+        # 결과 구성
+        result = {
             "success": True,
             "courier": "롯데택배",
             "tracking_number": tracking_number,
-            "basic_info": basic_info,
-            "details": details,
+            "basic_info": {
+                "sender_name": parsed_data.get("sender_name", "-"),
+                "receiver_name": order.recipient_name or "-",
+                "product_name": order.product_name or "-",
+                "quantity": str(order.quantity) if order.quantity else "-"
+            },
+            "details": parsed_data.get("details", []),
             "order_info": {
                 "order_number": order.order_number,
                 "buyer_name": order.buyer_name,
                 "recipient_name": order.recipient_name
             }
         }
-    
-    except Exception as e:
+        
+        print(f"✅ 롯데택배 조회 성공: {len(result['details'])}개 이벤트")
+        return result
+        
+    except requests.Timeout:
+        print(f"❌ 롯데택배 타임아웃")
         return {
             "success": False,
-            "message": f"롯데택배 조회 실패: {str(e)}"
+            "message": "롯데택배 서버 응답 시간 초과"
+        }
+        
+    except Exception as e:
+        print(f"❌ 롯데택배 조회 오류: {e}")
+        import traceback
+        traceback.print_exc()
+        return {
+            "success": False,
+            "message": f"롯데택배 조회 중 오류 발생: {str(e)}"
         }
 
 # 기존 /orders/api/tracking/{order_id} 엔드포인트 수정
@@ -1555,7 +1607,7 @@ def get_tracking(order_id: int, db: Session = Depends(get_db)):
     order = db.query(Order).filter(Order.id == order_id).first()
     
     if not order or not order.tracking_number:
-        return {"success": False, "message": "송장번호가 없습니다"}
+        return {"success": False, "message": "송장번호가 없습니다"} 
     
         # ⭐ 송장번호 .0 제거 (더 안전한 방식)
     tracking_number = str(order.tracking_number)
