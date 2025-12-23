@@ -38,8 +38,6 @@ class User(Base):
     can_manage_orders = Column(Boolean, default=False)  # ⭐ 추가
     daily_quota = Column(Integer, default=0)  # 일일 할당량 필드
     
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     
     # 관계 추가
     schedules = relationship("PostSchedule", back_populates="worker")
