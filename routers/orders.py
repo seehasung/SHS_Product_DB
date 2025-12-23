@@ -1072,50 +1072,6 @@ def delete_mapping(
 import requests
 from bs4 import BeautifulSoup
 
-# ============================================
-# 배송 조회 API
-# ============================================
-@router.get("/api/tracking/{order_id}")
-def get_tracking_info(
-    request: Request,
-    order_id: int,
-    db: Session = Depends(get_db)
-):
-    """배송 조회 (CJ대한통운, 경동택배)"""
-    user_info = check_order_permission(request)
-    if not user_info:
-        raise HTTPException(status_code=401, detail="권한 없음")
-    
-    # 주문 조회
-    order = db.query(Order).filter(Order.id == order_id).first()
-    
-    if not order:
-        raise HTTPException(status_code=404, detail="주문을 찾을 수 없습니다")
-    
-    tracking_number = order.tracking_number
-    courier_company = order.courier_company or ""
-    
-    if not tracking_number:
-        return {
-            "success": False,
-            "message": "송장번호가 없습니다."
-        }
-    
-    # 송장번호 .0 제거
-    if tracking_number.endswith('.0'):
-        tracking_number = tracking_number[:-2]
-    
-    # 택배사 구분
-    if 'CJ' in courier_company or '대한통운' in courier_company:
-        return get_cj_tracking(tracking_number, order)
-    elif '경동' in courier_company:
-        return get_kdexp_tracking(tracking_number, order)
-    else:
-        return {
-            "success": False,
-            "message": f"지원하지 않는 택배사입니다: {courier_company}"
-        }
-
 
 def get_cj_tracking(tracking_number, order):
     """CJ대한통운 배송 조회"""
@@ -1601,7 +1557,11 @@ def get_tracking(order_id: int, db: Session = Depends(get_db)):
     if not order or not order.tracking_number:
         return {"success": False, "message": "송장번호가 없습니다"}
     
-    tracking_number = str(order.tracking_number).replace('.0', '')
+        # ⭐ 송장번호 .0 제거 (더 안전한 방식)
+    tracking_number = str(order.tracking_number)
+    if tracking_number.endswith('.0'):
+        tracking_number = tracking_number[:-2]
+    
     courier_company = (order.courier_company or "").lower()
     
     # CJ대한통운
