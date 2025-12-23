@@ -348,7 +348,7 @@ def get_orders_by_status(
     # 상태로 필터링
     filtered_orders = [
         o for o in all_orders 
-        if normalize_order_status(o.order_status, db) == status  # ⭐ db 전달
+        if normalize_order_status(o.order_status, db) == status
     ]
     
     return {
@@ -356,15 +356,15 @@ def get_orders_by_status(
             {
                 "id": o.id,
                 "order_number": o.order_number,
-                "sales_channel": o.sales_channel,  # ⭐ 추가
+                "sales_channel": o.sales_channel,
                 "order_status": o.order_status,
-                "normalized_status": normalize_order_status(o.order_status),
+                "normalized_status": normalize_order_status(o.order_status, db),  # ⭐ db 추가!
                 "order_date": o.order_date[:10] if o.order_date else '-',
                 "buyer_name": o.buyer_name,
                 "recipient_name": o.recipient_name,
                 "product_name": o.product_name,
                 "payment_amount": o.payment_amount,
-                "tracking_number": o.tracking_number[:-2] if o.tracking_number and o.tracking_number.endswith('.0') else o.tracking_number,  # ⭐ .0 제거
+                "tracking_number": o.tracking_number[:-2] if o.tracking_number and o.tracking_number.endswith('.0') else o.tracking_number,
                 "courier_company": o.courier_company
             }
             for o in filtered_orders[:100]
