@@ -613,6 +613,7 @@ def search_customers(
             customer_dict[key] = {
                 "buyer_name": order.buyer_name,
                 "recipient_name": order.recipient_name,
+                "tracking_number": clean_tracking_number(order.tracking_number),  # ✅ 정리
                 "contact_number": order.contact_number,
                 "order_count": 0,
                 "total_amount": 0
@@ -1938,3 +1939,15 @@ def get_tracking(order_id: int, db: Session = Depends(get_db)):
             "success": False,
             "message": f"지원하지 않는 택배사입니다: {order.courier_company}"
         }
+        
+# 송장번호 정리 함수 추가
+def clean_tracking_number(tracking_number):
+    """송장번호에서 .0 제거"""
+    if not tracking_number:
+        return ""
+    
+    tracking_str = str(tracking_number)
+    if tracking_str.endswith('.0'):
+        return tracking_str[:-2]
+    
+    return tracking_str
