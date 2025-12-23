@@ -2,7 +2,7 @@
  
 import os
 from dotenv import load_dotenv
-from sqlalchemy import create_engine, Column, Integer, String, Boolean, Text, ForeignKey, DateTime, Date, UniqueConstraint, Float, JSON, Index
+from sqlalchemy import create_engine, Column, Integer, String, Boolean, Text, ForeignKey, DateTime, Date, UniqueConstraint, Float, JSON, Index, func
 from sqlalchemy.orm import sessionmaker, declarative_base, relationship
 from sqlalchemy.ext.declarative import declarative_base
 from passlib.hash import bcrypt
@@ -35,7 +35,11 @@ class User(Base):
     is_admin = Column(Boolean, default=False)
     can_manage_products = Column(Boolean, default=False)
     can_manage_marketing = Column(Boolean, default=False)
+    can_manage_orders = Column(Boolean, default=False)  # ⭐ 추가
     daily_quota = Column(Integer, default=0)  # 일일 할당량 필드
+    
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     
     # 관계 추가
     schedules = relationship("PostSchedule", back_populates="worker")
