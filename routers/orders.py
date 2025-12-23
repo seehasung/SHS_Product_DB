@@ -964,3 +964,104 @@ def get_all_mappings(
             for m in mappings
         ]
     }
+
+# ============================================
+# 매핑 관리 페이지
+# ============================================
+@router.get("/mappings", response_class=HTMLResponse)
+def mappings_page(request: Request, db: Session = Depends(get_db)):
+    """매핑 관리 페이지"""
+    user_info = check_order_permission(request)
+    if not user_info:
+        return RedirectResponse(url="/login", status_code=302)
+    
+    # 관리자만 접근 가능
+    if not user_info["is_admin"]:
+        return templates.TemplateResponse("error.html", {
+            "request": request,
+            "username": user_info["username"],
+            "is_admin": user_info["is_admin"],
+            "error_message": "관리자만 접근할 수 있습니다."
+        })
+    
+    from database import OrderStatusMapping
+    
+    # 전체 매핑 조회
+    mappings = db.query(OrderStatusMapping).order_by(
+        OrderStatusMapping.normalized_status,
+        OrderStatusMapping.original_status
+    ).all()
+    
+    # 분류별 개수
+    status_counts = {}
+    for m in mappings:
+        status_counts[m.normalized_status] = status_counts.get(m.normalized_status, 0) + 1
+    
+    return templates.TemplateResponse("order_mappings.html", {
+        "request": request,
+        "username": user_info["username"],
+        "is_admin": user_info["is_admin"],
+        "can_manage_orders": user_info["can_manage_orders"],
+        "mappings": mappings,
+        "status_counts": status_counts
+    })
+
+
+# ============================================
+# 매핑 수정 API
+# ============================================
+@router.post("/api/mapping/update")
+def update_mapping(
+    request: Request,
+    mapping_id: int = Form(...),
+    normalized_status: str = Form(...),
+    db: Session = Depends(get_db)
+):
+    """매핑 수정"""
+    user_info = check_order_permission(request)
+    if not user_info or not user_info["is_admin"]:
+        raise HTTPException(status_code=403, detail="관리자만 가능합니다")
+    
+    from database import OrderStatusMapping
+    
+    mapping = db.query(OrderStatusMapping).filter(
+        OrderStatusMapping.id == mapping_id
+    ).first()
+    
+    if not mapping:
+        raise HTTPException(status_code=404, detail="매핑을 찾을 수 없습니다")
+    
+    mapping.normalized_status = normalized_status
+    mapping.updated_at = datetime.now()
+    db.commit()
+    
+    return {"success": True, "message": "수정되었습니다"}
+
+
+# ============================================
+# 매핑 삭제 API
+# ============================================
+@router.post("/api/mapping/delete")
+def delete_mapping(
+    request: Request,
+    mapping_id: int = Form(...),
+    db: Session = Depends(get_db)
+):
+    """매핑 삭제"""
+    user_info = check_order_permission(request)
+    if not user_info or not user_info["is_admin"]:
+        raise HTTPException(status_code=403, detail="관리자만 가능합니다")
+    
+    from database import OrderStatusMapping
+    
+    mapping = db.query(OrderStatusMapping).filter(
+        OrderStatusMapping.id == mapping_id
+    ).first()
+    
+    if not mapping:
+        raise HTTPException(status_code=404, detail="매핑을 찾을 수 없습니다")
+    
+    db.delete(mapping)
+    db.commit()
+    
+    return {"success": True, "message": "삭제되었습니다"}

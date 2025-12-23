@@ -1,0 +1,506 @@
+{% extends "base.html" %}
+{% block title %}상태 매핑 관리 - 주문조회{% endblock %}
+
+{% block head %}
+{{ super() }}
+<style>
+    .mappings-container {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 20px;
+    }
+    
+    /* 통계 카드 */
+    .stats-row {
+        display: flex;
+        gap: 15px;
+        margin-bottom: 30px;
+        flex-wrap: wrap;
+    }
+    
+    .stat-mini-card {
+        flex: 1;
+        min-width: 150px;
+        background: rgba(255, 255, 255, 0.95);
+        backdrop-filter: blur(20px);
+        border: 1px solid rgba(255, 255, 255, 0.3);
+        border-radius: 12px;
+        padding: 15px 20px;
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+        cursor: pointer;
+        transition: all 0.3s;
+    }
+    
+    .stat-mini-card:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12);
+    }
+    
+    .stat-mini-card.active {
+        border: 2px solid #4A90E2;
+        background: rgba(74, 144, 226, 0.05);
+    }
+    
+    .stat-mini-label {
+        font-size: 0.85rem;
+        color: #636e72;
+        font-weight: 600;
+    }
+    
+    .stat-mini-value {
+        font-size: 1.5rem;
+        font-weight: 800;
+        color: #2d3436;
+        margin-top: 5px;
+    }
+    
+    /* 검색바 */
+    .search-bar {
+        background: rgba(255, 255, 255, 0.95);
+        backdrop-filter: blur(20px);
+        border: 1px solid rgba(255, 255, 255, 0.3);
+        border-radius: 12px;
+        padding: 20px;
+        margin-bottom: 25px;
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+    }
+    
+    .search-input {
+        padding: 10px 15px;
+        border: 2px solid #e9ecef;
+        border-radius: 8px;
+        width: 100%;
+        max-width: 400px;
+        font-size: 0.95rem;
+        transition: all 0.3s;
+    }
+    
+    .search-input:focus {
+        border-color: #4A90E2;
+        outline: none;
+        box-shadow: 0 0 0 3px rgba(74, 144, 226, 0.1);
+    }
+    
+    /* 테이블 */
+    .mappings-table-container {
+        background: rgba(255, 255, 255, 0.95);
+        backdrop-filter: blur(20px);
+        border: 1px solid rgba(255, 255, 255, 0.3);
+        border-radius: 12px;
+        padding: 25px;
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+        overflow-x: auto;
+    }
+    
+    .mappings-table {
+        width: 100%;
+        border-collapse: separate;
+        border-spacing: 0;
+    }
+    
+    .mappings-table thead th {
+        background: linear-gradient(135deg, rgba(74, 144, 226, 0.1) 0%, rgba(91, 163, 245, 0.1) 100%);
+        padding: 15px;
+        text-align: left;
+        font-weight: 700;
+        color: #2d3436;
+        font-size: 0.9rem;
+        border-bottom: 2px solid #e1e8ed;
+    }
+    
+    .mappings-table thead th:first-child {
+        border-radius: 10px 0 0 0;
+    }
+    
+    .mappings-table thead th:last-child {
+        border-radius: 0 10px 0 0;
+    }
+    
+    .mappings-table tbody tr {
+        transition: all 0.2s;
+        background: white;
+    }
+    
+    .mappings-table tbody tr:hover {
+        background: rgba(74, 144, 226, 0.05);
+    }
+    
+    .mappings-table tbody td {
+        padding: 15px;
+        border-bottom: 1px solid #f1f3f5;
+        color: #495057;
+        font-size: 0.9rem;
+    }
+    
+    /* 상태 배지 */
+    .status-badge {
+        padding: 5px 12px;
+        border-radius: 20px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        display: inline-block;
+    }
+    
+    .status-badge.shipping {
+        background: #cce5ff;
+        color: #004085;
+    }
+    
+    .status-badge.completed {
+        background: #d4edda;
+        color: #155724;
+    }
+    
+    .status-badge.cancelled {
+        background: #f8d7da;
+        color: #721c24;
+    }
+    
+    .status-badge.pending {
+        background: #fff3cd;
+        color: #856404;
+    }
+    
+    /* 버튼 */
+    .btn-action {
+        padding: 6px 12px;
+        border: none;
+        border-radius: 8px;
+        font-size: 0.85rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s;
+        margin-right: 5px;
+    }
+    
+    .btn-edit {
+        background: #4A90E2;
+        color: white;
+    }
+    
+    .btn-edit:hover {
+        background: #3a7bc8;
+    }
+    
+    .btn-delete {
+        background: #eb3349;
+        color: white;
+    }
+    
+    .btn-delete:hover {
+        background: #d62839;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="mappings-container">
+    <!-- 페이지 헤더 -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 style="font-weight: 800; color: #2d3436;">
+            <i class="bi bi-diagram-3"></i> 상태 매핑 관리
+        </h1>
+        <div>
+            <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#addMappingModal">
+                <i class="bi bi-plus-circle"></i> 새 매핑 추가
+            </button>
+            <a href="/orders/dashboard" class="btn btn-secondary ms-2">
+                <i class="bi bi-arrow-left"></i> 대시보드
+            </a>
+        </div>
+    </div>
+    
+    <!-- 통계 미니 카드 -->
+    <div class="stats-row">
+        <div class="stat-mini-card" onclick="filterByStatus('all')" id="filter-all">
+            <div class="stat-mini-label">전체</div>
+            <div class="stat-mini-value">{{ mappings|length }}</div>
+        </div>
+        <div class="stat-mini-card" onclick="filterByStatus('배송중')" id="filter-배송중">
+            <div class="stat-mini-label">배송중</div>
+            <div class="stat-mini-value">{{ status_counts.get('배송중', 0) }}</div>
+        </div>
+        <div class="stat-mini-card" onclick="filterByStatus('배송완료')" id="filter-배송완료">
+            <div class="stat-mini-label">배송완료</div>
+            <div class="stat-mini-value">{{ status_counts.get('배송완료', 0) }}</div>
+        </div>
+        <div class="stat-mini-card" onclick="filterByStatus('취소')" id="filter-취소">
+            <div class="stat-mini-label">취소</div>
+            <div class="stat-mini-value">{{ status_counts.get('취소', 0) }}</div>
+        </div>
+        <div class="stat-mini-card" onclick="filterByStatus('반품')" id="filter-반품">
+            <div class="stat-mini-label">반품</div>
+            <div class="stat-mini-value">{{ status_counts.get('반품', 0) }}</div>
+        </div>
+        <div class="stat-mini-card" onclick="filterByStatus('교환')" id="filter-교환">
+            <div class="stat-mini-label">교환</div>
+            <div class="stat-mini-value">{{ status_counts.get('교환', 0) }}</div>
+        </div>
+    </div>
+    
+    <!-- 검색바 -->
+    <div class="search-bar">
+        <div class="d-flex gap-2 align-items-center">
+            <i class="bi bi-search" style="color: #adb5bd; font-size: 1.2rem;"></i>
+            <input type="text" 
+                   id="searchInput" 
+                   class="search-input" 
+                   placeholder="원본 상태명으로 검색..."
+                   onkeyup="searchMappings()">
+        </div>
+    </div>
+    
+    <!-- 매핑 테이블 -->
+    <div class="mappings-table-container">
+        <table class="mappings-table" id="mappingsTable">
+            <thead>
+                <tr>
+                    <th width="5%">ID</th>
+                    <th width="35%">원본 상태</th>
+                    <th width="20%">분류</th>
+                    <th width="20%">생성일</th>
+                    <th width="20%">액션</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for mapping in mappings %}
+                <tr data-status="{{ mapping.normalized_status }}" data-original="{{ mapping.original_status }}">
+                    <td>{{ mapping.id }}</td>
+                    <td><strong>{{ mapping.original_status }}</strong></td>
+                    <td>
+                        <span class="status-badge 
+                            {% if mapping.normalized_status == '배송중' %}shipping
+                            {% elif mapping.normalized_status == '배송완료' %}completed
+                            {% elif mapping.normalized_status == '취소' %}cancelled
+                            {% elif mapping.normalized_status == '반품' %}cancelled
+                            {% elif mapping.normalized_status == '교환' %}pending
+                            {% else %}pending{% endif %}">
+                            {{ mapping.normalized_status }}
+                        </span>
+                    </td>
+                    <td>{{ mapping.created_at.strftime('%Y-%m-%d %H:%M') if mapping.created_at else '-' }}</td>
+                    <td>
+                        <button class="btn-action btn-edit" 
+                                onclick="editMapping({{ mapping.id }}, '{{ mapping.original_status }}', '{{ mapping.normalized_status }}')">
+                            <i class="bi bi-pencil"></i> 수정
+                        </button>
+                        <button class="btn-action btn-delete" 
+                                onclick="deleteMapping({{ mapping.id }}, '{{ mapping.original_status }}')">
+                            <i class="bi bi-trash"></i> 삭제
+                        </button>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- 매핑 수정 모달 -->
+<div class="modal fade" id="editMappingModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-pencil"></i> 매핑 수정</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="editMappingForm">
+                <div class="modal-body">
+                    <input type="hidden" id="edit_mapping_id">
+                    
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">원본 상태</label>
+                        <input type="text" id="edit_original_status" class="form-control" readonly>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">분류</label>
+                        <select id="edit_normalized_status" class="form-select" required>
+                            <option value="배송중">배송중</option>
+                            <option value="배송완료">배송완료</option>
+                            <option value="취소">취소</option>
+                            <option value="반품">반품</option>
+                            <option value="교환">교환</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">취소</button>
+                    <button type="submit" class="btn btn-primary">저장</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- 매핑 추가 모달 -->
+<div class="modal fade" id="addMappingModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-plus-circle"></i> 새 매핑 추가</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="addMappingForm">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">원본 상태</label>
+                        <input type="text" id="add_original_status" class="form-control" required placeholder="예: 신규주문">
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">분류</label>
+                        <select id="add_normalized_status" class="form-select" required>
+                            <option value="">선택하세요</option>
+                            <option value="배송중">배송중</option>
+                            <option value="배송완료">배송완료</option>
+                            <option value="취소">취소</option>
+                            <option value="반품">반품</option>
+                            <option value="교환">교환</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">취소</button>
+                    <button type="submit" class="btn btn-success">추가</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+let currentFilter = 'all';
+
+// 분류별 필터링
+function filterByStatus(status) {
+    currentFilter = status;
+    
+    // 활성 카드 표시
+    document.querySelectorAll('.stat-mini-card').forEach(card => {
+        card.classList.remove('active');
+    });
+    document.getElementById(`filter-${status}`).classList.add('active');
+    
+    // 테이블 필터링
+    const rows = document.querySelectorAll('#mappingsTable tbody tr');
+    rows.forEach(row => {
+        if (status === 'all') {
+            row.style.display = '';
+        } else {
+            const rowStatus = row.getAttribute('data-status');
+            row.style.display = rowStatus === status ? '' : 'none';
+        }
+    });
+}
+
+// 검색
+function searchMappings() {
+    const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+    const rows = document.querySelectorAll('#mappingsTable tbody tr');
+    
+    rows.forEach(row => {
+        const originalStatus = row.getAttribute('data-original').toLowerCase();
+        const matchesSearch = originalStatus.includes(searchTerm);
+        const matchesFilter = currentFilter === 'all' || row.getAttribute('data-status') === currentFilter;
+        
+        row.style.display = matchesSearch && matchesFilter ? '' : 'none';
+    });
+}
+
+// 매핑 수정
+function editMapping(id, originalStatus, normalizedStatus) {
+    document.getElementById('edit_mapping_id').value = id;
+    document.getElementById('edit_original_status').value = originalStatus;
+    document.getElementById('edit_normalized_status').value = normalizedStatus;
+    
+    const modal = new bootstrap.Modal(document.getElementById('editMappingModal'));
+    modal.show();
+}
+
+// 매핑 수정 제출
+document.getElementById('editMappingForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const formData = new FormData();
+    formData.append('mapping_id', document.getElementById('edit_mapping_id').value);
+    formData.append('normalized_status', document.getElementById('edit_normalized_status').value);
+    
+    try {
+        const response = await fetch('/orders/api/mapping/update', {
+            method: 'POST',
+            body: formData
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            alert('수정되었습니다!');
+            location.reload();
+        } else {
+            alert('수정 실패: ' + result.message);
+        }
+    } catch (error) {
+        alert('오류가 발생했습니다.');
+    }
+});
+
+// 매핑 추가 제출
+document.getElementById('addMappingForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const formData = new FormData();
+    formData.append('original_status', document.getElementById('add_original_status').value);
+    formData.append('normalized_status', document.getElementById('add_normalized_status').value);
+    
+    try {
+        const response = await fetch('/orders/api/save-status-mapping', {
+            method: 'POST',
+            body: formData
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            alert('추가되었습니다!');
+            location.reload();
+        } else {
+            alert('추가 실패: ' + result.message);
+        }
+    } catch (error) {
+        alert('오류가 발생했습니다.');
+    }
+});
+
+// 매핑 삭제
+async function deleteMapping(id, originalStatus) {
+    if (!confirm(`"${originalStatus}" 매핑을 삭제하시겠습니까?`)) return;
+    
+    const formData = new FormData();
+    formData.append('mapping_id', id);
+    
+    try {
+        const response = await fetch('/orders/api/mapping/delete', {
+            method: 'POST',
+            body: formData
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            alert('삭제되었습니다!');
+            location.reload();
+        } else {
+            alert('삭제 실패: ' + result.message);
+        }
+    } catch (error) {
+        alert('오류가 발생했습니다.');
+    }
+}
+
+// 페이지 로드 시 '전체' 필터 활성화
+document.addEventListener('DOMContentLoaded', function() {
+    document.getElementById('filter-all').classList.add('active');
+});
+</script>
+{% endblock %}
