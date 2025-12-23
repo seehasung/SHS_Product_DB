@@ -933,6 +933,14 @@ class Order(Base):
     updated_at = Column(DateTime, default=get_kst_now, onupdate=get_kst_now)
     
     # ============================================
+    # 통관정보
+    # ============================================
+    master_bl = Column(String(100), nullable=True, index=True)  # 마스터 B/L
+    house_bl = Column(String(100), nullable=True, index=True)   # 하우스 B/L
+    customs_status = Column(String(50), nullable=True)          # 통관 상태
+    
+    
+    # ============================================
     # 인덱스 (검색 성능 향상)
     # ============================================
     __table_args__ = (

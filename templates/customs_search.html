@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>통관 관리</title>
+    
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Font Awesome -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css" rel="stylesheet">
+    
+    <!-- ✅ 통관 타임라인 스타일 추가 -->
+    <style>
+        /* 통관 타임라인 스타일 */
+        .customs-timeline {
+            position: relative;
+            padding: 20px 0;
+        }
+
+        .timeline-item {
+            display: flex;
+            margin-bottom: 20px;
+            position: relative;
+        }
+
+        .timeline-item:not(:last-child)::after {
+            content: '';
+            position: absolute;
+            left: 15px;
+            top: 35px;
+            bottom: -20px;
+            width: 2px;
+            background: #dee2e6;
+        }
+
+        .timeline-marker {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            background: #007bff;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            flex-shrink: 0;
+            z-index: 1;
+        }
+
+        .timeline-content {
+            margin-left: 20px;
+            flex-grow: 1;
+        }
+
+        .timeline-date {
+            color: #6c757d;
+            font-size: 0.9em;
+            margin-bottom: 5px;
+        }
+
+        .timeline-title {
+            font-weight: bold;
+            margin-bottom: 3px;
+        }
+
+        .timeline-location {
+            color: #6c757d;
+            font-size: 0.9em;
+        }
+
+        .timeline-remark {
+            color: #28a745;
+            font-size: 0.85em;
+            margin-top: 3px;
+        }
+
+        .customs-info h4 {
+            border-bottom: 2px solid #007bff;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+        }
+
+        #loadingOverlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 9999;
+            justify-content: center;
+            align-items: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="container-fluid mt-4">
+        <h1>주문 관리 대시보드</h1>
+        
+        <!-- 기존 주문 목록 테이블 -->
+        <div class="card mt-4">
+            <div class="card-body">
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>주문번호</th>
+                            <th>구매자</th>
+                            <th>수취인</th>
+                            <th>송장번호</th>
+                            <th>택배사</th>
+                            <th>상태</th>
+                            <th>작업</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for order in orders %}
+                        <tr>
+                            <td>{{ order.order_number }}</td>
+                            <td>{{ order.buyer_name }}</td>
+                            <td>{{ order.recipient_name }}</td>
+                            <td>{{ order.tracking_number }}</td>
+                            <td>{{ order.courier_company }}</td>
+                            <td>{{ order.status }}</td>
+                            <td>
+                                <!-- 배송 조회 버튼 -->
+                                <button onclick="viewTracking({{ order.id }})" 
+                                        class="btn btn-sm btn-primary">
+                                    <i class="fas fa-truck"></i> 배송조회
+                                </button>
+                                
+                                <!-- ✅ 통관 조회 버튼 추가 -->
+                                {% if order.tracking_number or order.master_bl %}
+                                <button onclick="viewCustoms({{ order.id }})" 
+                                        class="btn btn-sm btn-info ml-2">
+                                    <i class="fas fa-plane"></i> 통관조회
+                                </button>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- ✅ 통관 조회 섹션 추가 -->
+        <div class="card mt-4">
+            <div class="card-header bg-info text-white">
+                <h5 class="mb-0">
+                    <i class="fas fa-search"></i> 통관 진행정보 조회
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="alert alert-info">
+                    <strong>💡 조회 방법:</strong>
+                    <ul class="mb-0">
+                        <li><strong>국제특송 (EMS, DHL 등)</strong>: 송장번호만 입력</li>
+                        <li><strong>일반 수입화물</strong>: 마스터 B/L 입력 (하우스 B/L 선택)</li>
+                    </ul>
+                </div>
+                
+                <form id="customsSearchForm" onsubmit="searchCustoms(event)">
+                    <!-- 송장번호 입력 -->
+                    <div class="form-group">
+                        <label><i class="fas fa-barcode"></i> 송장번호 (국제특송)</label>
+                        <input type="text" class="form-control" id="trackingNumberInput" 
+                               placeholder="예: EZ123456789KR">
+                    </div>
+                    
+                    <div class="text-center my-3">
+                        <strong>또는</strong>
+                    </div>
+                    
+                    <!-- B/L 번호 입력 -->
+                    <div class="form-row">
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label><i class="fas fa-ship"></i> 마스터 B/L (일반화물)</label>
+                                <input type="text" class="form-control" id="masterBlInput" 
+                                       placeholder="예: ABCD1234567">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label><i class="fas fa-box"></i> 하우스 B/L (선택)</label>
+                                <input type="text" class="form-control" id="houseBlInput" 
+                                       placeholder="선택사항">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary btn-block btn-lg">
+                        <i class="fas fa-search"></i> 통관 조회
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- ✅ 통관 조회 모달 추가 -->
+    <div class="modal fade" id="customsModal" tabindex="-1">
+        <div class="modal-dialog modal-xl">
+            <div class="modal-content">
+                <div class="modal-header bg-info text-white">
+                    <h5 class="modal-title">
+                        <i class="fas fa-clipboard-check"></i> 통관 진행정보
+                    </h5>
+                    <button type="button" class="close text-white" data-dismiss="modal">
+                        <span>&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body" id="customsContent">
+                    <!-- JavaScript로 동적 생성 -->
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">
+                        <i class="fas fa-times"></i> 닫기
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ✅ 로딩 오버레이 추가 -->
+    <div id="loadingOverlay">
+        <div class="text-center">
+            <div class="spinner-border text-light" style="width: 3rem; height: 3rem;" role="status">
+                <span class="sr-only">Loading...</span>
+            </div>
+            <div class="text-light mt-3">
+                <h5>통관 정보를 조회하는 중입니다...</h5>
+            </div>
+        </div>
+    </div>
+
+    <!-- jQuery, Bootstrap JS -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/js/bootstrap.bundle.min.js"></script>
+
+    <!-- ✅ 통관 조회 JavaScript 추가 -->
+    <script>
+        // 로딩 표시/숨김
+        function showLoading() {
+            document.getElementById('loadingOverlay').style.display = 'flex';
+        }
+
+        function hideLoading() {
+            document.getElementById('loadingOverlay').style.display = 'none';
+        }
+
+        // 주문 ID로 통관 조회
+        async function viewCustoms(orderId) {
+            try {
+                console.log('=== 통관 조회 시작 ===');
+                console.log('Order ID:', orderId);
+                
+                showLoading();
+                
+                const response = await fetch(`/orders/api/customs/${orderId}`);
+                const data = await response.json();
+                
+                console.log('통관 조회 응답:', data);
+                
+                hideLoading();
+                
+                if (data.success) {
+                    displayCustomsModal(data);
+                } else {
+                    alert(data.message || '통관 정보를 불러올 수 없습니다.');
+                }
+                
+            } catch (error) {
+                console.error('통관 조회 오류:', error);
+                hideLoading();
+                alert('통관 조회 중 오류가 발생했습니다.');
+            }
+        }
+
+        // 송장번호/B/L로 직접 조회
+        async function searchCustoms(event) {
+            event.preventDefault();
+            
+            const trackingNumber = document.getElementById('trackingNumberInput').value.trim();
+            const masterBl = document.getElementById('masterBlInput').value.trim();
+            const houseBl = document.getElementById('houseBlInput').value.trim();
+            
+            // 입력 검증
+            if (!trackingNumber && !masterBl) {
+                alert('송장번호 또는 마스터 B/L을 입력하세요.');
+                return;
+            }
+            
+            try {
+                showLoading();
+                
+                let url = '';
+                let params = new URLSearchParams();
+                
+                // 송장번호가 있으면 특송화물 조회
+                if (trackingNumber) {
+                    url = '/orders/api/customs/search/tracking';
+                    params.append('tracking_number', trackingNumber);
+                } 
+                // 마스터 B/L이 있으면 일반화물 조회
+                else if (masterBl) {
+                    url = '/orders/api/customs/search';
+                    params.append('master_bl', masterBl);
+                    if (houseBl) {
+                        params.append('house_bl', houseBl);
+                    }
+                }
+                
+                const response = await fetch(`${url}?${params.toString()}`);
+                const data = await response.json();
+                
+                console.log('통관 조회 응답:', data);
+                
+                hideLoading();
+                
+                if (data.success) {
+                    displayCustomsModal(data);
+                    // 입력 필드 초기화
+                    document.getElementById('customsSearchForm').reset();
+                } else {
+                    alert(data.message || '통관 정보를 불러올 수 없습니다.');
+                }
+                
+            } catch (error) {
+                console.error('통관 조회 오류:', error);
+                hideLoading();
+                alert('통관 조회 중 오류가 발생했습니다.');
+            }
+        }
+
+        // 통관 정보 모달 표시
+        function displayCustomsModal(data) {
+            const modal = document.getElementById('customsModal');
+            const content = document.getElementById('customsContent');
+            
+            let html = `
+                <div class="customs-info">
+                    <h4><i class="fas fa-info-circle"></i> 조회 정보</h4>
+                    <table class="table table-bordered">
+                        <tr>
+            `;
+            
+            // 특송화물인 경우
+            if (data.query_type === 'express') {
+                html += `
+                    <th width="20%">송장번호</th>
+                    <td colspan="3">${data.tracking_number || '-'}</td>
+                `;
+            } 
+            // 일반화물인 경우
+            else {
+                html += `
+                    <th width="20%">마스터 B/L</th>
+                    <td>${data.master_bl || '-'}</td>
+                    <th width="20%">하우스 B/L</th>
+                    <td>${data.house_bl || '-'}</td>
+                `;
+            }
+            
+            html += `
+                        </tr>
+                    </table>
+                    
+                    <h4 class="mt-4"><i class="fas fa-clipboard-list"></i> 통관 상세정보</h4>
+                    <table class="table table-striped">
+                        <thead class="thead-dark">
+                            <tr>
+                                <th>품명</th>
+                                <th>통관상태</th>
+                                <th>수량/중량</th>
+                                <th>발송국</th>
+                                <th>수하인</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+            `;
+            
+            if (data.customs_info && data.customs_info.length > 0) {
+                data.customs_info.forEach(info => {
+                    const weight = info.weight ? `${info.weight}kg` : '-';
+                    const quantity = info.quantity ? `${info.quantity}개` : '';
+                    
+                    html += `
+                        <tr>
+                            <td>${info.product_name || info.prnm || '-'}</td>
+                            <td><span class="badge badge-primary badge-pill">${info.customs_status || info.csclPrgsStts || '-'}</span></td>
+                            <td>${quantity} ${weight}</td>
+                            <td>${info.departure_country || info.shipNat || '-'}</td>
+                            <td>${info.receiver_name || info.cnsiNm || '-'}</td>
+                        </tr>
+                    `;
+                });
+            } else {
+                html += `
+                    <tr>
+                        <td colspan="5" class="text-center text-muted">
+                            <i class="fas fa-exclamation-circle"></i> 통관 정보가 없습니다.
+                        </td>
+                    </tr>
+                `;
+            }
+            
+            html += `
+                        </tbody>
+                    </table>
+            `;
+            
+            // 진행 이력
+            if (data.events && data.events.length > 0) {
+                html += `
+                    <h4 class="mt-4"><i class="fas fa-history"></i> 통관 진행 이력</h4>
+                    <div class="customs-timeline">
+                `;
+                
+                data.events.forEach((event, index) => {
+                    html += `
+                        <div class="timeline-item">
+                            <div class="timeline-marker">${index + 1}</div>
+                            <div class="timeline-content">
+                                <div class="timeline-date">
+                                    <i class="far fa-calendar-alt"></i> ${event.eventDate} ${event.eventTime}
+                                </div>
+                                <div class="timeline-title">
+                                    <i class="fas fa-tag"></i> ${event.eventName}
+                                </div>
+                                ${event.location ? `<div class="timeline-location"><i class="fas fa-map-marker-alt"></i> ${event.location}</div>` : ''}
+                                ${event.remark ? `<div class="timeline-remark"><i class="fas fa-comment"></i> ${event.remark}</div>` : ''}
+                            </div>
+                        </div>
+                    `;
+                });
+                
+                html += `
+                    </div>
+                `;
+            } else {
+                html += `
+                    <div class="alert alert-warning mt-4">
+                        <i class="fas fa-exclamation-triangle"></i> 통관 진행 이력이 없습니다.
+                    </div>
+                `;
+            }
+            
+            html += `</div>`;
+            
+            content.innerHTML = html;
+            $(modal).modal('show');
+        }
+
+        // 배송 조회 함수 (기존)
+        async function viewTracking(orderId) {
+            // 기존 배송 조회 로직...
+            alert('배송 조회: Order ID ' + orderId);
+        }
+    </script>

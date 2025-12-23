@@ -11,6 +11,9 @@ import os
 from typing import Optional
 import requests
 from utils.courier_parsers import parse_lotte_tracking
+import xml.etree.ElementTree as ET
+from typing import Optional
+
 
 
 from bs4 import BeautifulSoup
@@ -18,6 +21,385 @@ from database import get_db, Order, User
 
 router = APIRouter(prefix="/orders", tags=["orders"])
 templates = Jinja2Templates(directory="templates")
+
+# 관세청 API 설정
+CUSTOMS_API_KEY = "m230t285b102t292j090l050g2"
+CUSTOMS_API_BASE_URL = "https://unipass.customs.go.kr:38010/ext/rest"
+
+@router.get("/customs", response_class=HTMLResponse)
+def customs_search_page(request: Request):
+    """통관 조회 페이지"""
+    return templates.TemplateResponse("customs_search.html", {"request": request})
+
+# ===== 통관 진행정보 조회 함수 =====
+def get_customs_progress(master_bl: str, house_bl: Optional[str] = None):
+    """
+    관세청 API를 통해 통관 진행정보 조회
+    
+    Args:
+        master_bl: 마스터 B/L 번호 (필수)
+        house_bl: 하우스 B/L 번호 (선택)
+    
+    Returns:
+        통관 진행정보 딕셔너리
+    """
+    try:
+        print(f"🔍 통관 조회 시작: M-BL={master_bl}, H-BL={house_bl}")
+        
+        # API 엔드포인트
+        url = f"{CUSTOMS_API_BASE_URL}/cargCsclPrgsInfoQry/retrieveCargCsclPrgsInfo"
+        
+        # 요청 파라미터
+        params = {
+            "crtfKey": CUSTOMS_API_KEY,
+            "blNo": master_bl,  # 마스터 B/L 번호
+        }
+        
+        # 하우스 B/L이 있는 경우 추가
+        if house_bl:
+            params["hblNo"] = house_bl
+        
+        # API 호출
+        response = requests.get(url, params=params, timeout=10)
+        response.encoding = 'utf-8'
+        
+        if response.status_code != 200:
+            print(f"❌ 관세청 API HTTP 오류: {response.status_code}")
+            return {
+                "success": False,
+                "message": f"관세청 API 호출 실패 (HTTP {response.status_code})"
+            }
+        
+        # XML 파싱
+        root = ET.fromstring(response.text)
+        
+        # 응답 코드 확인
+        tCnt = root.find('.//tCnt')
+        if tCnt is not None and tCnt.text == '0':
+            return {
+                "success": False,
+                "message": "해당 B/L 번호로 조회된 통관 정보가 없습니다."
+            }
+        
+        # 통관 진행 정보 파싱
+        customs_info = []
+        
+        for item in root.findall('.//cargCsclPrgsInfo'):
+            info = {
+                "bl_no": get_xml_text(item, 'blNo'),  # B/L 번호
+                "house_bl_no": get_xml_text(item, 'hblNo'),  # 하우스 B/L
+                "csclPrgsStts": get_xml_text(item, 'csclPrgsStts'),  # 통관진행상태
+                "prnm": get_xml_text(item, 'prnm'),  # 품명
+                "cargTrcnRelaBsopTpcd": get_xml_text(item, 'cargTrcnRelaBsopTpcd'),  # 화물구분
+                "shipNat": get_xml_text(item, 'shipNat'),  # 선적국가
+                "dstnNat": get_xml_text(item, 'dstnNat'),  # 도착국가
+                "lodCntynm": get_xml_text(item, 'lodCntynm'),  # 적재항
+                "dschCntynm": get_xml_text(item, 'dschCntynm'),  # 양륙항
+                "rlbrDt": get_xml_text(item, 'rlbrDt'),  # 반입일자
+                "csclPrgsSttsCd": get_xml_text(item, 'csclPrgsSttsCd'),  # 통관진행상태코드
+                "prgsStts": get_xml_text(item, 'prgsStts'),  # 진행상태
+            }
+            customs_info.append(info)
+        
+        # 통관 진행상황 상세 (이벤트 리스트)
+        events = []
+        for event in root.findall('.//event'):
+            event_info = {
+                "eventDate": get_xml_text(event, 'evntDt'),
+                "eventTime": get_xml_text(event, 'evntTm'),
+                "eventCode": get_xml_text(event, 'evntCd'),
+                "eventName": get_xml_text(event, 'evntNm'),
+                "location": get_xml_text(event, 'evntPlc'),
+            }
+            events.append(event_info)
+        
+        result = {
+            "success": True,
+            "master_bl": master_bl,
+            "house_bl": house_bl,
+            "customs_info": customs_info,
+            "events": events,
+            "total_count": len(customs_info)
+        }
+        
+        print(f"✅ 통관 조회 성공: {len(customs_info)}건")
+        return result
+        
+    except ET.ParseError as e:
+        print(f"❌ XML 파싱 오류: {e}")
+        return {
+            "success": False,
+            "message": "관세청 API 응답 파싱 실패"
+        }
+        
+    except requests.Timeout:
+        print(f"❌ 관세청 API 타임아웃")
+        return {
+            "success": False,
+            "message": "관세청 서버 응답 시간 초과"
+        }
+        
+    except Exception as e:
+        print(f"❌ 통관 조회 오류: {e}")
+        import traceback
+        traceback.print_exc()
+        return {
+            "success": False,
+            "message": f"통관 조회 중 오류 발생: {str(e)}"
+        }
+
+
+# XML에서 텍스트 추출 헬퍼 함수
+def get_xml_text(element, tag_name):
+    """XML 요소에서 텍스트 추출"""
+    tag = element.find(tag_name)
+    return tag.text if tag is not None and tag.text else ""
+
+
+# ===== 통관 조회 API 엔드포인트 =====
+@router.get("/api/customs/{order_id}")
+def get_customs_info(order_id: int, db: Session = Depends(get_db)):
+    """
+    주문의 통관 진행정보 조회
+    """
+    # 주문 정보 조회
+    order = db.query(Order).filter(Order.id == order_id).first()
+    
+    if not order:
+        return {"success": False, "message": "주문을 찾을 수 없습니다"}
+    
+    # B/L 번호가 없으면 오류
+    if not order.master_bl and not order.house_bl:
+        return {
+            "success": False,
+            "message": "B/L 번호가 등록되지 않았습니다"
+        }
+    
+    # 관세청 API 호출
+    result = get_customs_progress(
+        master_bl=order.master_bl or "",
+        house_bl=order.house_bl
+    )
+    
+    # 주문 정보 추가
+    if result.get("success"):
+        result["order_info"] = {
+            "order_number": order.order_number,
+            "buyer_name": order.buyer_name,
+            "recipient_name": order.recipient_name,
+            "product_name": order.product_name
+        }
+    
+    return result
+
+
+# ===== B/L 번호로 직접 조회 (주문 ID 없이) =====
+@router.get("/api/customs/search")
+def search_customs_by_bl(
+    master_bl: str,
+    house_bl: Optional[str] = None
+):
+    """
+    B/L 번호로 통관 진행정보 직접 조회
+    """
+    if not master_bl:
+        return {"success": False, "message": "마스터 B/L 번호를 입력하세요"}
+    
+    return get_customs_progress(master_bl, house_bl)
+
+# ===== 특송화물 진행정보 조회 (송장번호만 사용) =====
+def get_express_customs_info(tracking_number: str):
+    """
+    관세청 API - 특송화물 진행정보 조회 (송장번호만으로 조회)
+    
+    Args:
+        tracking_number: 국제택배 송장번호
+    
+    Returns:
+        통관 진행정보 딕셔너리
+    """
+    try:
+        print(f"🔍 특송화물 통관 조회 시작: 송장번호={tracking_number}")
+        
+        # API 엔드포인트 - 특송화물용
+        url = f"{CUSTOMS_API_BASE_URL}/expsCargInfo/retrieveExpsCargInfo"
+        
+        # 요청 파라미터
+        params = {
+            "crtfKey": CUSTOMS_API_KEY,
+            "hblNo": tracking_number,  # 송장번호 (House B/L)
+        }
+        
+        # API 호출
+        response = requests.get(url, params=params, timeout=10)
+        response.encoding = 'utf-8'
+        
+        print(f"📡 API 응답 상태: {response.status_code}")
+        print(f"📄 API 응답 내용: {response.text[:500]}")  # 디버깅용
+        
+        if response.status_code != 200:
+            print(f"❌ 관세청 API HTTP 오류: {response.status_code}")
+            return {
+                "success": False,
+                "message": f"관세청 API 호출 실패 (HTTP {response.status_code})"
+            }
+        
+        # XML 파싱
+        root = ET.fromstring(response.text)
+        
+        # 응답 코드 확인
+        tCnt = root.find('.//tCnt')
+        if tCnt is not None and tCnt.text == '0':
+            return {
+                "success": False,
+                "message": "해당 송장번호로 조회된 통관 정보가 없습니다."
+            }
+        
+        # 통관 진행 정보 파싱
+        customs_info = []
+        
+        for item in root.findall('.//expsCargInfo'):
+            info = {
+                "tracking_number": get_xml_text(item, 'hblNo'),  # 송장번호
+                "master_bl": get_xml_text(item, 'mblNo'),  # 마스터 B/L
+                "customs_status": get_xml_text(item, 'csclPrgsStts'),  # 통관진행상태
+                "product_name": get_xml_text(item, 'prnm'),  # 품명
+                "quantity": get_xml_text(item, 'pckUt'),  # 포장단위
+                "weight": get_xml_text(item, 'gwgt'),  # 총중량
+                "shipper_name": get_xml_text(item, 'shenNm'),  # 송하인명
+                "receiver_name": get_xml_text(item, 'cnsiNm'),  # 수하인명
+                "departure_country": get_xml_text(item, 'shipNat'),  # 출발국가
+                "arrival_date": get_xml_text(item, 'arvlDt'),  # 도착일자
+                "customs_location": get_xml_text(item, 'csclPrgsPlc'),  # 통관진행장소
+                "status_code": get_xml_text(item, 'csclPrgsSttsCd'),  # 통관진행상태코드
+            }
+            customs_info.append(info)
+        
+        # 통관 진행 이력
+        events = []
+        for event in root.findall('.//event'):
+            event_info = {
+                "eventDate": get_xml_text(event, 'evntDt'),
+                "eventTime": get_xml_text(event, 'evntTm'),
+                "eventCode": get_xml_text(event, 'evntCd'),
+                "eventName": get_xml_text(event, 'evntNm'),
+                "location": get_xml_text(event, 'evntPlc'),
+                "remark": get_xml_text(event, 'rmrk'),
+            }
+            events.append(event_info)
+        
+        result = {
+            "success": True,
+            "tracking_number": tracking_number,
+            "customs_info": customs_info,
+            "events": events,
+            "total_count": len(customs_info),
+            "query_type": "express"  # 특송화물 조회
+        }
+        
+        print(f"✅ 특송화물 통관 조회 성공: {len(customs_info)}건")
+        return result
+        
+    except ET.ParseError as e:
+        print(f"❌ XML 파싱 오류: {e}")
+        print(f"응답 내용: {response.text}")
+        return {
+            "success": False,
+            "message": "관세청 API 응답 파싱 실패"
+        }
+        
+    except requests.Timeout:
+        print(f"❌ 관세청 API 타임아웃")
+        return {
+            "success": False,
+            "message": "관세청 서버 응답 시간 초과"
+        }
+        
+    except Exception as e:
+        print(f"❌ 특송화물 통관 조회 오류: {e}")
+        import traceback
+        traceback.print_exc()
+        return {
+            "success": False,
+            "message": f"통관 조회 중 오류 발생: {str(e)}"
+        }
+
+
+# ===== 통합 통관 조회 함수 (자동 판단) =====
+def get_customs_info_auto(tracking_number: str = None, master_bl: str = None, house_bl: str = None):
+    """
+    자동으로 적절한 API를 선택하여 통관 조회
+    
+    우선순위:
+    1. 송장번호만 있으면 → 특송화물 API
+    2. Master B/L이 있으면 → 일반화물 API
+    """
+    # 1. 송장번호만 있는 경우 - 특송화물 조회
+    if tracking_number and not master_bl:
+        print(f"📦 특송화물 조회 모드: 송장번호={tracking_number}")
+        return get_express_customs_info(tracking_number)
+    
+    # 2. Master B/L이 있는 경우 - 일반화물 조회
+    elif master_bl:
+        print(f"🚢 일반화물 조회 모드: M-BL={master_bl}, H-BL={house_bl}")
+        return get_customs_progress(master_bl, house_bl)
+    
+    # 3. 정보가 부족한 경우
+    else:
+        return {
+            "success": False,
+            "message": "송장번호 또는 B/L 번호를 입력하세요"
+        }
+
+
+# ===== API 엔드포인트 수정 =====
+@router.get("/api/customs/{order_id}")
+def get_customs_info_by_order(order_id: int, db: Session = Depends(get_db)):
+    """
+    주문 ID로 통관 조회 (자동으로 적절한 방식 선택)
+    """
+    order = db.query(Order).filter(Order.id == order_id).first()
+    
+    if not order:
+        return {"success": False, "message": "주문을 찾을 수 없습니다"}
+    
+    # 자동 판단 조회
+    result = get_customs_info_auto(
+        tracking_number=order.tracking_number,
+        master_bl=order.master_bl,
+        house_bl=order.house_bl
+    )
+    
+    # 주문 정보 추가
+    if result.get("success"):
+        result["order_info"] = {
+            "order_number": order.order_number,
+            "buyer_name": order.buyer_name,
+            "recipient_name": order.recipient_name,
+            "product_name": order.product_name,
+            "courier_company": order.courier_company
+        }
+    
+    return result
+
+
+# ===== 송장번호로 직접 조회 =====
+@router.get("/api/customs/search/tracking")
+def search_customs_by_tracking(tracking_number: str):
+    """
+    송장번호로 특송화물 통관 직접 조회
+    """
+    if not tracking_number:
+        return {"success": False, "message": "송장번호를 입력하세요"}
+    
+    return get_express_customs_info(tracking_number)
+
+#**********************************************************************************
+#**********************************************************************************
+#**********************************************************************************
+
+
+
 
 # ============================================
 # 권한 체크 함수
@@ -1951,3 +2333,5 @@ def clean_tracking_number(tracking_number):
         return tracking_str[:-2]
     
     return tracking_str
+
+

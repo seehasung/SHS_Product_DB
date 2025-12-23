@@ -288,6 +288,85 @@
         margin-bottom: 20px;
         opacity: 0.5;
     }
+
+    /* 통관 타임라인 스타일 */
+    .customs-timeline {
+        position: relative;
+        padding: 20px 0;
+    }
+
+    .timeline-item {
+        display: flex;
+        margin-bottom: 20px;
+        position: relative;
+    }
+
+    .timeline-item:not(:last-child)::after {
+        content: '';
+        position: absolute;
+        left: 15px;
+        top: 35px;
+        bottom: -20px;
+        width: 2px;
+        background: #dee2e6;
+    }
+
+    .timeline-marker {
+        width: 35px;
+        height: 35px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: bold;
+        flex-shrink: 0;
+        z-index: 1;
+        box-shadow: 0 2px 8px rgba(102, 126, 234, 0.4);
+    }
+
+    .timeline-content {
+        margin-left: 20px;
+        flex-grow: 1;
+        background: white;
+        padding: 15px;
+        border-radius: 10px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    }
+
+    .timeline-date {
+        color: #667eea;
+        font-size: 0.9em;
+        font-weight: 600;
+        margin-bottom: 5px;
+    }
+
+    .timeline-title {
+        font-weight: bold;
+        color: #2d3436;
+        margin-bottom: 3px;
+    }
+
+    .timeline-location {
+        color: #636e72;
+        font-size: 0.9em;
+    }
+
+    .timeline-remark {
+        color: #00b894;
+        font-size: 0.85em;
+        margin-top: 5px;
+        font-style: italic;
+    }
+
+    .customs-info h4 {
+        border-left: 4px solid #667eea;
+        padding-left: 15px;
+        margin-bottom: 20px;
+        font-weight: 700;
+        color: #2d3436;
+    }
 </style>
 {% endblock %}
 
@@ -428,6 +507,55 @@
             {% endif %}
         </div>
     </div>
+    <!-- 통관 조회 섹션 -->
+    <div class="table-card">
+        <div class="table-header">
+            <h3><i class="bi bi-search"></i> 통관 진행정보 조회</h3>
+        </div>
+        
+        <div class="alert alert-info">
+            <strong>💡 조회 방법:</strong>
+            <ul class="mb-0">
+                <li><strong>국제특송 (EMS, DHL 등)</strong>: 송장번호만 입력</li>
+                <li><strong>일반 수입화물</strong>: 마스터 B/L 입력 (하우스 B/L 선택)</li>
+            </ul>
+        </div>
+        
+        <form id="customsSearchForm" onsubmit="searchCustoms(event)">
+            <!-- 송장번호 입력 -->
+            <div class="form-group mb-3">
+                <label><i class="bi bi-upc-scan"></i> 송장번호 (국제특송)</label>
+                <input type="text" class="form-control" id="trackingNumberInput" 
+                       placeholder="예: EZ123456789KR">
+            </div>
+            
+            <div class="text-center my-3">
+                <strong>또는</strong>
+            </div>
+            
+            <!-- B/L 번호 입력 -->
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="form-group mb-3">
+                        <label><i class="bi bi-box-seam"></i> 마스터 B/L (일반화물)</label>
+                        <input type="text" class="form-control" id="masterBlInput" 
+                               placeholder="예: ABCD1234567">
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="form-group mb-3">
+                        <label><i class="bi bi-boxes"></i> 하우스 B/L (선택)</label>
+                        <input type="text" class="form-control" id="houseBlInput" 
+                               placeholder="선택사항">
+                    </div>
+                </div>
+            </div>
+            
+            <button type="submit" class="btn btn-primary btn-lg" style="width: 100%; padding: 12px;">
+                <i class="bi bi-search"></i> 통관 조회
+            </button>
+        </form>
+    </div>
     
     <!-- 주문 목록 테이블 (동적) -->
     <div class="table-card">
@@ -504,6 +632,39 @@
                 </div>
             </div>
         </div>
+    </div>
+</div>
+
+<!-- 통관 조회 모달 -->
+<div class="modal fade" id="customsModal" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
+                <h5 class="modal-title">
+                    <i class="bi bi-globe"></i> 통관 진행정보
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="customsContent">
+                <div class="text-center py-5">
+                    <div class="spinner-border text-primary"></div>
+                    <p class="mt-3">통관 정보를 조회 중입니다...</p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="bi bi-x-lg"></i> 닫기
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 로딩 오버레이 -->
+<div id="loadingOverlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 9999; justify-content: center; align-items: center;">
+    <div class="text-center">
+        <div class="spinner-border text-light" style="width: 4rem; height: 4rem;"></div>
+        <h5 class="text-light mt-3">통관 정보 조회 중...</h5>
     </div>
 </div>
 
@@ -1201,6 +1362,9 @@
                         <button class="btn-action btn-view" onclick="viewTracking(${order.id})" style="background: #00b894;">
                             <i class="bi bi-truck"></i> 배송
                         </button>
+                        <button class="btn-action btn-view" onclick="viewCustoms(${order.id})" style="background: #667eea;">
+                            <i class="bi bi-globe"></i> 통관
+                        </button>
                     </td>
                 </tr>
             `;
@@ -1368,6 +1532,214 @@
             endInput.valueAsDate = today;
         }
     });
+
+    // ===== 통관 조회 함수 =====
+    
+    // 로딩 표시/숨김
+    function showCustomsLoading() {
+        document.getElementById('loadingOverlay').style.display = 'flex';
+    }
+
+    function hideCustomsLoading() {
+        document.getElementById('loadingOverlay').style.display = 'none';
+    }
+
+    // 주문 ID로 통관 조회
+    async function viewCustoms(orderId) {
+        try {
+            console.log('=== 통관 조회 시작 ===');
+            console.log('Order ID:', orderId);
+            
+            showCustomsLoading();
+            
+            const response = await fetch(`/orders/api/customs/${orderId}`);
+            const data = await response.json();
+            
+            console.log('통관 조회 응답:', data);
+            
+            hideCustomsLoading();
+            
+            if (data.success) {
+                displayCustomsModal(data);
+            } else {
+                alert(data.message || '통관 정보를 불러올 수 없습니다.');
+            }
+            
+        } catch (error) {
+            console.error('통관 조회 오류:', error);
+            hideCustomsLoading();
+            alert('통관 조회 중 오류가 발생했습니다.');
+        }
+    }
+
+    // 송장번호/B/L로 직접 조회
+    async function searchCustoms(event) {
+        event.preventDefault();
+        
+        const trackingNumber = document.getElementById('trackingNumberInput').value.trim();
+        const masterBl = document.getElementById('masterBlInput').value.trim();
+        const houseBl = document.getElementById('houseBlInput').value.trim();
+        
+        if (!trackingNumber && !masterBl) {
+            alert('송장번호 또는 마스터 B/L을 입력하세요.');
+            return;
+        }
+        
+        try {
+            showCustomsLoading();
+            
+            let url = '';
+            let params = new URLSearchParams();
+            
+            if (trackingNumber) {
+                url = '/orders/api/customs/search/tracking';
+                params.append('tracking_number', trackingNumber);
+            } else if (masterBl) {
+                url = '/orders/api/customs/search';
+                params.append('master_bl', masterBl);
+                if (houseBl) {
+                    params.append('house_bl', houseBl);
+                }
+            }
+            
+            const response = await fetch(`${url}?${params.toString()}`);
+            const data = await response.json();
+            
+            console.log('통관 조회 응답:', data);
+            
+            hideCustomsLoading();
+            
+            if (data.success) {
+                displayCustomsModal(data);
+                document.getElementById('customsSearchForm').reset();
+            } else {
+                alert(data.message || '통관 정보를 불러올 수 없습니다.');
+            }
+            
+        } catch (error) {
+            console.error('통관 조회 오류:', error);
+            hideCustomsLoading();
+            alert('통관 조회 중 오류가 발생했습니다.');
+        }
+    }
+
+    // 통관 정보 모달 표시
+    function displayCustomsModal(data) {
+        const modal = new bootstrap.Modal(document.getElementById('customsModal'));
+        const content = document.getElementById('customsContent');
+        
+        let html = `
+            <div class="customs-info">
+                <h4><i class="bi bi-info-circle-fill"></i> 조회 정보</h4>
+                <table class="table table-bordered mb-4">
+                    <tr>
+        `;
+        
+        if (data.query_type === 'express') {
+            html += `
+                <th width="20%" class="table-light">송장번호</th>
+                <td colspan="3"><strong>${data.tracking_number || '-'}</strong></td>
+            `;
+        } else {
+            html += `
+                <th width="20%" class="table-light">마스터 B/L</th>
+                <td><strong>${data.master_bl || '-'}</strong></td>
+                <th width="20%" class="table-light">하우스 B/L</th>
+                <td>${data.house_bl || '-'}</td>
+            `;
+        }
+        
+        html += `
+                    </tr>
+                </table>
+                
+                <h4><i class="bi bi-clipboard-data-fill"></i> 통관 상세정보</h4>
+                <div class="table-responsive">
+                    <table class="table table-hover mb-4">
+                        <thead style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
+                            <tr>
+                                <th>품명</th>
+                                <th>통관상태</th>
+                                <th>수량/중량</th>
+                                <th>발송국</th>
+                                <th>수하인</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+        `;
+        
+        if (data.customs_info && data.customs_info.length > 0) {
+            data.customs_info.forEach(info => {
+                const weight = info.weight ? `${info.weight}kg` : '-';
+                const quantity = info.quantity ? `${info.quantity}개` : '';
+                
+                html += `
+                    <tr>
+                        <td><strong>${info.product_name || info.prnm || '-'}</strong></td>
+                        <td><span class="badge" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 8px 12px;">${info.customs_status || info.csclPrgsStts || '-'}</span></td>
+                        <td>${quantity} ${weight}</td>
+                        <td>${info.departure_country || info.shipNat || '-'}</td>
+                        <td>${info.receiver_name || info.cnsiNm || '-'}</td>
+                    </tr>
+                `;
+            });
+        } else {
+            html += `
+                <tr>
+                    <td colspan="5" class="text-center text-muted py-4">
+                        <i class="bi bi-inbox" style="font-size: 2rem;"></i>
+                        <p class="mt-2">통관 정보가 없습니다.</p>
+                    </td>
+                </tr>
+            `;
+        }
+        
+        html += `
+                        </tbody>
+                    </table>
+                </div>
+        `;
+        
+        if (data.events && data.events.length > 0) {
+            html += `
+                <h4><i class="bi bi-clock-history"></i> 통관 진행 이력</h4>
+                <div class="customs-timeline">
+            `;
+            
+            data.events.forEach((event, index) => {
+                html += `
+                    <div class="timeline-item">
+                        <div class="timeline-marker">${index + 1}</div>
+                        <div class="timeline-content">
+                            <div class="timeline-date">
+                                <i class="bi bi-calendar-check"></i> ${event.eventDate} ${event.eventTime}
+                            </div>
+                            <div class="timeline-title">
+                                <i class="bi bi-tag-fill"></i> ${event.eventName}
+                            </div>
+                            ${event.location ? `<div class="timeline-location"><i class="bi bi-geo-alt-fill"></i> ${event.location}</div>` : ''}
+                            ${event.remark ? `<div class="timeline-remark"><i class="bi bi-chat-left-quote"></i> ${event.remark}</div>` : ''}
+                        </div>
+                    </div>
+                `;
+            });
+            
+            html += `
+                </div>
+            `;
+        } else {
+            html += `
+                <div class="alert alert-warning">
+                    <i class="bi bi-exclamation-triangle-fill"></i> 통관 진행 이력이 없습니다.
+                </div>
+            `;
+        }
+        
+        html += `</div>`;
+        
+        content.innerHTML = html;
+        modal.show();
+    }
 </script>
 
 {% endblock %}
