@@ -42,46 +42,23 @@ def check_order_permission(request: Request):
 # ============================================
 # 주문 상태 통합 함수
 # ============================================
-def normalize_order_status(status):
-    """주문 상태를 5가지 카테고리로 통합"""
+def normalize_order_status(status, db):
+    """주문 상태를 DB 매핑 테이블 기반으로 분류"""
     if not status:
-        return "기타"
+        return "미분류"
     
     status = str(status).strip()
     
-    # 배송중
-    if any(keyword in status for keyword in [
-        '배송중', '배송지시', '발송대기', '발주확인', '상품준비', 
-        '출고', '판매자 직접배송', '직접 배송'
-    ]):
-        return "배송중"
+    # DB에서 매핑 조회
+    from database import OrderStatusMapping
+    mapping = db.query(OrderStatusMapping).filter(
+        OrderStatusMapping.original_status == status
+    ).first()
     
-    # 배송완료
-    if any(keyword in status for keyword in [
-        '배송완료', '배송 완료', '구매확정', '구매 확정', '확정', 
-        '정산완료', '정산예정'
-    ]):
-        return "배송완료"
-    
-    # 취소
-    if any(keyword in status for keyword in [
-        '취소', '직권취소', '주문취소', '미결제'
-    ]):
-        return "취소"
-    
-    # 반품
-    if any(keyword in status for keyword in [
-        '반품', '수거', '환불'
-    ]):
-        return "반품"
-    
-    # 교환
-    if any(keyword in status for keyword in [
-        '교환'
-    ]):
-        return "교환"
-    
-    return "기타"
+    if mapping:
+        return mapping.normalized_status
+    else:
+        return "미분류"
 
 
 # ============================================
@@ -198,11 +175,11 @@ def order_dashboard(
     # 상태별 집계 (통합된 상태)
     status_counts = {}
     for order in month_orders:
-        normalized_status = normalize_order_status(order.order_status)
+        normalized_status = normalize_order_status(order.order_status, db)  # ⭐ db 전달
         status_counts[normalized_status] = status_counts.get(normalized_status, 0) + 1
-    
-    # 정렬 (배송중 > 배송완료 > 취소 > 반품 > 교환 순)
-    status_order = ["배송중", "배송완료", "취소", "반품", "교환", "기타"]
+
+    # 정렬 (배송중 > 배송완료 > 취소 > 반품 > 교환 > 미분류 순)
+    status_order = ["배송중", "배송완료", "취소", "반품", "교환", "미분류"]
     status_stats = [(status, status_counts.get(status, 0)) for status in status_order if status_counts.get(status, 0) > 0]
     
     # 기간 표시 텍스트
@@ -371,7 +348,7 @@ def get_orders_by_status(
     # 상태로 필터링
     filtered_orders = [
         o for o in all_orders 
-        if normalize_order_status(o.order_status) == status
+        if normalize_order_status(o.order_status, db) == status  # ⭐ db 전달
     ]
     
     return {
@@ -875,3 +852,115 @@ def delete_order(
     except Exception as e:
         db.rollback()
         return {"success": False, "message": f"삭제 실패: {str(e)}"}
+    
+# ============================================
+# 미분류 상태 목록 조회 API
+# ============================================
+@router.get("/api/unmapped-statuses")
+def get_unmapped_statuses(
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    """미분류 상태 목록 조회"""
+    user_info = check_order_permission(request)
+    if not user_info:
+        raise HTTPException(status_code=401, detail="권한 없음")
+    
+    from database import OrderStatusMapping
+    
+    # 모든 주문에서 고유한 상태 추출
+    all_statuses = db.query(Order.order_status).distinct().all()
+    all_statuses = [s[0] for s in all_statuses if s[0]]
+    
+    # 매핑되지 않은 상태 필터링
+    unmapped = []
+    
+    for status in all_statuses:
+        mapping = db.query(OrderStatusMapping).filter(
+            OrderStatusMapping.original_status == status
+        ).first()
+        
+        if not mapping:
+            # 해당 상태의 주문 개수
+            count = db.query(Order).filter(Order.order_status == status).count()
+            unmapped.append({
+                "original_status": status,
+                "count": count
+            })
+    
+    return {"unmapped_statuses": unmapped}
+
+
+# ============================================
+# 상태 매핑 저장 API
+# ============================================
+@router.post("/api/save-status-mapping")
+def save_status_mapping(
+    request: Request,
+    original_status: str = Form(...),
+    normalized_status: str = Form(...),
+    db: Session = Depends(get_db)
+):
+    """상태 매핑 저장"""
+    user_info = check_order_permission(request)
+    if not user_info:
+        raise HTTPException(status_code=401, detail="권한 없음")
+    
+    # 관리자만 가능
+    if not user_info["is_admin"]:
+        raise HTTPException(status_code=403, detail="관리자만 가능합니다")
+    
+    from database import OrderStatusMapping
+    
+    # 기존 매핑 확인
+    existing = db.query(OrderStatusMapping).filter(
+        OrderStatusMapping.original_status == original_status
+    ).first()
+    
+    if existing:
+        # 업데이트
+        existing.normalized_status = normalized_status
+        existing.updated_at = datetime.now()
+    else:
+        # 새로 추가
+        new_mapping = OrderStatusMapping(
+            original_status=original_status,
+            normalized_status=normalized_status
+        )
+        db.add(new_mapping)
+    
+    db.commit()
+    
+    return {"success": True, "message": "저장되었습니다"}
+
+
+# ============================================
+# 모든 매핑 조회 API
+# ============================================
+@router.get("/api/all-mappings")
+def get_all_mappings(
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    """모든 상태 매핑 조회"""
+    user_info = check_order_permission(request)
+    if not user_info:
+        raise HTTPException(status_code=401, detail="권한 없음")
+    
+    from database import OrderStatusMapping
+    
+    mappings = db.query(OrderStatusMapping).order_by(
+        OrderStatusMapping.normalized_status,
+        OrderStatusMapping.original_status
+    ).all()
+    
+    return {
+        "mappings": [
+            {
+                "id": m.id,
+                "original_status": m.original_status,
+                "normalized_status": m.normalized_status
+            }
+            for m in mappings
+        ]
+    }

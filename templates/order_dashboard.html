@@ -140,6 +140,12 @@
         color: #2d3436;
     }
 
+    .status-badge.warning {
+        background: #fff3cd;
+        color: #856404;
+        border: 2px solid #f39c12;
+    }
+
     /* 빠른 기간 선택 버튼 */
     .quick-period-btn {
         padding: 8px 16px;
@@ -395,15 +401,19 @@
         <div class="status-grid" id="statusGrid">
             {% if status_stats %}
                 {% for status, count in status_stats %}
-                <div class="status-item" onclick="showOrdersByStatus('{{ status }}')">
+                <div class="status-item" 
+                    onclick="{% if status == '미분류' %}showUnmappedModal(){% else %}showOrdersByStatus('{{ status }}'){% endif %}"
+                    style="{% if status == '미분류' %}border-color: #f39c12;{% endif %}">
                     <div class="status-badge 
                         {% if status == '배송중' %}shipping
                         {% elif status == '배송완료' %}completed
                         {% elif status == '취소' %}cancelled
                         {% elif status == '반품' %}cancelled
                         {% elif status == '교환' %}pending
+                        {% elif status == '미분류' %}warning
                         {% else %}pending{% endif %}">
                         {{ status }}
+                        {% if status == '미분류' %}<i class="bi bi-gear ms-1"></i>{% endif %}
                     </div>
                     <div class="status-count">{{ "{:,}".format(count) }}건</div>
                 </div>
@@ -433,6 +443,9 @@
     </div>
 </div>
 
+</div>
+</div>
+
 <!-- 주문 상세 모달 -->
 <div class="modal fade" id="orderDetailModal" tabindex="-1">
     <div class="modal-dialog modal-lg">
@@ -445,6 +458,26 @@
                 <div class="text-center py-5">
                     <div class="spinner-border text-primary" role="status">
                         <span class="visually-hidden">로딩 중...</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 미분류 상태 관리 모달 -->
+<div class="modal fade" id="unmappedModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-question-circle"></i> 미분류 상태 관리</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p class="text-muted">각 상태를 어느 분류로 보낼지 선택하세요.</p>
+                <div id="unmappedStatusList">
+                    <div class="text-center py-5">
+                        <div class="spinner-border text-primary"></div>
                     </div>
                 </div>
             </div>
@@ -557,10 +590,6 @@ async function deleteOrder(orderId) {
     }
 }
 
-// ============================================
-// 새로운 기능들
-// ============================================
-
 // 날짜 초기화 (이번 달)
 document.addEventListener('DOMContentLoaded', function() {
     const today = new Date();
@@ -663,25 +692,25 @@ function displayOrders(orders, title) {
             statusClass = 'shipping';
         }
         
-        // 결제금액 포맷 (숫자만, 천 단위 콤마)
+        // 결제금액 포맷
         let formattedAmount = '-';
         if (order.payment_amount) {
-            let amount = order.payment_amount.toString().replace(/[^0-9]/g, ''); // 숫자만 추출
+            let amount = order.payment_amount.toString().replace(/[^0-9]/g, '');
             if (amount) {
-                formattedAmount = parseInt(amount).toLocaleString('ko-KR'); // 천 단위 콤마
+                formattedAmount = parseInt(amount).toLocaleString('ko-KR');
             }
         }
         
-        // 판매처 짧게 표시 (최대 20자)
+        // 판매처
         let salesChannel = order.sales_channel || '-';
         if (salesChannel.length > 20) {
             salesChannel = salesChannel.substring(0, 20) + '...';
         }
         
-        // ⭐ 택배사
+        // 택배사
         let courierCompany = order.courier_company || '-';
         
-        // ⭐ 송장번호 (.0 이미 제거됨)
+        // 송장번호
         let trackingNumber = order.tracking_number || '-';
         
         html += `
@@ -726,7 +755,6 @@ async function updateStatusPeriod() {
         return;
     }
     
-    // 페이지 새로고침으로 상태 통계 업데이트
     window.location.href = `/orders/dashboard?start_date=${startDate}&end_date=${endDate}`;
 }
 
@@ -740,30 +768,25 @@ function setQuickPeriod(period) {
     switch(period) {
         case '7days':
             startDate = new Date(today);
-            startDate.setDate(today.getDate() - 6); // 오늘 포함 7일
+            startDate.setDate(today.getDate() - 6);
             break;
-            
         case 'thisMonth':
             startDate = new Date(today.getFullYear(), today.getMonth(), 1);
             break;
-            
         case 'lastMonth':
             startDate = new Date(today.getFullYear(), today.getMonth() - 1, 1);
-            endDate = new Date(today.getFullYear(), today.getMonth(), 0); // 전달 마지막 날
+            endDate = new Date(today.getFullYear(), today.getMonth(), 0);
             break;
-            
         case '3months':
             startDate = new Date(today);
             startDate.setMonth(today.getMonth() - 3);
             break;
-            
         case '6months':
             startDate = new Date(today);
             startDate.setMonth(today.getMonth() - 6);
             break;
     }
     
-    // 날짜 포맷 (YYYY-MM-DD)
     const formatDate = (date) => {
         const year = date.getFullYear();
         const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -771,12 +794,95 @@ function setQuickPeriod(period) {
         return `${year}-${month}-${day}`;
     };
     
-    // 날짜 입력 필드에 설정
     document.getElementById('statusStartDate').value = formatDate(startDate);
     document.getElementById('statusEndDate').value = formatDate(endDate);
     
-    // 자동 조회
     updateStatusPeriod();
+}
+
+// 미분류 모달 표시
+async function showUnmappedModal() {
+    const modal = new bootstrap.Modal(document.getElementById('unmappedModal'));
+    modal.show();
+    
+    try {
+        const response = await fetch('/orders/api/unmapped-statuses');
+        const data = await response.json();
+        
+        if (data.unmapped_statuses.length === 0) {
+            document.getElementById('unmappedStatusList').innerHTML = `
+                <div class="alert alert-success">
+                    <i class="bi bi-check-circle"></i> 모든 상태가 매핑되었습니다!
+                </div>
+            `;
+            return;
+        }
+        
+        let html = '<div class="list-group">';
+        
+        data.unmapped_statuses.forEach(item => {
+            html += `
+                <div class="list-group-item mb-3" style="border-left: 4px solid #f39c12;">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <div>
+                            <strong style="font-size: 1.1rem;">${item.original_status}</strong>
+                            <span class="badge bg-warning text-dark ms-2">${item.count}건</span>
+                        </div>
+                    </div>
+                    <div class="btn-group btn-group-sm w-100" role="group">
+                        <button class="btn btn-outline-primary" onclick="saveMapping('${item.original_status}', '배송중')">
+                            <i class="bi bi-truck"></i> 배송중
+                        </button>
+                        <button class="btn btn-outline-success" onclick="saveMapping('${item.original_status}', '배송완료')">
+                            <i class="bi bi-check-circle"></i> 배송완료
+                        </button>
+                        <button class="btn btn-outline-warning" onclick="saveMapping('${item.original_status}', '취소')">
+                            <i class="bi bi-x-circle"></i> 취소
+                        </button>
+                        <button class="btn btn-outline-danger" onclick="saveMapping('${item.original_status}', '반품')">
+                            <i class="bi bi-arrow-return-left"></i> 반품
+                        </button>
+                        <button class="btn btn-outline-info" onclick="saveMapping('${item.original_status}', '교환')">
+                            <i class="bi bi-arrow-repeat"></i> 교환
+                        </button>
+                    </div>
+                </div>
+            `;
+        });
+        
+        html += '</div>';
+        document.getElementById('unmappedStatusList').innerHTML = html;
+        
+    } catch (error) {
+        document.getElementById('unmappedStatusList').innerHTML = `
+            <div class="alert alert-danger">
+                <i class="bi bi-exclamation-triangle"></i> 데이터를 불러오는데 실패했습니다.
+            </div>
+        `;
+    }
+}
+
+// 매핑 저장
+async function saveMapping(originalStatus, normalizedStatus) {
+    try {
+        const formData = new FormData();
+        formData.append('original_status', originalStatus);
+        formData.append('normalized_status', normalizedStatus);
+        
+        const response = await fetch('/orders/api/save-status-mapping', {
+            method: 'POST',
+            body: formData
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            alert(`"${originalStatus}" → "${normalizedStatus}" 매핑 완료!`);
+            showUnmappedModal();
+        }
+    } catch (error) {
+        alert('저장 중 오류가 발생했습니다.');
+    }
 }
 </script>
 {% endblock %}

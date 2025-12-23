@@ -942,6 +942,16 @@ class Order(Base):
         Index('idx_kyungdong_transferred', 'is_kyungdong_transferred'),  # ⭐
     )
     
+class OrderStatusMapping(Base):
+    """주문 상태 매핑 테이블"""
+    __tablename__ = "order_status_mappings"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    original_status = Column(String(200), unique=True, nullable=False, index=True)  # 원본 상태
+    normalized_status = Column(String(50), nullable=False)  # 분류 (배송중/배송완료/취소/반품/교환/미분류)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    
     
 def get_db():
     """데이터베이스 세션 의존성"""
