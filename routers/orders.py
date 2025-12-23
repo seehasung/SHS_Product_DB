@@ -1605,27 +1605,27 @@ def get_tracking(order_id: int, db: Session = Depends(get_db)):
     courier_company = (order.courier_company or "").lower()
     
     # CJ대한통운
-    if any(keyword in courier_company for keyword in ['cj', '대한통운', 'cjgls']):
+    if any(keyword in courier_company for keyword in ['cj', '대한통운', 'cjgls', 'CJ택배', 'cj대한통운']):
         return get_cj_tracking(tracking_number, order)
     
     # 경동택배
-    elif any(keyword in courier_company for keyword in ['경동', 'kdexp']):
+    elif any(keyword in courier_company for keyword in ['경동', 'kdexp', '경동택배']):
         return get_kdexp_tracking(tracking_number, order)
     
     # 한진택배
-    elif any(keyword in courier_company for keyword in ['한진', 'hanjin']):
+    elif any(keyword in courier_company for keyword in ['한진', 'hanjin', '한진택배']):
         return get_hanjin_tracking(tracking_number, order)
     
     # 우체국택배
-    elif any(keyword in courier_company for keyword in ['우체국', 'epost', '우편']):
+    elif any(keyword in courier_company for keyword in ['우체국', 'epost', '우편', '우체국택배']):
         return get_epost_tracking(tracking_number, order)
     
     # 로젠택배
-    elif any(keyword in courier_company for keyword in ['로젠', 'logen', '일로젠']):
+    elif any(keyword in courier_company for keyword in ['로젠', 'logen', '일로젠', '로젠택배']):
         return get_logen_tracking(tracking_number, order)
     
     # 롯데택배
-    elif any(keyword in courier_company for keyword in ['롯데', 'lotte']):
+    elif any(keyword in courier_company for keyword in ['롯데', 'lotte', '롯데택배']):
         return get_lotte_tracking(tracking_number, order)
     
     else:
