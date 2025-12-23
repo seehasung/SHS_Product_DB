@@ -508,514 +508,864 @@
 </div>
 
 <script>
-// 주문 상세보기
-async function viewOrder(orderId) {
-    const modal = new bootstrap.Modal(document.getElementById('orderDetailModal'));
-    modal.show();
-    
-    try {
-        const response = await fetch(`/orders/api/${orderId}/detail`);
-        const order = await response.json();
+    // ===== 배송 조회 메인 함수 =====
+    async function viewTracking(orderId) {
+        console.log('=== 배송 조회 시작 ===');
+        console.log('Order ID:', orderId);
         
-        document.getElementById('orderDetailContent').innerHTML = `
-            <div class="row">
-                <div class="col-md-6 mb-3">
-                    <label class="form-label fw-bold">주문번호</label>
-                    <input type="text" class="form-control" value="${order.order_number || '-'}" readonly>
-                </div>
-                <div class="col-md-6 mb-3">
-                    <label class="form-label fw-bold">주문상태</label>
-                    <input type="text" class="form-control" value="${order.order_status || '-'}" readonly>
-                </div>
-                <div class="col-md-6 mb-3">
-                    <label class="form-label fw-bold">주문일자</label>
-                    <input type="text" class="form-control" value="${order.order_date || '-'}" readonly>
-                </div>
-                <div class="col-md-6 mb-3">
-                    <label class="form-label fw-bold">구매자</label>
-                    <input type="text" class="form-control" value="${order.buyer_name || '-'}" readonly>
-                </div>
-                <div class="col-md-6 mb-3">
-                    <label class="form-label fw-bold">수령자</label>
-                    <input type="text" class="form-control" value="${order.recipient_name || '-'}" readonly>
-                </div>
-                <div class="col-md-6 mb-3">
-                    <label class="form-label fw-bold">연락처</label>
-                    <input type="text" class="form-control" value="${order.contact_number || '-'}" readonly>
-                </div>
-                <div class="col-12 mb-3">
-                    <label class="form-label fw-bold">제품명</label>
-                    <input type="text" class="form-control" value="${order.product_name || '-'}" readonly>
-                </div>
-                <div class="col-md-6 mb-3">
-                    <label class="form-label fw-bold">옵션</label>
-                    <input type="text" class="form-control" value="${order.product_option || '-'}" readonly>
-                </div>
-                <div class="col-md-6 mb-3">
-                    <label class="form-label fw-bold">수량</label>
-                    <input type="text" class="form-control" value="${order.quantity || '-'}" readonly>
-                </div>
-                <div class="col-md-6 mb-3">
-                    <label class="form-label fw-bold">송장번호</label>
-                    <input type="text" class="form-control" value="${order.tracking_number || '-'}" readonly>
-                </div>
-                <div class="col-md-6 mb-3">
-                    <label class="form-label fw-bold">통관번호</label>
-                    <input type="text" class="form-control" value="${order.customs_number || '-'}" readonly>
-                </div>
-                <div class="col-12 mb-3">
-                    <label class="form-label fw-bold">주소</label>
-                    <textarea class="form-control" rows="2" readonly>${order.address || '-'}</textarea>
-                </div>
-                <div class="col-md-6 mb-3">
-                    <label class="form-label fw-bold">결제금액</label>
-                    <input type="text" class="form-control" value="${order.payment_amount || '-'}원" readonly>
-                </div>
-                <div class="col-md-6 mb-3">
-                    <label class="form-label fw-bold">환율</label>
-                    <input type="text" class="form-control" value="${order.exchange_rate || '-'}" readonly>
-                </div>
-            </div>
-        `;
-    } catch (error) {
-        document.getElementById('orderDetailContent').innerHTML = `
-            <div class="alert alert-danger">
-                <i class="bi bi-exclamation-triangle"></i> 주문 정보를 불러오는데 실패했습니다.
-            </div>
-        `;
-    }
-}
-
-// 주문 삭제
-async function deleteOrder(orderId) {
-    if (!confirm('정말로 이 주문을 삭제하시겠습니까?')) return;
-    
-    try {
-        const response = await fetch(`/orders/api/${orderId}/delete`, {
-            method: 'POST'
-        });
+        const modal = new bootstrap.Modal(document.getElementById('trackingModal'));
+        modal.show();
         
-        const result = await response.json();
-        
-        if (result.success) {
-            alert('삭제되었습니다.'); 
-            location.reload();
-        } else {
-            alert('삭제 실패: ' + result.message);
-        }
-    } catch (error) {
-        alert('삭제 중 오류가 발생했습니다.');
-    }
-}
-
-// 날짜 초기화 (이번 달)
-document.addEventListener('DOMContentLoaded', function() {
-    const today = new Date();
-    const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
-    
-    const startInput = document.getElementById('statusStartDate');
-    const endInput = document.getElementById('statusEndDate');
-    
-    if (startInput && endInput) {
-        startInput.valueAsDate = firstDay;
-        endInput.valueAsDate = today;
-    }
-});
-
-// 조건별 주문 목록 표시
-async function showOrdersByCondition(condition, title) {
-    document.getElementById('ordersTableTitle').innerHTML = `<i class="bi bi-filter"></i> ${title} 주문 목록`;
-    document.getElementById('ordersTableContainer').innerHTML = '<div style="text-align: center; padding: 40px;"><div class="spinner-border text-primary"></div></div>';
-    
-    try {
-        const response = await fetch(`/orders/api/orders/by-condition?condition=${condition}`);
-        const data = await response.json();
-        
-        displayOrders(data.orders, title);
-    } catch (error) {
-        document.getElementById('ordersTableContainer').innerHTML = `
-            <div class="alert alert-danger">
-                <i class="bi bi-exclamation-triangle"></i> 주문 목록을 불러오는데 실패했습니다.
-            </div>
-        `;
-    }
-}
-
-// 상태별 주문 목록 표시
-async function showOrdersByStatus(status) {
-    const startDate = document.getElementById('statusStartDate').value;
-    const endDate = document.getElementById('statusEndDate').value;
-    
-    document.getElementById('ordersTableTitle').innerHTML = `<i class="bi bi-filter"></i> ${status} 주문 목록`;
-    document.getElementById('ordersTableContainer').innerHTML = '<div style="text-align: center; padding: 40px;"><div class="spinner-border text-primary"></div></div>';
-    
-    try {
-        const response = await fetch(`/orders/api/orders/by-status?status=${encodeURIComponent(status)}&start_date=${startDate}&end_date=${endDate}`);
-        const data = await response.json();
-        
-        displayOrders(data.orders, status);
-    } catch (error) {
-        document.getElementById('ordersTableContainer').innerHTML = `
-            <div class="alert alert-danger">
-                <i class="bi bi-exclamation-triangle"></i> 주문 목록을 불러오는데 실패했습니다.
-            </div>
-        `;
-    }
-}
-
-// 주문 목록 표시
-function displayOrders(orders, title) {
-    document.getElementById('ordersCount').textContent = `총 ${orders.length}건`;
-    
-    if (orders.length === 0) {
-        document.getElementById('ordersTableContainer').innerHTML = `
-            <div class="no-data">
-                <i class="bi bi-inbox"></i>
-                <p style="font-size: 1.1rem; margin-top: 10px;">주문이 없습니다</p>
-            </div>
-        `;
-        return;
-    }
-    
-    let html = `
-        <div style="overflow-x: auto;">
-            <table class="order-table">
-                <thead>
-                    <tr>
-                        <th>주문번호</th>
-                        <th>판매처</th>
-                        <th>주문상태</th>
-                        <th>택배사</th>
-                        <th>송장번호</th>
-                        <th>주문일자</th>
-                        <th>구매자</th>
-                        <th>수령자</th>
-                        <th>제품명</th>
-                        <th>결제금액</th>
-                        <th>액션</th>
-                    </tr>
-                </thead>
-                <tbody>
-    `;
-    
-    orders.forEach(order => {
-        let statusClass = 'pending';
-        if (order.order_status.includes('완료') || order.order_status.includes('배송')) {
-            statusClass = 'completed';
-        } else if (order.order_status.includes('취소') || order.order_status.includes('반품')) {
-            statusClass = 'cancelled';
-        } else if (order.order_status.includes('대기') || order.order_status.includes('준비')) {
-            statusClass = 'pending';
-        } else {
-            statusClass = 'shipping';
-        }
-        
-        let formattedAmount = '-';
-        if (order.payment_amount) {
-            let amount = order.payment_amount.toString().replace(/[^0-9]/g, '');
-            if (amount) {
-                formattedAmount = parseInt(amount).toLocaleString('ko-KR');
-            }
-        }
-        
-        let salesChannel = order.sales_channel || '-';
-        if (salesChannel.length > 20) {
-            salesChannel = salesChannel.substring(0, 20) + '...';
-        }
-        
-        let courierCompany = order.courier_company || '-';
-        let trackingNumber = order.tracking_number || '-';
-        
-        html += `
-            <tr>
-                <td><strong>${order.order_number}</strong></td>
-                <td>${salesChannel}</td>
-                <td><span class="status-badge ${statusClass}">${order.order_status}</span></td>
-                <td>${courierCompany}</td>
-                <td>${trackingNumber}</td>
-                <td>${order.order_date}</td>
-                <td>${order.buyer_name || '-'}</td>
-                <td>${order.recipient_name || '-'}</td>
-                <td style="max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-                    ${order.product_name || '-'}
-                </td>
-                <td><strong>${formattedAmount}</strong></td>
-                <td>
-                    <button class="btn-action btn-view" onclick="viewOrder(${order.id})">
-                        <i class="bi bi-eye"></i> 상세
-                    </button>
-                    <button class="btn-action btn-view" onclick="viewTracking(${order.id})" style="background: #00b894;">
-                        <i class="bi bi-truck"></i> 배송조회
-                    </button>
-                </td>
-            </tr>
-        `;
-    });
-    
-    html += `
-                </tbody>
-            </table>
-        </div>
-    `;
-    
-    document.getElementById('ordersTableContainer').innerHTML = html;
-}
-
-// 기간 업데이트
-async function updateStatusPeriod() {
-    const startDate = document.getElementById('statusStartDate').value;
-    const endDate = document.getElementById('statusEndDate').value;
-    
-    if (!startDate || !endDate) {
-        alert('시작일과 종료일을 모두 선택해주세요.');
-        return;
-    }
-    
-    window.location.href = `/orders/dashboard?start_date=${startDate}&end_date=${endDate}`;
-}
-
-// 빠른 기간 선택
-function setQuickPeriod(period) {
-    const today = new Date();
-    let startDate, endDate;
-    
-    endDate = today;
-    
-    switch(period) {
-        case '7days':
-            startDate = new Date(today);
-            startDate.setDate(today.getDate() - 6);
-            break;
-        case 'thisMonth':
-            startDate = new Date(today.getFullYear(), today.getMonth(), 1);
-            break;
-        case 'lastMonth':
-            startDate = new Date(today.getFullYear(), today.getMonth() - 1, 1);
-            endDate = new Date(today.getFullYear(), today.getMonth(), 0);
-            break;
-        case '3months':
-            startDate = new Date(today);
-            startDate.setMonth(today.getMonth() - 3);
-            break;
-        case '6months':
-            startDate = new Date(today);
-            startDate.setMonth(today.getMonth() - 6);
-            break;
-    }
-    
-    const formatDate = (date) => {
-        const year = date.getFullYear();
-        const month = String(date.getMonth() + 1).padStart(2, '0');
-        const day = String(date.getDate()).padStart(2, '0');
-        return `${year}-${month}-${day}`;
-    };
-    
-    document.getElementById('statusStartDate').value = formatDate(startDate);
-    document.getElementById('statusEndDate').value = formatDate(endDate);
-    
-    updateStatusPeriod();
-}
-
-// 배송 추적 조회
-// 배송 추적 조회
-async function viewTracking(orderId) {
-    const modal = new bootstrap.Modal(document.getElementById('trackingModal'));
-    modal.show();
-    
-    document.getElementById('trackingContent').innerHTML = `
-        <div class="text-center py-5">
-            <div class="spinner-border text-primary"></div>
-            <p class="mt-3">배송 정보를 조회 중입니다...</p>
-        </div>
-    `;
-    
-    try {
-        const response = await fetch(`/orders/api/tracking/${orderId}`);
-        const data = await response.json();
-        
-        if (!data.success) {
-            document.getElementById('trackingContent').innerHTML = `
-                <div class="alert alert-warning">
-                    <i class="bi bi-exclamation-triangle"></i> ${data.message}
-                </div>
-            `;
-            return;
-        }
-        
-        document.getElementById('trackingTitle').textContent = 
-            `배송 조회 - ${data.courier} (${data.tracking_number})`;
-        
-        // 택배사별 렌더링
-        if (data.courier === 'CJ대한통운') {
-            renderCJTracking(data);
-        } else if (data.courier === '경동택배') {
-            renderKDTracking(data);
-        } else if (data.courier === '한진택배') {
-            renderGenericTracking(data);
-        } else if (data.courier === '우체국택배') {
-            renderGenericTracking(data);
-        } else if (data.courier === '로젠택배') {
-            renderGenericTracking(data);
-        } else if (data.courier === '롯데택배') {
-            renderGenericTracking(data);
-        }
-        
-    } catch (error) {
         document.getElementById('trackingContent').innerHTML = `
-            <div class="alert alert-danger">
-                <i class="bi bi-exclamation-triangle"></i> 조회 중 오류가 발생했습니다.
+            <div class="text-center py-5">
+                <div class="spinner-border text-primary"></div>
+                <p class="mt-3">배송 정보를 조회 중입니다...</p>
             </div>
         `;
-    }
-}
-
-// 일반 택배사 렌더링 (한진, 우체국, 로젠, 롯데)
-function renderGenericTracking(data) {
-    const info = data.basic_info;
-    const order = data.order_info;
-    
-    let html = `
-        <div class="container-fluid">
-            <div class="card mb-3">
-                <div class="card-header bg-primary text-white">
-                    <h6 class="mb-0"><i class="bi bi-box"></i> 주문 정보</h6>
-                </div>
-                <div class="card-body">
-                    <div class="row">
-                        <div class="col-md-4"><strong>주문번호:</strong> ${order.order_number}</div>
-                        <div class="col-md-4"><strong>구매자:</strong> ${order.buyer_name || '-'}</div>
-                        <div class="col-md-4"><strong>수령자:</strong> ${order.recipient_name || '-'}</div>
-                    </div>
-                </div>
-            </div>
-            
-            <div class="card mb-3">
-                <div class="card-header bg-success text-white">
-                    <h6 class="mb-0"><i class="bi bi-info-circle"></i> 기본정보</h6>
-                </div>
-                <div class="card-body">
-                    <table class="table table-bordered">
-                        <tr><th width="20%" class="table-light">운송장번호</th><td colspan="3">${data.tracking_number}</td></tr>
-                        <tr><th class="table-light">보내는분</th><td>${info.sender_name || '-'}</td><th width="20%" class="table-light">받는분</th><td>${info.receiver_name || '-'}</td></tr>
-                        <tr><th class="table-light">상품명</th><td>${info.product_name || '-'}</td><th class="table-light">수량</th><td>${info.quantity || '-'}</td></tr>
-                    </table>
-                </div>
-            </div>
-            
-            <div class="card">
-                <div class="card-header bg-info text-white">
-                    <h6 class="mb-0"><i class="bi bi-list-ul"></i> 배송정보</h6>
-                </div>
-                <div class="card-body">
-                    <div class="table-responsive">
-                        <table class="table table-hover">
-                            <thead class="table-light">
-                                <tr><th>날짜</th><th>시간</th><th>처리점소</th><th>처리현황</th><th>연락처</th></tr>
-                            </thead>
-                            <tbody>
-                                ${data.details.map(d => `
-                                    <tr>
-                                        <td>${d.date || '-'}</td>
-                                        <td>${d.time || '-'}</td>
-                                        <td>${d.location || '-'}</td>
-                                        <td><span class="badge bg-primary">${d.status || '-'}</span></td>
-                                        <td>${d.phone || '-'}</td>
-                                    </tr>
-                                `).join('')}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-        </div>
-    `;
-    
-    document.getElementById('trackingContent').innerHTML = html;
-}
-
-// 미분류 모달 표시
-async function showUnmappedModal() {
-    const modal = new bootstrap.Modal(document.getElementById('unmappedModal'));
-    modal.show();
-    
-    try {
-        const response = await fetch('/orders/api/unmapped-statuses');
-        const data = await response.json();
         
-        if (data.unmapped_statuses.length === 0) {
-            document.getElementById('unmappedStatusList').innerHTML = `
-                <div class="alert alert-success">
-                    <i class="bi bi-check-circle"></i> 모든 상태가 매핑되었습니다!
+        try {
+            const response = await fetch(`/orders/api/tracking/${orderId}`);
+            const data = await response.json();
+            
+            console.log('API 응답:', data);
+            
+            if (!data.success) {
+                document.getElementById('trackingContent').innerHTML = `
+                    <div class="alert alert-warning">
+                        <i class="bi bi-exclamation-triangle"></i> ${data.message || '배송 정보를 가져올 수 없습니다.'}
+                    </div>
+                `;
+                return;
+            }
+            
+            document.getElementById('trackingTitle').textContent = 
+                `배송 조회 - ${data.courier} (${data.tracking_number})`;
+            
+            console.log('택배사:', data.courier);
+            
+            // 택배사별 렌더링
+            if (data.courier === 'CJ대한통운') {
+                console.log('CJ 렌더링 시작');
+                renderCJTracking(data);
+            } else if (data.courier === '경동택배') {
+                console.log('경동 렌더링 시작');
+                renderKDTracking(data);
+            } else {
+                console.log('범용 렌더링 시작');
+                renderGenericTracking(data);
+            }
+            
+        } catch (error) {
+            console.error('배송 조회 오류:', error);
+            document.getElementById('trackingContent').innerHTML = `
+                <div class="alert alert-danger">
+                    <i class="bi bi-exclamation-triangle"></i> 조회 중 오류가 발생했습니다: ${error.message}
                 </div>
             `;
-            return;
         }
+    }
+
+    // ===== CJ대한통운 렌더링 함수 =====
+    function renderCJTracking(data) {
+        console.log('=== CJ 렌더링 시작 ===');
         
-        let html = '<div class="list-group">';
-        
-        data.unmapped_statuses.forEach(item => {
-            html += `
-                <div class="list-group-item mb-3" style="border-left: 4px solid #f39c12;">
-                    <div class="d-flex justify-content-between align-items-center mb-3">
-                        <div>
-                            <strong style="font-size: 1.1rem;">${item.original_status}</strong>
-                            <span class="badge bg-warning text-dark ms-2">${item.count}건</span>
+        try {
+            const info = data.basic_info || {};
+            const order = data.order_info || {};
+            const details = data.details || [];
+            
+            let html = `
+                <div class="container-fluid">
+                    <!-- 주문 정보 -->
+                    <div class="card mb-3">
+                        <div class="card-header bg-primary text-white">
+                            <h6 class="mb-0"><i class="bi bi-box"></i> 주문 정보</h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-4"><strong>주문번호:</strong> ${order.order_number || '-'}</div>
+                                <div class="col-md-4"><strong>구매자:</strong> ${order.buyer_name || '-'}</div>
+                                <div class="col-md-4"><strong>수령자:</strong> ${order.recipient_name || '-'}</div>
+                            </div>
                         </div>
                     </div>
-                    <div class="btn-group btn-group-sm w-100" role="group">
-                        <button class="btn btn-outline-primary" onclick="saveMapping('${item.original_status}', '배송중')">
-                            <i class="bi bi-truck"></i> 배송중
-                        </button>
-                        <button class="btn btn-outline-success" onclick="saveMapping('${item.original_status}', '배송완료')">
-                            <i class="bi bi-check-circle"></i> 배송완료
-                        </button>
-                        <button class="btn btn-outline-warning" onclick="saveMapping('${item.original_status}', '취소')">
-                            <i class="bi bi-x-circle"></i> 취소
-                        </button>
-                        <button class="btn btn-outline-danger" onclick="saveMapping('${item.original_status}', '반품')">
-                            <i class="bi bi-arrow-return-left"></i> 반품
-                        </button>
-                        <button class="btn btn-outline-info" onclick="saveMapping('${item.original_status}', '교환')">
-                            <i class="bi bi-arrow-repeat"></i> 교환
-                        </button>
+                    
+                    <!-- 기본 정보 -->
+                    <div class="card mb-3">
+                        <div class="card-header bg-success text-white">
+                            <h6 class="mb-0"><i class="bi bi-info-circle"></i> 기본 정보</h6>
+                        </div>
+                        <div class="card-body">
+                            <table class="table table-bordered mb-0">
+                                <tr>
+                                    <th width="20%" class="table-light">운송장번호</th>
+                                    <td colspan="3">${data.tracking_number}</td>
+                                </tr>
+                                <tr>
+                                    <th class="table-light">보내는 분</th>
+                                    <td>${info.sender_name || '-'}</td>
+                                    <th width="20%" class="table-light">받는 분</th>
+                                    <td>${info.receiver_name || '-'}</td>
+                                </tr>
+                                <tr>
+                                    <th class="table-light">보내는 곳</th>
+                                    <td colspan="3">${info.sender_address || '-'}</td>
+                                </tr>
+                                <tr>
+                                    <th class="table-light">받는 곳</th>
+                                    <td colspan="3">${info.receiver_address || '-'}</td>
+                                </tr>
+                                <tr>
+                                    <th class="table-light">상품명</th>
+                                    <td>${info.product_name || '-'}</td>
+                                    <th class="table-light">수량</th>
+                                    <td>${info.quantity || '-'}</td>
+                                </tr>
+            `;
+            
+            // 실제 수령인 정보가 있으면 표시
+            if (info.receiver && info.receiver_relation) {
+                html += `
+                                <tr>
+                                    <th class="table-light">실제 수령인</th>
+                                    <td colspan="3">${info.receiver} (${info.receiver_relation})</td>
+                                </tr>
+                `;
+            }
+            
+            html += `
+                            </table>
+                        </div>
+                    </div>
+                    
+                    <!-- 배송 상세 정보 -->
+                    <div class="card">
+                        <div class="card-header bg-info text-white">
+                            <h6 class="mb-0"><i class="bi bi-truck"></i> 배송 상세 내역</h6>
+                        </div>
+                        <div class="card-body">
+            `;
+            
+            if (details.length === 0) {
+                html += `
+                            <div class="alert alert-info mb-0">
+                                <i class="bi bi-info-circle"></i> 아직 배송 이력이 등록되지 않았습니다.
+                            </div>
+                `;
+            } else {
+                html += `
+                            <div class="table-responsive">
+                                <table class="table table-hover mb-0">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th width="10%">날짜</th>
+                                            <th width="10%">시간</th>
+                                            <th width="15%">처리점소</th>
+                                            <th width="12%">연락처</th>
+                                            <th width="13%">상태</th>
+                                            <th>상세내용</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                `;
+                
+                details.forEach(detail => {
+                    let badgeClass = 'bg-primary';
+                    if (detail.status && detail.status.includes('완료')) {
+                        badgeClass = 'bg-success';
+                    } else if (detail.status && detail.status.includes('출발')) {
+                        badgeClass = 'bg-info';
+                    } else if (detail.status && detail.status.includes('집화')) {
+                        badgeClass = 'bg-secondary';
+                    }
+                    
+                    html += `
+                                        <tr>
+                                            <td>${detail.date || '-'}</td>
+                                            <td>${detail.time || '-'}</td>
+                                            <td>${detail.location || '-'}</td>
+                                            <td><small>${detail.phone || '-'}</small></td>
+                                            <td><span class="badge ${badgeClass}">${detail.status || '-'}</span></td>
+                                            <td>
+                                                ${detail.detail || '-'}
+                                                ${detail.partner ? `<br><small class="text-muted">→ ${detail.partner}</small>` : ''}
+                                            </td>
+                                        </tr>
+                    `;
+                });
+                
+                html += `
+                                    </tbody>
+                                </table>
+                            </div>
+                `;
+            }
+            
+            html += `
+                        </div>
                     </div>
                 </div>
             `;
-        });
+            
+            document.getElementById('trackingContent').innerHTML = html;
+            console.log('=== CJ 렌더링 완료 ===');
+            
+        } catch (error) {
+            console.error('CJ 렌더링 오류:', error);
+            throw error;
+        }
+    }
+
+    // ===== 경동택배 렌더링 함수 =====
+    function renderKDTracking(data) {
+        console.log('=== 경동택배 렌더링 시작 ===');
         
-        html += '</div>';
-        document.getElementById('unmappedStatusList').innerHTML = html;
+        try {
+            const info = data.basic_info || {};
+            const order = data.order_info || {};
+            const details = data.details || [];
+            
+            let html = `
+                <div class="container-fluid">
+                    <!-- 주문 정보 -->
+                    <div class="card mb-3">
+                        <div class="card-header bg-primary text-white">
+                            <h6 class="mb-0"><i class="bi bi-box"></i> 주문 정보</h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-4"><strong>주문번호:</strong> ${order.order_number || '-'}</div>
+                                <div class="col-md-4"><strong>구매자:</strong> ${order.buyer_name || '-'}</div>
+                                <div class="col-md-4"><strong>수령자:</strong> ${order.recipient_name || '-'}</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 기본 정보 -->
+                    <div class="card mb-3">
+                        <div class="card-header bg-success text-white">
+                            <h6 class="mb-0"><i class="bi bi-info-circle"></i> 기본 정보</h6>
+                        </div>
+                        <div class="card-body">
+                            <table class="table table-bordered mb-0">
+                                <tr>
+                                    <th width="20%" class="table-light">운송장번호</th>
+                                    <td colspan="3">${data.tracking_number}</td>
+                                </tr>
+                                <tr>
+                                    <th class="table-light">발송지점</th>
+                                    <td>${info.send_branch || '-'}</td>
+                                    <th width="20%" class="table-light">도착지점</th>
+                                    <td>${info.arrival_branch || '-'}</td>
+                                </tr>
+                                <tr>
+                                    <th class="table-light">보내는 분</th>
+                                    <td>${info.sender_name || '-'}</td>
+                                    <th class="table-light">받는 분</th>
+                                    <td>${info.receiver_name || '-'}</td>
+                                </tr>
+                                <tr>
+                                    <th class="table-light">상품명</th>
+                                    <td>${info.product_name || '-'}</td>
+                                    <th class="table-light">수량</th>
+                                    <td>${info.quantity || '-'}</td>
+                                </tr>
+                            </table>
+                        </div>
+                    </div>
+                    
+                    <!-- 배송 상세 정보 -->
+                    <div class="card">
+                        <div class="card-header bg-info text-white">
+                            <h6 class="mb-0"><i class="bi bi-truck"></i> 배송 상세 내역</h6>
+                        </div>
+                        <div class="card-body">
+            `;
+            
+            if (details.length === 0) {
+                html += `
+                            <div class="alert alert-info mb-0">
+                                <i class="bi bi-info-circle"></i> 아직 배송 이력이 등록되지 않았습니다.
+                            </div>
+                `;
+            } else {
+                html += `
+                            <div class="table-responsive">
+                                <table class="table table-hover mb-0">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th width="12%">날짜</th>
+                                            <th width="10%">시간</th>
+                                            <th width="25%">위치</th>
+                                            <th width="18%">연락처</th>
+                                            <th>상태</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                `;
+                
+                details.forEach(detail => {
+                    let badgeClass = 'bg-primary';
+                    if (detail.status && detail.status.includes('확인')) {
+                        badgeClass = 'bg-success';
+                    } else if (detail.status && detail.status.includes('도착')) {
+                        badgeClass = 'bg-info';
+                    } else if (detail.status && detail.status.includes('발송')) {
+                        badgeClass = 'bg-warning';
+                    }
+                    
+                    html += `
+                                        <tr>
+                                            <td>${detail.date || '-'}</td>
+                                            <td>${detail.time || '-'}</td>
+                                            <td>${detail.location || '-'}</td>
+                                            <td><small>${detail.phone || '-'}</small></td>
+                                            <td><span class="badge ${badgeClass}">${detail.status || '-'}</span></td>
+                                        </tr>
+                    `;
+                });
+                
+                html += `
+                                    </tbody>
+                                </table>
+                            </div>
+                `;
+            }
+            
+            html += `
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            document.getElementById('trackingContent').innerHTML = html;
+            console.log('=== 경동택배 렌더링 완료 ===');
+            
+        } catch (error) {
+            console.error('경동택배 렌더링 오류:', error);
+            throw error;
+        }
+    }
+
+    // ===== 범용 렌더링 함수 (우체국/로젠/한진/롯데) =====
+    function renderGenericTracking(data) {
+        console.log('=== 범용 렌더링 시작 ===');
         
-    } catch (error) {
-        document.getElementById('unmappedStatusList').innerHTML = `
-            <div class="alert alert-danger">
-                <i class="bi bi-exclamation-triangle"></i> 데이터를 불러오는데 실패했습니다.
+        try {
+            const info = data.basic_info || {};
+            const order = data.order_info || {};
+            const details = data.details || [];
+            
+            let html = `
+                <div class="container-fluid">
+                    <!-- 주문 정보 -->
+                    <div class="card mb-3">
+                        <div class="card-header bg-primary text-white">
+                            <h6 class="mb-0"><i class="bi bi-box"></i> 주문 정보</h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-4"><strong>주문번호:</strong> ${order.order_number || '-'}</div>
+                                <div class="col-md-4"><strong>구매자:</strong> ${order.buyer_name || '-'}</div>
+                                <div class="col-md-4"><strong>수령자:</strong> ${order.recipient_name || '-'}</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 기본 정보 -->
+                    <div class="card mb-3">
+                        <div class="card-header bg-success text-white">
+                            <h6 class="mb-0"><i class="bi bi-info-circle"></i> 기본 정보</h6>
+                        </div>
+                        <div class="card-body">
+                            <table class="table table-bordered mb-0">
+                                <tr>
+                                    <th width="20%" class="table-light">운송장번호</th>
+                                    <td colspan="3">${data.tracking_number}</td>
+                                </tr>
+                                <tr>
+                                    <th class="table-light">보내는 분</th>
+                                    <td>${info.sender_name || '-'}</td>
+                                    <th width="20%" class="table-light">받는 분</th>
+                                    <td>${info.receiver_name || '-'}</td>
+                                </tr>
+                                <tr>
+                                    <th class="table-light">상품명</th>
+                                    <td>${info.product_name || '-'}</td>
+                                    <th class="table-light">수량</th>
+                                    <td>${info.quantity || '-'}</td>
+                                </tr>
+                            </table>
+                        </div>
+                    </div>
+                    
+                    <!-- 배송 상세 정보 -->
+                    <div class="card">
+                        <div class="card-header bg-info text-white">
+                            <h6 class="mb-0"><i class="bi bi-truck"></i> 배송 상세 내역</h6>
+                        </div>
+                        <div class="card-body">
+            `;
+            
+            if (details.length === 0) {
+                html += `
+                            <div class="alert alert-info mb-0">
+                                <i class="bi bi-info-circle"></i> 아직 배송 이력이 등록되지 않았습니다.
+                            </div>
+                `;
+            } else {
+                html += `
+                            <div class="table-responsive">
+                                <table class="table table-hover mb-0">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th width="12%">날짜</th>
+                                            <th width="10%">시간</th>
+                                            <th width="25%">처리점소</th>
+                                            <th>처리현황</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                `;
+                
+                details.forEach(detail => {
+                    let badgeClass = 'bg-primary';
+                    if (detail.status && (detail.status.includes('완료') || detail.status.includes('배달'))) {
+                        badgeClass = 'bg-success';
+                    } else if (detail.status && detail.status.includes('출발')) {
+                        badgeClass = 'bg-info';
+                    }
+                    
+                    html += `
+                                        <tr>
+                                            <td>${detail.date || '-'}</td>
+                                            <td>${detail.time || '-'}</td>
+                                            <td>${detail.location || '-'}</td>
+                                            <td><span class="badge ${badgeClass}">${detail.status || '-'}</span></td>
+                                        </tr>
+                    `;
+                });
+                
+                html += `
+                                    </tbody>
+                                </table>
+                            </div>
+                `;
+            }
+            
+            html += `
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            document.getElementById('trackingContent').innerHTML = html;
+            console.log('=== 범용 렌더링 완료 ===');
+            
+        } catch (error) {
+            console.error('범용 렌더링 오류:', error);
+            throw error;
+        }
+    }
+
+    // ===== 주문 상세보기 =====
+    async function viewOrder(orderId) {
+        const modal = new bootstrap.Modal(document.getElementById('orderDetailModal'));
+        modal.show();
+        
+        document.getElementById('orderDetailContent').innerHTML = `
+            <div class="text-center py-5">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">로딩 중...</span>
+                </div>
             </div>
         `;
-    }
-}
-
-// 매핑 저장
-async function saveMapping(originalStatus, normalizedStatus) {
-    try {
-        const formData = new FormData();
-        formData.append('original_status', originalStatus);
-        formData.append('normalized_status', normalizedStatus);
         
-        const response = await fetch('/orders/api/save-status-mapping', {
-            method: 'POST',
-            body: formData
+        try {
+            const response = await fetch(`/orders/api/${orderId}/detail`);
+            const order = await response.json();
+            
+            document.getElementById('orderDetailContent').innerHTML = `
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label fw-bold">주문번호</label>
+                        <input type="text" class="form-control" value="${order.order_number || '-'}" readonly>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label fw-bold">주문상태</label>
+                        <input type="text" class="form-control" value="${order.order_status || '-'}" readonly>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label fw-bold">주문일자</label>
+                        <input type="text" class="form-control" value="${order.order_date || '-'}" readonly>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label fw-bold">구매자</label>
+                        <input type="text" class="form-control" value="${order.buyer_name || '-'}" readonly>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label fw-bold">수령자</label>
+                        <input type="text" class="form-control" value="${order.recipient_name || '-'}" readonly>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label fw-bold">연락처</label>
+                        <input type="text" class="form-control" value="${order.contact_number || '-'}" readonly>
+                    </div>
+                    <div class="col-12 mb-3">
+                        <label class="form-label fw-bold">제품명</label>
+                        <input type="text" class="form-control" value="${order.product_name || '-'}" readonly>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label fw-bold">옵션</label>
+                        <input type="text" class="form-control" value="${order.product_option || '-'}" readonly>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label fw-bold">수량</label>
+                        <input type="text" class="form-control" value="${order.quantity || '-'}" readonly>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label fw-bold">송장번호</label>
+                        <input type="text" class="form-control" value="${order.tracking_number || '-'}" readonly>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label fw-bold">통관번호</label>
+                        <input type="text" class="form-control" value="${order.customs_number || '-'}" readonly>
+                    </div>
+                    <div class="col-12 mb-3">
+                        <label class="form-label fw-bold">주소</label>
+                        <textarea class="form-control" rows="2" readonly>${order.address || '-'}</textarea>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label fw-bold">결제금액</label>
+                        <input type="text" class="form-control" value="${order.payment_amount || '-'}원" readonly>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label fw-bold">환율</label>
+                        <input type="text" class="form-control" value="${order.exchange_rate || '-'}" readonly>
+                    </div>
+                </div>
+            `;
+        } catch (error) {
+            document.getElementById('orderDetailContent').innerHTML = `
+                <div class="alert alert-danger">
+                    <i class="bi bi-exclamation-triangle"></i> 주문 정보를 불러오는데 실패했습니다.
+                </div>
+            `;
+        }
+    }
+
+    // ===== 주문 삭제 =====
+    async function deleteOrder(orderId) {
+        if (!confirm('정말로 이 주문을 삭제하시겠습니까?')) return;
+        
+        try {
+            const response = await fetch(`/orders/api/${orderId}/delete`, {
+                method: 'POST'
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                alert('삭제되었습니다.'); 
+                location.reload();
+            } else {
+                alert('삭제 실패: ' + result.message);
+            }
+        } catch (error) {
+            alert('삭제 중 오류가 발생했습니다.');
+        }
+    }
+
+    // ===== 조건별 주문 목록 표시 =====
+    async function showOrdersByCondition(condition, title) {
+        document.getElementById('ordersTableTitle').innerHTML = `<i class="bi bi-filter"></i> ${title} 주문 목록`;
+        document.getElementById('ordersTableContainer').innerHTML = '<div style="text-align: center; padding: 40px;"><div class="spinner-border text-primary"></div></div>';
+        
+        try {
+            const response = await fetch(`/orders/api/orders/by-condition?condition=${condition}`);
+            const data = await response.json();
+            
+            displayOrders(data.orders, title);
+        } catch (error) {
+            document.getElementById('ordersTableContainer').innerHTML = `
+                <div class="alert alert-danger">
+                    <i class="bi bi-exclamation-triangle"></i> 주문 목록을 불러오는데 실패했습니다.
+                </div>
+            `;
+        }
+    }
+
+    // ===== 상태별 주문 목록 표시 =====
+    async function showOrdersByStatus(status) {
+        const startDate = document.getElementById('statusStartDate').value;
+        const endDate = document.getElementById('statusEndDate').value;
+        
+        document.getElementById('ordersTableTitle').innerHTML = `<i class="bi bi-filter"></i> ${status} 주문 목록`;
+        document.getElementById('ordersTableContainer').innerHTML = '<div style="text-align: center; padding: 40px;"><div class="spinner-border text-primary"></div></div>';
+        
+        try {
+            const response = await fetch(`/orders/api/orders/by-status?status=${encodeURIComponent(status)}&start_date=${startDate}&end_date=${endDate}`);
+            const data = await response.json();
+            
+            displayOrders(data.orders, status);
+        } catch (error) {
+            document.getElementById('ordersTableContainer').innerHTML = `
+                <div class="alert alert-danger">
+                    <i class="bi bi-exclamation-triangle"></i> 주문 목록을 불러오는데 실패했습니다.
+                </div>
+            `;
+        }
+    }
+
+    // ===== 주문 목록 표시 =====
+    function displayOrders(orders, title) {
+        document.getElementById('ordersCount').textContent = `총 ${orders.length}건`;
+        
+        if (orders.length === 0) {
+            document.getElementById('ordersTableContainer').innerHTML = `
+                <div class="no-data">
+                    <i class="bi bi-inbox"></i>
+                    <p style="font-size: 1.1rem; margin-top: 10px;">주문이 없습니다</p>
+                </div>
+            `;
+            return;
+        }
+        
+        let html = `
+            <div style="overflow-x: auto;">
+                <table class="order-table">
+                    <thead>
+                        <tr>
+                            <th>주문번호</th>
+                            <th>판매처</th>
+                            <th>주문상태</th>
+                            <th>택배사</th>
+                            <th>송장번호</th>
+                            <th>주문일자</th>
+                            <th>구매자</th>
+                            <th>수령자</th>
+                            <th>제품명</th>
+                            <th>결제금액</th>
+                            <th>액션</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+        `;
+        
+        orders.forEach(order => {
+            let statusClass = 'pending';
+            if (order.order_status.includes('완료') || order.order_status.includes('배송')) {
+                statusClass = 'completed';
+            } else if (order.order_status.includes('취소') || order.order_status.includes('반품')) {
+                statusClass = 'cancelled';
+            } else if (order.order_status.includes('대기') || order.order_status.includes('준비')) {
+                statusClass = 'pending';
+            } else {
+                statusClass = 'shipping';
+            }
+            
+            let formattedAmount = '-';
+            if (order.payment_amount) {
+                let amount = order.payment_amount.toString().replace(/[^0-9]/g, '');
+                if (amount) {
+                    formattedAmount = parseInt(amount).toLocaleString('ko-KR');
+                }
+            }
+            
+            let salesChannel = order.sales_channel || '-';
+            if (salesChannel.length > 20) {
+                salesChannel = salesChannel.substring(0, 20) + '...';
+            }
+            
+            let courierCompany = order.courier_company || '-';
+            let trackingNumber = order.tracking_number || '-';
+            
+            html += `
+                <tr>
+                    <td><strong>${order.order_number}</strong></td>
+                    <td>${salesChannel}</td>
+                    <td><span class="status-badge ${statusClass}">${order.order_status}</span></td>
+                    <td>${courierCompany}</td>
+                    <td>${trackingNumber}</td>
+                    <td>${order.order_date}</td>
+                    <td>${order.buyer_name || '-'}</td>
+                    <td>${order.recipient_name || '-'}</td>
+                    <td style="max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                        ${order.product_name || '-'}
+                    </td>
+                    <td><strong>${formattedAmount}</strong></td>
+                    <td>
+                        <button class="btn-action btn-view" onclick="viewOrder(${order.id})">
+                            <i class="bi bi-eye"></i> 상세
+                        </button>
+                        <button class="btn-action btn-view" onclick="viewTracking(${order.id})" style="background: #00b894;">
+                            <i class="bi bi-truck"></i> 배송
+                        </button>
+                    </td>
+                </tr>
+            `;
         });
         
-        const result = await response.json();
+        html += `
+                    </tbody>
+                </table>
+            </div>
+        `;
         
-        if (result.success) {
-            alert(`"${originalStatus}" → "${normalizedStatus}" 매핑 완료!`);
-            showUnmappedModal();
-        }
-    } catch (error) {
-        alert('저장 중 오류가 발생했습니다.');
+        document.getElementById('ordersTableContainer').innerHTML = html;
     }
-}
+
+    // ===== 기간 업데이트 =====
+    async function updateStatusPeriod() {
+        const startDate = document.getElementById('statusStartDate').value;
+        const endDate = document.getElementById('statusEndDate').value;
+        
+        if (!startDate || !endDate) {
+            alert('시작일과 종료일을 모두 선택해주세요.');
+            return;
+        }
+        
+        window.location.href = `/orders/dashboard?start_date=${startDate}&end_date=${endDate}`;
+    }
+
+    // ===== 빠른 기간 선택 =====
+    function setQuickPeriod(period) {
+        const today = new Date();
+        let startDate, endDate;
+        
+        endDate = today;
+        
+        switch(period) {
+            case '7days':
+                startDate = new Date(today);
+                startDate.setDate(today.getDate() - 6);
+                break;
+            case 'thisMonth':
+                startDate = new Date(today.getFullYear(), today.getMonth(), 1);
+                break;
+            case 'lastMonth':
+                startDate = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+                endDate = new Date(today.getFullYear(), today.getMonth(), 0);
+                break;
+            case '3months':
+                startDate = new Date(today);
+                startDate.setMonth(today.getMonth() - 3);
+                break;
+            case '6months':
+                startDate = new Date(today);
+                startDate.setMonth(today.getMonth() - 6);
+                break;
+        }
+        
+        const formatDate = (date) => {
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        };
+        
+        document.getElementById('statusStartDate').value = formatDate(startDate);
+        document.getElementById('statusEndDate').value = formatDate(endDate);
+        
+        updateStatusPeriod();
+    }
+
+    // ===== 미분류 모달 표시 =====
+    async function showUnmappedModal() {
+        const modal = new bootstrap.Modal(document.getElementById('unmappedModal'));
+        modal.show();
+        
+        try {
+            const response = await fetch('/orders/api/unmapped-statuses');
+            const data = await response.json();
+            
+            if (data.unmapped_statuses.length === 0) {
+                document.getElementById('unmappedStatusList').innerHTML = `
+                    <div class="alert alert-success">
+                        <i class="bi bi-check-circle"></i> 모든 상태가 매핑되었습니다!
+                    </div>
+                `;
+                return;
+            }
+            
+            let html = '<div class="list-group">';
+            
+            data.unmapped_statuses.forEach(item => {
+                html += `
+                    <div class="list-group-item mb-3" style="border-left: 4px solid #f39c12;">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <div>
+                                <strong style="font-size: 1.1rem;">${item.original_status}</strong>
+                                <span class="badge bg-warning text-dark ms-2">${item.count}건</span>
+                            </div>
+                        </div>
+                        <div class="btn-group btn-group-sm w-100" role="group">
+                            <button class="btn btn-outline-primary" onclick="saveMapping('${item.original_status}', '배송중')">
+                                <i class="bi bi-truck"></i> 배송중
+                            </button>
+                            <button class="btn btn-outline-success" onclick="saveMapping('${item.original_status}', '배송완료')">
+                                <i class="bi bi-check-circle"></i> 배송완료
+                            </button>
+                            <button class="btn btn-outline-warning" onclick="saveMapping('${item.original_status}', '취소')">
+                                <i class="bi bi-x-circle"></i> 취소
+                            </button>
+                            <button class="btn btn-outline-danger" onclick="saveMapping('${item.original_status}', '반품')">
+                                <i class="bi bi-arrow-return-left"></i> 반품
+                            </button>
+                            <button class="btn btn-outline-info" onclick="saveMapping('${item.original_status}', '교환')">
+                                <i class="bi bi-arrow-repeat"></i> 교환
+                            </button>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            html += '</div>';
+            document.getElementById('unmappedStatusList').innerHTML = html;
+            
+        } catch (error) {
+            document.getElementById('unmappedStatusList').innerHTML = `
+                <div class="alert alert-danger">
+                    <i class="bi bi-exclamation-triangle"></i> 데이터를 불러오는데 실패했습니다.
+                </div>
+            `;
+        }
+    }
+
+    // ===== 매핑 저장 =====
+    async function saveMapping(originalStatus, normalizedStatus) {
+        try {
+            const formData = new FormData();
+            formData.append('original_status', originalStatus);
+            formData.append('normalized_status', normalizedStatus);
+            
+            const response = await fetch('/orders/api/save-status-mapping', {
+                method: 'POST',
+                body: formData
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                alert(`"${originalStatus}" → "${normalizedStatus}" 매핑 완료!`);
+                showUnmappedModal();
+            }
+        } catch (error) {
+            alert('저장 중 오류가 발생했습니다.');
+        }
+    }
+
+    // ===== 페이지 로드 시 날짜 초기화 =====
+    document.addEventListener('DOMContentLoaded', function() {
+        const today = new Date();
+        const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+        
+        const startInput = document.getElementById('statusStartDate');
+        const endInput = document.getElementById('statusEndDate');
+        
+        if (startInput && endInput) {
+            startInput.valueAsDate = firstDay;
+            endInput.valueAsDate = today;
+        }
+    });
 </script>
-{% endblock %}
