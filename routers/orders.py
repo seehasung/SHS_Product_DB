@@ -1,6 +1,6 @@
 # routers/orders.py
 
-from fastapi import APIRouter, Request, Depends, UploadFile, File, Form, HTTPException
+from fastapi import APIRouter, Request, Depends, UploadFile, File, Form, HTTPException, Query
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
@@ -939,6 +939,70 @@ def search_customs(
             for c in customs
         ]
     }
+    
+    
+
+@router.get("/api/search/all")
+def search_orders_all(
+    search: str = Query(..., description="검색어"),
+    db: Session = Depends(get_db)
+):
+    """
+    통합 주문 검색 API
+    검색 필드: 고객명(구매자), 수령자명, 연락처, 송장번호, 상품명
+    """
+    try:
+        print(f"🔍 통합 검색 시작: {search}")
+        
+        # 검색어가 비어있으면 빈 결과 반환
+        if not search or not search.strip():
+            return {"orders": [], "search_term": ""}
+        
+        search_term = f"%{search.strip()}%"
+        
+        # 지정된 필드에서만 검색
+        query = db.query(Order).filter(
+            or_(
+                Order.buyer_name.ilike(search_term),        # 고객명
+                Order.recipient_name.ilike(search_term),    # 수령자명
+                Order.contact_number.ilike(search_term),    # 연락처
+                Order.tracking_number.ilike(search_term),   # 송장번호
+                Order.product_name.ilike(search_term)       # 상품명
+            )
+        )
+        
+        # 주문일자 기준 내림차순 정렬
+        orders = query.order_by(Order.order_date.desc()).all()
+        
+        # 결과를 딕셔너리로 변환
+        results = []
+        for order in orders:
+            results.append({
+                "id": order.id,
+                "order_number": order.order_number,
+                "sales_channel": order.sales_channel,
+                "order_status": order.order_status,
+                "courier_company": order.courier_company,
+                "tracking_number": order.tracking_number,
+                "order_date": order.order_date.strftime("%Y-%m-%d") if order.order_date else None,
+                "buyer_name": order.buyer_name,
+                "recipient_name": order.recipient_name,
+                "contact_number": order.contact_number,
+                "product_name": order.product_name,
+                "payment_amount": order.payment_amount
+            })
+        
+        print(f"✅ 검색 완료: {len(results)}건")
+        
+        # 검색어도 함께 반환 (프론트엔드에서 하이라이트용)
+        return {
+            "orders": results,
+            "search_term": search.strip()
+        }
+        
+    except Exception as e:
+        print(f"❌ 검색 오류: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 # ============================================
 # 8. 네이버 송장 팔로우
