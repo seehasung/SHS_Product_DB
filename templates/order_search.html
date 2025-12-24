@@ -436,7 +436,7 @@
                 html += `
                     <tr>
                         <td><strong>${delivery.order_number}</strong></td>
-                        <td><span style="color: #4A90E2; font-weight: 600;">${delivery.tracking_number || '-'}</span></td>
+                        <td><span style="color: #4A90E2; font-weight: 600;">${cleanTrackingNumber(delivery.tracking_number)}</span></td>
                         <td>${delivery.courier_company || '-'}</td>
                         <td>${delivery.recipient_name || '-'}</td>
                         <td>${delivery.order_date || '-'}</td>
@@ -457,71 +457,42 @@
         }
     }
 
-    // ===== 통관 조회 =====
-    async function searchCustoms() {
-        const search = document.getElementById('customsSearch').value.trim();
-        const resultsDiv = document.getElementById('customsResults');
-        
-        if (!search) {
-            resultsDiv.innerHTML = `
-                <div class="no-results">
-                    <i class="bi bi-search"></i>
-                    <p style="font-size: 1.1rem; margin-top: 10px;">검색어를 입력하세요</p>
+    // ===== 통관 조회 함수 =====
+    async function viewCustoms(orderId) {
+        try {
+            console.log('=== 통관 조회 시작 ===');
+            console.log('Order ID:', orderId);
+            
+            const modal = new bootstrap.Modal(document.getElementById('customsModal'));
+            modal.show();
+            
+            document.getElementById('customsContent').innerHTML = `
+                <div class="text-center py-5">
+                    <div class="spinner-border text-primary"></div>
+                    <p class="mt-3">통관 정보를 조회 중입니다...</p>
                 </div>
             `;
-            return;
-        }
-        
-        resultsDiv.innerHTML = `
-            <div class="loading">
-                <div class="spinner-border text-primary"></div>
-                <p style="margin-top: 15px;">검색 중...</p>
-            </div>
-        `;
-        
-        try {
-            const response = await fetch(`/orders/api/search/customs?search=${encodeURIComponent(search)}`);
+            
+            const response = await fetch(`/orders/api/customs/${orderId}`);
             const data = await response.json();
             
-            if (data.customs && data.customs.length > 0) {
-                resultsDiv.innerHTML = `
-                    <table class="result-table">
-                        <thead>
-                            <tr>
-                                <th>주문번호</th>
-                                <th>통관번호</th>
-                                <th>수령자</th>
-                                <th>주문일자</th>
-                                <th>관세대납</th>
-                                <th>상태</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${data.customs.map(customs => `
-                                <tr>
-                                    <td><strong>${customs.order_number}</strong></td>
-                                    <td><span style="color: #00b894; font-weight: 600;">${customs.customs_number || '-'}</span></td>
-                                    <td>${customs.recipient_name || '-'}</td>
-                                    <td>${customs.order_date || '-'}</td>
-                                    <td><strong>${customs.customs_prepayment.toLocaleString()}원</strong></td>
-                                    <td><span class="status-badge ${getStatusClass(customs.order_status)}">${customs.order_status}</span></td>
-                                </tr>
-                            `).join('')}
-                        </tbody>
-                    </table>
-                `;
+            console.log('통관 조회 응답:', data);
+            
+            if (data.success) {
+                displayCustomsModal(data);
             } else {
-                resultsDiv.innerHTML = `
-                    <div class="no-results">
-                        <i class="bi bi-inbox"></i>
-                        <p style="font-size: 1.1rem; margin-top: 10px;">검색 결과가 없습니다</p>
+                document.getElementById('customsContent').innerHTML = `
+                    <div class="alert alert-warning">
+                        <i class="bi bi-exclamation-triangle"></i> ${data.message || '통관 정보를 불러올 수 없습니다.'}
                     </div>
                 `;
             }
+            
         } catch (error) {
-            resultsDiv.innerHTML = `
+            console.error('통관 조회 오류:', error);
+            document.getElementById('customsContent').innerHTML = `
                 <div class="alert alert-danger">
-                    <i class="bi bi-exclamation-triangle"></i> 검색 중 오류가 발생했습니다.
+                    <i class="bi bi-exclamation-triangle"></i> 통관 조회 중 오류가 발생했습니다.
                 </div>
             `;
         }
@@ -1036,5 +1007,172 @@
         </div>
     </div>
 </div>
+
+<!-- ✅ 여기에 통관 조회 모달 추가 -->
+<div class="modal fade" id="customsModal" tabindex="-1">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
+                <h5 class="modal-title">
+                    <i class="bi bi-globe"></i> 통관 진행정보
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="customsContent">
+                <div class="text-center py-5">
+                    <div class="spinner-border text-primary"></div>
+                    <p class="mt-3">통관 정보를 조회 중입니다...</p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="bi bi-x-lg"></i> 닫기
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+
+function cleanTrackingNumber(trackingNumber) {
+        if (!trackingNumber) return '-';
+        const cleaned = String(trackingNumber);
+        if (cleaned.endsWith('.0')) {
+            return cleaned.slice(0, -2);
+        }
+        return cleaned;
+    }
+
+// 통관 정보 모달 표시 (7customs 버전)
+function displayCustomsModal(data) {
+    const modal = new bootstrap.Modal(document.getElementById('customsModal'));
+    const content = document.getElementById('customsContent');
+    
+    const basicInfo = data.basic_info || {};
+    const history = data.history || [];
+    
+    const cleanedTracking = cleanTrackingNumber(data.tracking_number);
+
+    let html = `
+        <div class="customs-info">
+            <!-- 조회 정보 헤더 -->
+            <div class="alert alert-info mb-4">
+                <div class="row align-items-center">
+                    <div class="col-md-8">
+                        <h5 class="mb-0">
+                            <i class="bi bi-upc-scan"></i> 
+                            <strong>송장번호:</strong> ${cleanedTracking}
+                        </h5>
+                    </div>
+                    <div class="col-md-4 text-end">
+                        ${data.url ? `
+                            <a href="${data.url}" target="_blank" class="btn btn-sm btn-outline-primary">
+                                <i class="bi bi-box-arrow-up-right"></i> 7customs.com에서 보기
+                            </a>
+                        ` : ''}
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 통관 상태 카드 -->
+            <div class="card mb-4" style="border-left: 4px solid #667eea;">
+                <div class="card-header" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
+                    <h5 class="mb-0"><i class="bi bi-clipboard-check"></i> 통관 상태</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <label class="text-muted small d-block">현재 상태</label>
+                            <h4 class="mb-0" style="color: #667eea;">
+                                ${basicInfo.customs_status || '정보 없음'}
+                            </h4>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label class="text-muted small d-block">통관완료 예상일</label>
+                            <h5 class="mb-0 text-danger">
+                                ${basicInfo.expected_clearance_date || '정보 없음'}
+                            </h5>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label class="text-muted small d-block">입항일</label>
+                            <p class="mb-0 h6">
+                                ${basicInfo.arrival_date || '정보 없음'}
+                            </p>
+                        </div>
+                    </div>
+                    <hr>
+                    <div>
+                        <label class="text-muted small d-block">물품정보</label>
+                        <p class="mb-0">
+                            ${basicInfo.product_info || '정보 없음'}
+                        </p>
+                    </div>
+                </div>
+            </div>
+    `;
+    
+    // 통관상세내역 (히스토리)
+    if (history && history.length > 0) {
+        html += `
+            <div class="card">
+                <div class="card-header bg-success text-white">
+                    <h6 class="mb-0">
+                        <i class="bi bi-clock-history"></i> 통관상세내역 (${history.length}건)
+                    </h6>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th width="15%">처리구분</th>
+                                    <th width="50%">내용</th>
+                                    <th width="20%">처리일시</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+        `;
+        
+        history.forEach(item => {
+            html += `
+                                <tr>
+                                    <td>
+                                        <span class="badge bg-primary" style="font-size: 0.85rem;">
+                                            ${item.process_type || '-'}
+                                        </span>
+                                    </td>
+                                    <td>${item.content || '-'}</td>
+                                    <td>
+                                        <small class="text-muted">
+                                            ${item.processing_datetime || '-'}
+                                        </small>
+                                    </td>
+                                </tr>
+            `;
+        });
+        
+        html += `
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        `;
+    } else {
+        html += `
+            <div class="alert alert-warning">
+                <i class="bi bi-exclamation-triangle-fill"></i> 
+                통관 진행 이력이 없습니다.
+            </div>
+        `;
+    }
+    
+    html += `</div>`;
+    
+    content.innerHTML = html;
+    modal.show();
+}
+
 
 {% endblock %}

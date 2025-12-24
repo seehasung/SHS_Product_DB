@@ -669,6 +669,15 @@
 </div>
 
 <script>
+
+    function cleanTrackingNumber(trackingNumber) {
+        if (!trackingNumber) return '-';
+        const cleaned = String(trackingNumber);
+        if (cleaned.endsWith('.0')) {
+            return cleaned.slice(0, -2);
+        }
+        return cleaned;
+    }
     // ===== 배송 조회 메인 함수 =====
     async function viewTracking(orderId) {
         console.log('=== 배송 조회 시작 ===');
@@ -1347,7 +1356,7 @@
                     <td>${salesChannel}</td>
                     <td><span class="status-badge ${statusClass}">${order.order_status}</span></td>
                     <td>${courierCompany}</td>
-                    <td>${trackingNumber}</td>
+                    <td>${cleanTrackingNumber(order.tracking_number)}</td>
                     <td>${order.order_date}</td>
                     <td>${order.buyer_name || '-'}</td>
                     <td>${order.recipient_name || '-'}</td>
@@ -1623,114 +1632,126 @@
         }
     }
 
-    // 통관 정보 모달 표시
+    // 통관 정보 모달 표시 (7customs 버전)
     function displayCustomsModal(data) {
         const modal = new bootstrap.Modal(document.getElementById('customsModal'));
         const content = document.getElementById('customsContent');
         
+        const basicInfo = data.basic_info || {};
+        const history = data.history || [];
+        
+        const cleanedTracking = cleanTrackingNumber(data.tracking_number);
+
         let html = `
             <div class="customs-info">
-                <h4><i class="bi bi-info-circle-fill"></i> 조회 정보</h4>
-                <table class="table table-bordered mb-4">
-                    <tr>
-        `;
-        
-        if (data.query_type === 'express') {
-            html += `
-                <th width="20%" class="table-light">송장번호</th>
-                <td colspan="3"><strong>${data.tracking_number || '-'}</strong></td>
-            `;
-        } else {
-            html += `
-                <th width="20%" class="table-light">마스터 B/L</th>
-                <td><strong>${data.master_bl || '-'}</strong></td>
-                <th width="20%" class="table-light">하우스 B/L</th>
-                <td>${data.house_bl || '-'}</td>
-            `;
-        }
-        
-        html += `
-                    </tr>
-                </table>
+                <!-- 조회 정보 헤더 -->
+                <div class="alert alert-info mb-4">
+                    <div class="row align-items-center">
+                        <div class="col-md-8">
+                            <h5 class="mb-0">
+                                <i class="bi bi-upc-scan"></i> 
+                                <strong>송장번호:</strong> ${cleanedTracking}
+                            </h5>
+                        </div>
+                        <div class="col-md-4 text-end">
+                            ${data.url ? `
+                                <a href="${data.url}" target="_blank" class="btn btn-sm btn-outline-primary">
+                                    <i class="bi bi-box-arrow-up-right"></i> 7customs.com에서 보기
+                                </a>
+                            ` : ''}
+                        </div>
+                    </div>
+                </div>
                 
-                <h4><i class="bi bi-clipboard-data-fill"></i> 통관 상세정보</h4>
-                <div class="table-responsive">
-                    <table class="table table-hover mb-4">
-                        <thead style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
-                            <tr>
-                                <th>품명</th>
-                                <th>통관상태</th>
-                                <th>수량/중량</th>
-                                <th>발송국</th>
-                                <th>수하인</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-        `;
-        
-        if (data.customs_info && data.customs_info.length > 0) {
-            data.customs_info.forEach(info => {
-                const weight = info.weight ? `${info.weight}kg` : '-';
-                const quantity = info.quantity ? `${info.quantity}개` : '';
-                
-                html += `
-                    <tr>
-                        <td><strong>${info.product_name || info.prnm || '-'}</strong></td>
-                        <td><span class="badge" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 8px 12px;">${info.customs_status || info.csclPrgsStts || '-'}</span></td>
-                        <td>${quantity} ${weight}</td>
-                        <td>${info.departure_country || info.shipNat || '-'}</td>
-                        <td>${info.receiver_name || info.cnsiNm || '-'}</td>
-                    </tr>
-                `;
-            });
-        } else {
-            html += `
-                <tr>
-                    <td colspan="5" class="text-center text-muted py-4">
-                        <i class="bi bi-inbox" style="font-size: 2rem;"></i>
-                        <p class="mt-2">통관 정보가 없습니다.</p>
-                    </td>
-                </tr>
-            `;
-        }
-        
-        html += `
-                        </tbody>
-                    </table>
+                <!-- 통관 상태 카드 -->
+                <div class="card mb-4" style="border-left: 4px solid #667eea;">
+                    <div class="card-header" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
+                        <h5 class="mb-0"><i class="bi bi-clipboard-check"></i> 통관 상태</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-4 mb-3">
+                                <label class="text-muted small d-block">현재 상태</label>
+                                <h4 class="mb-0" style="color: #667eea;">
+                                    ${basicInfo.customs_status || '정보 없음'}
+                                </h4>
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label class="text-muted small d-block">통관완료 예상일</label>
+                                <h5 class="mb-0 text-danger">
+                                    ${basicInfo.expected_clearance_date || '정보 없음'}
+                                </h5>
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label class="text-muted small d-block">입항일</label>
+                                <p class="mb-0 h6">
+                                    ${basicInfo.arrival_date || '정보 없음'}
+                                </p>
+                            </div>
+                        </div>
+                        <hr>
+                        <div>
+                            <label class="text-muted small d-block">물품정보</label>
+                            <p class="mb-0">
+                                ${basicInfo.product_info || '정보 없음'}
+                            </p>
+                        </div>
+                    </div>
                 </div>
         `;
         
-        if (data.events && data.events.length > 0) {
+        // 통관상세내역 (히스토리)
+        if (history && history.length > 0) {
             html += `
-                <h4><i class="bi bi-clock-history"></i> 통관 진행 이력</h4>
-                <div class="customs-timeline">
+                <div class="card">
+                    <div class="card-header bg-success text-white">
+                        <h6 class="mb-0">
+                            <i class="bi bi-clock-history"></i> 통관상세내역 (${history.length}건)
+                        </h6>
+                    </div>
+                    <div class="card-body p-0">
+                        <div class="table-responsive">
+                            <table class="table table-hover mb-0">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th width="15%">처리구분</th>
+                                        <th width="50%">내용</th>
+                                        <th width="20%">처리일시</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
             `;
             
-            data.events.forEach((event, index) => {
+            history.forEach(item => {
                 html += `
-                    <div class="timeline-item">
-                        <div class="timeline-marker">${index + 1}</div>
-                        <div class="timeline-content">
-                            <div class="timeline-date">
-                                <i class="bi bi-calendar-check"></i> ${event.eventDate} ${event.eventTime}
-                            </div>
-                            <div class="timeline-title">
-                                <i class="bi bi-tag-fill"></i> ${event.eventName}
-                            </div>
-                            ${event.location ? `<div class="timeline-location"><i class="bi bi-geo-alt-fill"></i> ${event.location}</div>` : ''}
-                            ${event.remark ? `<div class="timeline-remark"><i class="bi bi-chat-left-quote"></i> ${event.remark}</div>` : ''}
-                        </div>
-                    </div>
+                                    <tr>
+                                        <td>
+                                            <span class="badge bg-primary" style="font-size: 0.85rem;">
+                                                ${item.process_type || '-'}
+                                            </span>
+                                        </td>
+                                        <td>${item.content || '-'}</td>
+                                        <td>
+                                            <small class="text-muted">
+                                                ${item.processing_datetime || '-'}
+                                            </small>
+                                        </td>
+                                    </tr>
                 `;
             });
             
             html += `
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
                 </div>
             `;
         } else {
             html += `
                 <div class="alert alert-warning">
-                    <i class="bi bi-exclamation-triangle-fill"></i> 통관 진행 이력이 없습니다.
+                    <i class="bi bi-exclamation-triangle-fill"></i> 
+                    통관 진행 이력이 없습니다.
                 </div>
             `;
         }

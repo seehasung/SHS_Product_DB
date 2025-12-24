@@ -13,7 +13,7 @@ import requests
 from utils.courier_parsers import parse_lotte_tracking
 import xml.etree.ElementTree as ET
 from typing import Optional
-
+from customs_7customs_scraper import scrape_7customs, format_7customs_for_modal
 
 
 from bs4 import BeautifulSoup
@@ -117,94 +117,34 @@ def get_customs_progress(master_bl: str, house_bl: Optional[str] = None):
 
 
 # ===== 특송화물 통관 조회 =====
-def get_express_customs_info(tracking_number: str):
-    """관세청 API - 특송화물 진행정보 조회 (송장번호)"""
-    try:
-        print(f"🔍 특송화물 통관 조회 시작: 송장번호={tracking_number}")
-        
-        url = f"{CUSTOMS_API_BASE_URL}/expsCargInfo/retrieveExpsCargInfo"
-        params = {
-            "crtfKey": CUSTOMS_API_KEY,
-            "hblNo": tracking_number,
-        }
-        
-        response = requests.get(url, params=params, timeout=10)
-        response.encoding = 'utf-8'
-        
-        if response.status_code != 200:
-            return {
-                "success": False,
-                "message": f"관세청 API 호출 실패 (HTTP {response.status_code})"
-            }
-        
-        root = ET.fromstring(response.text)
-        tCnt = root.find('.//tCnt')
-        
-        if tCnt is not None and tCnt.text == '0':
-            return {
-                "success": False,
-                "message": "해당 송장번호로 조회된 통관 정보가 없습니다."
-            }
-        
-        customs_info = []
-        for item in root.findall('.//expsCargInfo'):
-            info = {
-                "tracking_number": get_xml_text(item, 'hblNo'),
-                "master_bl": get_xml_text(item, 'mblNo'),
-                "customs_status": get_xml_text(item, 'csclPrgsStts'),
-                "product_name": get_xml_text(item, 'prnm'),
-                "quantity": get_xml_text(item, 'pckUt'),
-                "weight": get_xml_text(item, 'gwgt'),
-                "receiver_name": get_xml_text(item, 'cnsiNm'),
-                "departure_country": get_xml_text(item, 'shipNat'),
-            }
-            customs_info.append(info)
-        
-        events = []
-        for event in root.findall('.//event'):
-            event_info = {
-                "eventDate": get_xml_text(event, 'evntDt'),
-                "eventTime": get_xml_text(event, 'evntTm'),
-                "eventName": get_xml_text(event, 'evntNm'),
-                "location": get_xml_text(event, 'evntPlc'),
-                "remark": get_xml_text(event, 'rmrk'),
-            }
-            events.append(event_info)
-        
-        return {
-            "success": True,
-            "tracking_number": tracking_number,
-            "customs_info": customs_info,
-            "events": events,
-            "total_count": len(customs_info),
-            "query_type": "express"
-        }
-        
-    except Exception as e:
-        print(f"❌ 특송화물 통관 조회 오류: {e}")
-        import traceback
-        traceback.print_exc()
-        return {
-            "success": False,
-            "message": f"통관 조회 중 오류 발생: {str(e)}"
-        }
+def get_express_customs_info(tracking_number: str, order_date: str = None):
+    """7customs.com - 특송화물 통관 조회"""
+    # order_date가 없으면 올해로 설정
+    if not order_date:
+        from datetime import datetime
+        order_date = datetime.now().strftime("%Y-%m-%d")
+    
+    # 7customs.com에서 조회
+    result = scrape_7customs(tracking_number, order_date)
+    
+    if not result.get("success"):
+        return result
+    
+    # 기존 API 응답 형식에 맞게 변환
+    formatted = format_7customs_for_modal(result)
+    formatted["query_type"] = "express"
+    
+    return formatted
 
 
 # ===== 통합 통관 조회 (자동 판단) =====
-def get_customs_info_auto(tracking_number: str = None, master_bl: str = None, house_bl: str = None):
-    """자동으로 적절한 API 선택하여 통관 조회"""
+def get_customs_info_auto(tracking_number: str = None, master_bl: str = None, house_bl: str = None, order_date: str = None):
     if tracking_number and not master_bl:
-        print(f"📦 특송화물 조회 모드")
-        return get_express_customs_info(tracking_number)
+        return get_express_customs_info(tracking_number, order_date)  # ← order_date 추가
     elif master_bl:
-        print(f"🚢 일반화물 조회 모드")
         return get_customs_progress(master_bl, house_bl)
     else:
-        return {
-            "success": False,
-            "message": "송장번호 또는 B/L 번호를 입력하세요"
-        }
-
+        return {"success": False, "message": "송장번호 또는 B/L 번호를 입력하세요"}
 
 # ===== API 엔드포인트 =====
 
@@ -216,10 +156,7 @@ def customs_search_page(request: Request):
 
 @router.get("/api/customs/{order_id}")
 def get_customs_info_by_order(order_id: int, db: Session = Depends(get_db)):
-    """주문 ID로 통관 조회"""
     try:
-        print(f"\n=== 주문 ID로 통관 조회: {order_id} ===")
-        
         order = db.query(Order).filter(Order.id == order_id).first()
         
         if not order:
@@ -227,26 +164,19 @@ def get_customs_info_by_order(order_id: int, db: Session = Depends(get_db)):
         
         # ✅ 송장번호 정리 (.0 제거)
         tracking_number = clean_tracking_number(order.tracking_number)
-        master_bl = order.master_bl
-        house_bl = order.house_bl
         
-        print(f"주문번호: {order.order_number}")
-        print(f"송장번호 (정리): {tracking_number}")
-        print(f"Master B/L: {master_bl}")
-        print(f"House B/L: {house_bl}")
+        # ✅ order_date 가져오기
+        order_date = str(order.order_date) if order.order_date else None
         
-        # 조회 가능 여부 체크
-        if not tracking_number and not master_bl and not house_bl:
-            return {
-                "success": False,
-                "message": "송장번호 또는 B/L 번호가 등록되지 않았습니다."
-            }
+        if not tracking_number and not order.master_bl and not order.house_bl:
+            return {"success": False, "message": "송장번호 또는 B/L 번호가 등록되지 않았습니다"}
         
-        # ✅ 정리된 송장번호로 조회
+        # ✅ order_date 전달
         result = get_customs_info_auto(
-            tracking_number=tracking_number,  # ✅ 정리된 값 사용
-            master_bl=master_bl,
-            house_bl=house_bl
+            tracking_number=tracking_number,
+            master_bl=order.master_bl,
+            house_bl=order.house_bl,
+            order_date=order_date  # ← 이것만 추가!
         )
         
         if result.get("success"):
@@ -264,10 +194,7 @@ def get_customs_info_by_order(order_id: int, db: Session = Depends(get_db)):
         print(f"❌ 통관 조회 오류: {e}")
         import traceback
         traceback.print_exc()
-        return {
-            "success": False,
-            "message": f"통관 조회 중 오류: {str(e)}"
-        }
+        return {"success": False, "message": f"통관 조회 중 오류: {str(e)}"}
 
 
 @router.get("/api/customs/search/tracking")
