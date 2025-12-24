@@ -225,20 +225,28 @@ def get_customs_info_by_order(order_id: int, db: Session = Depends(get_db)):
         if not order:
             return {"success": False, "message": "주문을 찾을 수 없습니다"}
         
-        print(f"송장번호: {order.tracking_number}")
-        print(f"Master B/L: {order.master_bl}")
-        print(f"House B/L: {order.house_bl}")
+        # ✅ 송장번호 정리 (.0 제거)
+        tracking_number = clean_tracking_number(order.tracking_number)
+        master_bl = order.master_bl
+        house_bl = order.house_bl
         
-        if not order.tracking_number and not order.master_bl and not order.house_bl:
+        print(f"주문번호: {order.order_number}")
+        print(f"송장번호 (정리): {tracking_number}")
+        print(f"Master B/L: {master_bl}")
+        print(f"House B/L: {house_bl}")
+        
+        # 조회 가능 여부 체크
+        if not tracking_number and not master_bl and not house_bl:
             return {
                 "success": False,
                 "message": "송장번호 또는 B/L 번호가 등록되지 않았습니다."
             }
         
+        # ✅ 정리된 송장번호로 조회
         result = get_customs_info_auto(
-            tracking_number=order.tracking_number,
-            master_bl=order.master_bl,
-            house_bl=order.house_bl
+            tracking_number=tracking_number,  # ✅ 정리된 값 사용
+            master_bl=master_bl,
+            house_bl=house_bl
         )
         
         if result.get("success"):
