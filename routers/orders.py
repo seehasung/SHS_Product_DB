@@ -310,10 +310,18 @@ def get_customs_progress(master_bl: Optional[str] = None, house_bl: Optional[str
         # ⭐ 상세 처리단계 파싱 (cargCsclPrgsInfoDtlQryVo) - 9개!
         detail_steps = []
         for item in root.findall('.//cargCsclPrgsInfoDtlQryVo'):
+            # 처리일시: rlbrDttm 우선, 없으면 prcsDttm 사용
+            rlbr_dttm = get_xml_text(item, 'rlbrDttm')
+            prcs_dttm = get_xml_text(item, 'prcsDttm')
+            
+            # prcsDttm 포맷 변환 (20251217143000 → 2025-12-17 14:30:00)
+            if not rlbr_dttm and prcs_dttm and len(prcs_dttm) == 14:
+                rlbr_dttm = f"{prcs_dttm[0:4]}-{prcs_dttm[4:6]}-{prcs_dttm[6:8]} {prcs_dttm[8:10]}:{prcs_dttm[10:12]}:{prcs_dttm[12:14]}"
+            
             step = {
                 "stage": get_xml_text(item, 'cargTrcnRelaBsopTpcd'),  # 처리단계
                 "warehouse": get_xml_text(item, 'shedNm'),  # 장치장명
-                "process_datetime": get_xml_text(item, 'rlbrDttm'),  # 처리일시
+                "process_datetime": rlbr_dttm,  # 처리일시 (우선순위 적용)
                 "declaration_no": get_xml_text(item, 'dclrNo'),  # 신고번호
                 "content": get_xml_text(item, 'rlbrCn'),  # 처리내용
                 "package_count": get_xml_text(item, 'pckGcnt'),  # 포장개수
