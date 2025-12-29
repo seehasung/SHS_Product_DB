@@ -41,20 +41,39 @@ def get_xml_text(element, tag_name):
     return tag.text if tag is not None and tag.text else ""
 
 
-# ===== 일반화물 통관 조회 =====
-def get_customs_progress(master_bl: str, house_bl: Optional[str] = None):
-    """관세청 API - 일반화물 통관 진행정보 조회"""
+# ===== 일반화물 통관 조회 (M B/L 또는 H B/L) =====
+def get_customs_progress(master_bl: Optional[str] = None, house_bl: Optional[str] = None):
+    """
+    관세청 API - 일반화물 통관 진행정보 조회
+    M B/L 또는 H B/L 중 하나만 있어도 조회 가능
+    """
     try:
-        print(f"🔍 일반화물 통관 조회 시작: M-BL={master_bl}, H-BL={house_bl}")
+        # M B/L 또는 H B/L 중 하나는 필수
+        if not master_bl and not house_bl:
+            return {
+                "success": False,
+                "message": "Master B/L 또는 House B/L 번호가 필요합니다."
+            }
+        
+        print(f"🔍 일반화물 통관 조회 시작: M-BL={master_bl or 'None'}, H-BL={house_bl or 'None'}")
         
         url = f"{CUSTOMS_API_BASE_URL}/cargCsclPrgsInfoQry/retrieveCargCsclPrgsInfo"
         params = {
             "crtfKey": CUSTOMS_API_KEY,
-            "blNo": master_bl,
         }
         
-        if house_bl:
+        # M B/L이 있으면 우선 사용
+        if master_bl:
+            params["blNo"] = master_bl
+        # M B/L이 없고 H B/L만 있으면 H B/L을 blNo로 사용
+        elif house_bl:
+            params["blNo"] = house_bl
+        
+        # H B/L이 있고 M B/L과 다르면 추가
+        if house_bl and master_bl and house_bl != master_bl:
             params["hblNo"] = house_bl
+        
+        print(f"  📤 API 요청 파라미터: {params}")
         
         response = requests.get(url, params=params, timeout=10)
         response.encoding = 'utf-8'
@@ -97,13 +116,17 @@ def get_customs_progress(master_bl: str, house_bl: Optional[str] = None):
             }
             events.append(event_info)
         
+        print(f"  ✅ 일반화물 조회 성공: {len(customs_info)}건")
+        
         return {
             "success": True,
+            "query_type": "general",
             "master_bl": master_bl,
             "house_bl": house_bl,
             "customs_info": customs_info,
             "events": events,
-            "total_count": len(customs_info)
+            "total_count": len(customs_info),
+            "data_source": "customs_api"
         }
         
     except Exception as e:
@@ -216,13 +239,15 @@ def get_express_customs_info(tracking_number: str, order_date: str = None):
     return formatted
 
 
-# ===== 통합 통관 조회 (자동 판단 - 개선) =====
+# ===== 통합 통관 조회 (자동 판단 - 다단계 개선) =====
 def get_customs_info_auto(tracking_number: str = None, master_bl: str = None, house_bl: str = None, order_date: str = None):
     """
-    통관 조회 자동 판단 (우선순위 적용)
+    통관 조회 자동 판단 (다단계 시도)
     1. Master B/L 있음 → 일반화물 API
-    2. House B/L(송장번호)만 있음 → 특송화물 API (관세청)
-    3. 관세청 실패 시 → 7customs.com 백업
+    2. 송장번호만 있음:
+       2-1. 특송화물 API 시도 (DHL, FedEx 등)
+       2-2. 실패 시 일반화물 API 시도 (H B/L로)
+       2-3. 둘 다 실패 시 7customs.com 백업
     """
     
     # 1순위: Master B/L이 있으면 일반화물 조회
@@ -230,25 +255,44 @@ def get_customs_info_auto(tracking_number: str = None, master_bl: str = None, ho
         print(f"📦 일반화물 조회 시도: M-BL={master_bl}, H-BL={house_bl}")
         return get_customs_progress(master_bl, house_bl)
     
-    # 2순위: 송장번호(H B/L)만 있으면 특송화물 조회
+    # 2순위: 송장번호(H B/L)만 있으면 다단계 시도
     elif tracking_number:
-        print(f"✈️ 특송화물 조회 시도: H-BL={tracking_number}")
+        print(f"🔍 송장번호로 통관 조회 시작: {tracking_number}")
         
-        # 2-1. 관세청 특송화물 API 시도
-        result = get_express_customs_by_hbl(tracking_number)
+        # 2-1. 특송화물 API 시도 (DHL, FedEx 등 국제특송)
+        print(f"  ├─ [1단계] 특송화물 API 시도...")
+        express_result = get_express_customs_by_hbl(tracking_number)
         
-        # 2-2. 관세청 실패 시 7customs.com 백업
-        if not result.get("success"):
-            print(f"⚠️ 관세청 API 실패, 7customs.com 백업 시도")
-            backup_result = get_express_customs_info(tracking_number, order_date)
-            
-            # 백업도 실패하면 관세청 에러 메시지 반환
-            if not backup_result.get("success"):
-                return result  # 관세청 에러 메시지
-            
-            return backup_result  # 7customs.com 결과
+        if express_result.get("success"):
+            print(f"  └─ ✅ 특송화물 API 성공!")
+            return express_result
         
-        return result  # 관세청 결과
+        print(f"  ├─ ⚠️ 특송화물 API 실패: {express_result.get('message', '알 수 없음')}")
+        
+        # 2-2. 일반화물 API 시도 (H B/L로 조회)
+        print(f"  ├─ [2단계] 일반화물 API 시도 (H-BL만 사용)...")
+        general_result = get_customs_progress(None, tracking_number)  # Master B/L 없이 House B/L만
+        
+        if general_result.get("success"):
+            print(f"  └─ ✅ 일반화물 API 성공!")
+            return general_result
+        
+        print(f"  ├─ ⚠️ 일반화물 API 실패: {general_result.get('message', '알 수 없음')}")
+        
+        # 2-3. 7customs.com 백업
+        print(f"  ├─ [3단계] 7customs.com 백업 시도...")
+        backup_result = get_express_customs_info(tracking_number, order_date)
+        
+        if backup_result.get("success"):
+            print(f"  └─ ✅ 7customs.com 백업 성공!")
+            return backup_result
+        
+        # 모든 방법 실패
+        print(f"  └─ ❌ 모든 조회 방법 실패")
+        return {
+            "success": False,
+            "message": "통관 정보를 조회할 수 없습니다. 송장번호를 확인해주세요."
+        }
     
     else:
         return {"success": False, "message": "송장번호 또는 B/L 번호를 입력하세요"}
@@ -314,10 +358,10 @@ def search_customs_by_tracking(tracking_number: str):
 
 
 @router.get("/api/customs/search")
-def search_customs_by_bl(master_bl: str, house_bl: Optional[str] = None):
-    """B/L 번호로 일반화물 통관 직접 조회"""
-    if not master_bl:
-        return {"success": False, "message": "마스터 B/L 번호를 입력하세요"}
+def search_customs_by_bl(master_bl: Optional[str] = None, house_bl: Optional[str] = None):
+    """B/L 번호로 일반화물 통관 직접 조회 (M B/L 또는 H B/L 중 하나 필수)"""
+    if not master_bl and not house_bl:
+        return {"success": False, "message": "Master B/L 또는 House B/L 번호를 입력하세요"}
     
     return get_customs_progress(master_bl, house_bl)
 
