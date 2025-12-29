@@ -116,9 +116,87 @@ def get_customs_progress(master_bl: str, house_bl: Optional[str] = None):
         }
 
 
-# ===== 특송화물 통관 조회 =====
+# ===== 특송화물 통관 조회 (관세청 API) =====
+def get_express_customs_by_hbl(hbl_no: str):
+    """관세청 API - 특송화물 통관내역 조회 (H B/L 번호만 필요)"""
+    try:
+        print(f"🔍 특송화물 통관 조회 시작 (관세청 API): H-BL={hbl_no}")
+        
+        url = f"{CUSTOMS_API_BASE_URL}/spsCrwsTrnmDtlsQry/retrieveSpsCrwsTrnmDtls"
+        params = {
+            "crtfKey": CUSTOMS_API_KEY,
+            "hblNo": hbl_no,
+        }
+        
+        response = requests.get(url, params=params, timeout=10)
+        response.encoding = 'utf-8'
+        
+        if response.status_code != 200:
+            return {
+                "success": False,
+                "message": f"관세청 API 호출 실패 (HTTP {response.status_code})"
+            }
+        
+        root = ET.fromstring(response.text)
+        
+        # 조회 결과 개수 확인
+        tCnt = root.find('.//tCnt')
+        if tCnt is not None and tCnt.text == '0':
+            return {
+                "success": False,
+                "message": "해당 송장번호로 조회된 통관 정보가 없습니다."
+            }
+        
+        # 특송화물 통관 정보 추출
+        customs_list = []
+        for item in root.findall('.//spsCrwsTrnmDtls'):
+            customs_info = {
+                "hblNo": get_xml_text(item, 'hblNo'),              # 송장번호
+                "prgsStts": get_xml_text(item, 'prgsStts'),        # 진행상태
+                "prgsSttsNm": get_xml_text(item, 'prgsSttsNm'),    # 진행상태명
+                "prcsDttm": get_xml_text(item, 'prcsDttm'),        # 처리일시
+                "rlbrDttm": get_xml_text(item, 'rlbrDttm'),        # 반출일시
+                "shipNatNm": get_xml_text(item, 'shipNatNm'),      # 선적국가명
+                "shipNat": get_xml_text(item, 'shipNat'),          # 선적국가코드
+                "csclPrgsSttsCd": get_xml_text(item, 'csclPrgsSttsCd'),  # 통관진행상태코드
+                "csclPrgsSttsNm": get_xml_text(item, 'csclPrgsSttsNm'),  # 통관진행상태명
+            }
+            customs_list.append(customs_info)
+        
+        # 이벤트 정보 추출 (있는 경우)
+        events = []
+        for event in root.findall('.//event'):
+            event_info = {
+                "eventDate": get_xml_text(event, 'evntDt'),
+                "eventTime": get_xml_text(event, 'evntTm'),
+                "eventName": get_xml_text(event, 'evntNm'),
+                "location": get_xml_text(event, 'evntPlc'),
+            }
+            events.append(event_info)
+        
+        return {
+            "success": True,
+            "query_type": "express",
+            "hbl_no": hbl_no,
+            "customs_info": customs_list,
+            "events": events,
+            "total_count": len(customs_list),
+            "data_source": "customs_api"  # 데이터 출처 표시
+        }
+        
+    except Exception as e:
+        print(f"❌ 특송화물 통관 조회 오류: {e}")
+        import traceback
+        traceback.print_exc()
+        return {
+            "success": False,
+            "message": f"통관 조회 중 오류 발생: {str(e)}"
+        }
+
+
+# ===== 특송화물 통관 조회 (7customs.com 백업) =====
 def get_express_customs_info(tracking_number: str, order_date: str = None):
-    """7customs.com - 특송화물 통관 조회"""
+    """7customs.com - 특송화물 통관 조회 (백업용)"""
     # order_date가 없으면 올해로 설정
     if not order_date:
         from datetime import datetime
@@ -133,16 +211,45 @@ def get_express_customs_info(tracking_number: str, order_date: str = None):
     # 기존 API 응답 형식에 맞게 변환
     formatted = format_7customs_for_modal(result)
     formatted["query_type"] = "express"
+    formatted["data_source"] = "7customs"  # 데이터 출처 표시
     
     return formatted
 
 
-# ===== 통합 통관 조회 (자동 판단) =====
+# ===== 통합 통관 조회 (자동 판단 - 개선) =====
 def get_customs_info_auto(tracking_number: str = None, master_bl: str = None, house_bl: str = None, order_date: str = None):
-    if tracking_number and not master_bl:
-        return get_express_customs_info(tracking_number, order_date)  # ← order_date 추가
-    elif master_bl:
+    """
+    통관 조회 자동 판단 (우선순위 적용)
+    1. Master B/L 있음 → 일반화물 API
+    2. House B/L(송장번호)만 있음 → 특송화물 API (관세청)
+    3. 관세청 실패 시 → 7customs.com 백업
+    """
+    
+    # 1순위: Master B/L이 있으면 일반화물 조회
+    if master_bl:
+        print(f"📦 일반화물 조회 시도: M-BL={master_bl}, H-BL={house_bl}")
         return get_customs_progress(master_bl, house_bl)
+    
+    # 2순위: 송장번호(H B/L)만 있으면 특송화물 조회
+    elif tracking_number:
+        print(f"✈️ 특송화물 조회 시도: H-BL={tracking_number}")
+        
+        # 2-1. 관세청 특송화물 API 시도
+        result = get_express_customs_by_hbl(tracking_number)
+        
+        # 2-2. 관세청 실패 시 7customs.com 백업
+        if not result.get("success"):
+            print(f"⚠️ 관세청 API 실패, 7customs.com 백업 시도")
+            backup_result = get_express_customs_info(tracking_number, order_date)
+            
+            # 백업도 실패하면 관세청 에러 메시지 반환
+            if not backup_result.get("success"):
+                return result  # 관세청 에러 메시지
+            
+            return backup_result  # 7customs.com 결과
+        
+        return result  # 관세청 결과
+    
     else:
         return {"success": False, "message": "송장번호 또는 B/L 번호를 입력하세요"}
 
