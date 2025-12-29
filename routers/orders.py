@@ -58,19 +58,19 @@ def get_customs_progress(master_bl: Optional[str] = None, house_bl: Optional[str
         print(f"🔍 일반화물 통관 조회 시작: M-BL={master_bl or 'None'}, H-BL={house_bl or 'None'}")
         
         url = f"{CUSTOMS_API_BASE_URL}/cargCsclPrgsInfoQry/retrieveCargCsclPrgsInfo"
-        params = {
-            "crtfKey": CUSTOMS_API_KEY,
-        }
         
-        # ⭐ 연도 파라미터 추가 (현재 년도 기본값)
+        # ⭐ 연도 파라미터 추가 (현재 년도)
         from datetime import datetime
         current_year = datetime.now().year
-        params["blYy"] = str(current_year)  # 2025
+        
+        params = {
+            "crtfKey": CUSTOMS_API_KEY,
+            "blYy": str(current_year),  # ⭐ 연도 필수!
+        }
         
         # ⭐ H B/L만 있는 경우: hblNo만 사용 (blNo 없이)
         if not master_bl and house_bl:
             params["hblNo"] = house_bl
-            print(f"  📤 API 요청 (H-BL만, 년도: {current_year}): {params}")
         
         # M B/L이 있는 경우
         elif master_bl:
@@ -78,13 +78,14 @@ def get_customs_progress(master_bl: Optional[str] = None, house_bl: Optional[str
             # H B/L도 있으면 함께 전송
             if house_bl and house_bl != master_bl:
                 params["hblNo"] = house_bl
-            print(f"  📤 API 요청 (M-BL + H-BL, 년도: {current_year}): {params}")
         
         else:
             return {
                 "success": False,
                 "message": "Master B/L 또는 House B/L 번호가 필요합니다."
             }
+        
+        print(f"  📤 최종 API 요청: {params}")  # ⭐ 확인용 로그
         
         response = requests.get(url, params=params, timeout=10)
         response.encoding = 'utf-8'
