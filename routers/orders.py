@@ -260,26 +260,44 @@ def get_customs_progress(master_bl: Optional[str] = None, house_bl: Optional[str
         print(response.text[:500])
         
         root = ET.fromstring(response.text)
-        tCnt = root.find('.//tCnt')
         
-        if tCnt is not None and tCnt.text == '0':
+        # 에러 확인
+        ntce_info = root.find('.//ntceInfo')
+        if ntce_info is not None and ntce_info.text:
+            print(f"  ⚠️ API 에러: {ntce_info.text}")
             return {
                 "success": False,
-                "message": "해당 B/L 번호로 조회된 통관 정보가 없습니다."
+                "message": f"관세청 API 오류: {ntce_info.text}"
             }
         
+        # ⭐ cargCsclPrgsInfoQryVo 태그에서 직접 데이터 추출
         customs_info = []
-        for item in root.findall('.//cargCsclPrgsInfo'):
+        for item in root.findall('.//cargCsclPrgsInfoQryVo'):
             info = {
-                "bl_no": get_xml_text(item, 'blNo'),
-                "house_bl_no": get_xml_text(item, 'hblNo'),
-                "csclPrgsStts": get_xml_text(item, 'csclPrgsStts'),
-                "prnm": get_xml_text(item, 'prnm'),
-                "shipNat": get_xml_text(item, 'shipNat'),
-                "dstnNat": get_xml_text(item, 'dstnNat'),
-                "rlbrDt": get_xml_text(item, 'rlbrDt'),
+                "csclPrgsStts": get_xml_text(item, 'csclPrgsStts'),  # 통관진행상태
+                "prnm": get_xml_text(item, 'prnm'),  # 품명
+                "etprDt": get_xml_text(item, 'etprDt'),  # 입항일
+                "shipNat": get_xml_text(item, 'shipNat'),  # 선적국가
+                "dsprNm": get_xml_text(item, 'dsprNm'),  # 양륙항명
+                "cargTp": get_xml_text(item, 'cargTp'),  # 화물구분
+                "cntrGcnt": get_xml_text(item, 'cntrGcnt'),  # 컨테이너개수
+                "prgsStCd": get_xml_text(item, 'prgsStCd'),  # 진행상태코드
             }
             customs_info.append(info)
+        
+        # ⭐ 데이터 없으면 다른 태그 시도
+        if len(customs_info) == 0:
+            for item in root.findall('.//cargCsclPrgsInfo'):
+                info = {
+                    "bl_no": get_xml_text(item, 'blNo'),
+                    "house_bl_no": get_xml_text(item, 'hblNo'),
+                    "csclPrgsStts": get_xml_text(item, 'csclPrgsStts'),
+                    "prnm": get_xml_text(item, 'prnm'),
+                    "shipNat": get_xml_text(item, 'shipNat'),
+                    "dstnNat": get_xml_text(item, 'dstnNat'),
+                    "rlbrDt": get_xml_text(item, 'rlbrDt'),
+                }
+                customs_info.append(info)
         
         events = []
         for event in root.findall('.//event'):
