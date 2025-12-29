@@ -62,18 +62,24 @@ def get_customs_progress(master_bl: Optional[str] = None, house_bl: Optional[str
             "crtfKey": CUSTOMS_API_KEY,
         }
         
-        # M B/L이 있으면 우선 사용
-        if master_bl:
-            params["blNo"] = master_bl
-        # M B/L이 없고 H B/L만 있으면 H B/L을 blNo로 사용
-        elif house_bl:
-            params["blNo"] = house_bl
-        
-        # H B/L이 있고 M B/L과 다르면 추가
-        if house_bl and master_bl and house_bl != master_bl:
+        # ⭐ H B/L만 있는 경우: hblNo만 사용 (blNo 없이)
+        if not master_bl and house_bl:
             params["hblNo"] = house_bl
+            print(f"  📤 API 요청 (H-BL만): {params}")
         
-        print(f"  📤 API 요청 파라미터: {params}")
+        # M B/L이 있는 경우
+        elif master_bl:
+            params["blNo"] = master_bl
+            # H B/L도 있으면 함께 전송
+            if house_bl and house_bl != master_bl:
+                params["hblNo"] = house_bl
+            print(f"  📤 API 요청 (M-BL + H-BL): {params}")
+        
+        else:
+            return {
+                "success": False,
+                "message": "Master B/L 또는 House B/L 번호가 필요합니다."
+            }
         
         response = requests.get(url, params=params, timeout=10)
         response.encoding = 'utf-8'
