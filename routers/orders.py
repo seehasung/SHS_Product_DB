@@ -30,10 +30,6 @@ CUSTOMS_API_BASE_URL = "https://unipass.customs.go.kr:38010/ext/rest"
 # 통관 조회 관련 (API + 함수)
 # ============================================
 
-# 관세청 API 설정
-CUSTOMS_API_KEY = "m230t285b102t292j090l050g2"
-CUSTOMS_API_BASE_URL = "https://unipass.customs.go.kr:38010/ext/rest"
-
 # ===== 헬퍼 함수 =====
 def get_xml_text(element, tag_name):
     """XML 요소에서 텍스트 추출"""
@@ -226,7 +222,7 @@ def get_customs_progress(master_bl: Optional[str] = None, house_bl: Optional[str
         current_year = datetime.now().year
         
         params = {
-            "crtfKey": CUSTOMS_API_KEY,
+            "crkyCn": CUSTOMS_API_KEY,  # ⭐ 올바른 파라미터 이름!
             "blYy": str(current_year),  # ⭐ 연도 필수!
         }
         
@@ -334,7 +330,7 @@ def get_express_customs_by_hbl(hbl_no: str):
         
         url = f"{CUSTOMS_API_BASE_URL}/spsCrwsTrnmDtlsQry/retrieveSpsCrwsTrnmDtls"
         params = {
-            "crtfKey": CUSTOMS_API_KEY,
+            "crkyCn": CUSTOMS_API_KEY,  # ⭐ 올바른 파라미터 이름!
             "hblNo": hbl_no,
         }
         
