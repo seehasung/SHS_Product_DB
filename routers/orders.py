@@ -331,11 +331,34 @@ def get_customs_info_by_order(order_id: int, db: Session = Depends(get_db)):
         if not order:
             return {"success": False, "message": "주문을 찾을 수 없습니다"}
         
+        # ✅ 디버그: 주문 데이터 로깅
+        print(f"📋 주문 데이터 확인 (Order ID: {order_id}):")
+        print(f"  - tracking_number: {order.tracking_number}")
+        print(f"  - master_bl: {order.master_bl}")
+        print(f"  - house_bl: {order.house_bl}")
+        print(f"  - customs_number: {order.customs_number}")
+        print(f"  - courier_company: {order.courier_company}")
+        
         # ✅ 송장번호 정리 (.0 제거)
         tracking_number = clean_tracking_number(order.tracking_number)
         
         # ✅ order_date 가져오기
         order_date = str(order.order_date) if order.order_date else None
+        
+        # ⭐ 국내 택배 판별 (통관 불필요)
+        courier_company = (order.courier_company or "").lower()
+        domestic_couriers = ['cj', '대한통운', '로젠', '롯데', '한진', '우체국', '경동', 'kdexp']
+        is_domestic = any(keyword in courier_company for keyword in domestic_couriers)
+        
+        # 국내 택배이고 master_bl/house_bl이 없으면 통관 조회 불필요
+        if is_domestic and not order.master_bl and not order.house_bl:
+            print(f"  ℹ️ 국내 택배 송장 (통관 불필요): {courier_company}")
+            return {
+                "success": False,
+                "message": f"국내 택배 배송입니다. 택배 조회를 이용해주세요.",
+                "is_domestic": True,
+                "courier_company": order.courier_company
+            }
         
         if not tracking_number and not order.master_bl and not order.house_bl:
             return {"success": False, "message": "송장번호 또는 B/L 번호가 등록되지 않았습니다"}
@@ -345,7 +368,7 @@ def get_customs_info_by_order(order_id: int, db: Session = Depends(get_db)):
             tracking_number=tracking_number,
             master_bl=order.master_bl,
             house_bl=order.house_bl,
-            order_date=order_date  # ← 이것만 추가!
+            order_date=order_date
         )
         
         if result.get("success"):
