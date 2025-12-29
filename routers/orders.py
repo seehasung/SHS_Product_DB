@@ -351,29 +351,20 @@ def get_customs_info_by_order(order_id: int, db: Session = Depends(get_db)):
         # ✅ order_date 가져오기
         order_date = str(order.order_date) if order.order_date else None
         
-        # ⭐ 국내 택배 판별 (통관 불필요)
-        courier_company = (order.courier_company or "").lower()
-        domestic_couriers = ['cj', '대한통운', '로젠', '롯데', '한진', '우체국', '경동', 'kdexp']
-        is_domestic = any(keyword in courier_company for keyword in domestic_couriers)
-        
-        # 국내 택배이고 master_bl/house_bl이 없으면 통관 조회 불필요
-        if is_domestic and not order.master_bl and not order.house_bl:
-            print(f"  ℹ️ 국내 택배 송장 (통관 불필요): {courier_company}")
-            return {
-                "success": False,
-                "message": f"국내 택배 배송입니다. 택배 조회를 이용해주세요.",
-                "is_domestic": True,
-                "courier_company": order.courier_company
-            }
-        
+        # ⭐ 송장번호가 없으면 에러
         if not tracking_number and not order.master_bl and not order.house_bl:
             return {"success": False, "message": "송장번호 또는 B/L 번호가 등록되지 않았습니다"}
         
-        # ✅ order_date 전달
+        # ⭐ tracking_number를 house_bl로 전달 (DB에 house_bl이 없으면)
+        house_bl_to_use = order.house_bl if order.house_bl else tracking_number
+        
+        print(f"  🔍 조회에 사용할 H-BL: {house_bl_to_use}")
+        
+        # ✅ 통관 조회 (tracking_number를 house_bl로 사용)
         result = get_customs_info_auto(
-            tracking_number=tracking_number,
+            tracking_number=None,  # ⭐ tracking_number는 사용 안함
             master_bl=order.master_bl,
-            house_bl=order.house_bl,
+            house_bl=house_bl_to_use,  # ⭐ tracking_number를 house_bl로 사용
             order_date=order_date
         )
         
