@@ -429,8 +429,16 @@
             <div class="stat-icon" style="background: linear-gradient(135deg, #e17055 0%, #fab1a0 100%); color: white;">
                 <i class="bi bi-exclamation-triangle"></i>
             </div>
-            <div class="stat-value">{{ "{:,}".format(customs_issue_count) }}</div>
-            <div class="stat-label">통관 절차 이상</div>
+            <div class="stat-value" id="customsIssueCount">{{ "{:,}".format(customs_issue_count) }}</div>
+            <div class="stat-label">
+                통관 절차 이상
+                <button onclick="event.stopPropagation(); refreshCustomsIssueCheck();" 
+                        class="btn btn-sm btn-outline-light ms-2" 
+                        style="padding: 2px 8px; font-size: 0.75rem; border-radius: 50%;"
+                        title="지금 체크하기">
+                    <i class="bi bi-arrow-clockwise"></i>
+                </button>
+            </div>
         </div>
         
         <!-- 5. 장기 미배송 -->
@@ -1247,6 +1255,44 @@
     }
 
     // ===== 조건별 주문 목록 표시 =====
+    // ===== 통관 절차 이상 수동 체크 =====
+    async function refreshCustomsIssueCheck() {
+        const countElement = document.getElementById('customsIssueCount');
+        const originalText = countElement.textContent;
+        
+        // 로딩 표시
+        countElement.innerHTML = '<div class="spinner-border spinner-border-sm"></div>';
+        
+        try {
+            const response = await fetch('/orders/api/check-customs-issues', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                // 카운트 업데이트
+                countElement.textContent = result.count.toLocaleString();
+                
+                // 성공 메시지
+                alert(`✅ 통관 절차 이상 체크 완료!\n발견: ${result.count}건`);
+                
+                // 페이지 새로고침
+                window.location.reload();
+            } else {
+                countElement.textContent = originalText;
+                alert(`❌ 체크 실패: ${result.message}`);
+            }
+        } catch (error) {
+            countElement.textContent = originalText;
+            console.error('통관 절차 이상 체크 오류:', error);
+            alert('❌ 체크 중 오류가 발생했습니다.');
+        }
+    }
+
     async function showOrdersByCondition(condition, title) {
         document.getElementById('ordersTableTitle').innerHTML = `<i class="bi bi-filter"></i> ${title} 주문 목록`;
         document.getElementById('ordersTableContainer').innerHTML = '<div style="text-align: center; padding: 40px;"><div class="spinner-border text-primary"></div></div>';

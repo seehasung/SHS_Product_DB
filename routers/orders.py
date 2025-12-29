@@ -749,6 +749,39 @@ def check_order_permission(request: Request):
     return None
 
 
+# ============================================
+# 통관 절차 이상 수동 체크 API
+# ============================================
+@router.post("/api/check-customs-issues")
+async def trigger_customs_check(request: Request):
+    """통관 절차 이상 수동 체크 트리거"""
+    user_info = check_order_permission(request)
+    if not user_info:
+        raise HTTPException(status_code=401, detail="권한 없음")
+    
+    try:
+        # 스케줄러의 check_customs_issues 함수 즉시 실행
+        from scheduler import check_customs_issues, customs_issue_cache
+        
+        # 비동기 실행
+        await check_customs_issues()
+        
+        return {
+            "success": True,
+            "message": f"통관 절차 이상 체크 완료: {customs_issue_cache['count']}건 발견",
+            "count": customs_issue_cache['count'],
+            "last_checked": customs_issue_cache['last_checked'].isoformat() if customs_issue_cache['last_checked'] else None
+        }
+    except Exception as e:
+        print(f"❌ 수동 체크 오류: {e}")
+        import traceback
+        traceback.print_exc()
+        return {
+            "success": False,
+            "message": f"체크 중 오류: {str(e)}"
+        }
+
+
 # routers/orders.py - 추가할 코드
 
 # ============================================

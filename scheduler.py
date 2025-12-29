@@ -174,9 +174,7 @@ async def check_customs_issues():
                 
                 checked_count += 1
                 
-                # 최대 100건까지 체크 (성능 고려)
-                if checked_count >= 100:
-                    break
+                # ⭐ 제한 없이 모두 체크
                 
             except Exception as e:
                 print(f"  ❌ 통관 조회 오류: {order.order_number} - {e}")
@@ -187,7 +185,7 @@ async def check_customs_issues():
         customs_issue_cache['last_checked'] = now
         customs_issue_cache['count'] = len(issue_orders)
         
-        print(f"✅ 통관 절차 이상 체크 완료: {len(issue_orders)}건 발견 (총 {checked_count}건 체크)")
+        print(f"✅ 통관 절차 이상 체크 완료: {len(issue_orders)}건 발견 (총 {checked_count}건 체크, 소요 시간: {(get_kst_now() - now).total_seconds():.1f}초)")
         
     except Exception as e:
         print(f"❌ 통관 절차 이상 체크 오류: {e}")
