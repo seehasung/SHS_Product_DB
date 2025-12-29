@@ -848,34 +848,9 @@ def order_dashboard(
         Order.is_kyungdong_transferred == True
     ).count()
     
-    # 4. 통관 절차 이상 (새로운 로직: 10일 지난 배송중/반품 중 반출신고 없음)
-    ten_days_ago = (date.today() - timedelta(days=10)).strftime('%Y-%m-%d')
-    
-    # 배송중, 반품 상태이면서 10일 지난 주문
-    suspect_orders = db.query(Order).filter(
-        Order.order_date < ten_days_ago
-    ).all()
-    
-    customs_issue_count = 0
-    for order in suspect_orders:
-        normalized_status = normalize_order_status(order.order_status, db)
-        
-        # 배송중 또는 반품 상태만
-        if normalized_status not in ['배송중', '반품']:
-            continue
-        
-        # 송장번호가 없으면 패스
-        tracking = clean_tracking_number(order.tracking_number)
-        if not tracking:
-            continue
-        
-        # 통관 API 간단 체크 (실제 호출은 안하고 조건만 체크)
-        # 실제로는 너무 많은 API 호출이 될 수 있으므로 샘플링
-        customs_issue_count += 1
-    
-    # ⭐ 성능 고려: 최대 100건까지만 체크
-    if customs_issue_count > 100:
-        customs_issue_count = 100
+    # 4. 통관 절차 이상 (스케줄러 캐시 사용)
+    from scheduler import customs_issue_cache
+    customs_issue_count = customs_issue_cache.get('count', 0)
     
     # 5. 장기 미배송 (2주 = 14일)
     two_weeks_ago = (date.today() - timedelta(days=14)).strftime('%Y-%m-%d')
@@ -997,59 +972,17 @@ def get_orders_by_condition(
         ).all()
     
     elif condition == "customs_issue":
-        # 통관 절차 이상 (10일 지난 배송중/반품 중 반출신고 없음) ⭐
-        ten_days_ago = (date.today() - timedelta(days=10)).strftime('%Y-%m-%d')
+        # 통관 절차 이상 (스케줄러 캐시 사용) ⭐
+        from scheduler import customs_issue_cache
         
-        # 10일 지난 주문
-        old_orders = db.query(Order).filter(
-            Order.order_date < ten_days_ago
-        ).all()
+        cached_orders = customs_issue_cache.get('orders', [])
         
-        issue_orders = []
-        checked_count = 0
-        
-        for order in old_orders:
-            # 배송중 또는 반품 상태만
-            normalized_status = normalize_order_status(order.order_status, db)
-            if normalized_status not in ['배송중', '반품']:
-                continue
-            
-            # 송장번호 확인
-            tracking = clean_tracking_number(order.tracking_number)
-            if not tracking:
-                continue
-            
-            # ⭐ 통관 API 조회하여 반출신고 확인
-            try:
-                customs_result = get_customs_info_auto(
-                    tracking_number=tracking,
-                    master_bl=order.master_bl,
-                    house_bl=order.house_bl,
-                    order_date=str(order.order_date) if order.order_date else None
-                )
-                
-                # 통관 조회 성공한 경우만
-                if customs_result.get("success"):
-                    history = customs_result.get("history", [])
-                    
-                    # 반출신고가 없으면 이상
-                    has_release = any("반출신고" in str(h.get("process_type", "")) for h in history)
-                    
-                    if not has_release:
-                        issue_orders.append(order)
-                        print(f"  ⚠️ 통관 이상: {order.order_number} (반출신고 없음)")
-                
-                checked_count += 1
-                
-                # 성능 고려: 최대 50건까지만 체크
-                if checked_count >= 50:
-                    break
-                    
-            except Exception as e:
-                print(f"  ❌ 통관 조회 오류: {order.order_number} - {e}")
-                continue
-        
-        orders = issue_orders
+        # 캐시된 order_id로 실제 Order 객체 조회
+        if cached_orders:
+            order_ids = [item['order_id'] for item in cached_orders]
+            orders = db.query(Order).filter(Order.id.in_(order_ids)).all()
+        else:
+            orders = []
     
     elif condition == "long_undelivered":
         # 장기 미배송

@@ -6,8 +6,15 @@ from datetime import datetime, timedelta
 from sqlalchemy import and_
 import asyncio
 
-from database import SessionLocal, TaskAssignment, TaskNotification, User, get_kst_now, KST
+from database import SessionLocal, TaskAssignment, TaskNotification, User, Order, get_kst_now, KST
 from websocket_manager import manager
+
+# ⭐ 통관 절차 이상 캐시 (메모리)
+customs_issue_cache = {
+    'orders': [],
+    'last_checked': None,
+    'count': 0
+}
 
 scheduler = AsyncIOScheduler()
 
@@ -110,10 +117,90 @@ async def cleanup_old_notifications():
         db.close()
 
 
+async def check_customs_issues():
+    """통관 절차 이상 자동 체크 (10일 지난 배송중/반품 중 반출신고 없음)"""
+    db = SessionLocal()
+    try:
+        from datetime import date, timedelta
+        from routers.orders import normalize_order_status, clean_tracking_number, get_customs_info_auto
+        
+        now = get_kst_now()
+        print(f"🔍 통관 절차 이상 자동 체크 시작: {now.strftime('%Y-%m-%d %H:%M:%S')}")
+        
+        ten_days_ago = (date.today() - timedelta(days=10)).strftime('%Y-%m-%d')
+        
+        # 10일 지난 주문
+        old_orders = db.query(Order).filter(
+            Order.order_date < ten_days_ago
+        ).all()
+        
+        issue_orders = []
+        checked_count = 0
+        
+        for order in old_orders:
+            # 배송중 또는 반품 상태만
+            normalized_status = normalize_order_status(order.order_status, db)
+            if normalized_status not in ['배송중', '반품']:
+                continue
+            
+            # 송장번호 확인
+            tracking = clean_tracking_number(order.tracking_number)
+            if not tracking:
+                continue
+            
+            # 통관 API 조회
+            try:
+                customs_result = get_customs_info_auto(
+                    tracking_number=tracking,
+                    master_bl=order.master_bl,
+                    house_bl=order.house_bl,
+                    order_date=str(order.order_date) if order.order_date else None
+                )
+                
+                if customs_result.get("success"):
+                    history = customs_result.get("history", [])
+                    
+                    # 반출신고가 없으면 이상
+                    has_release = any("반출신고" in str(h.get("process_type", "")) for h in history)
+                    
+                    if not has_release:
+                        issue_orders.append({
+                            'order_id': order.id,
+                            'order_number': order.order_number,
+                            'tracking_number': tracking,
+                            'order_status': order.order_status,
+                            'order_date': str(order.order_date)
+                        })
+                
+                checked_count += 1
+                
+                # 최대 100건까지 체크 (성능 고려)
+                if checked_count >= 100:
+                    break
+                
+            except Exception as e:
+                print(f"  ❌ 통관 조회 오류: {order.order_number} - {e}")
+                continue
+        
+        # 캐시에 저장
+        customs_issue_cache['orders'] = issue_orders
+        customs_issue_cache['last_checked'] = now
+        customs_issue_cache['count'] = len(issue_orders)
+        
+        print(f"✅ 통관 절차 이상 체크 완료: {len(issue_orders)}건 발견 (총 {checked_count}건 체크)")
+        
+    except Exception as e:
+        print(f"❌ 통관 절차 이상 체크 오류: {e}")
+        import traceback
+        traceback.print_exc()
+    finally:
+        db.close()
+
+
 def start_scheduler():
     """스케줄러 시작"""
     
-    # ⭐ 반복 알림: 30분마다 실행 (중복 제거)
+    # ⭐ 반복 알림: 30분마다 실행
     scheduler.add_job(
         send_pending_notifications,
         trigger=IntervalTrigger(minutes=30),
@@ -122,9 +209,7 @@ def start_scheduler():
         replace_existing=True
     )
     
-    # ⭐ 중복 스케줄 제거 (위에서 모두 처리)
-    
-    # 오래된 알림 정리: 매일 자정에 실행
+    # 오래된 알림 정리: 매일 자정
     scheduler.add_job(
         cleanup_old_notifications,
         trigger='cron',
@@ -135,8 +220,22 @@ def start_scheduler():
         replace_existing=True
     )
     
+    # ⭐ 통관 절차 이상 자동 체크: 매일 13시, 18시
+    scheduler.add_job(
+        check_customs_issues,
+        trigger='cron',
+        hour='13,18',  # 오후 1시, 6시
+        minute=0,
+        id='customs_issue_check',
+        name='통관 절차 이상 자동 체크',
+        replace_existing=True
+    )
+    
     scheduler.start()
-    print("✅ 스케줄러 시작됨 (30분 간격, 퇴근 시간 17:00)")
+    print("✅ 스케줄러 시작됨")
+    print("   - 미완료 업무 알림: 30분마다")
+    print("   - 알림 정리: 매일 자정")
+    print("   - 통관 절차 이상 체크: 매일 13시, 18시")
 
 
 def stop_scheduler():
