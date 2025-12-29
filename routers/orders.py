@@ -62,10 +62,15 @@ def get_customs_progress(master_bl: Optional[str] = None, house_bl: Optional[str
             "crtfKey": CUSTOMS_API_KEY,
         }
         
+        # ⭐ 연도 파라미터 추가 (현재 년도 기본값)
+        from datetime import datetime
+        current_year = datetime.now().year
+        params["blYy"] = str(current_year)  # 2025
+        
         # ⭐ H B/L만 있는 경우: hblNo만 사용 (blNo 없이)
         if not master_bl and house_bl:
             params["hblNo"] = house_bl
-            print(f"  📤 API 요청 (H-BL만): {params}")
+            print(f"  📤 API 요청 (H-BL만, 년도: {current_year}): {params}")
         
         # M B/L이 있는 경우
         elif master_bl:
@@ -73,7 +78,7 @@ def get_customs_progress(master_bl: Optional[str] = None, house_bl: Optional[str
             # H B/L도 있으면 함께 전송
             if house_bl and house_bl != master_bl:
                 params["hblNo"] = house_bl
-            print(f"  📤 API 요청 (M-BL + H-BL): {params}")
+            print(f"  📤 API 요청 (M-BL + H-BL, 년도: {current_year}): {params}")
         
         else:
             return {
