@@ -68,9 +68,10 @@ def get_customs_progress(master_bl: Optional[str] = None, house_bl: Optional[str
             "blYy": str(current_year),  # ⭐ 연도 필수!
         }
         
-        # ⭐ H B/L만 있는 경우: hblNo만 사용 (blNo 없이)
+        # ⭐ H B/L만 있는 경우: blNo와 hblNo 모두 사용
         if not master_bl and house_bl:
-            params["hblNo"] = house_bl
+            params["blNo"] = house_bl  # ⭐ M B/L 자리에 H-BL 입력
+            params["hblNo"] = house_bl  # ⭐ H B/L 자리에도 입력 (둘 다 시도)
         
         # M B/L이 있는 경우
         elif master_bl:
