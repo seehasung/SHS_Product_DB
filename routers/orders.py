@@ -116,6 +116,14 @@ def get_customs_progress(master_bl: Optional[str] = None, house_bl: Optional[str
             }
             events.append(event_info)
         
+        # ⭐ 데이터가 없으면 실패로 처리
+        if len(customs_info) == 0:
+            print(f"  ⚠️ 일반화물 조회 결과 0건 (실패 처리)")
+            return {
+                "success": False,
+                "message": "해당 B/L 번호로 조회된 통관 정보가 없습니다."
+            }
+        
         print(f"  ✅ 일반화물 조회 성공: {len(customs_info)}건")
         
         return {
@@ -196,6 +204,16 @@ def get_express_customs_by_hbl(hbl_no: str):
                 "location": get_xml_text(event, 'evntPlc'),
             }
             events.append(event_info)
+        
+        # ⭐ 데이터가 없으면 실패로 처리
+        if len(customs_list) == 0:
+            print(f"  ⚠️ 특송화물 조회 결과 0건 (실패 처리)")
+            return {
+                "success": False,
+                "message": "해당 송장번호로 조회된 통관 정보가 없습니다."
+            }
+        
+        print(f"  ✅ 특송화물 조회 성공: {len(customs_list)}건")
         
         return {
             "success": True,
