@@ -83,8 +83,14 @@ def get_unipass_web_customs(hbl_number: str, year: str = None):
         # JSON 파싱
         result1 = response1.json()
         
+        # ⭐ 디버그: 응답 구조 출력
+        print(f"  📥 응답 키: {list(result1.keys())}")
+        print(f"  📥 count: {result1.get('count', 'None')}")
+        print(f"  📥 resultList 존재: {bool(result1.get('resultList'))}")
+        
         if result1.get('count', 0) == 0 or not result1.get('resultList'):
             print(f"  ⚠️ 화물관리번호 조회 결과 없음")
+            print(f"  ⚠️ 전체 응답: {str(result1)[:300]}")
             return {
                 "success": False,
                 "message": "해당 송장번호로 조회된 화물이 없습니다."
@@ -93,6 +99,8 @@ def get_unipass_web_customs(hbl_number: str, year: str = None):
         # 화물관리번호 추출
         cargo_info = result1['resultList'][0]
         cargo_mt_no = cargo_info.get('cargMtNo')
+        
+        print(f"  📋 추출된 정보: cargMtNo={cargo_mt_no}, prnm={cargo_info.get('prnm', '')}")
         
         if not cargo_mt_no:
             print(f"  ❌ 화물관리번호 없음")
