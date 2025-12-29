@@ -430,11 +430,19 @@
                 <i class="bi bi-exclamation-triangle"></i>
             </div>
             <div class="stat-value" id="customsIssueCount">{{ "{:,}".format(customs_issue_count) }}</div>
-            <div class="stat-label">
-                통관 절차 이상
+            <div class="stat-label" style="display: flex; align-items: center; justify-content: center; gap: 8px;">
+                <span>통관 절차 이상</span>
                 <button onclick="event.stopPropagation(); refreshCustomsIssueCheck();" 
-                        class="btn btn-sm btn-outline-light ms-2" 
-                        style="padding: 2px 8px; font-size: 0.75rem; border-radius: 50%;"
+                        class="btn btn-sm" 
+                        style="padding: 4px 10px; 
+                               background: rgba(255,255,255,0.3); 
+                               border: 2px solid rgba(255,255,255,0.5); 
+                               color: white;
+                               border-radius: 20px;
+                               font-size: 0.9rem;
+                               transition: all 0.3s;"
+                        onmouseover="this.style.background='rgba(255,255,255,0.5)'"
+                        onmouseout="this.style.background='rgba(255,255,255,0.3)'"
                         title="지금 체크하기">
                     <i class="bi bi-arrow-clockwise"></i>
                 </button>
