@@ -307,6 +307,22 @@ def get_customs_progress(master_bl: Optional[str] = None, house_bl: Optional[str
                 }
                 customs_info.append(info)
         
+        # ⭐ 상세 처리단계 파싱 (cargCsclPrgsInfoDtlQryVo) - 9개!
+        detail_steps = []
+        for item in root.findall('.//cargCsclPrgsInfoDtlQryVo'):
+            step = {
+                "stage": get_xml_text(item, 'cargTrcnRelaBsopTpcd'),  # 처리단계
+                "warehouse": get_xml_text(item, 'shedNm'),  # 장치장명
+                "process_datetime": get_xml_text(item, 'rlbrDttm'),  # 처리일시
+                "declaration_no": get_xml_text(item, 'dclrNo'),  # 신고번호
+                "content": get_xml_text(item, 'rlbrCn'),  # 처리내용
+                "package_count": get_xml_text(item, 'pckGcnt'),  # 포장개수
+                "weight": get_xml_text(item, 'wght'),  # 중량
+            }
+            detail_steps.append(step)
+        
+        print(f"  📋 상세 처리단계: {len(detail_steps)}개")
+        
         events = []
         for event in root.findall('.//event'):
             event_info = {
@@ -330,8 +346,18 @@ def get_customs_progress(master_bl: Optional[str] = None, house_bl: Optional[str
         # ⭐ 프론트엔드 형식에 맞춰서 변환
         history = []
         
-        # 1. events 정보가 있으면 우선 사용
-        if events and len(events) > 0:
+        # 1. 상세 처리단계 우선 사용 (cargCsclPrgsInfoDtlQryVo)
+        if detail_steps and len(detail_steps) > 0:
+            for step in detail_steps:
+                history.append({
+                    "process_type": step.get("stage", ""),
+                    "content": f"{step.get('warehouse', '')} {step.get('content', '')}".strip(),
+                    "processing_datetime": step.get("process_datetime", ""),
+                })
+            print(f"  ✅ 상세 처리단계를 history로 변환: {len(history)}개")
+        
+        # 2. events 정보가 있으면 사용
+        elif events and len(events) > 0:
             for event in events:
                 history.append({
                     "process_type": event.get("eventName", ""),
@@ -339,8 +365,8 @@ def get_customs_progress(master_bl: Optional[str] = None, house_bl: Optional[str
                     "processing_datetime": f"{event.get('eventDate', '')} {event.get('eventTime', '')}",
                 })
         
-        # 2. events 없으면 기본 정보로 생성
-        if len(history) == 0:
+        # 3. 둘 다 없으면 기본 정보로 생성
+        else:
             for info in customs_info:
                 history.append({
                     "process_type": info.get("csclPrgsStts", ""),
