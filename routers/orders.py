@@ -319,12 +319,27 @@ def get_customs_progress(master_bl: Optional[str] = None, house_bl: Optional[str
         
         print(f"  ✅ 일반화물 조회 성공: {len(customs_info)}건")
         
+        # ⭐ 프론트엔드 형식에 맞춰서 변환
+        history = []
+        for info in customs_info:
+            history.append({
+                "process_type": info.get("csclPrgsStts", ""),
+                "content": f"{info.get('prnm', '')} / 입항일: {info.get('etprDt', '')} / 양륙항: {info.get('dsprNm', '')}",
+                "processing_datetime": info.get("etprDt", ""),
+            })
+        
         return {
             "success": True,
             "query_type": "general",
-            "master_bl": master_bl,
-            "house_bl": house_bl,
-            "customs_info": customs_info,
+            "tracking_number": house_bl,  # ⭐ 프론트엔드가 필요
+            "basic_info": {  # ⭐ 프론트엔드가 필요
+                "customs_status": customs_info[0].get("csclPrgsStts", "") if customs_info else "",
+                "product_info": customs_info[0].get("prnm", "") if customs_info else "",
+                "arrival_date": customs_info[0].get("etprDt", "") if customs_info else "",
+                "port": customs_info[0].get("dsprNm", "") if customs_info else "",
+            },
+            "history": history,  # ⭐ 프론트엔드가 찾는 이름!
+            "customs_info": customs_info,  # 원본도 유지
             "events": events,
             "total_count": len(customs_info),
             "data_source": "customs_api"
@@ -468,20 +483,38 @@ def get_customs_info_auto(tracking_number: str = None, master_bl: str = None, ho
     elif house_bl:
         print(f"📦 H-BL 조회 시작: H-BL={house_bl}")
         
-        # 2-1. 관세청 Open API 시도
+        # 2-1. 관세청 Open API 시도 (기본 정보)
         print(f"  ├─ [1단계] 관세청 Open API 시도...")
         api_result = get_customs_progress(None, house_bl)
         
         if api_result.get("success"):
-            print(f"  └─ ✅ 관세청 Open API 성공!")
+            print(f"  ├─ ✅ 관세청 Open API 성공! (기본 정보)")
+            
+            # ⭐ 상세 내역을 위해 유니패스 웹 API 추가 호출
+            print(f"  ├─ [1.5단계] 유니패스 웹 API로 상세 내역 조회...")
+            
+            # order_date에서 년도 추출
+            year = None
+            if order_date:
+                year = order_date.split('-')[0] if '-' in str(order_date) else None
+            
+            web_result = get_unipass_web_customs(house_bl, year)
+            
+            if web_result.get("success") and web_result.get("history"):
+                print(f"  └─ ✅ 상세 내역 추가 성공! ({len(web_result['history'])}개)")
+                # Open API 기본 정보 + 웹 API 상세 내역 결합
+                api_result["history"] = web_result["history"]
+                api_result["data_source"] = "customs_api + unipass_web"
+            else:
+                print(f"  └─ ⚠️ 상세 내역 조회 실패 (기본 정보만 표시)")
+            
             return api_result
         
         print(f"  ├─ ⚠️ 관세청 Open API 실패")
         
-        # 2-2. 유니패스 웹 API 시도 ⭐ 신규!
+        # 2-2. 유니패스 웹 API 시도 (단독)
         print(f"  ├─ [2단계] 유니패스 웹 API 시도...")
         
-        # order_date에서 년도 추출
         year = None
         if order_date:
             year = order_date.split('-')[0] if '-' in str(order_date) else None
