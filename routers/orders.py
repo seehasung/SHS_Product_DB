@@ -97,6 +97,10 @@ def get_customs_progress(master_bl: Optional[str] = None, house_bl: Optional[str
                 "message": f"관세청 API 호출 실패 (HTTP {response.status_code})"
             }
         
+        # ⭐ API 응답 전체 로깅 (디버그용)
+        print(f"  📥 API 응답 (처음 500자):")
+        print(response.text[:500])
+        
         root = ET.fromstring(response.text)
         tCnt = root.find('.//tCnt')
         
