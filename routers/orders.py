@@ -807,7 +807,7 @@ def order_dashboard(
     # ⭐ 통계 카드 (그대로 유지)
     # ============================================
     
-    # 1. 가송장 사용 건
+    # 1. 가송장 사용 건 (배송중 상태만) ⭐
     valid_couriers = [
         'CJ대한통운', 'CJ택배', '대한통운', '로젠택배', '롯데택배',
         '우체국택배', '천일택배', '편의점택배(GS25)', '한진택배'
@@ -832,8 +832,12 @@ def order_dashboard(
             if prefix in ['2025', '2026', '2027', '2028', '2029', '2030']:
                 is_fake_tracking = True
         
-        # 유효하지 않은 택배사 + 가송장 형식 = 가송장
-        if not is_valid_courier and is_fake_tracking:
+        # ⭐ 배송중 상태 확인
+        normalized_status = normalize_order_status(order.order_status, db)
+        is_shipping = (normalized_status == '배송중')
+        
+        # 유효하지 않은 택배사 + 가송장 형식 + 배송중 = 가송장 사용 건
+        if not is_valid_courier and is_fake_tracking and is_shipping:
             fake_tracking_count += 1
     
     # 2. 네이버 송장 흐름
