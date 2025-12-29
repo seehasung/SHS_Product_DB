@@ -263,27 +263,45 @@ def get_express_customs_info(tracking_number: str, order_date: str = None):
     return formatted
 
 
-# ===== 통합 통관 조회 (자동 판단 - 다단계 개선) =====
+# ===== 통합 통관 조회 (자동 판단 - H B/L 우선) =====
 def get_customs_info_auto(tracking_number: str = None, master_bl: str = None, house_bl: str = None, order_date: str = None):
     """
     통관 조회 자동 판단 (다단계 시도)
-    1. Master B/L 있음 → 일반화물 API
-    2. 송장번호만 있음:
-       2-1. 특송화물 API 시도 (DHL, FedEx 등)
-       2-2. 실패 시 일반화물 API 시도 (H B/L로)
-       2-3. 둘 다 실패 시 7customs.com 백업
+    1. Master B/L 있음 → 일반화물 API (M-BL + H-BL)
+    2. House B/L만 있음 → 일반화물 API (H-BL만) ⭐ 가장 일반적
+    3. 송장번호만 있음 → 특송화물 → 일반화물 → 7customs.com
     """
     
-    # 1순위: Master B/L이 있으면 일반화물 조회
+    # 1순위: Master B/L이 있으면 일반화물 조회 (M-BL + H-BL)
     if master_bl:
-        print(f"📦 일반화물 조회 시도: M-BL={master_bl}, H-BL={house_bl}")
+        print(f"📦 일반화물 조회 시도 (M-BL 있음): M-BL={master_bl}, H-BL={house_bl}")
         return get_customs_progress(master_bl, house_bl)
     
-    # 2순위: 송장번호(H B/L)만 있으면 다단계 시도
+    # 2순위: House B/L만 있으면 일반화물 조회 (H-BL만) ⭐ 핵심!
+    elif house_bl:
+        print(f"📦 일반화물 조회 시도 (H-BL만): H-BL={house_bl}")
+        result = get_customs_progress(None, house_bl)
+        
+        if result.get("success"):
+            print(f"  └─ ✅ H-BL 조회 성공!")
+            return result
+        
+        print(f"  └─ ⚠️ H-BL 조회 실패, 7customs.com 시도...")
+        
+        # H-BL로 실패하면 7customs.com 백업
+        if order_date:
+            backup_result = get_express_customs_info(house_bl, order_date)
+            if backup_result.get("success"):
+                print(f"  └─ ✅ 7customs.com 백업 성공!")
+                return backup_result
+        
+        return result  # 실패 메시지 반환
+    
+    # 3순위: tracking_number만 있으면 다단계 시도
     elif tracking_number:
         print(f"🔍 송장번호로 통관 조회 시작: {tracking_number}")
         
-        # 2-1. 특송화물 API 시도 (DHL, FedEx 등 국제특송)
+        # 3-1. 특송화물 API 시도
         print(f"  ├─ [1단계] 특송화물 API 시도...")
         express_result = get_express_customs_by_hbl(tracking_number)
         
@@ -293,9 +311,9 @@ def get_customs_info_auto(tracking_number: str = None, master_bl: str = None, ho
         
         print(f"  ├─ ⚠️ 특송화물 API 실패: {express_result.get('message', '알 수 없음')}")
         
-        # 2-2. 일반화물 API 시도 (H B/L로 조회)
-        print(f"  ├─ [2단계] 일반화물 API 시도 (H-BL만 사용)...")
-        general_result = get_customs_progress(None, tracking_number)  # Master B/L 없이 House B/L만
+        # 3-2. 일반화물 API 시도
+        print(f"  ├─ [2단계] 일반화물 API 시도 (H-BL로)...")
+        general_result = get_customs_progress(None, tracking_number)
         
         if general_result.get("success"):
             print(f"  └─ ✅ 일반화물 API 성공!")
@@ -303,7 +321,7 @@ def get_customs_info_auto(tracking_number: str = None, master_bl: str = None, ho
         
         print(f"  ├─ ⚠️ 일반화물 API 실패: {general_result.get('message', '알 수 없음')}")
         
-        # 2-3. 7customs.com 백업
+        # 3-3. 7customs.com 백업
         print(f"  ├─ [3단계] 7customs.com 백업 시도...")
         backup_result = get_express_customs_info(tracking_number, order_date)
         
