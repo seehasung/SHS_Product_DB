@@ -41,6 +41,168 @@ def get_xml_text(element, tag_name):
     return tag.text if tag is not None and tag.text else ""
 
 
+# ===== 유니패스 웹 API (2단계 조회) =====
+def get_unipass_web_customs(hbl_number: str, year: str = None):
+    """
+    유니패스 웹 API로 화물진행정보 조회 (2단계)
+    1단계: H-BL → 화물관리번호
+    2단계: 화물관리번호 → 상세정보
+    """
+    try:
+        if not year:
+            from datetime import datetime
+            year = str(datetime.now().year)
+        
+        print(f"🌐 유니패스 웹 API 조회 시작: H-BL={hbl_number}, 년도={year}")
+        
+        # ===== 1단계: H-BL → 화물관리번호 =====
+        list_url = "https://unipass.customs.go.kr/csp/myc/bsopspptinfo/cscllgstinfo/ImpCargPrgsInfoMtCtr/retrieveImpCargPrgsInfoLst.do"
+        
+        list_data = {
+            'qryTp': '2',  # M B/L - H B/L 방식
+            'mblNo': '',
+            'hblNo': hbl_number,
+            'blYy': year,
+            'pageIndex': '1',
+            'recordCountPerPage': '10',
+        }
+        
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+            'X-Requested-With': 'XMLHttpRequest',
+            'Accept': 'application/json, text/javascript, */*; q=0.01',
+        }
+        
+        print(f"  [1단계] 화물관리번호 조회 중...")
+        response1 = requests.post(list_url, data=list_data, headers=headers, timeout=15)
+        
+        if response1.status_code != 200:
+            print(f"  ❌ 1단계 HTTP 오류: {response1.status_code}")
+            return {
+                "success": False,
+                "message": f"유니패스 접속 실패 (HTTP {response1.status_code})"
+            }
+        
+        # JSON 파싱
+        result1 = response1.json()
+        
+        if result1.get('count', 0) == 0 or not result1.get('resultList'):
+            print(f"  ⚠️ 화물관리번호 조회 결과 없음")
+            return {
+                "success": False,
+                "message": "해당 송장번호로 조회된 화물이 없습니다."
+            }
+        
+        # 화물관리번호 추출
+        cargo_info = result1['resultList'][0]
+        cargo_mt_no = cargo_info.get('cargMtNo')
+        
+        if not cargo_mt_no:
+            print(f"  ❌ 화물관리번호 없음")
+            return {
+                "success": False,
+                "message": "화물관리번호를 찾을 수 없습니다."
+            }
+        
+        print(f"  ✅ 화물관리번호: {cargo_mt_no}")
+        
+        # ===== 2단계: 화물관리번호 → 상세정보 =====
+        detail_url = "https://unipass.customs.go.kr/csp/myc/bsopspptinfo/cscllgstinfo/ImpCargPrgsInfoMtCtr/retrieveSnglImpCargPrgsInfoDtl.do"
+        
+        detail_data = {
+            'cargMtNo': cargo_mt_no,
+            'menuId': 'MYC_MNU_00000450',
+        }
+        
+        print(f"  [2단계] 상세정보 조회 중...")
+        response2 = requests.post(detail_url, data=detail_data, headers=headers, timeout=15)
+        
+        if response2.status_code != 200:
+            print(f"  ❌ 2단계 HTTP 오류: {response2.status_code}")
+            # 1단계 정보라도 반환
+            return format_unipass_basic_info(cargo_info)
+        
+        # HTML 파싱 (상세 정보)
+        from bs4 import BeautifulSoup
+        soup = BeautifulSoup(response2.text, 'html.parser')
+        
+        # 처리단계 테이블 파싱
+        history = []
+        table = soup.find('table', id='MYC0405102Q_resultListL')
+        if table:
+            tbody = table.find('tbody')
+            if tbody:
+                rows = tbody.find_all('tr')
+                for i in range(0, len(rows), 3):  # 3줄씩 묶음
+                    if i + 1 < len(rows):
+                        row1_tds = rows[i].find_all('td')
+                        row2_tds = rows[i+1].find_all('td')
+                        
+                        if len(row1_tds) >= 5 and len(row2_tds) >= 5:
+                            history.append({
+                                'stage': row1_tds[0].get_text(strip=True),
+                                'location': row1_tds[1].get_text(strip=True),
+                                'package_count': row1_tds[2].get_text(strip=True),
+                                'process_date': row1_tds[3].get_text(strip=True),
+                                'declaration_no': row1_tds[4].get_text(strip=True),
+                                'process_datetime': row2_tds[0].get_text(strip=True),
+                                'warehouse_name': row2_tds[1].get_text(strip=True),
+                                'weight': row2_tds[2].get_text(strip=True),
+                                'process_content': row2_tds[3].get_text(strip=True),
+                                'basis_no': row2_tds[4].get_text(strip=True),
+                            })
+        
+        print(f"  ✅ 유니패스 웹 조회 성공: {len(history)}개 처리단계")
+        
+        return {
+            "success": True,
+            "data_source": "unipass_web",
+            "cargo_mt_no": cargo_mt_no,
+            "hbl_no": hbl_number,
+            "basic_info": {
+                "prcsStcd": cargo_info.get('prcsStcd', ''),
+                "prnm": cargo_info.get('prnm', ''),
+                "etprDt": cargo_info.get('etprDt', ''),
+                "unldPortAirptNm": cargo_info.get('unldPortAirptNm', ''),
+                "sanm": cargo_info.get('sanm', ''),
+            },
+            "history": history,
+            "raw_info": cargo_info  # 원본 정보
+        }
+        
+    except requests.Timeout:
+        print(f"  ❌ 유니패스 타임아웃")
+        return {
+            "success": False,
+            "message": "유니패스 서버 응답 시간 초과"
+        }
+    except Exception as e:
+        print(f"  ❌ 유니패스 웹 조회 오류: {e}")
+        import traceback
+        traceback.print_exc()
+        return {
+            "success": False,
+            "message": f"유니패스 조회 오류: {str(e)}"
+        }
+
+
+def format_unipass_basic_info(cargo_info):
+    """1단계 기본 정보만으로 응답 포맷"""
+    return {
+        "success": True,
+        "data_source": "unipass_web_basic",
+        "basic_info": {
+            "prcsStcd": cargo_info.get('prcsStcd', ''),
+            "prnm": cargo_info.get('prnm', ''),
+            "etprDt": cargo_info.get('etprDt', ''),
+            "unldPortAirptNm": cargo_info.get('unldPortAirptNm', ''),
+        },
+        "history": [],
+        "raw_info": cargo_info
+    }
+
+
 # ===== 일반화물 통관 조회 (M B/L 또는 H B/L) =====
 def get_customs_progress(master_bl: Optional[str] = None, house_bl: Optional[str] = None):
     """
@@ -288,25 +450,49 @@ def get_customs_info_auto(tracking_number: str = None, master_bl: str = None, ho
         print(f"📦 일반화물 조회 시도 (M-BL 있음): M-BL={master_bl}, H-BL={house_bl}")
         return get_customs_progress(master_bl, house_bl)
     
-    # 2순위: House B/L만 있으면 일반화물 조회 (H-BL만) ⭐ 핵심!
+    # 2순위: House B/L만 있으면 다단계 조회 ⭐
     elif house_bl:
-        print(f"📦 일반화물 조회 시도 (H-BL만): H-BL={house_bl}")
-        result = get_customs_progress(None, house_bl)
+        print(f"📦 H-BL 조회 시작: H-BL={house_bl}")
         
-        if result.get("success"):
-            print(f"  └─ ✅ H-BL 조회 성공!")
-            return result
+        # 2-1. 관세청 Open API 시도
+        print(f"  ├─ [1단계] 관세청 Open API 시도...")
+        api_result = get_customs_progress(None, house_bl)
         
-        print(f"  └─ ⚠️ H-BL 조회 실패, 7customs.com 시도...")
+        if api_result.get("success"):
+            print(f"  └─ ✅ 관세청 Open API 성공!")
+            return api_result
         
-        # H-BL로 실패하면 7customs.com 백업
+        print(f"  ├─ ⚠️ 관세청 Open API 실패")
+        
+        # 2-2. 유니패스 웹 API 시도 ⭐ 신규!
+        print(f"  ├─ [2단계] 유니패스 웹 API 시도...")
+        
+        # order_date에서 년도 추출
+        year = None
+        if order_date:
+            year = order_date.split('-')[0] if '-' in str(order_date) else None
+        
+        web_result = get_unipass_web_customs(house_bl, year)
+        
+        if web_result.get("success"):
+            print(f"  └─ ✅ 유니패스 웹 API 성공!")
+            return web_result
+        
+        print(f"  ├─ ⚠️ 유니패스 웹 API 실패")
+        
+        # 2-3. 7customs.com 백업
+        print(f"  ├─ [3단계] 7customs.com 백업 시도...")
         if order_date:
             backup_result = get_express_customs_info(house_bl, order_date)
             if backup_result.get("success"):
                 print(f"  └─ ✅ 7customs.com 백업 성공!")
                 return backup_result
         
-        return result  # 실패 메시지 반환
+        print(f"  └─ ❌ 모든 방법 실패")
+        return {
+            "success": False,
+            "message": "통관 정보를 조회할 수 없습니다."
+        }
     
     # 3순위: tracking_number만 있으면 다단계 시도
     elif tracking_number:
