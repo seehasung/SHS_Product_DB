@@ -264,8 +264,8 @@ def get_customs_progress(master_bl: Optional[str] = None, house_bl: Optional[str
             }
         
         # ⭐ API 응답 전체 로깅 (디버그용)
-        print(f"  📥 API 응답 (처음 500자):")
-        print(response.text[:500])
+        print(f"  📥 API 응답 (전체):")
+        print(response.text[:2000])  # ⭐ 2000자로 늘림
         
         root = ET.fromstring(response.text)
         
