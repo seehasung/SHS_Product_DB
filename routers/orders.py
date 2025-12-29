@@ -823,7 +823,7 @@ async def upload_orders(
             "수령자": "recipient_name",
             "택배사": "courier_company",
             "송장번호": "tracking_number",
-            "경동이관여부": "is_kyungdong_transferred",  # ⭐ 추가
+            "경동이관여부": "is_kyungdong_transferred",
             "제품명": "product_name",
             "옵션": "product_option",
             "수량": "quantity",
@@ -843,7 +843,14 @@ async def upload_orders(
             "화물대납": "freight_prepayment",
             "배대지": "warehouse_fee",
             "마진": "profit_margin",
-            "마진율": "profit_margin_rate"
+            "마진율": "profit_margin_rate",
+            # ⭐ B/L 번호 매핑 추가
+            "Master B/L": "master_bl",
+            "마스터 B/L": "master_bl",
+            "House B/L": "house_bl",
+            "하우스 B/L": "house_bl",
+            "H-BL": "house_bl",
+            "M-BL": "master_bl"
         }
         
         # 컬럼명 변경
