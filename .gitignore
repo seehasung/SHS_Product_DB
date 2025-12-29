@@ -1,0 +1,184 @@
+# ===========================================
+# SHS_Product_DB .gitignore
+# ===========================================
+
+# ===========================================
+# 환경변수 (민감정보 보호)
+# ===========================================
+.env
+*.env
+!.env.example
+
+# ===========================================
+# Python
+# ===========================================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# 가상환경
+venv/
+env/
+ENV/
+.venv
+
+# Distribution / packaging
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# PyInstaller
+*.manifest
+*.spec
+
+# Unit test / coverage
+htmlcov/
+.tox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+.hypothesis/
+.pytest_cache/
+
+# ===========================================
+# 데이터베이스
+# ===========================================
+*.db
+*.sqlite
+*.sqlite3
+csdata.db
+*.db-journal
+
+# ===========================================
+# 로그 파일
+# ===========================================
+*.log
+logs/
+*.log.*
+
+# ===========================================
+# 업로드 파일 (용량 큰 파일)
+# ===========================================
+uploads/
+static/task_files/
+static/uploads/
+static/homepage_images/
+static/cafe_images/
+static/blog_images/
+static/task_images/
+
+# 임시 업로드 파일
+*.tmp
+temp/
+tmp/
+
+# ===========================================
+# IDE / 에디터
+# ===========================================
+# VSCode
+.vscode/
+*.code-workspace
+
+# PyCharm
+.idea/
+*.iml
+*.ipr
+*.iws
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# Vim
+*.swp
+*.swo
+*~
+
+# Emacs
+*~
+\#*\#
+.\#*
+
+# ===========================================
+# OS 관련
+# ===========================================
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+*.cab
+*.msi
+*.msm
+*.msp
+*.lnk
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# Linux
+*~
+.directory
+
+# ===========================================
+# 백업 파일
+# ===========================================
+*.bak
+*.backup
+*.old
+*~
+*.swp
+backup/
+backups/
+
+# ===========================================
+# Alembic (이미 버전 관리 중이므로 제외하지 않음)
+# ===========================================
+# alembic/versions/*.py는 Git에 포함됨
+
+# ===========================================
+# 기타
+# ===========================================
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# pyenv
+.python-version
+
+# celery beat schedule file
+celerybeat-schedule
+
+# dotenv
+.env.local
+.env.*.local
+
+# 압축 파일
+*.zip
+*.tar.gz
+*.rar
+
+# 문서 임시 파일
+~$*.docx
+~$*.xlsx
+~$*.pptx
+
