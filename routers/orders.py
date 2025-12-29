@@ -329,12 +329,24 @@ def get_customs_progress(master_bl: Optional[str] = None, house_bl: Optional[str
         
         # ⭐ 프론트엔드 형식에 맞춰서 변환
         history = []
-        for info in customs_info:
-            history.append({
-                "process_type": info.get("csclPrgsStts", ""),
-                "content": f"{info.get('prnm', '')} / 입항일: {info.get('etprDt', '')} / 양륙항: {info.get('dsprNm', '')}",
-                "processing_datetime": info.get("etprDt", ""),
-            })
+        
+        # 1. events 정보가 있으면 우선 사용
+        if events and len(events) > 0:
+            for event in events:
+                history.append({
+                    "process_type": event.get("eventName", ""),
+                    "content": f"{event.get('location', '')}",
+                    "processing_datetime": f"{event.get('eventDate', '')} {event.get('eventTime', '')}",
+                })
+        
+        # 2. events 없으면 기본 정보로 생성
+        if len(history) == 0:
+            for info in customs_info:
+                history.append({
+                    "process_type": info.get("csclPrgsStts", ""),
+                    "content": f"{info.get('prnm', '')} / 입항일: {info.get('etprDt', '')} / 양륙항: {info.get('dsprNm', '')}",
+                    "processing_datetime": info.get("etprDt", ""),
+                })
         
         return {
             "success": True,
