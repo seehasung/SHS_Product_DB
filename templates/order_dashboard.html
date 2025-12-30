@@ -718,6 +718,14 @@
 </div>
 
 <script>
+    // ===== 조회 결과 캐시 =====
+    const ordersCache = {
+        fake_tracking: null,
+        naver_delivery: null,
+        kyungdong: null,
+        customs_issue: null,
+        long_undelivered: null
+    };
 
     function cleanTrackingNumber(trackingNumber) {
         if (!trackingNumber) return '-';
@@ -1375,6 +1383,9 @@
             setTimeout(() => progressToast.remove(), 300);
             
             if (result.success) {
+                // 캐시 클리어 ⭐
+                ordersCache.naver_delivery = null;
+                
                 // 카운트 업데이트
                 countElement.textContent = result.count.toLocaleString();
                 
@@ -1426,6 +1437,9 @@
             setTimeout(() => progressToast.remove(), 300);
             
             if (result.success) {
+                // 캐시 클리어 ⭐
+                ordersCache.customs_issue = null;
+                
                 // 카운트 업데이트
                 countElement.textContent = result.count.toLocaleString();
                 
@@ -1454,13 +1468,26 @@
         }
     }
 
-    async function showOrdersByCondition(condition, title) {
+    async function showOrdersByCondition(condition, title, forceRefresh = false) {
         document.getElementById('ordersTableTitle').innerHTML = `<i class="bi bi-filter"></i> ${title} 주문 목록`;
+        
+        // 캐시된 데이터가 있고 강제 새로고침이 아니면 캐시 사용
+        if (ordersCache[condition] && !forceRefresh) {
+            console.log(`✅ 캐시된 ${title} 데이터 사용`);
+            displayOrders(ordersCache[condition], title);
+            return;
+        }
+        
+        // 새로 조회
+        console.log(`🔄 ${title} 데이터 새로 조회`);
         document.getElementById('ordersTableContainer').innerHTML = '<div style="text-align: center; padding: 40px;"><div class="spinner-border text-primary"></div></div>';
         
         try {
             const response = await fetch(`/orders/api/orders/by-condition?condition=${condition}`);
             const data = await response.json();
+            
+            // 캐시에 저장
+            ordersCache[condition] = data.orders;
             
             displayOrders(data.orders, title);
         } catch (error) {
