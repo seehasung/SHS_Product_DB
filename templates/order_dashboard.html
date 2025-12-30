@@ -425,35 +425,35 @@
         
         <!-- 4. 통관 절차 이상 -->
         <div class="stat-card clickable" onclick="showOrdersByCondition('customs_issue', '통관 절차 이상')"
-             style="--stat-gradient: linear-gradient(90deg, #e17055 0%, #fab1a0 100%);">
+             style="--stat-gradient: linear-gradient(90deg, #e17055 0%, #fab1a0 100%); position: relative;">
             <div class="stat-icon" style="background: linear-gradient(135deg, #e17055 0%, #fab1a0 100%); color: white;">
                 <i class="bi bi-exclamation-triangle"></i>
             </div>
             <div class="stat-value" id="customsIssueCount">{{ "{:,}".format(customs_issue_count) }}</div>
-            <div class="stat-label" style="display: flex; align-items: center; justify-content: center; gap: 6px;">
-                <span>통관 절차 이상</span>
-                <button onclick="event.stopPropagation(); confirmCustomsCheck();" 
-                        class="btn btn-sm" 
-                        style="padding: 3px 8px; 
-                               background: rgba(255,255,255,0.4); 
-                               border: 1.5px solid rgba(255,255,255,0.7); 
-                               color: white;
-                               border-radius: 50%;
-                               font-size: 0.85rem;
-                               font-weight: 600;
-                               width: 28px;
-                               height: 28px;
-                               display: flex;
-                               align-items: center;
-                               justify-content: center;
-                               transition: all 0.3s;
-                               box-shadow: 0 2px 8px rgba(0,0,0,0.15);"
-                        onmouseover="this.style.background='rgba(255,255,255,0.6)'; this.style.transform='scale(1.1)'"
-                        onmouseout="this.style.background='rgba(255,255,255,0.4)'; this.style.transform='scale(1)'"
-                        title="통관 절차 재수집">
-                    <i class="bi bi-arrow-clockwise" style="font-size: 1rem;"></i>
-                </button>
-            </div>
+            <div class="stat-label">통관 절차 이상</div>
+            <!-- 새로고침 버튼 (절대 위치) -->
+            <button onclick="event.stopPropagation(); confirmCustomsCheck();" 
+                    class="btn btn-sm" 
+                    style="position: absolute;
+                           top: 15px;
+                           right: 15px;
+                           padding: 0;
+                           background: rgba(255,255,255,0.5); 
+                           border: 2px solid rgba(255,255,255,0.8); 
+                           color: white;
+                           border-radius: 50%;
+                           width: 32px;
+                           height: 32px;
+                           display: flex;
+                           align-items: center;
+                           justify-content: center;
+                           transition: all 0.3s;
+                           box-shadow: 0 2px 10px rgba(0,0,0,0.2);"
+                    onmouseover="this.style.background='rgba(255,255,255,0.7)'; this.style.transform='rotate(180deg) scale(1.1)'"
+                    onmouseout="this.style.background='rgba(255,255,255,0.5)'; this.style.transform='rotate(0deg) scale(1)'"
+                    title="통관 절차 재수집">
+                <i class="bi bi-arrow-clockwise" style="font-size: 1.1rem; font-weight: bold;"></i>
+            </button>
         </div>
         
         <!-- 5. 장기 미배송 -->
@@ -1271,7 +1271,7 @@
 
     // ===== 조건별 주문 목록 표시 =====
     // ===== 토스트 알림 함수 =====
-    function showToast(message, type = 'info') {
+    function showToast(message, type = 'info', autoClose = false) {
         // 토스트 컨테이너 생성 (없으면)
         let container = document.getElementById('toastContainer');
         if (!container) {
@@ -1284,15 +1284,23 @@
         // 토스트 생성
         const toast = document.createElement('div');
         toast.className = `alert alert-${type} fade show`;
-        toast.style.cssText = 'min-width: 300px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); margin-bottom: 10px;';
+        toast.style.cssText = 'min-width: 320px; box-shadow: 0 6px 20px rgba(0,0,0,0.2); margin-bottom: 10px; animation: slideIn 0.3s ease-out;';
         toast.innerHTML = `
             <div class="d-flex align-items-center">
                 <div class="spinner-border spinner-border-sm me-3" role="status" ${type !== 'info' ? 'style="display:none;"' : ''}></div>
-                <div>${message}</div>
+                <div style="flex: 1;">${message}</div>
             </div>
         `;
         
         container.appendChild(toast);
+        
+        // autoClose가 true이고 info가 아니면 자동 삭제
+        if (autoClose && type !== 'info') {
+            setTimeout(() => {
+                toast.classList.remove('show');
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
         
         return toast;
     }
@@ -1309,8 +1317,8 @@
         const countElement = document.getElementById('customsIssueCount');
         const originalText = countElement.textContent;
         
-        // 진행 상황 토스트
-        const toast = showToast('🔍 통관 절차 체크 중...', 'info');
+        // ⭐ 진행 상황 토스트 (완료될 때까지 계속 표시)
+        const progressToast = showToast('🔍 통관 절차 체크 중...<br><small>잠시만 기다려주세요 (수 분 소요)</small>', 'info', false);
         
         // 로딩 표시
         countElement.innerHTML = '<div class="spinner-border spinner-border-sm"></div>';
@@ -1325,35 +1333,36 @@
             
             const result = await response.json();
             
-            // 토스트 제거
-            toast.remove();
+            // ⭐ 진행 토스트 제거 (완료됨)
+            progressToast.classList.remove('show');
+            setTimeout(() => progressToast.remove(), 300);
             
             if (result.success) {
-                // 성공 토스트
-                const successToast = showToast(`✅ 체크 완료! 발견: ${result.count}건`, 'success');
-                setTimeout(() => successToast.remove(), 3000);
-                
                 // 카운트 업데이트
                 countElement.textContent = result.count.toLocaleString();
+                
+                // 성공 토스트 (3초 후 자동 삭제)
+                const successToast = showToast(`✅ 체크 완료! 발견: ${result.count}건`, 'success', true);
                 
                 // 3초 후 페이지 새로고침
                 setTimeout(() => window.location.reload(), 3000);
             } else {
                 countElement.textContent = originalText;
                 
-                // 실패 토스트
-                const errorToast = showToast(`❌ 체크 실패: ${result.message}`, 'danger');
-                setTimeout(() => errorToast.remove(), 5000);
+                // 실패 토스트 (5초 후 자동 삭제)
+                showToast(`❌ 체크 실패: ${result.message}`, 'danger', true);
             }
         } catch (error) {
-            toast.remove();
+            // 진행 토스트 제거
+            progressToast.classList.remove('show');
+            setTimeout(() => progressToast.remove(), 300);
+            
             countElement.textContent = originalText;
             
             console.error('통관 절차 이상 체크 오류:', error);
             
-            // 에러 토스트
-            const errorToast = showToast('❌ 체크 중 오류가 발생했습니다.', 'danger');
-            setTimeout(() => errorToast.remove(), 5000);
+            // 에러 토스트 (5초 후 자동 삭제)
+            showToast('❌ 체크 중 오류가 발생했습니다.', 'danger', true);
         }
     }
 
