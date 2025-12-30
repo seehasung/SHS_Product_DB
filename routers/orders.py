@@ -1007,25 +1007,74 @@ def get_orders_by_condition(
         orders = filtered_orders
         
     elif condition == "naver_delivery":
-        # 네이버 송장 흐름 (카페24/스마트스토어 + 직접전달/자체배송)
+        # 네이버 송장 흐름 (반출신고 완료 건만) ⭐
+        from quickstar_selenium_scraper import QuickstarSeleniumScraper
+        
         all_orders = db.query(Order).all()
         
-        filtered_orders = []
-        for order in all_orders:
-            sales_channel = str(order.sales_channel or '')
-            courier = str(order.courier_company or '')
-            
-            # 카페24 또는 스마트스토어
-            is_target = ('카페24' in sales_channel or 'cafe24' in sales_channel.lower() or
-                        '스마트스토어' in sales_channel or 'smartstore' in sales_channel.lower())
-            
-            # 직접전달 또는 자체배송
-            is_courier = ('직접전달' in courier or '자체배송' in courier)
-            
-            if is_target and is_courier:
-                filtered_orders.append(order)
+        ready_orders = []  # 반출신고 완료 주문
+        checked_count = 0
+        scraper = QuickstarSeleniumScraper()
         
-        orders = filtered_orders
+        try:
+            for order in all_orders:
+                sales_channel = str(order.sales_channel or '')
+                courier = str(order.courier_company or '')
+                
+                # 카페24 또는 스마트스토어
+                is_target = ('카페24' in sales_channel or 'cafe24' in sales_channel.lower() or
+                            '스마트스토어' in sales_channel or 'smartstore' in sales_channel.lower())
+                
+                # 직접전달 또는 자체배송
+                is_courier = ('직접전달' in courier or '자체배송' in courier)
+                
+                if not (is_target and is_courier):
+                    continue
+                
+                # 통관 조회
+                tracking = clean_tracking_number(order.tracking_number)
+                
+                # 송장번호 없으면 quickstar에서 조회
+                if not tracking or len(tracking) < 12:
+                    if order.taobao_order_number:
+                        tracking = scraper.get_tracking_number(order.taobao_order_number)
+                
+                if not tracking:
+                    continue
+                
+                # 통관 API 조회
+                try:
+                    customs_result = get_customs_info_auto(
+                        tracking_number=tracking,
+                        master_bl=order.master_bl,
+                        house_bl=order.house_bl,
+                        order_date=str(order.order_date) if order.order_date else None
+                    )
+                    
+                    if customs_result.get("success"):
+                        history = customs_result.get("history", [])
+                        
+                        # 반출신고가 있으면 추가
+                        has_release = any("반출신고" in str(h.get("process_type", "")) for h in history)
+                        
+                        if has_release:
+                            ready_orders.append(order)
+                            print(f"  ✅ 반출신고 완료: {order.order_number}")
+                    
+                    checked_count += 1
+                    
+                    # 최대 50건까지 (성능 고려)
+                    if checked_count >= 50:
+                        break
+                        
+                except Exception as e:
+                    print(f"  ❌ 통관 조회 오류: {order.order_number} - {e}")
+                    continue
+        finally:
+            scraper.close()
+        
+        orders = ready_orders
+        print(f"📊 네이버 송장 흐름: {len(orders)}건 (반출신고 완료)")
     
     elif condition == "kyungdong":
         # 경동 이관
