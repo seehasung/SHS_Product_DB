@@ -1,0 +1,537 @@
+"""
+네이버 카페 자동화 Worker Agent
+각 작업 PC에서 실행되는 프로그램
+
+실행 방법:
+    python worker_agent.py <PC번호>
+    예: python worker_agent.py 1
+"""
+
+import asyncio
+import websockets
+import json
+import warnings
+import logging
+
+# 경고 메시지 숨기기
+warnings.filterwarnings('ignore')
+logging.getLogger('selenium').setLevel(logging.ERROR)
+logging.getLogger('urllib3').setLevel(logging.ERROR)
+
+from selenium import webdriver
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.common.keys import Keys
+from selenium.webdriver.common.action_chains import ActionChains
+import time
+import random
+import requests
+from typing import Dict, Optional
+import psutil
+import socket
+import sys
+from datetime import datetime
+
+
+class NaverCafeWorker:
+    """네이버 카페 자동 작성 Worker"""
+    
+    def __init__(self, pc_number: int, server_url: str = "scorp274.com"):
+        self.pc_number = pc_number
+        self.server_url = server_url
+        self.driver = None
+        self.websocket = None
+        self.current_account = None
+        self.is_running = False
+        
+    def get_local_ip(self) -> str:
+        """VPN IP 포함 실제 외부 IP 주소 가져오기"""
+        try:
+            # 여러 외부 IP 조회 서비스 시도 (VPN IP 반환)
+            services = [
+                'https://api.ipify.org',
+                'https://icanhazip.com',
+                'https://ifconfig.me/ip',
+                'https://checkip.amazonaws.com'
+            ]
+            
+            for service in services:
+                try:
+                    response = requests.get(service, timeout=3)
+                    if response.status_code == 200:
+                        ip = response.text.strip()
+                        return ip
+                except:
+                    continue
+            
+            # 모두 실패 시 로컬 IP
+            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            s.connect(("8.8.8.8", 80))
+            ip = s.getsockname()[0]
+            s.close()
+            return ip
+            
+        except:
+            return "Unknown"
+    
+    async def connect_to_server(self):
+        """서버에 WebSocket 연결"""
+        import ssl
+        
+        ws_url = f"wss://{self.server_url}/automation/ws/worker/{self.pc_number}"
+        
+        try:
+            # SSL 인증서 검증 비활성화 (자체 서명 인증서 대응)
+            ssl_context = ssl.create_default_context()
+            ssl_context.check_hostname = False
+            ssl_context.verify_mode = ssl.CERT_NONE
+            
+            self.websocket = await websockets.connect(
+                ws_url,
+                ssl=ssl_context,
+                ping_interval=20,
+                ping_timeout=10
+            )
+            print(f"✅ PC #{self.pc_number} 서버 연결 성공: {ws_url}")
+        except Exception as e:
+            print(f"❌ 서버 연결 실패: {e}")
+            print(f"   재연결 시도 중...")
+            await asyncio.sleep(5)
+            await self.connect_to_server()
+        
+    def init_selenium(self):
+        """Selenium 초기화 (봇 감지 우회 설정)"""
+        print("🚀 Selenium 브라우저 초기화 중...")
+        
+        options = webdriver.ChromeOptions()
+        
+        # 봇 감지 우회 설정
+        options.add_argument('--disable-blink-features=AutomationControlled')
+        options.add_experimental_option("excludeSwitches", ["enable-automation", "enable-logging"])
+        options.add_experimental_option('useAutomationExtension', False)
+        
+        # User-Agent 설정
+        options.add_argument('--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36')
+        
+        # 기타 설정
+        options.add_argument('--disable-gpu')
+        options.add_argument('--no-sandbox')
+        options.add_argument('--disable-dev-shm-usage')
+        
+        # 경고 메시지 숨기기
+        options.add_argument('--log-level=3')  # ERROR만 표시
+        options.add_argument('--silent')
+        options.add_argument('--disable-logging')
+        options.add_experimental_option('excludeSwitches', ['enable-logging'])
+        
+        # 브라우저 생성
+        self.driver = webdriver.Chrome(options=options)
+        
+        # WebDriver 속성 숨기기
+        self.driver.execute_cdp_cmd('Page.addScriptToEvaluateOnNewDocument', {
+            'source': '''
+                Object.defineProperty(navigator, 'webdriver', {
+                    get: () => undefined
+                });
+                Object.defineProperty(navigator, 'plugins', {
+                    get: () => [1, 2, 3, 4, 5]
+                });
+            '''
+        })
+        
+        # 창 크기 설정
+        self.driver.set_window_size(1400, 900)
+        
+        print("✅ 브라우저 준비 완료")
+        
+    async def send_heartbeat(self):
+        """주기적으로 서버에 상태 전송 (10초마다)"""
+        while self.is_running:
+            try:
+                status = {
+                    'type': 'heartbeat',
+                    'pc_number': self.pc_number,
+                    'status': 'online',
+                    'cpu_usage': psutil.cpu_percent(),
+                    'memory_usage': psutil.virtual_memory().percent,
+                    'current_account': self.current_account,
+                    'ip_address': self.get_local_ip()
+                }
+                await self.websocket.send(json.dumps(status))
+                await asyncio.sleep(10)
+            except Exception as e:
+                print(f"❌ Heartbeat 전송 실패: {e}")
+                await asyncio.sleep(10)
+            
+    def random_delay(self, min_sec: float = 0.1, max_sec: float = 0.3):
+        """랜덤 지연 (봇 감지 방지)"""
+        time.sleep(random.uniform(min_sec, max_sec))
+        
+    def human_type(self, element, text: str):
+        """사람처럼 한 글자씩 입력"""
+        for char in text:
+            element.send_keys(char)
+            self.random_delay(0.05, 0.15)  # 글자당 0.05~0.15초
+            
+    def login_naver(self, account_id: str, account_pw: str):
+        """네이버 로그인 (봇 감지 우회)"""
+        print(f"🔐 네이버 로그인 시도: {account_id}")
+        
+        try:
+            self.driver.get('https://nid.naver.com/nidlogin.login')
+            self.random_delay(2, 3)
+            
+            # ID 입력 (한 글자씩)
+            id_input = WebDriverWait(self.driver, 10).until(
+                EC.presence_of_element_located((By.ID, 'id'))
+            )
+            self.human_type(id_input, account_id)
+            self.random_delay(0.5, 1)
+            
+            # PW 입력 (한 글자씩)
+            pw_input = self.driver.find_element(By.ID, 'pw')
+            self.human_type(pw_input, account_pw)
+            self.random_delay(0.5, 1)
+            
+            # 로그인 버튼 클릭
+            login_btn = self.driver.find_element(By.CSS_SELECTOR, '.btn_login')
+            login_btn.click()
+            
+            self.random_delay(3, 4)
+            
+            # 로그인 성공 확인
+            if 'nid.naver.com' not in self.driver.current_url:
+                self.current_account = account_id
+                print(f"✅ {account_id} 로그인 성공")
+                return True
+            else:
+                print(f"❌ {account_id} 로그인 실패")
+                return False
+                
+        except Exception as e:
+            print(f"❌ 로그인 오류: {e}")
+            return False
+        
+    def write_post(self, cafe_url: str, title: str, content: str) -> Optional[str]:
+        """카페 글 작성 (봇 감지 우회)"""
+        print(f"📝 글 작성 시작: {title[:30]}...")
+        
+        try:
+            # 카페 글쓰기 페이지 이동
+            write_url = f'{cafe_url}/ArticleWrite.nhn'
+            self.driver.get(write_url)
+            self.random_delay(2, 3)
+            
+            # 제목 입력 (한 글자씩)
+            title_input = WebDriverWait(self.driver, 10).until(
+                EC.presence_of_element_located((By.ID, 'subject'))
+            )
+            title_input.click()
+            self.random_delay(0.3, 0.5)
+            self.human_type(title_input, title)
+            
+            self.random_delay(1, 2)
+            
+            # 내용 입력 (iframe 전환)
+            # 스마트에디터 iframe 찾기
+            iframe = self.driver.find_element(By.CSS_SELECTOR, 'iframe[id*="se2_iframe"]')
+            self.driver.switch_to.frame(iframe)
+            
+            # 본문 입력 영역
+            content_div = WebDriverWait(self.driver, 10).until(
+                EC.presence_of_element_located((By.CSS_SELECTOR, 'div.se2_inputarea, body'))
+            )
+            content_div.click()
+            self.random_delay(0.5, 1)
+            
+            # 문장 단위로 입력 (더 자연스럽게)
+            sentences = content.replace('.\n', '.|').replace('. ', '.|').split('|')
+            for sentence in sentences:
+                if sentence.strip():
+                    self.human_type(content_div, sentence.strip())
+                    
+                    # 문장 끝에 휴식
+                    if not sentence.endswith('\n'):
+                        content_div.send_keys('.')
+                    content_div.send_keys('\n')
+                    
+                    self.random_delay(0.5, 1.5)
+            
+            # iframe에서 나오기
+            self.driver.switch_to.default_content()
+            self.random_delay(1, 2)
+            
+            # 등록 버튼 찾기 및 클릭
+            submit_btn = self.driver.find_element(By.CSS_SELECTOR, 'a.btn-submit, button.btn-submit, a[class*="submit"], button[class*="submit"]')
+            
+            # 스크롤하여 버튼이 보이도록
+            self.driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", submit_btn)
+            self.random_delay(0.5, 1)
+            
+            submit_btn.click()
+            self.random_delay(3, 4)
+            
+            # 작성된 글 URL 추출
+            post_url = self.driver.current_url
+            
+            print(f"✅ 글 작성 완료: {post_url}")
+            return post_url
+            
+        except Exception as e:
+            print(f"❌ 글 작성 오류: {e}")
+            import traceback
+            traceback.print_exc()
+            return None
+        
+    def write_comment(self, post_url: str, content: str) -> bool:
+        """댓글 작성 (봇 감지 우회)"""
+        print(f"💬 댓글 작성 시작: {content[:30]}...")
+        
+        try:
+            # 글 페이지로 이동
+            self.driver.get(post_url)
+            self.random_delay(2, 3)
+            
+            # 댓글 입력창 찾기 (여러 가지 선택자 시도)
+            comment_selectors = [
+                'textarea[id*="comment"]',
+                'textarea.comment-box',
+                'div[contenteditable="true"]',
+                'textarea[placeholder*="댓글"]',
+                'textarea.textarea'
+            ]
+            
+            comment_input = None
+            for selector in comment_selectors:
+                try:
+                    comment_input = self.driver.find_element(By.CSS_SELECTOR, selector)
+                    break
+                except:
+                    continue
+            
+            if not comment_input:
+                print("❌ 댓글 입력창을 찾을 수 없습니다")
+                return False
+            
+            # 댓글 입력창 클릭
+            comment_input.click()
+            self.random_delay(0.5, 1)
+            
+            # 댓글 내용 입력 (한 글자씩)
+            self.human_type(comment_input, content)
+            self.random_delay(1, 2)
+            
+            # 등록 버튼 찾기 및 클릭
+            submit_selectors = [
+                'button[class*="comment-submit"]',
+                'a[class*="comment-submit"]',
+                'button.btn-submit',
+                'a.btn-submit'
+            ]
+            
+            submit_btn = None
+            for selector in submit_selectors:
+                try:
+                    submit_btn = self.driver.find_element(By.CSS_SELECTOR, selector)
+                    break
+                except:
+                    continue
+            
+            if submit_btn:
+                submit_btn.click()
+                self.random_delay(2, 3)
+                print(f"✅ 댓글 작성 완료")
+                return True
+            else:
+                print("❌ 댓글 등록 버튼을 찾을 수 없습니다")
+                return False
+                
+        except Exception as e:
+            print(f"❌ 댓글 작성 오류: {e}")
+            import traceback
+            traceback.print_exc()
+            return False
+        
+    async def process_task(self, task: Dict):
+        """작업 처리"""
+        task_id = task['id']
+        task_type = task['task_type']
+        
+        try:
+            # 서버에 작업 시작 알림
+            await self.websocket.send(json.dumps({
+                'type': 'task_started',
+                'task_id': task_id,
+                'pc_number': self.pc_number
+            }))
+            
+            print(f"\n{'='*60}")
+            print(f"🎯 작업 처리 시작: Task #{task_id} ({task_type})")
+            print(f"{'='*60}")
+            
+            if task_type == 'post':
+                # 글 작성
+                post_url = self.write_post(
+                    task['cafe_url'],
+                    task['title'],
+                    task['content']
+                )
+                
+                if post_url:
+                    # 서버에 완료 알림
+                    await self.websocket.send(json.dumps({
+                        'type': 'task_completed',
+                        'task_id': task_id,
+                        'post_url': post_url
+                    }))
+                else:
+                    raise Exception("글 작성 실패")
+                
+            elif task_type in ['comment', 'reply']:
+                # 댓글 작성
+                success = self.write_comment(
+                    task['post_url'],
+                    task['content']
+                )
+                
+                if success:
+                    await self.websocket.send(json.dumps({
+                        'type': 'task_completed',
+                        'task_id': task_id
+                    }))
+                else:
+                    raise Exception("댓글 작성 실패")
+            
+            print(f"✅ 작업 완료: Task #{task_id}")
+            
+        except Exception as e:
+            # 오류 발생 시 서버에 알림
+            print(f"❌ 작업 실패: Task #{task_id} - {e}")
+            await self.websocket.send(json.dumps({
+                'type': 'task_failed',
+                'task_id': task_id,
+                'error': str(e)
+            }))
+            
+    async def listen_for_tasks(self):
+        """서버로부터 작업 수신"""
+        while self.is_running:
+            try:
+                message = await self.websocket.recv()
+                data = json.loads(message)
+                
+                if data['type'] == 'new_task':
+                    task = data['task']
+                    
+                    print(f"\n📥 새 작업 수신: Task #{task['id']}")
+                    
+                    # 계정 로그인 확인
+                    if task['account_id'] != self.current_account:
+                        print(f"🔄 계정 전환: {task['account_id']}")
+                        self.login_naver(
+                            task['account_id'],
+                            task['account_pw']
+                        )
+                    
+                    # 작업 처리
+                    await self.process_task(task)
+                    
+                elif data['type'] == 'shutdown':
+                    print("⏹️ 종료 명령 수신")
+                    self.is_running = False
+                    
+            except websockets.exceptions.ConnectionClosed:
+                print("❌ WebSocket 연결이 끊어졌습니다. 재연결 중...")
+                await asyncio.sleep(3)
+                await self.connect_to_server()
+            except Exception as e:
+                print(f"❌ 메시지 처리 오류: {e}")
+                await asyncio.sleep(1)
+                
+    async def run(self):
+        """Worker 실행"""
+        self.is_running = True
+        
+        print(f"""
+╔════════════════════════════════════════════════════════╗
+║     네이버 카페 자동화 Worker Agent v1.0              ║
+║                                                        ║
+║     PC 번호: {self.pc_number:02d}                                    ║
+║     서버: {self.server_url:40s} ║
+╚════════════════════════════════════════════════════════╝
+        """)
+        
+        # Selenium 초기화
+        self.init_selenium()
+        
+        # 서버 연결
+        await self.connect_to_server()
+        
+        print("✅ Worker 준비 완료! 작업 대기 중...")
+        
+        # Heartbeat & 작업 수신 동시 실행
+        await asyncio.gather(
+            self.send_heartbeat(),
+            self.listen_for_tasks()
+        )
+        
+    def cleanup(self):
+        """정리"""
+        print("\n🧹 정리 중...")
+        
+        if self.driver:
+            try:
+                self.driver.quit()
+                print("✅ 브라우저 종료")
+            except:
+                pass
+        
+        if self.websocket:
+            try:
+                asyncio.get_event_loop().run_until_complete(self.websocket.close())
+                print("✅ WebSocket 연결 종료")
+            except:
+                pass
+        
+        print("✅ Worker 종료 완료")
+
+
+# ============================================
+# 메인 실행
+# ============================================
+
+if __name__ == "__main__":
+    # 명령줄 인자: python worker_agent.py <PC번호>
+    if len(sys.argv) < 2:
+        print("""
+사용법:
+    python worker_agent.py <PC번호>
+    
+예:
+    python worker_agent.py 1  # PC #1로 실행
+    python worker_agent.py 2  # PC #2로 실행
+        """)
+        sys.exit(1)
+    
+    pc_number = int(sys.argv[1])
+    
+    # 서버 URL (필요시 변경)
+    server_url = "scorp274.com"  # 또는 "localhost:10000" (로컬 테스트)
+    
+    worker = NaverCafeWorker(
+        pc_number=pc_number,
+        server_url=server_url
+    )
+    
+    try:
+        asyncio.run(worker.run())
+    except KeyboardInterrupt:
+        print("\n⏹️ 사용자에 의해 종료됨")
+    except Exception as e:
+        print(f"\n❌ 오류 발생: {e}")
+        import traceback
+        traceback.print_exc()
+    finally:
+        worker.cleanup()
+
