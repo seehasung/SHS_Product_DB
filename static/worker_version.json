@@ -1,0 +1,19 @@
+{
+  "version": "1.0.0",
+  "release_date": "2025-12-31",
+  "download_url": "/static/worker_files/worker_agent.py",
+  "changelog": [
+    "VPN IP 자동 감지",
+    "SSL 인증서 우회",
+    "한국 시간 표시",
+    "경고 메시지 제거"
+  ],
+  "required_packages": {
+    "selenium": "4.15.2",
+    "websockets": "12.0",
+    "psutil": "5.9.6",
+    "requests": "2.31.0",
+    "webdriver-manager": "4.0.1"
+  }
+}
+

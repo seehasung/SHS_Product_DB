@@ -58,11 +58,13 @@ async def worker_websocket(websocket: WebSocket, pc_number: int, db: Session = D
         db.commit()
     else:
         # PC 정보 자동 등록
+        from database import get_kst_now
         pc = AutomationWorkerPC(
             pc_number=pc_number,
             pc_name=f"Worker PC #{pc_number}",
             ip_address="Unknown",
-            status='online'
+            status='online',
+            last_heartbeat=get_kst_now()
         )
         db.add(pc)
         db.commit()
@@ -74,10 +76,11 @@ async def worker_websocket(websocket: WebSocket, pc_number: int, db: Session = D
             
             if message['type'] == 'heartbeat':
                 # Heartbeat 처리
+                from database import get_kst_now
                 pc.cpu_usage = message.get('cpu_usage')
                 pc.memory_usage = message.get('memory_usage')
                 pc.ip_address = message.get('ip_address', pc.ip_address)
-                pc.last_heartbeat = get_kst_now()
+                pc.last_heartbeat = get_kst_now()  # KST 시간으로 저장
                 db.commit()
                 
             elif message['type'] == 'task_started':
@@ -512,9 +515,14 @@ async def list_pcs(db: Session = Depends(get_db)):
     """PC 목록 조회"""
     pcs = db.query(AutomationWorkerPC).order_by(AutomationWorkerPC.pc_number).all()
     
-    return JSONResponse({
-        'success': True,
-        'pcs': [{
+    pc_list = []
+    for pc in pcs:
+        # 마지막 통신 시간 (이미 KST로 저장되어 있음)
+        last_heartbeat_str = None
+        if pc.last_heartbeat:
+            last_heartbeat_str = pc.last_heartbeat.strftime('%Y-%m-%d %H:%M:%S')
+        
+        pc_list.append({
             'id': pc.id,
             'pc_number': pc.pc_number,
             'pc_name': pc.pc_name,
@@ -522,9 +530,13 @@ async def list_pcs(db: Session = Depends(get_db)):
             'status': pc.status,
             'cpu_usage': pc.cpu_usage,
             'memory_usage': pc.memory_usage,
-            'last_heartbeat': pc.last_heartbeat.strftime('%Y-%m-%d %H:%M:%S') if pc.last_heartbeat else None,
+            'last_heartbeat': last_heartbeat_str,
             'current_task_id': pc.current_task_id
-        } for pc in pcs]
+        })
+    
+    return JSONResponse({
+        'success': True,
+        'pcs': pc_list
     })
 
 
@@ -535,9 +547,14 @@ async def list_accounts(db: Session = Depends(get_db)):
         joinedload(AutomationAccount.assigned_pc)
     ).all()
     
-    return JSONResponse({
-        'success': True,
-        'accounts': [{
+    account_list = []
+    for acc in accounts:
+        # 마지막 사용 시간
+        last_used_str = None
+        if acc.last_used_at:
+            last_used_str = acc.last_used_at.strftime('%Y-%m-%d %H:%M:%S')
+        
+        account_list.append({
             'id': acc.id,
             'account_id': acc.account_id,
             'assigned_pc': {
@@ -548,8 +565,12 @@ async def list_accounts(db: Session = Depends(get_db)):
             'login_status': acc.login_status,
             'total_posts': acc.total_posts,
             'total_comments': acc.total_comments,
-            'last_used_at': acc.last_used_at.strftime('%Y-%m-%d %H:%M:%S') if acc.last_used_at else None
-        } for acc in accounts]
+            'last_used_at': last_used_str
+        })
+    
+    return JSONResponse({
+        'success': True,
+        'accounts': account_list
     })
 
 
@@ -618,6 +639,99 @@ async def register_pc(
     db.commit()
     
     return JSONResponse({'success': True, 'message': 'PC가 등록되었습니다'})
+
+
+@router.post("/api/accounts/add")
+async def add_account(
+    account_id: str = Form(...),
+    account_pw: str = Form(...),
+    assigned_pc_id: int = Form(None),
+    db: Session = Depends(get_db)
+):
+    """계정 추가"""
+    # 중복 확인
+    existing = db.query(AutomationAccount).filter(
+        AutomationAccount.account_id == account_id
+    ).first()
+    
+    if existing:
+        return JSONResponse({'success': False, 'message': '이미 등록된 계정입니다'})
+    
+    account = AutomationAccount(
+        account_id=account_id,
+        account_pw=account_pw,
+        assigned_pc_id=assigned_pc_id if assigned_pc_id else None,
+        status='active'
+    )
+    db.add(account)
+    db.commit()
+    
+    return JSONResponse({'success': True, 'message': '계정이 등록되었습니다'})
+
+
+@router.post("/api/cafes/add")
+async def add_cafe(
+    cafe_name: str = Form(...),
+    cafe_url: str = Form(...),
+    db: Session = Depends(get_db)
+):
+    """카페 추가"""
+    # 중복 확인
+    existing = db.query(AutomationCafe).filter(
+        AutomationCafe.url == cafe_url
+    ).first()
+    
+    if existing:
+        return JSONResponse({'success': False, 'message': '이미 등록된 카페입니다'})
+    
+    cafe = AutomationCafe(
+        name=cafe_name,
+        url=cafe_url,
+        status='active'
+    )
+    db.add(cafe)
+    db.commit()
+    
+    return JSONResponse({'success': True, 'message': '카페가 등록되었습니다'})
+
+
+@router.post("/api/pcs/{pc_id}/delete")
+async def delete_pc(pc_id: int, db: Session = Depends(get_db)):
+    """PC 삭제"""
+    pc = db.query(AutomationWorkerPC).get(pc_id)
+    if not pc:
+        return JSONResponse({'success': False, 'message': 'PC를 찾을 수 없습니다'})
+    
+    db.delete(pc)
+    db.commit()
+    
+    return JSONResponse({'success': True, 'message': 'PC가 삭제되었습니다'})
+
+
+@router.post("/api/accounts/{account_id}/delete")
+async def delete_account(account_id: int, db: Session = Depends(get_db)):
+    """계정 삭제"""
+    account = db.query(AutomationAccount).get(account_id)
+    if not account:
+        return JSONResponse({'success': False, 'message': '계정을 찾을 수 없습니다'})
+    
+    db.delete(account)
+    db.commit()
+    
+    return JSONResponse({'success': True, 'message': '계정이 삭제되었습니다'})
+
+
+@router.post("/api/cafes/{cafe_id}/delete")
+async def delete_cafe(cafe_id: int, db: Session = Depends(get_db)):
+    """카페 삭제"""
+    cafe = db.query(AutomationCafe).get(cafe_id)
+    if not cafe:
+        return JSONResponse({'success': False, 'message': '카페를 찾을 수 없습니다'})
+    
+    db.delete(cafe)
+    db.commit()
+    
+    return JSONResponse({'success': True, 'message': '카페가 삭제되었습니다'})
 
 
 @router.post("/api/accounts/assign-to-pc")

@@ -689,22 +689,144 @@ function displayPrompts(prompts) {
 // 관리자 권한 전역 변수
 window.is_admin = {{ 'true' if is_admin else 'false' }};
 
-// TODO: API 함수들 구현
+// ===== 관리 API 함수들 =====
+
 async function addPC(event) {
     event.preventDefault();
     const formData = new FormData(event.target);
-    // API 호출 구현 필요
-    alert('PC 추가 기능 구현 예정');
+    
+    try {
+        const response = await fetch('/automation/api/pcs/register', {
+            method: 'POST',
+            body: formData
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            alert('✅ PC가 등록되었습니다!');
+            bootstrap.Modal.getInstance(document.getElementById('addPCModal')).hide();
+            loadPCs();
+        } else {
+            alert('❌ ' + result.message);
+        }
+    } catch (error) {
+        alert('❌ PC 추가 중 오류가 발생했습니다');
+        console.error(error);
+    }
 }
 
 async function addAccount(event) {
     event.preventDefault();
-    alert('계정 추가 기능 구현 예정');
+    const formData = new FormData(event.target);
+    
+    try {
+        const response = await fetch('/automation/api/accounts/add', {
+            method: 'POST',
+            body: formData
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            alert('✅ 계정이 등록되었습니다!');
+            bootstrap.Modal.getInstance(document.getElementById('addAccountModal')).hide();
+            loadAccounts();
+        } else {
+            alert('❌ ' + result.message);
+        }
+    } catch (error) {
+        alert('❌ 계정 추가 중 오류가 발생했습니다');
+        console.error(error);
+    }
 }
 
 async function addCafe(event) {
     event.preventDefault();
-    alert('카페 추가 기능 구현 예정');
+    const formData = new FormData(event.target);
+    
+    try {
+        const response = await fetch('/automation/api/cafes/add', {
+            method: 'POST',
+            body: formData
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            alert('✅ 카페가 등록되었습니다!');
+            bootstrap.Modal.getInstance(document.getElementById('addCafeModal')).hide();
+            loadCafes();
+        } else {
+            alert('❌ ' + result.message);
+        }
+    } catch (error) {
+        alert('❌ 카페 추가 중 오류가 발생했습니다');
+        console.error(error);
+    }
+}
+
+async function deletePC(id) {
+    if (!confirm('정말 이 PC를 삭제하시겠습니까?')) return;
+    
+    try {
+        const response = await fetch(`/automation/api/pcs/${id}/delete`, {
+            method: 'POST'
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            alert('✅ PC가 삭제되었습니다');
+            loadPCs();
+        } else {
+            alert('❌ ' + result.message);
+        }
+    } catch (error) {
+        alert('❌ 삭제 중 오류가 발생했습니다');
+    }
+}
+
+async function deleteAccount(id) {
+    if (!confirm('정말 이 계정을 삭제하시겠습니까?')) return;
+    
+    try {
+        const response = await fetch(`/automation/api/accounts/${id}/delete`, {
+            method: 'POST'
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            alert('✅ 계정이 삭제되었습니다');
+            loadAccounts();
+        } else {
+            alert('❌ ' + result.message);
+        }
+    } catch (error) {
+        alert('❌ 삭제 중 오류가 발생했습니다');
+    }
+}
+
+async function deleteCafe(id) {
+    if (!confirm('정말 이 카페를 삭제하시겠습니까?')) return;
+    
+    try {
+        const response = await fetch(`/automation/api/cafes/${id}/delete`, {
+            method: 'POST'
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            alert('✅ 카페가 삭제되었습니다');
+            loadCafes();
+        } else {
+            alert('❌ ' + result.message);
+        }
+    } catch (error) {
+        alert('❌ 삭제 중 오류가 발생했습니다');
+    }
 }
 </script>
 {% endblock %}

@@ -18,10 +18,6 @@ warnings.filterwarnings('ignore')
 logging.getLogger('selenium').setLevel(logging.ERROR)
 logging.getLogger('urllib3').setLevel(logging.ERROR)
 
-# SSL 경고 무시
-import urllib3
-urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
-
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
@@ -58,10 +54,10 @@ class NaverCafeWorker:
             
             # 서버에서 최신 버전 정보 가져오기
             version_url = f"https://{self.server_url}/static/worker_version.json"
-            response = requests.get(version_url, timeout=10, verify=False)
+            response = requests.get(version_url, timeout=10)
             
             if response.status_code != 200:
-                print("⚠️  버전 정보를 가져올 수 없습니다 (건너뛰기)")
+                print("⚠️  버전 정보를 가져올 수 없습니다")
                 return False
             
             server_version_info = response.json()
@@ -84,7 +80,7 @@ class NaverCafeWorker:
             print(f"\n⬇️  업데이트 다운로드 중...")
             
             download_url = f"https://{self.server_url}{server_version_info['download_url']}"
-            response = requests.get(download_url, timeout=30, verify=False)
+            response = requests.get(download_url, timeout=30)
             
             if response.status_code != 200:
                 print("❌ 다운로드 실패")
@@ -112,7 +108,7 @@ class NaverCafeWorker:
             return True
             
         except Exception as e:
-            print(f"⚠️  업데이트 확인 실패 (무시하고 계속): {str(e)[:50]}")
+            print(f"❌ 업데이트 확인 오류: {e}")
             return False
     
     def get_local_ip(self) -> str:
