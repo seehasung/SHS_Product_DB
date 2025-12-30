@@ -435,24 +435,25 @@
             <button onclick="event.stopPropagation(); confirmCustomsCheck();" 
                     class="btn btn-sm" 
                     style="position: absolute;
-                           top: 15px;
-                           right: 15px;
+                           top: 12px;
+                           right: 12px;
                            padding: 0;
-                           background: rgba(255,255,255,0.5); 
-                           border: 2px solid rgba(255,255,255,0.8); 
-                           color: white;
+                           background: white; 
+                           border: none; 
+                           color: #e17055;
                            border-radius: 50%;
-                           width: 32px;
-                           height: 32px;
+                           width: 30px;
+                           height: 30px;
                            display: flex;
                            align-items: center;
                            justify-content: center;
                            transition: all 0.3s;
-                           box-shadow: 0 2px 10px rgba(0,0,0,0.2);"
-                    onmouseover="this.style.background='rgba(255,255,255,0.7)'; this.style.transform='rotate(180deg) scale(1.1)'"
-                    onmouseout="this.style.background='rgba(255,255,255,0.5)'; this.style.transform='rotate(0deg) scale(1)'"
+                           box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+                           font-size: 1.2rem;"
+                    onmouseover="this.style.transform='rotate(180deg) scale(1.15)'; this.style.boxShadow='0 4px 12px rgba(0,0,0,0.25)'"
+                    onmouseout="this.style.transform='rotate(0deg) scale(1)'; this.style.boxShadow='0 2px 8px rgba(0,0,0,0.15)'"
                     title="통관 절차 재수집">
-                <i class="bi bi-arrow-clockwise" style="font-size: 1.1rem; font-weight: bold;"></i>
+                ↻
             </button>
         </div>
         
