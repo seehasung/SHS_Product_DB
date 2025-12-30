@@ -37,6 +37,8 @@ from datetime import datetime
 class NaverCafeWorker:
     """네이버 카페 자동 작성 Worker"""
     
+    VERSION = "1.0.0"  # 현재 버전
+    
     def __init__(self, pc_number: int, server_url: str = "scorp274.com"):
         self.pc_number = pc_number
         self.server_url = server_url
@@ -45,6 +47,70 @@ class NaverCafeWorker:
         self.current_account = None
         self.is_running = False
         
+    def check_for_updates(self) -> bool:
+        """서버에서 업데이트 확인 및 자동 다운로드"""
+        try:
+            print("🔍 업데이트 확인 중...")
+            
+            # 서버에서 최신 버전 정보 가져오기
+            version_url = f"https://{self.server_url}/static/worker_version.json"
+            response = requests.get(version_url, timeout=10)
+            
+            if response.status_code != 200:
+                print("⚠️  버전 정보를 가져올 수 없습니다")
+                return False
+            
+            server_version_info = response.json()
+            server_version = server_version_info['version']
+            
+            # 버전 비교
+            if server_version == self.VERSION:
+                print(f"✅ 최신 버전입니다 (v{self.VERSION})")
+                return False
+            
+            # 새 버전 발견
+            print(f"\n🎉 새 버전 발견!")
+            print(f"   현재: v{self.VERSION}")
+            print(f"   최신: v{server_version}")
+            print(f"\n📝 변경 사항:")
+            for change in server_version_info.get('changelog', []):
+                print(f"   - {change}")
+            
+            # 자동 다운로드
+            print(f"\n⬇️  업데이트 다운로드 중...")
+            
+            download_url = f"https://{self.server_url}{server_version_info['download_url']}"
+            response = requests.get(download_url, timeout=30)
+            
+            if response.status_code != 200:
+                print("❌ 다운로드 실패")
+                return False
+            
+            # 백업 생성
+            current_file = Path(__file__)
+            backup_file = current_file.with_suffix('.py.backup')
+            
+            import shutil
+            shutil.copy(current_file, backup_file)
+            print(f"✅ 백업 생성: {backup_file.name}")
+            
+            # 새 파일 저장
+            with open(current_file, 'w', encoding='utf-8') as f:
+                f.write(response.text)
+            
+            print(f"✅ 업데이트 완료!")
+            print(f"\n🔄 Worker를 재시작합니다...")
+            
+            # 재시작
+            import subprocess
+            subprocess.Popen([sys.executable, str(current_file), str(self.pc_number)])
+            
+            return True
+            
+        except Exception as e:
+            print(f"❌ 업데이트 확인 오류: {e}")
+            return False
+    
     def get_local_ip(self) -> str:
         """VPN IP 포함 실제 외부 IP 주소 가져오기"""
         try:
@@ -455,12 +521,19 @@ class NaverCafeWorker:
         
         print(f"""
 ╔════════════════════════════════════════════════════════╗
-║     네이버 카페 자동화 Worker Agent v1.0              ║
+║     네이버 카페 자동화 Worker Agent v{self.VERSION}              ║
 ║                                                        ║
 ║     PC 번호: {self.pc_number:02d}                                    ║
 ║     서버: {self.server_url:40s} ║
 ╚════════════════════════════════════════════════════════╝
         """)
+        
+        # 업데이트 확인
+        updated = self.check_for_updates()
+        if updated:
+            # 업데이트 후 재시작됨
+            print("✅ 업데이트 완료! 재시작 중...")
+            return
         
         # Selenium 초기화
         self.init_selenium()

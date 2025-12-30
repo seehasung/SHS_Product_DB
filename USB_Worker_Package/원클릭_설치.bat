@@ -14,15 +14,12 @@ echo ============================================================
 echo.
 echo.
 
-REM Python 확인
 python --version >nul 2>&1
 if errorlevel 1 (
     echo X Python이 설치되지 않았습니다!
     echo.
     echo https://www.python.org/downloads/
     echo 위 사이트에서 Python을 설치하세요
-    echo.
-    echo 설치 시 "Add Python to PATH" 체크 필수!
     echo.
     pause
     exit /b 1
@@ -33,7 +30,6 @@ python --version
 echo.
 echo.
 
-REM 필수 패키지 설치
 echo ============================================================
 echo   필수 패키지 자동 설치 중...
 echo ============================================================
@@ -64,7 +60,6 @@ echo OK 모든 패키지 설치 완료!
 echo.
 echo.
 
-REM Worker 설정
 echo ============================================================
 echo   Worker 설정
 echo ============================================================
@@ -87,28 +82,26 @@ REM 실행 배치 파일 생성
 echo @echo off
 echo chcp 65001 ^>nul
 echo title Worker Agent PC #%PC_NUM%
-echo cd /d "%CD%"
+echo cd /d "%%~dp0"
 echo python worker_agent.py %PC_NUM%
 echo pause
 ) > "실행_Worker_PC%PC_NUM%.bat"
 
-echo OK 실행 파일 생성: 실행_Worker_PC%PC_NUM%.bat
+echo OK 실행 파일 생성
 echo.
 
 REM 바탕화면 바로가기 생성
-set DESKTOP=%USERPROFILE%\Desktop
-powershell -Command "$WshShell = New-Object -ComObject WScript.Shell; $Shortcut = $WshShell.CreateShortcut('%DESKTOP%\Worker PC %PC_NUM%.lnk'); $Shortcut.TargetPath = '%CD%\실행_Worker_PC%PC_NUM%.bat'; $Shortcut.WorkingDirectory = '%CD%'; $Shortcut.IconLocation = 'shell32.dll,14'; $Shortcut.Save()" 2>nul
+set DESKTOP=%%USERPROFILE%%\Desktop
+powershell -Command "$WshShell = New-Object -ComObject WScript.Shell; $Shortcut = $WshShell.CreateShortcut('%%DESKTOP%%\Worker PC %PC_NUM%.lnk'); $Shortcut.TargetPath = '%%CD%%\실행_Worker_PC%PC_NUM%.bat'; $Shortcut.WorkingDirectory = '%%CD%%'; $Shortcut.IconLocation = 'shell32.dll,14'; $Shortcut.Save()" 2>nul
 
 if errorlevel 1 (
-    echo ! 바탕화면 바로가기 생성 실패 (무시 가능)
+    echo ! 바탕화면 바로가기 생성 실패
 ) else (
-    echo OK 바탕화면 바로가기: Worker PC %PC_NUM%
+    echo OK 바탕화면 바로가기 생성
 )
 
 echo.
 echo.
-
-REM 완료
 echo ============================================================
 echo.
 echo      OK 설치 완료!
@@ -122,19 +115,16 @@ echo    3. https://scorp274.com/automation/cafe 에서 확인
 echo.
 echo.
 
-REM 즉시 실행 여부
 set /p RUN_NOW="지금 바로 실행하시겠습니까? (y/n): "
 
-if /i "%RUN_NOW%"=="y" (
+if /i "%%RUN_NOW%%"=="y" (
     echo.
     echo Worker Agent 시작 중...
     echo.
     python worker_agent.py %PC_NUM%
 ) else (
     echo.
-    echo 실행 방법:
-    echo    바탕화면 'Worker PC %PC_NUM%' 아이콘을 더블클릭하세요!
+    echo 바탕화면 'Worker PC %PC_NUM%' 아이콘을 더블클릭하세요!
     echo.
     pause
 )
-
