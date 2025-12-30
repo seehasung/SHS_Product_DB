@@ -35,6 +35,7 @@ os.makedirs(f"{UPLOAD_DIR}/homepage_images", exist_ok=True)
 os.makedirs(f"{UPLOAD_DIR}/cafe_images", exist_ok=True)
 os.makedirs(f"{UPLOAD_DIR}/blog_images", exist_ok=True)
 os.makedirs(f"{UPLOAD_DIR}/task_images", exist_ok=True)
+os.makedirs(f"{STATIC_DIR}/worker_files", exist_ok=True)  # ⭐ Worker 파일
 
 
 @asynccontextmanager
