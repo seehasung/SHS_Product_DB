@@ -41,7 +41,7 @@ from datetime import datetime
 class NaverCafeWorker:
     """네이버 카페 자동 작성 Worker"""
     
-    VERSION = "1.0.0"  # 현재 버전
+    VERSION = "1.0.1"  # 현재 버전
     
     def __init__(self, pc_number: int, server_url: str = "scorp274.com"):
         self.pc_number = pc_number
