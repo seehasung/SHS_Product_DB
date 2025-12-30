@@ -840,11 +840,16 @@ def order_dashboard(
     # ⭐ 통계 카드 (그대로 유지)
     # ============================================
     
-    # 1. 가송장 사용 건 (캐시 사용 - 빠름!) ⭐
-    # TODO: 스케줄러로 주기적 계산 후 캐시 사용
-    # 임시로 간단 추정치 사용 (정확도보다 속도 우선)
+    # 1. 가송장 사용 건 (현재 년도 + 직전 년도) ⭐
+    from datetime import datetime
+    current_year = datetime.now().year  # 2025
+    previous_year = current_year - 1    # 2024
+    
     fake_tracking_count = db.query(Order).filter(
-        Order.tracking_number.like('2025%')
+        or_(
+            Order.tracking_number.like(f'{current_year}%'),  # 2025로 시작
+            Order.tracking_number.like(f'{previous_year}%')  # 2024로 시작
+        )
     ).count()
     
     # 2. 네이버 송장 흐름
