@@ -127,6 +127,14 @@ async def check_customs_issues():
         now = get_kst_now()
         print(f"🔍 통관 절차 이상 자동 체크 시작: {now.strftime('%Y-%m-%d %H:%M:%S')}")
         
+        # ⭐ WebSocket 알림: 체크 시작
+        await manager.broadcast({
+            'type': 'customs_check_progress',
+            'status': 'started',
+            'message': '🔍 통관 절차 체크 시작...',
+            'timestamp': now.isoformat()
+        })
+        
         ten_days_ago = (date.today() - timedelta(days=10)).strftime('%Y-%m-%d')
         
         # 10일 지난 주문
@@ -185,7 +193,20 @@ async def check_customs_issues():
         customs_issue_cache['last_checked'] = now
         customs_issue_cache['count'] = len(issue_orders)
         
-        print(f"✅ 통관 절차 이상 체크 완료: {len(issue_orders)}건 발견 (총 {checked_count}건 체크, 소요 시간: {(get_kst_now() - now).total_seconds():.1f}초)")
+        elapsed_time = (get_kst_now() - now).total_seconds()
+        
+        print(f"✅ 통관 절차 이상 체크 완료: {len(issue_orders)}건 발견 (총 {checked_count}건 체크, 소요 시간: {elapsed_time:.1f}초)")
+        
+        # ⭐ WebSocket 알림: 체크 완료
+        await manager.broadcast({
+            'type': 'customs_check_progress',
+            'status': 'completed',
+            'message': f'✅ 체크 완료! 발견: {len(issue_orders)}건',
+            'count': len(issue_orders),
+            'checked_count': checked_count,
+            'elapsed_time': round(elapsed_time, 1),
+            'timestamp': get_kst_now().isoformat()
+        })
         
     except Exception as e:
         print(f"❌ 통관 절차 이상 체크 오류: {e}")
