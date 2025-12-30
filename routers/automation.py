@@ -42,6 +42,8 @@ worker_connections: Dict[int, WebSocket] = {}  # {pc_number: websocket}
 @router.websocket("/ws/worker/{pc_number}")
 async def worker_websocket(websocket: WebSocket, pc_number: int, db: Session = Depends(get_db)):
     """Worker PC WebSocket 연결"""
+    from database import get_kst_now  # ⭐ 맨 위로 이동!
+    
     await websocket.accept()
     worker_connections[pc_number] = websocket
     
@@ -58,7 +60,6 @@ async def worker_websocket(websocket: WebSocket, pc_number: int, db: Session = D
         db.commit()
     else:
         # PC 정보 자동 등록
-        from database import get_kst_now
         pc = AutomationWorkerPC(
             pc_number=pc_number,
             pc_name=f"Worker PC #{pc_number}",
@@ -76,7 +77,6 @@ async def worker_websocket(websocket: WebSocket, pc_number: int, db: Session = D
             
             if message['type'] == 'heartbeat':
                 # Heartbeat 처리
-                from database import get_kst_now
                 pc.cpu_usage = message.get('cpu_usage')
                 pc.memory_usage = message.get('memory_usage')
                 pc.ip_address = message.get('ip_address', pc.ip_address)
