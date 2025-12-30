@@ -1,7 +1,7 @@
 # routers/automation.py
 # 네이버 카페 자동화 시스템
 
-from fastapi import APIRouter, Request, WebSocket, WebSocketDisconnect, Depends, Form, HTTPException
+from fastapi import APIRouter, Request, WebSocket, WebSocketDisconnect, Depends, Form, HTTPException, Query
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session, joinedload
