@@ -1006,6 +1006,27 @@ def get_orders_by_condition(
         
         orders = filtered_orders
         
+    elif condition == "naver_delivery":
+        # 네이버 송장 흐름 (카페24/스마트스토어 + 직접전달/자체배송)
+        all_orders = db.query(Order).all()
+        
+        filtered_orders = []
+        for order in all_orders:
+            sales_channel = str(order.sales_channel or '')
+            courier = str(order.courier_company or '')
+            
+            # 카페24 또는 스마트스토어
+            is_target = ('카페24' in sales_channel or 'cafe24' in sales_channel.lower() or
+                        '스마트스토어' in sales_channel or 'smartstore' in sales_channel.lower())
+            
+            # 직접전달 또는 자체배송
+            is_courier = ('직접전달' in courier or '자체배송' in courier)
+            
+            if is_target and is_courier:
+                filtered_orders.append(order)
+        
+        orders = filtered_orders
+    
     elif condition == "kyungdong":
         # 경동 이관
         orders = db.query(Order).filter(
