@@ -28,12 +28,18 @@ class QuickstarSeleniumScraper:
             return
         
         chrome_options = Options()
-        chrome_options.add_argument('--headless')  # 헤드리스 모드
+        chrome_options.add_argument('--headless')
         chrome_options.add_argument('--no-sandbox')
         chrome_options.add_argument('--disable-dev-shm-usage')
         chrome_options.add_argument('--disable-gpu')
         chrome_options.add_argument('--window-size=1920,1080')
         chrome_options.add_argument('user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36')
+        
+        # Render 환경에서 Chromium 사용
+        import os
+        chrome_bin = os.environ.get('CHROME_BIN', '/usr/bin/chromium-browser')
+        if os.path.exists(chrome_bin):
+            chrome_options.binary_location = chrome_bin
         
         self.driver = webdriver.Chrome(options=chrome_options)
         print(f"✅ Chrome 드라이버 초기화")

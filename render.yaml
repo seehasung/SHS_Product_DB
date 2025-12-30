@@ -2,8 +2,13 @@ services:
   - type: web
     name: cs-system
     runtime: python
-    buildCommand: ""
+    buildCommand: "pip install -r requirements.txt"
     startCommand: ./start.sh
     plan: free
     branch: main
     autoDeploy: true
+    envVars:
+      - key: CHROME_BIN
+        value: /usr/bin/chromium-browser
+      - key: CHROMEDRIVER_PATH
+        value: /usr/bin/chromedriver
