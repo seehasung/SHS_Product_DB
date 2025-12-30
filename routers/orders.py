@@ -829,6 +829,8 @@ def order_dashboard(
         start_date = today.replace(day=1).strftime('%Y-%m-%d')
         end_date = today.strftime('%Y-%m-%d')
     
+    print(f"📅 대시보드 날짜 필터: {start_date} ~ {end_date}")
+    
     # 기본 통계 (전체)
     total_orders = db.query(Order).count()
     today_str = date.today().strftime('%Y-%m-%d')
@@ -889,15 +891,21 @@ def order_dashboard(
         Order.order_date <= end_date + ' 23:59:59'
     ).all()
     
+    print(f"📊 기간 내 주문: {len(month_orders)}건")
+    
     # 상태별 집계 (통합된 상태)
     status_counts = {}
     for order in month_orders:
         normalized_status = normalize_order_status(order.order_status, db)  # ⭐ db 전달
         status_counts[normalized_status] = status_counts.get(normalized_status, 0) + 1
 
+    print(f"📊 상태별 카운트: {status_counts}")
+
     # 정렬 (배송중 > 배송완료 > 취소 > 반품 > 교환 > 미분류 순)
     status_order = ["배송중", "배송완료", "취소", "반품", "교환", "미분류"]
     status_stats = [(status, status_counts.get(status, 0)) for status in status_order if status_counts.get(status, 0) > 0]
+    
+    print(f"📊 최종 status_stats: {status_stats}")
     
     # 기간 표시 텍스트
     start_dt = datetime.strptime(start_date, '%Y-%m-%d')
@@ -946,36 +954,27 @@ def get_orders_by_condition(
     orders = []
     
     if condition == "fake_tracking":
-        # 가송장 사용 건 (배송중 상태만) ⭐
-        valid_couriers = [
-            'CJ대한통운', 'CJ택배', '대한통운', '로젠택배', '롯데택배',
-            '우체국택배', '천일택배', '편의점택배(GS25)', '한진택배'
-        ]
+        # 가송장 사용 건 (현재년도 + 직전년도, 배송중만) ⭐
+        from datetime import datetime
+        current_year = datetime.now().year
+        previous_year = current_year - 1
         
-        all_orders = db.query(Order).all()
-        for order in all_orders:
-            courier = order.courier_company or ''
-            is_valid_courier = any(valid in courier for valid in valid_couriers)
-            tracking = order.tracking_number or ''
-            
-            # ⭐ 송장번호 .0 제거
-            if tracking.endswith('.0'):
-                tracking = tracking[:-2]
-            
-            # ⭐ 송장번호 앞 4자리가 2025~2030인지 확인
-            is_fake_tracking = False
-            if len(tracking) >= 4:
-                prefix = tracking[:4]
-                if prefix in ['2025', '2026', '2027', '2028', '2029', '2030']:
-                    is_fake_tracking = True
-            
-            # ⭐ 배송중 상태 확인
+        # 송장번호가 현재/직전 년도로 시작하는 주문
+        orders = db.query(Order).filter(
+            or_(
+                Order.tracking_number.like(f'{current_year}%'),
+                Order.tracking_number.like(f'{previous_year}%')
+            )
+        ).all()
+        
+        # 배송중 상태 필터링 (Python에서)
+        filtered_orders = []
+        for order in orders:
             normalized_status = normalize_order_status(order.order_status, db)
-            is_shipping = (normalized_status == '배송중')
-            
-            # 유효하지 않은 택배사 + 가송장 형식 + 배송중 = 가송장 사용 건
-            if not is_valid_courier and is_fake_tracking and is_shipping:
-                orders.append(order)
+            if normalized_status == '배송중':
+                filtered_orders.append(order)
+        
+        orders = filtered_orders
         
     elif condition == "kyungdong":
         # 경동 이관
