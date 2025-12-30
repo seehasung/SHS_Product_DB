@@ -1226,6 +1226,10 @@
                         <input type="text" class="form-control" value="${order.customs_number || '-'}" readonly>
                     </div>
                     <div class="col-12 mb-3">
+                        <label class="form-label fw-bold">타오바오 주문번호 (메모 포함)</label>
+                        <textarea class="form-control" rows="2" readonly style="font-family: monospace; font-size: 0.9rem;">${order.taobao_order_number || '-'}</textarea>
+                    </div>
+                    <div class="col-12 mb-3">
                         <label class="form-label fw-bold">주소</label>
                         <textarea class="form-control" rows="2" readonly>${order.address || '-'}</textarea>
                     </div>

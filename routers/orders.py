@@ -1186,6 +1186,23 @@ async def upload_orders(
             
             df["exchange_rate"] = df["order_processing_date"].apply(parse_exchange_rate)
         
+        # ⭐ 타오바오 주문번호 파싱 (앞 19자 추출)
+        if "taobao_order_number" in df.columns:
+            def parse_taobao_number(x):
+                try:
+                    if pd.notna(x) and str(x) != 'nan':
+                        text = str(x).strip()
+                        # 앞에서 19자 추출 (숫자만)
+                        digits = ''.join(filter(str.isdigit, text[:30]))  # 앞 30자에서 숫자만
+                        if len(digits) >= 19:
+                            return text  # 전체 내용 저장 (메모 포함)
+                        return text
+                    return None
+                except:
+                    return None
+            
+            df["taobao_order_number"] = df["taobao_order_number"].apply(parse_taobao_number)
+        
         # ⭐ 경동이관여부 처리 (TRUE/FALSE → Boolean)
         if "is_kyungdong_transferred" in df.columns:
             df["is_kyungdong_transferred"] = df["is_kyungdong_transferred"].apply(
