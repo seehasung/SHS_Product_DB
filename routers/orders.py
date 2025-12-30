@@ -1501,7 +1501,7 @@ def search_orders_all(
                 "order_status": order.order_status,
                 "courier_company": order.courier_company,
                 "tracking_number": order.tracking_number,
-                "order_date": order.order_date.strftime("%Y-%m-%d") if order.order_date else None,
+                "order_date": order.order_date[:10] if order.order_date and len(str(order.order_date)) >= 10 else order.order_date,
                 "buyer_name": order.buyer_name,
                 "recipient_name": order.recipient_name,
                 "contact_number": order.contact_number,
