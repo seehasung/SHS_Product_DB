@@ -122,21 +122,30 @@ async def check_naver_delivery_flow():
         all_orders = db.query(Order).all()
         
         target_orders = []
+        cafe24_count = 0
+        naver_count = 0
+        
         for order in all_orders:
-            sales_channel = (order.sales_channel or '').lower()
-            courier = (order.courier_company or '').lower()
+            sales_channel = str(order.sales_channel or '')
+            courier = str(order.courier_company or '')
             
             # 판매처: 카페24 또는 스마트스토어
-            is_target_channel = ('카페24' in sales_channel or 'cafe24' in sales_channel or 
-                                '스마트스토어' in sales_channel or 'smartstore' in sales_channel)
+            is_cafe24 = ('카페24' in sales_channel or 'cafe24' in sales_channel.lower())
+            is_naver = ('스마트스토어' in sales_channel or 'smartstore' in sales_channel.lower())
+            is_target_channel = is_cafe24 or is_naver
             
             # 택배사: 직접전달 또는 자체배송
             is_target_courier = ('직접전달' in courier or '자체배송' in courier)
             
             if is_target_channel and is_target_courier:
                 target_orders.append(order)
+                
+                if is_cafe24:
+                    cafe24_count += 1
+                elif is_naver:
+                    naver_count += 1
         
-        print(f"  📋 대상 주문: {len(target_orders)}건")
+        print(f"  📋 대상 주문: {len(target_orders)}건 (카페24: {cafe24_count}건, 네이버: {naver_count}건)")
         
         ready_count = 0  # 반출신고 완료 건수
         checked_count = 0
@@ -145,19 +154,25 @@ async def check_naver_delivery_flow():
         for order in target_orders:
             try:
                 tracking = clean_tracking_number(order.tracking_number)
+                is_cafe24 = '카페24' in str(order.sales_channel or '')
                 
                 # 카페24 (자체배송 + 송장번호 있음)
-                if not tracking or len(tracking) < 12:
-                    # 네이버 (직접전달 + 송장번호 없음)
+                if is_cafe24 and tracking and len(tracking) >= 12:
+                    print(f"  📦 카페24 주문: {order.order_number}, 송장: {tracking}")
+                
+                # 네이버 (직접전달 + 송장번호 없음)
+                elif not tracking or len(tracking) < 12:
                     # quickstar에서 송장번호 조회
                     if not order.taobao_order_number:
                         continue
+                    
+                    print(f"  📦 네이버 주문: {order.order_number}, 타오바오: {order.taobao_order_number}")
                     
                     tracking = scraper.get_tracking_number(order.taobao_order_number)
                     if not tracking:
                         continue
                 
-                # 통관 API 조회 (카페24도 네이버도 여기서 조회)
+                # 통관 API 조회
                 customs_result = get_customs_info_auto(
                     tracking_number=tracking,
                     master_bl=order.master_bl,
