@@ -1379,10 +1379,12 @@
                 countElement.textContent = result.count.toLocaleString();
                 
                 // 성공 토스트
-                showToast(`✅ 체크 완료! 반출신고: ${result.count}건`, 'success', true);
+                showToast(`✅ 네이버 송장 흐름 체크 완료! 반출신고: ${result.count}건`, 'success', true);
                 
-                // 3초 후 페이지 새로고침
-                setTimeout(() => window.location.reload(), 3000);
+                // 3초 후 페이지 새로고침 ⭐
+                setTimeout(() => {
+                    window.location.reload();
+                }, 3000);
             } else {
                 countElement.textContent = originalText;
                 showToast(`❌ 체크 실패: ${result.message}`, 'danger', true);
