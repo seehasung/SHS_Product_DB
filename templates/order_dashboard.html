@@ -1649,6 +1649,50 @@
     }
 
     // ===== 페이지 로드 시 날짜 초기화 =====
+    // ⭐ WebSocket 연결 (실시간 통관 체크 알림)
+    let customsProgressToast = null;
+    
+    function connectCustomsWebSocket() {
+        // 사용자 ID는 서버에서 제공 (세션 기반)
+        const ws = new WebSocket(`wss://scorp274.com/ws/1`);  // TODO: 실제 user_id로 변경
+        
+        ws.onmessage = (event) => {
+            const data = JSON.parse(event.data);
+            
+            // 통관 체크 진행 상황 메시지만 처리
+            if (data.type === 'customs_check_progress') {
+                if (data.status === 'started') {
+                    // 진행 중 토스트 표시
+                    customsProgressToast = showToast('🔍 통관 절차 체크 중...<br><small>잠시만 기다려주세요</small>', 'info', false);
+                } else if (data.status === 'completed') {
+                    // 진행 토스트 제거
+                    if (customsProgressToast) {
+                        customsProgressToast.classList.remove('show');
+                        setTimeout(() => customsProgressToast.remove(), 300);
+                    }
+                    
+                    // 완료 토스트 표시
+                    showToast(`✅ 체크 완료! 발견: ${data.count}건<br><small>${data.checked_count}건 체크, ${data.elapsed_time}초 소요</small>`, 'success', true);
+                    
+                    // 카운트 업데이트
+                    const countElement = document.getElementById('customsIssueCount');
+                    if (countElement) {
+                        countElement.textContent = data.count.toLocaleString();
+                    }
+                }
+            }
+        };
+        
+        ws.onclose = () => {
+            console.log('❌ WebSocket 연결 해제, 3초 후 재연결...');
+            setTimeout(connectCustomsWebSocket, 3000);
+        };
+        
+        ws.onerror = (error) => {
+            console.error('WebSocket 오류:', error);
+        };
+    }
+
     document.addEventListener('DOMContentLoaded', function() {
         const today = new Date();
         const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
@@ -1660,6 +1704,9 @@
             startInput.valueAsDate = firstDay;
             endInput.valueAsDate = today;
         }
+        
+        // ⭐ WebSocket 연결 시작
+        connectCustomsWebSocket();
     });
 
     // ===== 통관 조회 함수 =====
