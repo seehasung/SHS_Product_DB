@@ -147,12 +147,8 @@ async def check_naver_delivery_flow():
                 tracking = clean_tracking_number(order.tracking_number)
                 
                 # 카페24 (자체배송 + 송장번호 있음)
-                if tracking and len(tracking) >= 12:
-                    # 송장번호로 바로 조회
-                    pass
-                
-                # 네이버 (직접전달 + 송장번호 없음)
-                else:
+                if not tracking or len(tracking) < 12:
+                    # 네이버 (직접전달 + 송장번호 없음)
                     # quickstar에서 송장번호 조회
                     if not order.taobao_order_number:
                         continue
@@ -161,7 +157,7 @@ async def check_naver_delivery_flow():
                     if not tracking:
                         continue
                 
-                # 통관 API 조회
+                # 통관 API 조회 (카페24도 네이버도 여기서 조회)
                 customs_result = get_customs_info_auto(
                     tracking_number=tracking,
                     master_bl=order.master_bl,
