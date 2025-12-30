@@ -86,26 +86,41 @@ class QuickstarScraper:
             current_year = datetime.now().year
             previous_year = current_year - 1
             
-            # 검색 URL
-            search_url = (
-                f"{self.base_url}/mypage/service_list.php"
-                f"?mb_id={self.username}"
-                f"&dtype=add"
-                f"&sdate={previous_year}-01-01"
-                f"&edate={current_year}-12-31"
-                f"&find=it_local_order"
-                f"&value={taobao_number}"
-                f"&type=ship"
-                f"&pageblock=20#page1"
-            )
+            # ⭐ AJAX 엔드포인트로 직접 호출
+            ajax_url = f"{self.base_url}/elpisbbs/ajax.nt_order_list_member.php"
             
-            print(f"📤 URL: {search_url[:100]}...")
-            
-            headers = {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+            params = {
+                'last': 0,
+                'limit': 20,
+                'find': 'it_local_order',
+                'value': taobao_number,
+                'sdate': f'{previous_year}-01-01',
+                'edate': f'{current_year}-12-31',
+                'mb_id': self.username,
+                'type': 'ship',
+                'dtype': 'add',
+                'state': '',
+                'or_de_no': '',
+                'last_code': '',
+                'it_code': '',
+                'gr_output_stay_type': '',
+                'gr_var5': '',
+                'gr_unipass_result': '',
+                'gr_fltno': '',
+                'gr_fltno2': '',
+                'gr_sms': '',
+                'gr_tr_no': ''
             }
             
-            response = self.session.get(search_url, headers=headers)
+            print(f"📤 AJAX 요청: {ajax_url}")
+            
+            headers = {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                'X-Requested-With': 'XMLHttpRequest',
+                'Referer': f'{self.base_url}/mypage/service_list.php'
+            }
+            
+            response = self.session.post(ajax_url, data=params, headers=headers, timeout=10)
             
             if response.status_code != 200:
                 print(f"❌ HTTP 오류: {response.status_code}")
