@@ -221,13 +221,19 @@ async def assign_next_task(pc_number: int, db: Session, websocket: WebSocket):
 # ============================================
 
 @router.get("/cafe", response_class=HTMLResponse)
-async def automation_dashboard(request: Request, db: Session = Depends(get_db)):
-    """자동화 대시보드"""
+async def automation_cafe(request: Request, db: Session = Depends(get_db)):
+    """자동화 카페 관리 (통합)"""
     username = request.session.get("user")
     if not username:
         return RedirectResponse("/login")
     
     is_admin = request.session.get("is_admin", False)
+    
+    return templates.TemplateResponse("automation_cafe_full.html", {
+        "request": request,
+        "username": username,
+        "is_admin": is_admin
+    })
 
 
 @router.get("/stats", response_class=HTMLResponse)
@@ -495,6 +501,92 @@ async def create_tasks_from_post(
             'success': False,
             'message': f'오류: {str(e)}'
         }, status_code=500)
+
+
+# ============================================
+# 데이터 조회 API (목록)
+# ============================================
+
+@router.get("/api/pcs/list")
+async def list_pcs(db: Session = Depends(get_db)):
+    """PC 목록 조회"""
+    pcs = db.query(AutomationWorkerPC).order_by(AutomationWorkerPC.pc_number).all()
+    
+    return JSONResponse({
+        'success': True,
+        'pcs': [{
+            'id': pc.id,
+            'pc_number': pc.pc_number,
+            'pc_name': pc.pc_name,
+            'ip_address': pc.ip_address,
+            'status': pc.status,
+            'cpu_usage': pc.cpu_usage,
+            'memory_usage': pc.memory_usage,
+            'last_heartbeat': pc.last_heartbeat.strftime('%Y-%m-%d %H:%M:%S') if pc.last_heartbeat else None,
+            'current_task_id': pc.current_task_id
+        } for pc in pcs]
+    })
+
+
+@router.get("/api/accounts/list")
+async def list_accounts(db: Session = Depends(get_db)):
+    """계정 목록 조회"""
+    accounts = db.query(AutomationAccount).options(
+        joinedload(AutomationAccount.assigned_pc)
+    ).all()
+    
+    return JSONResponse({
+        'success': True,
+        'accounts': [{
+            'id': acc.id,
+            'account_id': acc.account_id,
+            'assigned_pc': {
+                'id': acc.assigned_pc.id,
+                'pc_number': acc.assigned_pc.pc_number
+            } if acc.assigned_pc else None,
+            'status': acc.status,
+            'login_status': acc.login_status,
+            'total_posts': acc.total_posts,
+            'total_comments': acc.total_comments,
+            'last_used_at': acc.last_used_at.strftime('%Y-%m-%d %H:%M:%S') if acc.last_used_at else None
+        } for acc in accounts]
+    })
+
+
+@router.get("/api/cafes/list")
+async def list_cafes(db: Session = Depends(get_db)):
+    """카페 목록 조회"""
+    cafes = db.query(AutomationCafe).all()
+    
+    return JSONResponse({
+        'success': True,
+        'cafes': [{
+            'id': cafe.id,
+            'name': cafe.name,
+            'url': cafe.url,
+            'status': cafe.status,
+            'created_at': cafe.created_at.strftime('%Y-%m-%d') if cafe.created_at else None
+        } for cafe in cafes]
+    })
+
+
+@router.get("/api/prompts/list")
+async def list_prompts(db: Session = Depends(get_db)):
+    """프롬프트 목록 조회"""
+    prompts = db.query(AutomationPrompt).all()
+    
+    return JSONResponse({
+        'success': True,
+        'prompts': [{
+            'id': prompt.id,
+            'name': prompt.name,
+            'prompt_type': prompt.prompt_type,
+            'temperature': prompt.temperature,
+            'max_tokens': prompt.max_tokens,
+            'is_active': prompt.is_active,
+            'created_at': prompt.created_at.strftime('%Y-%m-%d') if prompt.created_at else None
+        } for prompt in prompts]
+    })
 
 
 # ============================================

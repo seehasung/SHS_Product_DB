@@ -1,0 +1,711 @@
+{% extends "base.html" %}
+{% block title %}자동화 - 카페 관리{% endblock %}
+
+{% block head %}
+{{ super() }}
+<style>
+    .automation-container {
+        max-width: 1600px;
+        margin: 0 auto;
+        padding: 20px;
+    }
+    
+    /* 탭 스타일 */
+    .nav-tabs {
+        border-bottom: 2px solid #e1e8ed;
+        margin-bottom: 30px;
+    }
+    
+    .nav-tabs .nav-link {
+        border: none;
+        color: #636e72;
+        font-weight: 600;
+        padding: 15px 30px;
+        transition: all 0.3s;
+        position: relative;
+    }
+    
+    .nav-tabs .nav-link:hover {
+        color: #4A90E2;
+        background: rgba(74, 144, 226, 0.05);
+    }
+    
+    .nav-tabs .nav-link.active {
+        color: #4A90E2;
+        background: transparent;
+    }
+    
+    .nav-tabs .nav-link.active::after {
+        content: '';
+        position: absolute;
+        bottom: -2px;
+        left: 0;
+        right: 0;
+        height: 3px;
+        background: #4A90E2;
+    }
+    
+    /* 카드 스타일 */
+    .content-card {
+        background: white;
+        border-radius: 16px;
+        padding: 30px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+        margin-bottom: 20px;
+    }
+    
+    .card-header-custom {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+        padding-bottom: 15px;
+        border-bottom: 2px solid #e1e8ed;
+    }
+    
+    .card-header-custom h4 {
+        font-weight: 700;
+        color: #2d3436;
+        margin: 0;
+    }
+    
+    /* 테이블 스타일 */
+    .data-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+    
+    .data-table thead th {
+        background: linear-gradient(135deg, rgba(74, 144, 226, 0.1) 0%, rgba(91, 163, 245, 0.1) 100%);
+        padding: 12px;
+        text-align: left;
+        font-weight: 700;
+        color: #2d3436;
+        font-size: 0.9rem;
+        border-bottom: 2px solid #e1e8ed;
+    }
+    
+    .data-table tbody tr {
+        transition: all 0.2s;
+        border-bottom: 1px solid #f1f3f5;
+    }
+    
+    .data-table tbody tr:hover {
+        background: rgba(74, 144, 226, 0.05);
+    }
+    
+    .data-table tbody td {
+        padding: 12px;
+        color: #495057;
+        font-size: 0.9rem;
+    }
+    
+    /* 배지 스타일 */
+    .status-badge {
+        padding: 4px 12px;
+        border-radius: 12px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        display: inline-block;
+    }
+    
+    .status-badge.online { background: #d4edda; color: #155724; }
+    .status-badge.busy { background: #fff3cd; color: #856404; }
+    .status-badge.offline { background: #f8d7da; color: #721c24; }
+    .status-badge.active { background: #d4edda; color: #155724; }
+    .status-badge.suspended { background: #f8d7da; color: #721c24; }
+    
+    /* 빈 상태 */
+    .empty-state {
+        text-align: center;
+        padding: 60px 20px;
+        color: #adb5bd;
+    }
+    
+    .empty-state i {
+        font-size: 4rem;
+        margin-bottom: 20px;
+        opacity: 0.5;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="automation-container">
+    <h1 style="font-weight: 800; margin-bottom: 30px;">
+        <i class="bi bi-robot"></i> 카페 자동화 관리
+    </h1>
+    
+    <!-- 탭 네비게이션 -->
+    <ul class="nav nav-tabs" role="tablist">
+        <li class="nav-item">
+            <a class="nav-link active" data-bs-toggle="tab" href="#dashboard">
+                <i class="bi bi-speedometer2"></i> 대시보드
+            </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" data-bs-toggle="tab" href="#pcs">
+                <i class="bi bi-pc-display"></i> PC 관리
+            </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" data-bs-toggle="tab" href="#accounts">
+                <i class="bi bi-person-badge"></i> 계정 관리
+            </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" data-bs-toggle="tab" href="#cafes">
+                <i class="bi bi-cup-hot"></i> 카페 관리
+            </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" data-bs-toggle="tab" href="#prompts">
+                <i class="bi bi-chat-square-text"></i> 프롬프트 관리
+            </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" data-bs-toggle="tab" href="#schedules">
+                <i class="bi bi-calendar-week"></i> 스케줄 관리
+            </a>
+        </li>
+    </ul>
+    
+    <!-- 탭 컨텐츠 -->
+    <div class="tab-content">
+        <!-- 대시보드 탭 -->
+        <div class="tab-pane fade show active" id="dashboard">
+            <div class="content-card">
+                <div class="card-header-custom">
+                    <h4><i class="bi bi-speedometer2"></i> 실시간 대시보드</h4>
+                    <button class="btn btn-sm btn-outline-primary" onclick="location.reload()">
+                        <i class="bi bi-arrow-clockwise"></i> 새로고침
+                    </button>
+                </div>
+                
+                <div class="alert alert-info">
+                    <i class="bi bi-info-circle"></i> 
+                    <strong>안내:</strong> 자동화 시스템이 활성화되었습니다. 
+                    각 탭에서 PC, 계정, 카페 등을 관리하세요.
+                </div>
+                
+                <div class="row">
+                    <div class="col-md-12">
+                        <p>대시보드 내용은 <code>automation_dashboard.html</code>의 내용을 여기에 통합 예정</p>
+                        <p>현재는 각 탭에서 관리 기능을 사용하세요.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- PC 관리 탭 -->
+        <div class="tab-pane fade" id="pcs">
+            <div class="content-card">
+                <div class="card-header-custom">
+                    <h4><i class="bi bi-pc-display"></i> PC 관리</h4>
+                    {% if is_admin %}
+                    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addPCModal">
+                        <i class="bi bi-plus-circle"></i> PC 추가
+                    </button>
+                    {% endif %}
+                </div>
+                
+                <div class="table-responsive">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>PC 번호</th>
+                                <th>PC 이름</th>
+                                <th>IP 주소</th>
+                                <th>상태</th>
+                                <th>CPU</th>
+                                <th>메모리</th>
+                                <th>마지막 통신</th>
+                                <th>현재 작업</th>
+                                {% if is_admin %}<th>관리</th>{% endif %}
+                            </tr>
+                        </thead>
+                        <tbody id="pcsTableBody">
+                            <tr>
+                                <td colspan="9" class="text-center text-muted">
+                                    <i class="bi bi-hourglass-split"></i> 데이터 로딩 중...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 계정 관리 탭 -->
+        <div class="tab-pane fade" id="accounts">
+            <div class="content-card">
+                <div class="card-header-custom">
+                    <h4><i class="bi bi-person-badge"></i> 계정 관리</h4>
+                    {% if is_admin %}
+                    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addAccountModal">
+                        <i class="bi bi-plus-circle"></i> 계정 추가
+                    </button>
+                    {% endif %}
+                </div>
+                
+                <div class="table-responsive">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>계정 ID</th>
+                                <th>할당 PC</th>
+                                <th>상태</th>
+                                <th>로그인 상태</th>
+                                <th>작성 글</th>
+                                <th>작성 댓글</th>
+                                <th>마지막 사용</th>
+                                {% if is_admin %}<th>관리</th>{% endif %}
+                            </tr>
+                        </thead>
+                        <tbody id="accountsTableBody">
+                            <tr>
+                                <td colspan="8" class="text-center text-muted">
+                                    <i class="bi bi-hourglass-split"></i> 데이터 로딩 중...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 카페 관리 탭 -->
+        <div class="tab-pane fade" id="cafes">
+            <div class="content-card">
+                <div class="card-header-custom">
+                    <h4><i class="bi bi-cup-hot"></i> 카페 관리</h4>
+                    {% if is_admin %}
+                    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addCafeModal">
+                        <i class="bi bi-plus-circle"></i> 카페 추가
+                    </button>
+                    {% endif %}
+                </div>
+                
+                <div class="table-responsive">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>카페명</th>
+                                <th>URL</th>
+                                <th>상태</th>
+                                <th>등록일</th>
+                                {% if is_admin %}<th>관리</th>{% endif %}
+                            </tr>
+                        </thead>
+                        <tbody id="cafesTableBody">
+                            <tr>
+                                <td colspan="5" class="text-center text-muted">
+                                    <i class="bi bi-hourglass-split"></i> 데이터 로딩 중...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 프롬프트 관리 탭 -->
+        <div class="tab-pane fade" id="prompts">
+            <div class="content-card">
+                <div class="card-header-custom">
+                    <h4><i class="bi bi-chat-square-text"></i> AI 프롬프트 관리</h4>
+                    {% if is_admin %}
+                    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addPromptModal">
+                        <i class="bi bi-plus-circle"></i> 프롬프트 추가
+                    </button>
+                    {% endif %}
+                </div>
+                
+                <div class="table-responsive">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>이름</th>
+                                <th>타입</th>
+                                <th>Temperature</th>
+                                <th>Max Tokens</th>
+                                <th>상태</th>
+                                <th>등록일</th>
+                                {% if is_admin %}<th>관리</th>{% endif %}
+                            </tr>
+                        </thead>
+                        <tbody id="promptsTableBody">
+                            <tr>
+                                <td colspan="7" class="text-center text-muted">
+                                    <i class="bi bi-hourglass-split"></i> 데이터 로딩 중...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 스케줄 관리 탭 -->
+        <div class="tab-pane fade" id="schedules">
+            <div class="content-card">
+                <div class="card-header-custom">
+                    <h4><i class="bi bi-calendar-week"></i> 스케줄 관리</h4>
+                    {% if is_admin %}
+                    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createScheduleModal">
+                        <i class="bi bi-plus-circle"></i> 스케줄 생성
+                    </button>
+                    {% endif %}
+                </div>
+                
+                <div class="alert alert-success">
+                    <i class="bi bi-lightbulb"></i> 
+                    <strong>Tip:</strong> 스케줄을 생성하면 자동으로 작업 큐에 추가됩니다.
+                </div>
+                
+                <div id="schedulesContent">
+                    <p class="text-center text-muted">스케줄 데이터 로딩 중...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- PC 추가 모달 -->
+<div class="modal fade" id="addPCModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-pc-display"></i> PC 추가</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form onsubmit="addPC(event)">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">PC 번호 (1-8)</label>
+                        <input type="number" class="form-control" name="pc_number" min="1" max="8" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">PC 이름</label>
+                        <input type="text" class="form-control" name="pc_name" placeholder="Worker PC #1" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">IP 주소</label>
+                        <input type="text" class="form-control" name="ip_address" placeholder="192.168.1.101" required>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">취소</button>
+                    <button type="submit" class="btn btn-primary">등록</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- 계정 추가 모달 -->
+<div class="modal fade" id="addAccountModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-person-plus"></i> 계정 추가</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form onsubmit="addAccount(event)">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">계정 ID</label>
+                        <input type="text" class="form-control" name="account_id" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">비밀번호</label>
+                        <input type="password" class="form-control" name="account_pw" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">할당 PC</label>
+                        <select class="form-select" name="assigned_pc_id">
+                            <option value="">나중에 할당</option>
+                            <!-- JavaScript로 동적 로드 -->
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">취소</button>
+                    <button type="submit" class="btn btn-primary">등록</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- 카페 추가 모달 -->
+<div class="modal fade" id="addCafeModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-cup-hot"></i> 카페 추가</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form onsubmit="addCafe(event)">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">카페명</label>
+                        <input type="text" class="form-control" name="cafe_name" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">카페 URL</label>
+                        <input type="url" class="form-control" name="cafe_url" 
+                               placeholder="https://cafe.naver.com/example" required>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">취소</button>
+                    <button type="submit" class="btn btn-primary">등록</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+// 페이지 로드 시 데이터 로드
+document.addEventListener('DOMContentLoaded', function() {
+    loadAllData();
+    
+    // 30초마다 PC 상태 갱신
+    setInterval(loadPCs, 30000);
+});
+
+async function loadAllData() {
+    await loadPCs();
+    await loadAccounts();
+    await loadCafes();
+    await loadPrompts();
+}
+
+async function loadPCs() {
+    try {
+        const response = await fetch('/automation/api/pcs/list');
+        const data = await response.json();
+        
+        if (data.success) {
+            displayPCs(data.pcs);
+        }
+    } catch (error) {
+        console.error('PC 데이터 로드 오류:', error);
+    }
+}
+
+function displayPCs(pcs) {
+    const tbody = document.getElementById('pcsTableBody');
+    
+    if (pcs.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="9" class="text-center text-muted">
+                    <div class="empty-state">
+                        <i class="bi bi-pc-display"></i>
+                        <p>등록된 PC가 없습니다</p>
+                        <p>Worker Agent를 실행하면 자동으로 등록됩니다</p>
+                    </div>
+                </td>
+            </tr>
+        `;
+        return;
+    }
+    
+    const html = pcs.map(pc => `
+        <tr>
+            <td><strong>#${pc.pc_number}</strong></td>
+            <td>${pc.pc_name}</td>
+            <td><code>${pc.ip_address}</code></td>
+            <td><span class="status-badge ${pc.status}">${pc.status}</span></td>
+            <td>${pc.cpu_usage ? pc.cpu_usage.toFixed(1) + '%' : '-'}</td>
+            <td>${pc.memory_usage ? pc.memory_usage.toFixed(1) + '%' : '-'}</td>
+            <td>${pc.last_heartbeat || '-'}</td>
+            <td>${pc.current_task_id ? 'Task #' + pc.current_task_id : '-'}</td>
+            ${window.is_admin ? `
+            <td>
+                <button class="btn btn-sm btn-danger" onclick="deletePC(${pc.id})">
+                    <i class="bi bi-trash"></i>
+                </button>
+            </td>
+            ` : ''}
+        </tr>
+    `).join('');
+    
+    tbody.innerHTML = html;
+}
+
+async function loadAccounts() {
+    try {
+        const response = await fetch('/automation/api/accounts/list');
+        const data = await response.json();
+        
+        if (data.success) {
+            displayAccounts(data.accounts);
+        }
+    } catch (error) {
+        console.error('계정 데이터 로드 오류:', error);
+    }
+}
+
+function displayAccounts(accounts) {
+    const tbody = document.getElementById('accountsTableBody');
+    
+    if (accounts.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="8" class="text-center text-muted">
+                    등록된 계정이 없습니다
+                </td>
+            </tr>
+        `;
+        return;
+    }
+    
+    const html = accounts.map(acc => `
+        <tr>
+            <td><code>${acc.account_id}</code></td>
+            <td>${acc.assigned_pc ? 'PC #' + acc.assigned_pc.pc_number : '-'}</td>
+            <td><span class="status-badge ${acc.status}">${acc.status}</span></td>
+            <td>${acc.login_status}</td>
+            <td>${acc.total_posts}</td>
+            <td>${acc.total_comments}</td>
+            <td>${acc.last_used_at || '-'}</td>
+            ${window.is_admin ? `
+            <td>
+                <button class="btn btn-sm btn-warning" onclick="editAccount(${acc.id})">
+                    <i class="bi bi-pencil"></i>
+                </button>
+                <button class="btn btn-sm btn-danger" onclick="deleteAccount(${acc.id})">
+                    <i class="bi bi-trash"></i>
+                </button>
+            </td>
+            ` : ''}
+        </tr>
+    `).join('');
+    
+    tbody.innerHTML = html;
+}
+
+async function loadCafes() {
+    try {
+        const response = await fetch('/automation/api/cafes/list');
+        const data = await response.json();
+        
+        if (data.success) {
+            displayCafes(data.cafes);
+        }
+    } catch (error) {
+        console.error('카페 데이터 로드 오류:', error);
+    }
+}
+
+function displayCafes(cafes) {
+    const tbody = document.getElementById('cafesTableBody');
+    
+    if (cafes.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="5" class="text-center text-muted">
+                    등록된 카페가 없습니다
+                </td>
+            </tr>
+        `;
+        return;
+    }
+    
+    const html = cafes.map(cafe => `
+        <tr>
+            <td><strong>${cafe.name}</strong></td>
+            <td><a href="${cafe.url}" target="_blank">${cafe.url}</a></td>
+            <td><span class="status-badge ${cafe.status}">${cafe.status}</span></td>
+            <td>${cafe.created_at}</td>
+            ${window.is_admin ? `
+            <td>
+                <button class="btn btn-sm btn-danger" onclick="deleteCafe(${cafe.id})">
+                    <i class="bi bi-trash"></i>
+                </button>
+            </td>
+            ` : ''}
+        </tr>
+    `).join('');
+    
+    tbody.innerHTML = html;
+}
+
+async function loadPrompts() {
+    try {
+        const response = await fetch('/automation/api/prompts/list');
+        const data = await response.json();
+        
+        if (data.success) {
+            displayPrompts(data.prompts);
+        }
+    } catch (error) {
+        console.error('프롬프트 데이터 로드 오류:', error);
+    }
+}
+
+function displayPrompts(prompts) {
+    const tbody = document.getElementById('promptsTableBody');
+    
+    if (prompts.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="7" class="text-center text-muted">
+                    등록된 프롬프트가 없습니다
+                </td>
+            </tr>
+        `;
+        return;
+    }
+    
+    const html = prompts.map(prompt => `
+        <tr>
+            <td><strong>${prompt.name}</strong></td>
+            <td><span class="badge bg-primary">${prompt.prompt_type}</span></td>
+            <td>${prompt.temperature}</td>
+            <td>${prompt.max_tokens}</td>
+            <td>${prompt.is_active ? '🟢 활성' : '🔴 비활성'}</td>
+            <td>${prompt.created_at}</td>
+            ${window.is_admin ? `
+            <td>
+                <button class="btn btn-sm btn-info" onclick="viewPrompt(${prompt.id})">
+                    <i class="bi bi-eye"></i>
+                </button>
+                <button class="btn btn-sm btn-warning" onclick="editPrompt(${prompt.id})">
+                    <i class="bi bi-pencil"></i>
+                </button>
+            </td>
+            ` : ''}
+        </tr>
+    `).join('');
+    
+    tbody.innerHTML = html;
+}
+
+// 관리자 권한 전역 변수
+window.is_admin = {{ 'true' if is_admin else 'false' }};
+
+// TODO: API 함수들 구현
+async function addPC(event) {
+    event.preventDefault();
+    const formData = new FormData(event.target);
+    // API 호출 구현 필요
+    alert('PC 추가 기능 구현 예정');
+}
+
+async function addAccount(event) {
+    event.preventDefault();
+    alert('계정 추가 기능 구현 예정');
+}
+
+async function addCafe(event) {
+    event.preventDefault();
+    alert('카페 추가 기능 구현 예정');
+}
+</script>
+{% endblock %}
+
