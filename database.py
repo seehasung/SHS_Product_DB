@@ -959,6 +959,229 @@ class OrderStatusMapping(Base):
     normalized_status = Column(String(50), nullable=False)  # 분류 (배송중/배송완료/취소/반품/교환/미분류)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+
+# ============================================
+# 네이버 카페 자동화 시스템 모델
+# ============================================
+
+class AutomationWorkerPC(Base):
+    """작업 PC 정보 (여러 대의 PC 관리)"""
+    __tablename__ = "automation_worker_pcs"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    pc_number = Column(Integer, unique=True, nullable=False, index=True)  # PC 번호 (1, 2, 3...)
+    pc_name = Column(String(100), nullable=False)  # PC 식별명
+    ip_address = Column(String(50), nullable=False)  # IP 주소
+    status = Column(String(20), default='offline')  # online, busy, offline
+    current_task_id = Column(Integer, ForeignKey('automation_tasks.id'), nullable=True)
+    last_heartbeat = Column(DateTime, nullable=True)  # 마지막 통신 시간
+    
+    # 성능 정보
+    cpu_usage = Column(Float, nullable=True)
+    memory_usage = Column(Float, nullable=True)
+    
+    created_at = Column(DateTime, default=get_kst_now)
+    updated_at = Column(DateTime, default=get_kst_now, onupdate=get_kst_now)
+    
+    # 관계
+    assigned_accounts = relationship("AutomationAccount", back_populates="assigned_pc")
+
+
+class AutomationAccount(Base):
+    """자동화용 네이버 계정 (사람 계정과 분리)"""
+    __tablename__ = "automation_accounts"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    account_id = Column(String(100), unique=True, nullable=False, index=True)
+    account_pw = Column(String(255), nullable=False)
+    assigned_pc_id = Column(Integer, ForeignKey('automation_worker_pcs.id'), nullable=True)
+    status = Column(String(20), default='active')  # active, suspended, banned
+    login_status = Column(String(20), default='logged_out')  # logged_in, logged_out, error
+    
+    # 사용 통계
+    total_posts = Column(Integer, default=0)
+    total_comments = Column(Integer, default=0)
+    last_used_at = Column(DateTime, nullable=True)
+    
+    created_at = Column(DateTime, default=get_kst_now)
+    updated_at = Column(DateTime, default=get_kst_now, onupdate=get_kst_now)
+    
+    # 관계
+    assigned_pc = relationship("AutomationWorkerPC", back_populates="assigned_accounts")
+    posts = relationship("AutomationPost", back_populates="account")
+    tasks = relationship("AutomationTask", back_populates="assigned_account")
+
+
+class AutomationCafe(Base):
+    """자동화용 타겟 카페 (사람 카페와 분리)"""
+    __tablename__ = "automation_cafes"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(255), nullable=False)
+    url = Column(String(500), unique=True, nullable=False, index=True)
+    cafe_id = Column(String(100), nullable=True)
+    status = Column(String(20), default='active')
+    
+    created_at = Column(DateTime, default=get_kst_now)
+    updated_at = Column(DateTime, default=get_kst_now, onupdate=get_kst_now)
+    
+    # 관계
+    tasks = relationship("AutomationTask", back_populates="cafe")
+    posts = relationship("AutomationPost", back_populates="cafe")
+
+
+class AutomationPrompt(Base):
+    """Claude API 프롬프트 관리 (레퍼런스 대신)"""
+    __tablename__ = "automation_prompts"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(255), nullable=False)  # 프롬프트 이름
+    prompt_type = Column(String(50), nullable=False)  # post, comment, reply
+    system_prompt = Column(Text, nullable=False)  # 시스템 프롬프트
+    user_prompt_template = Column(Text, nullable=False)  # 사용자 프롬프트 템플릿
+    
+    # Claude API 설정
+    temperature = Column(Float, default=0.7)
+    max_tokens = Column(Integer, default=1000)
+    
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=get_kst_now)
+    updated_at = Column(DateTime, default=get_kst_now, onupdate=get_kst_now)
+    
+    # 관계
+    schedules = relationship("AutomationSchedule", back_populates="prompt")
+
+
+class AutomationSchedule(Base):
+    """자동화 스케줄 (휴먼/AI 모드)"""
+    __tablename__ = "automation_schedules"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    mode = Column(String(20), nullable=False)  # human, ai
+    
+    # 스케줄 정보
+    scheduled_date = Column(Date, nullable=False, index=True)
+    marketing_product_id = Column(Integer, ForeignKey('marketing_products.id'))
+    keyword_text = Column(String(255), nullable=False)
+    
+    # 휴먼 모드: 기존 MarketingPost 연결
+    marketing_post_id = Column(Integer, ForeignKey('marketing_posts.id'), nullable=True)
+    
+    # AI 모드: 프롬프트 사용
+    prompt_id = Column(Integer, ForeignKey('automation_prompts.id'), nullable=True)
+    
+    # 상태
+    status = Column(String(20), default='pending')  # pending, processing, completed, failed
+    is_completed = Column(Boolean, default=False)
+    completed_at = Column(DateTime, nullable=True)
+    
+    created_at = Column(DateTime, default=get_kst_now)
+    updated_at = Column(DateTime, default=get_kst_now, onupdate=get_kst_now)
+    
+    # 관계
+    marketing_product = relationship("MarketingProduct")
+    marketing_post = relationship("MarketingPost")
+    prompt = relationship("AutomationPrompt", back_populates="schedules")
+    tasks = relationship("AutomationTask", back_populates="schedule", cascade="all, delete-orphan")
+
+
+class AutomationTask(Base):
+    """작업 큐 (글/댓글 작성 작업)"""
+    __tablename__ = "automation_tasks"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    task_type = Column(String(20), nullable=False)  # post, comment, reply
+    mode = Column(String(20), nullable=False)  # human, ai
+    
+    # 스케줄 정보
+    schedule_id = Column(Integer, ForeignKey('automation_schedules.id'))
+    scheduled_time = Column(DateTime, nullable=False, index=True)
+    
+    # 작업 내용
+    title = Column(String(500), nullable=True)  # 글 제목 (post만)
+    content = Column(Text, nullable=False)  # 내용
+    parent_task_id = Column(Integer, ForeignKey('automation_tasks.id'), nullable=True)  # 댓글/대댓글용
+    order_sequence = Column(Integer, default=0)  # 댓글 순서
+    
+    # 할당 정보
+    assigned_pc_id = Column(Integer, ForeignKey('automation_worker_pcs.id'), nullable=True)
+    assigned_account_id = Column(Integer, ForeignKey('automation_accounts.id'), nullable=True)
+    cafe_id = Column(Integer, ForeignKey('automation_cafes.id'))
+    
+    # 상태 관리
+    status = Column(String(20), default='pending')  # pending, assigned, in_progress, completed, failed
+    priority = Column(Integer, default=0)  # 우선순위 (높을수록 먼저)
+    retry_count = Column(Integer, default=0)
+    error_message = Column(Text, nullable=True)
+    
+    # 결과
+    post_url = Column(String(500), nullable=True)
+    started_at = Column(DateTime, nullable=True)
+    completed_at = Column(DateTime, nullable=True)
+    
+    created_at = Column(DateTime, default=get_kst_now)
+    updated_at = Column(DateTime, default=get_kst_now, onupdate=get_kst_now)
+    
+    # 관계
+    schedule = relationship("AutomationSchedule", back_populates="tasks")
+    cafe = relationship("AutomationCafe", back_populates="tasks")
+    assigned_account = relationship("AutomationAccount", back_populates="tasks")
+    parent_task = relationship("AutomationTask", remote_side=[id], foreign_keys=[parent_task_id], backref="child_tasks")
+
+
+class AutomationPost(Base):
+    """자동화로 작성된 글 (저장용)"""
+    __tablename__ = "automation_posts"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    mode = Column(String(20), nullable=False)  # human, ai
+    
+    # 글 정보
+    title = Column(String(500), nullable=False)
+    content = Column(Text, nullable=False)
+    post_url = Column(String(500), nullable=True)
+    
+    # 작성 정보
+    account_id = Column(Integer, ForeignKey('automation_accounts.id'))
+    cafe_id = Column(Integer, ForeignKey('automation_cafes.id'))
+    marketing_product_id = Column(Integer, ForeignKey('marketing_products.id'))
+    keyword_text = Column(String(255), nullable=True)
+    
+    # 통계
+    view_count = Column(Integer, default=0)
+    comment_count = Column(Integer, default=0)
+    
+    created_at = Column(DateTime, default=get_kst_now)
+    updated_at = Column(DateTime, default=get_kst_now, onupdate=get_kst_now)
+    
+    # 관계
+    account = relationship("AutomationAccount", back_populates="posts")
+    cafe = relationship("AutomationCafe", back_populates="posts")
+    marketing_product = relationship("MarketingProduct")
+    comments = relationship("AutomationComment", back_populates="post", cascade="all, delete-orphan")
+
+
+class AutomationComment(Base):
+    """자동화로 작성된 댓글 (저장용)"""
+    __tablename__ = "automation_comments"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    mode = Column(String(20), nullable=False)  # human, ai
+    
+    post_id = Column(Integer, ForeignKey('automation_posts.id'))
+    parent_comment_id = Column(Integer, ForeignKey('automation_comments.id'), nullable=True)
+    
+    content = Column(Text, nullable=False)
+    account_id = Column(Integer, ForeignKey('automation_accounts.id'))
+    order_sequence = Column(Integer, default=0)  # 댓글 순서
+    
+    created_at = Column(DateTime, default=get_kst_now)
+    
+    # 관계
+    post = relationship("AutomationPost", back_populates="comments")
+    account = relationship("AutomationAccount")
+    parent = relationship("AutomationComment", remote_side=[id], backref="replies")
     
     
 def get_db():
@@ -977,11 +1200,13 @@ __all__ = [
     "WorkTask", "PostSchedule", "AccountCafeUsage", "PostingRound", "LoginLog",
     "TaskAssignment", "TaskComment", "TaskFile", "TaskNotification",
     "PersonalMemo", "MemoFile",
-    "Order",  # ⭐ 추가!
+    "Order", "OrderStatusMapping",
     "SessionLocal", "Base", "engine",
     "get_db", "HomepageWorker", "HomepageAccount", "HomepageProductKeyword", "HomepagePost",
     "HomepagePostImage", "HomepageKeywordProgress", "HomepageWorkTask", "HomepagePostSchedule",
     "BlogWorker", "BlogAccount", "BlogProductKeyword", "BlogPost", 
-    "BlogPostImage", "BlogKeywordProgress", "BlogWorkTask", "BlogPostSchedule"    
-    
+    "BlogPostImage", "BlogKeywordProgress", "BlogWorkTask", "BlogPostSchedule",
+    # ⭐ 자동화 시스템
+    "AutomationWorkerPC", "AutomationAccount", "AutomationCafe", "AutomationPrompt",
+    "AutomationSchedule", "AutomationTask", "AutomationPost", "AutomationComment"
 ]

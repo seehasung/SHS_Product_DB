@@ -1,0 +1,428 @@
+{% extends "base.html" %}
+{% block title %}자동화 통계 분석{% endblock %}
+
+{% block head %}
+{{ super() }}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+    .stats-container {
+        max-width: 1600px;
+        margin: 0 auto;
+        padding: 20px;
+    }
+    
+    .stat-card {
+        background: white;
+        border-radius: 16px;
+        padding: 24px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+        margin-bottom: 20px;
+    }
+    
+    .chart-container {
+        position: relative;
+        height: 400px;
+        margin-top: 20px;
+    }
+    
+    .metric-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 15px;
+        margin-bottom: 20px;
+    }
+    
+    .metric-card {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 20px;
+        border-radius: 12px;
+        text-align: center;
+    }
+    
+    .metric-value {
+        font-size: 2.5rem;
+        font-weight: 800;
+        margin: 10px 0;
+    }
+    
+    .metric-label {
+        font-size: 0.9rem;
+        opacity: 0.9;
+    }
+    
+    .table-responsive {
+        overflow-x: auto;
+    }
+    
+    table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+    
+    th, td {
+        padding: 12px;
+        text-align: left;
+        border-bottom: 1px solid #e1e8ed;
+    }
+    
+    th {
+        background: #f8f9fa;
+        font-weight: 700;
+    }
+    
+    .progress-bar {
+        height: 8px;
+        background: #e1e8ed;
+        border-radius: 10px;
+        overflow: hidden;
+    }
+    
+    .progress-fill {
+        height: 100%;
+        background: linear-gradient(90deg, #4A90E2, #5BA3F5);
+        transition: width 0.3s;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="stats-container">
+    <h1 style="font-weight: 800; margin-bottom: 30px;">
+        <i class="bi bi-graph-up"></i> 자동화 통계 분석
+    </h1>
+    
+    <!-- 기간 선택 -->
+    <div class="stat-card">
+        <div class="d-flex justify-content-between align-items-center">
+            <h4>기간 선택</h4>
+            <div class="d-flex gap-2">
+                <input type="date" id="startDate" class="form-control">
+                <span style="padding: 8px;">~</span>
+                <input type="date" id="endDate" class="form-control">
+                <button class="btn btn-primary" onclick="loadStats()">
+                    <i class="bi bi-search"></i> 조회
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 주요 지표 -->
+    <div class="metric-grid" id="metricsGrid">
+        <!-- JavaScript로 동적 생성 -->
+    </div>
+    
+    <!-- 일별 통계 차트 -->
+    <div class="stat-card">
+        <h4><i class="bi bi-calendar3"></i> 일별 작업 추이 (최근 7일)</h4>
+        <div class="chart-container">
+            <canvas id="dailyChart"></canvas>
+        </div>
+    </div>
+    
+    <!-- PC 성능 -->
+    <div class="stat-card">
+        <h4><i class="bi bi-pc-display"></i> PC별 성능</h4>
+        <div class="table-responsive">
+            <table id="pcPerformanceTable">
+                <thead>
+                    <tr>
+                        <th>PC</th>
+                        <th>상태</th>
+                        <th>IP</th>
+                        <th>완료 (24h)</th>
+                        <th>실패 (24h)</th>
+                        <th>성공률</th>
+                        <th>평균 처리 시간</th>
+                        <th>CPU</th>
+                        <th>메모리</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- JavaScript로 동적 생성 -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+    
+    <!-- 계정 사용 통계 -->
+    <div class="stat-card">
+        <h4><i class="bi bi-person-badge"></i> 계정 사용 통계 (최근 30일)</h4>
+        <div class="table-responsive">
+            <table id="accountUsageTable">
+                <thead>
+                    <tr>
+                        <th>계정 ID</th>
+                        <th>상태</th>
+                        <th>할당 PC</th>
+                        <th>글 작성</th>
+                        <th>댓글 작성</th>
+                        <th>누적 글</th>
+                        <th>누적 댓글</th>
+                        <th>마지막 사용</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- JavaScript로 동적 생성 -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+    
+    <!-- 모드별/유형별 통계 -->
+    <div class="row">
+        <div class="col-md-6">
+            <div class="stat-card">
+                <h4><i class="bi bi-pie-chart"></i> 모드별 비율</h4>
+                <div class="chart-container">
+                    <canvas id="modeChart"></canvas>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="stat-card">
+                <h4><i class="bi bi-pie-chart-fill"></i> 작업 유형별 비율</h4>
+                <div class="chart-container">
+                    <canvas id="typeChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let dailyChart, modeChart, typeChart;
+
+// 페이지 로드 시 통계 로드
+document.addEventListener('DOMContentLoaded', function() {
+    // 기본 기간: 최근 30일
+    const end = new Date();
+    const start = new Date();
+    start.setDate(start.getDate() - 30);
+    
+    document.getElementById('startDate').valueAsDate = start;
+    document.getElementById('endDate').valueAsDate = end;
+    
+    loadStats();
+});
+
+async function loadStats() {
+    const startDate = document.getElementById('startDate').value;
+    const endDate = document.getElementById('endDate').value;
+    
+    try {
+        // 1. 전체 개요 통계
+        const overviewRes = await fetch(`/automation/api/stats/overview?start_date=${startDate}&end_date=${endDate}`);
+        const overview = await overviewRes.json();
+        
+        if (overview.success) {
+            displayMetrics(overview);
+            displayModeChart(overview.mode_stats);
+            displayTypeChart(overview.type_stats);
+        }
+        
+        // 2. 일별 통계
+        const dailyRes = await fetch('/automation/api/stats/daily?days=7');
+        const daily = await dailyRes.json();
+        
+        if (daily.success) {
+            displayDailyChart(daily.daily_stats);
+        }
+        
+        // 3. PC 성능
+        const pcRes = await fetch('/automation/api/stats/pc-performance');
+        const pc = await pcRes.json();
+        
+        if (pc.success) {
+            displayPCPerformance(pc.pc_performance);
+        }
+        
+        // 4. 계정 사용
+        const accountRes = await fetch('/automation/api/stats/account-usage');
+        const account = await accountRes.json();
+        
+        if (account.success) {
+            displayAccountUsage(account.account_usage);
+        }
+        
+    } catch (error) {
+        console.error('통계 로드 오류:', error);
+        alert('통계를 불러올 수 없습니다');
+    }
+}
+
+function displayMetrics(data) {
+    const metrics = [
+        {label: '전체 작업', value: data.task_stats.total, color: '#667eea'},
+        {label: '완료', value: data.task_stats.completed, color: '#00b894'},
+        {label: '실패', value: data.task_stats.failed, color: '#d63031'},
+        {label: '성공률', value: data.task_stats.success_rate + '%', color: '#fdcb6e'},
+        {label: '온라인 PC', value: data.pc_stats.online + '/' + data.pc_stats.total, color: '#0984e3'},
+        {label: '평균 처리 시간', value: data.performance.avg_processing_time_seconds + 's', color: '#a29bfe'}
+    ];
+    
+    const html = metrics.map(m => `
+        <div class="metric-card" style="background: linear-gradient(135deg, ${m.color} 0%, ${m.color}dd 100%);">
+            <div class="metric-value">${m.value}</div>
+            <div class="metric-label">${m.label}</div>
+        </div>
+    `).join('');
+    
+    document.getElementById('metricsGrid').innerHTML = html;
+}
+
+function displayDailyChart(data) {
+    const ctx = document.getElementById('dailyChart').getContext('2d');
+    
+    if (dailyChart) {
+        dailyChart.destroy();
+    }
+    
+    dailyChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: data.map(d => d.date),
+            datasets: [
+                {
+                    label: '완료',
+                    data: data.map(d => d.completed),
+                    borderColor: '#00b894',
+                    backgroundColor: 'rgba(0, 184, 148, 0.1)',
+                    tension: 0.4
+                },
+                {
+                    label: '실패',
+                    data: data.map(d => d.failed),
+                    borderColor: '#d63031',
+                    backgroundColor: 'rgba(214, 48, 49, 0.1)',
+                    tension: 0.4
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: true,
+                    position: 'top'
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true
+                }
+            }
+        }
+    });
+}
+
+function displayModeChart(data) {
+    const ctx = document.getElementById('modeChart').getContext('2d');
+    
+    if (modeChart) {
+        modeChart.destroy();
+    }
+    
+    modeChart = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: ['휴먼 모드', 'AI 모드'],
+            datasets: [{
+                data: [data.human, data.ai],
+                backgroundColor: ['#4A90E2', '#a29bfe']
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false
+        }
+    });
+}
+
+function displayTypeChart(data) {
+    const ctx = document.getElementById('typeChart').getContext('2d');
+    
+    if (typeChart) {
+        typeChart.destroy();
+    }
+    
+    typeChart = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: ['글 작성', '댓글 작성'],
+            datasets: [{
+                data: [data.posts, data.comments],
+                backgroundColor: ['#00b894', '#fdcb6e']
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false
+        }
+    });
+}
+
+function displayPCPerformance(data) {
+    const tbody = document.querySelector('#pcPerformanceTable tbody');
+    
+    const html = data.map(pc => `
+        <tr>
+            <td><strong>PC #${pc.pc_number}</strong><br><small>${pc.pc_name}</small></td>
+            <td>
+                <span class="badge ${pc.status === 'online' ? 'bg-success' : pc.status === 'busy' ? 'bg-warning' : 'bg-secondary'}">
+                    ${pc.status}
+                </span>
+            </td>
+            <td><code>${pc.ip_address}</code></td>
+            <td>${pc.completed_24h}</td>
+            <td>${pc.failed_24h}</td>
+            <td>
+                <div class="progress-bar">
+                    <div class="progress-fill" style="width: ${pc.success_rate}%"></div>
+                </div>
+                <small>${pc.success_rate.toFixed(1)}%</small>
+            </td>
+            <td>${pc.avg_processing_time}s</td>
+            <td>
+                <div class="progress-bar">
+                    <div class="progress-fill" style="width: ${pc.cpu_usage || 0}%"></div>
+                </div>
+                <small>${(pc.cpu_usage || 0).toFixed(1)}%</small>
+            </td>
+            <td>
+                <div class="progress-bar">
+                    <div class="progress-fill" style="width: ${pc.memory_usage || 0}%"></div>
+                </div>
+                <small>${(pc.memory_usage || 0).toFixed(1)}%</small>
+            </td>
+        </tr>
+    `).join('');
+    
+    tbody.innerHTML = html;
+}
+
+function displayAccountUsage(data) {
+    const tbody = document.querySelector('#accountUsageTable tbody');
+    
+    const html = data.map(acc => `
+        <tr>
+            <td><code>${acc.account_id}</code></td>
+            <td><span class="badge bg-${acc.status === 'active' ? 'success' : 'secondary'}">${acc.status}</span></td>
+            <td>${acc.assigned_pc || '-'}</td>
+            <td>${acc.posts_30d}</td>
+            <td>${acc.comments_30d}</td>
+            <td>${acc.total_posts}</td>
+            <td>${acc.total_comments}</td>
+            <td><small>${acc.last_used || '-'}</small></td>
+        </tr>
+    `).join('');
+    
+    tbody.innerHTML = html;
+}
+
+// 자동 새로고침 (5분마다)
+setInterval(loadStats, 5 * 60 * 1000);
+</script>
+{% endblock %}
+
