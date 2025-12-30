@@ -9,8 +9,16 @@ from sqlalchemy import desc, func, and_
 from datetime import datetime, date, timedelta
 from typing import Optional, Dict, List
 import json
-import anthropic
 import asyncio
+
+# Claude API (선택적 import)
+try:
+    import anthropic
+    ANTHROPIC_AVAILABLE = True
+except ImportError:
+    ANTHROPIC_AVAILABLE = False
+    print("⚠️  anthropic 모듈이 없습니다. AI 모드는 비활성화됩니다.")
+    print("   설치: pip install anthropic")
 
 from database import (
     get_db, get_kst_now,
@@ -294,6 +302,14 @@ async def generate_ai_content(
     db: Session = Depends(get_db)
 ):
     """Claude API로 글/댓글 생성"""
+    
+    # anthropic 모듈 확인
+    if not ANTHROPIC_AVAILABLE:
+        return JSONResponse({
+            'success': False,
+            'message': 'anthropic 모듈이 설치되지 않았습니다. pip install anthropic'
+        }, status_code=500)
+    
     prompt = db.query(AutomationPrompt).get(prompt_id)
     product = db.query(MarketingProduct).options(joinedload(MarketingProduct.product)).get(product_id)
     
@@ -302,7 +318,15 @@ async def generate_ai_content(
     
     try:
         # Claude API 호출
-        client = anthropic.Anthropic(api_key="YOUR_API_KEY")  # TODO: 환경변수로 교체
+        import os
+        api_key = os.environ.get("ANTHROPIC_API_KEY", "")
+        if not api_key:
+            return JSONResponse({
+                'success': False,
+                'message': 'ANTHROPIC_API_KEY 환경 변수가 설정되지 않았습니다'
+            }, status_code=500)
+        
+        client = anthropic.Anthropic(api_key=api_key)
         
         # 프롬프트 템플릿에 데이터 삽입
         user_prompt = prompt.user_prompt_template.format(
