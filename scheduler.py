@@ -105,7 +105,7 @@ async def check_naver_delivery_flow():
     db = SessionLocal()
     try:
         from routers.orders import get_customs_info_auto, clean_tracking_number
-        from quickstar_scraper import QuickstarScraper
+        from quickstar_selenium_scraper import QuickstarSeleniumScraper
         
         now = get_kst_now()
         print(f"📦 네이버 송장 흐름 체크 시작: {now.strftime('%Y-%m-%d %H:%M:%S')}")
@@ -149,7 +149,7 @@ async def check_naver_delivery_flow():
         
         ready_count = 0  # 반출신고 완료 건수
         checked_count = 0
-        scraper = QuickstarScraper()
+        scraper = QuickstarSeleniumScraper()  # ⭐ Selenium 사용
         
         for order in target_orders:
             try:
@@ -203,6 +203,9 @@ async def check_naver_delivery_flow():
         elapsed_time = (get_kst_now() - now).total_seconds()
         
         print(f"✅ 네이버 송장 흐름 체크 완료: {ready_count}건 (총 {checked_count}건 체크, 소요 시간: {elapsed_time:.1f}초)")
+        
+        # ⭐ Selenium 브라우저 종료
+        scraper.close()
         
         # WebSocket 알림
         await manager.broadcast({
