@@ -854,8 +854,9 @@ def order_dashboard(
         )
     ).count()
     
-    # 2. 네이버 송장 흐름
-    naver_delivery_count = 0
+    # 2. 네이버 송장 흐름 (스케줄러 캐시 사용)
+    from scheduler import naver_delivery_cache
+    naver_delivery_count = naver_delivery_cache.get('count', 0)
     
     # 3. 경동 이관
     kyungdong_count = db.query(Order).filter(

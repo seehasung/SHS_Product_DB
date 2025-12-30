@@ -16,6 +16,12 @@ customs_issue_cache = {
     'count': 0
 }
 
+# ⭐ 네이버 송장 흐름 캐시 (메모리)
+naver_delivery_cache = {
+    'count': 0,
+    'last_checked': None
+}
+
 scheduler = AsyncIOScheduler()
 
 async def send_pending_notifications():
@@ -90,6 +96,118 @@ async def send_pending_notifications():
     except Exception as e:
         print(f"❌ 알림 전송 오류: {e}")
         db.rollback()
+    finally:
+        db.close()
+
+
+async def check_naver_delivery_flow():
+    """네이버 송장 흐름 자동 체크 (카페24/스마트스토어 + 직접전달/자체배송)"""
+    db = SessionLocal()
+    try:
+        from routers.orders import get_customs_info_auto, clean_tracking_number
+        from quickstar_scraper import QuickstarScraper
+        
+        now = get_kst_now()
+        print(f"📦 네이버 송장 흐름 체크 시작: {now.strftime('%Y-%m-%d %H:%M:%S')}")
+        
+        # WebSocket 알림
+        await manager.broadcast({
+            'type': 'naver_delivery_check',
+            'status': 'started',
+            'message': '📦 네이버 송장 흐름 체크 시작...',
+            'timestamp': now.isoformat()
+        })
+        
+        # 카페24 또는 스마트스토어 주문
+        all_orders = db.query(Order).all()
+        
+        target_orders = []
+        for order in all_orders:
+            sales_channel = (order.sales_channel or '').lower()
+            courier = (order.courier_company or '').lower()
+            
+            # 판매처: 카페24 또는 스마트스토어
+            is_target_channel = ('카페24' in sales_channel or 'cafe24' in sales_channel or 
+                                '스마트스토어' in sales_channel or 'smartstore' in sales_channel)
+            
+            # 택배사: 직접전달 또는 자체배송
+            is_target_courier = ('직접전달' in courier or '자체배송' in courier)
+            
+            if is_target_channel and is_target_courier:
+                target_orders.append(order)
+        
+        print(f"  📋 대상 주문: {len(target_orders)}건")
+        
+        ready_count = 0  # 반출신고 완료 건수
+        checked_count = 0
+        scraper = QuickstarScraper()
+        
+        for order in target_orders:
+            try:
+                tracking = clean_tracking_number(order.tracking_number)
+                
+                # 카페24 (자체배송 + 송장번호 있음)
+                if tracking and len(tracking) >= 12:
+                    # 송장번호로 바로 조회
+                    pass
+                
+                # 네이버 (직접전달 + 송장번호 없음)
+                else:
+                    # quickstar에서 송장번호 조회
+                    if not order.taobao_order_number:
+                        continue
+                    
+                    tracking = scraper.get_tracking_number(order.taobao_order_number)
+                    if not tracking:
+                        continue
+                
+                # 통관 API 조회
+                customs_result = get_customs_info_auto(
+                    tracking_number=tracking,
+                    master_bl=order.master_bl,
+                    house_bl=order.house_bl,
+                    order_date=str(order.order_date) if order.order_date else None
+                )
+                
+                if customs_result.get("success"):
+                    history = customs_result.get("history", [])
+                    
+                    # 반출신고가 있으면 카운트
+                    has_release = any("반출신고" in str(h.get("process_type", "")) for h in history)
+                    
+                    if has_release:
+                        ready_count += 1
+                        print(f"  ✅ 반출신고 완료: {order.order_number}")
+                
+                checked_count += 1
+                
+            except Exception as e:
+                print(f"  ❌ 체크 오류: {order.order_number} - {e}")
+                continue
+        
+        # 캐시 저장
+        naver_delivery_cache['count'] = ready_count
+        naver_delivery_cache['last_checked'] = now
+        
+        elapsed_time = (get_kst_now() - now).total_seconds()
+        
+        print(f"✅ 네이버 송장 흐름 체크 완료: {ready_count}건 (총 {checked_count}건 체크, 소요 시간: {elapsed_time:.1f}초)")
+        
+        # WebSocket 알림
+        await manager.broadcast({
+            'type': 'naver_delivery_check',
+            'status': 'completed',
+            'message': f'✅ 네이버 송장 흐름 체크 완료! 반출신고: {ready_count}건',
+            'count': ready_count,
+            'checked_count': checked_count,
+            'elapsed_time': round(elapsed_time, 1),
+            'timestamp': get_kst_now().isoformat()
+        })
+        
+    except Exception as e:
+        print(f"❌ 네이버 송장 흐름 체크 오류: {e}")
+        import traceback
+        traceback.print_exc()
     finally:
         db.close()
 
@@ -243,10 +361,21 @@ def start_scheduler():
     scheduler.add_job(
         check_customs_issues,
         trigger='cron',
-        hour='13,18',  # 오후 1시, 6시
+        hour='13,18',
         minute=0,
         id='customs_issue_check',
         name='통관 절차 이상 자동 체크',
+        replace_existing=True
+    )
+    
+    # ⭐ 네이버 송장 흐름 자동 체크: 매일 14시, 19시
+    scheduler.add_job(
+        check_naver_delivery_flow,
+        trigger='cron',
+        hour='14,19',
+        minute=0,
+        id='naver_delivery_check',
+        name='네이버 송장 흐름 자동 체크',
         replace_existing=True
     )
     
@@ -255,6 +384,7 @@ def start_scheduler():
     print("   - 미완료 업무 알림: 30분마다")
     print("   - 알림 정리: 매일 자정")
     print("   - 통관 절차 이상 체크: 매일 13시, 18시")
+    print("   - 네이버 송장 흐름 체크: 매일 14시, 19시")
 
 
 def stop_scheduler():

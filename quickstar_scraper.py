@@ -102,25 +102,32 @@ class QuickstarScraper:
             # HTML 파싱
             soup = BeautifulSoup(response.text, 'html.parser')
             
-            # 송장번호 추출 (테이블에서)
-            # TODO: 실제 HTML 구조에 맞게 수정 필요
-            tracking_numbers = []
+            # 송장번호 추출 (실제 HTML 구조 기반)
+            # <a href="...&invoice=송장번호" id="송장번호">송장번호</a>
             
-            # 방법 1: 송장번호 패턴으로 찾기
+            # 방법 1: href에 invoice= 패턴 찾기 (가장 확실)
+            links = soup.find_all('a', href=re.compile(r'invoice=\d{12,13}'))
+            
+            if links:
+                # 첫 번째 링크에서 송장번호 추출
+                href = links[0].get('href', '')
+                match = re.search(r'invoice=(\d{12,13})', href)
+                if match:
+                    tracking = match.group(1)
+                    print(f"✅ 송장번호 발견 (첫 번째): {tracking}")
+                    return tracking
+            
+            # 방법 2: 택배사 이름 근처 숫자 찾기 (백업)
+            courier_pattern = r'(CJ대한통운|CJ택배|로젠택배|롯데택배|한진택배).*?(\d{12,13})'
             text = soup.get_text()
-            # 송장번호 패턴 (숫자 10~13자리)
-            pattern = r'\b\d{10,13}\b'
-            matches = re.findall(pattern, text)
+            match = re.search(courier_pattern, text)
+            if match:
+                tracking = match.group(2)
+                if tracking != taobao_number:
+                    print(f"✅ 송장번호 발견 (택배사 근처): {tracking}")
+                    return tracking
             
-            if matches:
-                # 타오바오 번호 제외
-                tracking_numbers = [m for m in matches if m != taobao_number and len(m) >= 12]
-            
-            if tracking_numbers:
-                print(f"✅ 송장번호 발견: {tracking_numbers[0]}")
-                return tracking_numbers[0]
-            
-            print(f"⚠️ 송장번호를 찾을 수 없음")
+            print(f"⚠️ 송장번호를 찾을 수 없음 (타오바오 번호: {taobao_number})")
             return None
             
         except Exception as e:
