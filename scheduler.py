@@ -391,7 +391,7 @@ def start_scheduler():
         replace_existing=True
     )
     
-    # 18시 30분
+    # 18시 30분 (오후 6시 반)
     scheduler.add_job(
         check_naver_delivery_flow,
         trigger='cron',

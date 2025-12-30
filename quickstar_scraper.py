@@ -22,35 +22,47 @@ class QuickstarScraper:
     def login(self):
         """퀵스타 로그인"""
         try:
-            print(f"🔐 퀵스타 로그인 시도...")
+            # 이미 로그인되어 있으면 재로그인 불필요
+            if self.is_logged_in:
+                return True
             
-            login_url = f"{self.base_url}/member/login.php"
+            print(f"🔐 퀵스타 로그인 시도 (ID: {self.username})...")
+            
+            # 실제 로그인 URL (elpisbbs/login_check.php)
+            login_url = f"{self.base_url}/elpisbbs/login_check.php"
             
             data = {
                 'mb_id': self.username,
                 'mb_password': self.password,
-                'url': '/'
+                'url': '/mypage/service_list.php'
             }
             
             headers = {
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-                'Referer': self.base_url
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'Referer': f'{self.base_url}/',
+                'Origin': self.base_url
             }
             
-            response = self.session.post(login_url, data=data, headers=headers)
+            response = self.session.post(login_url, data=data, headers=headers, allow_redirects=True, timeout=10)
             
-            if response.status_code == 200:
-                # 로그인 성공 확인 (쿠키 확인)
-                if 'mb_id' in self.session.cookies.get_dict():
-                    self.is_logged_in = True
-                    print(f"✅ 퀵스타 로그인 성공")
-                    return True
+            print(f"  📥 로그인 응답: {response.status_code}")
+            print(f"  🍪 쿠키: {list(self.session.cookies.keys())}")
             
-            print(f"❌ 퀵스타 로그인 실패")
+            # 로그인 성공 확인
+            cookies = self.session.cookies.get_dict()
+            if 'PHPSESSID' in cookies or response.status_code == 200:
+                self.is_logged_in = True
+                print(f"✅ 퀵스타 로그인 성공")
+                return True
+            
+            print(f"❌ 퀵스타 로그인 실패 (쿠키 없음)")
             return False
             
         except Exception as e:
             print(f"❌ 로그인 오류: {e}")
+            import traceback
+            traceback.print_exc()
             return False
     
     def get_tracking_number(self, taobao_order_number: str):
