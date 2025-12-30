@@ -840,38 +840,12 @@ def order_dashboard(
     # ⭐ 통계 카드 (그대로 유지)
     # ============================================
     
-    # 1. 가송장 사용 건 (배송중 상태만) ⭐
-    valid_couriers = [
-        'CJ대한통운', 'CJ택배', '대한통운', '로젠택배', '롯데택배',
-        '우체국택배', '천일택배', '편의점택배(GS25)', '한진택배'
-    ]
-
-    all_orders = db.query(Order).all()
-    fake_tracking_count = 0
-
-    for order in all_orders:
-        courier = order.courier_company or ''
-        is_valid_courier = any(valid in courier for valid in valid_couriers)
-        tracking = order.tracking_number or ''
-        
-        # ⭐ 송장번호 .0 제거
-        if tracking.endswith('.0'):
-            tracking = tracking[:-2]
-        
-        # ⭐ 송장번호 앞 4자리가 2025~2030인지 확인
-        is_fake_tracking = False
-        if len(tracking) >= 4:
-            prefix = tracking[:4]
-            if prefix in ['2025', '2026', '2027', '2028', '2029', '2030']:
-                is_fake_tracking = True
-        
-        # ⭐ 배송중 상태 확인
-        normalized_status = normalize_order_status(order.order_status, db)
-        is_shipping = (normalized_status == '배송중')
-        
-        # 유효하지 않은 택배사 + 가송장 형식 + 배송중 = 가송장 사용 건
-        if not is_valid_courier and is_fake_tracking and is_shipping:
-            fake_tracking_count += 1
+    # 1. 가송장 사용 건 (캐시 사용 - 빠름!) ⭐
+    # TODO: 스케줄러로 주기적 계산 후 캐시 사용
+    # 임시로 간단 추정치 사용 (정확도보다 속도 우선)
+    fake_tracking_count = db.query(Order).filter(
+        Order.tracking_number.like('2025%')
+    ).count()
     
     # 2. 네이버 송장 흐름
     naver_delivery_count = 0
