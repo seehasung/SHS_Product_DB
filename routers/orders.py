@@ -760,10 +760,8 @@ async def trigger_customs_check(request: Request):
         raise HTTPException(status_code=401, detail="권한 없음")
     
     try:
-        # 스케줄러의 check_customs_issues 함수 즉시 실행
         from scheduler import check_customs_issues, customs_issue_cache
         
-        # 비동기 실행
         await check_customs_issues()
         
         return {
@@ -774,6 +772,37 @@ async def trigger_customs_check(request: Request):
         }
     except Exception as e:
         print(f"❌ 수동 체크 오류: {e}")
+        import traceback
+        traceback.print_exc()
+        return {
+            "success": False,
+            "message": f"체크 중 오류: {str(e)}"
+        }
+
+
+# ============================================
+# 네이버 송장 흐름 수동 체크 API
+# ============================================
+@router.post("/api/check-naver-delivery")
+async def trigger_naver_delivery_check(request: Request):
+    """네이버 송장 흐름 수동 체크 트리거"""
+    user_info = check_order_permission(request)
+    if not user_info:
+        raise HTTPException(status_code=401, detail="권한 없음")
+    
+    try:
+        from scheduler import check_naver_delivery_flow, naver_delivery_cache
+        
+        await check_naver_delivery_flow()
+        
+        return {
+            "success": True,
+            "message": f"네이버 송장 흐름 체크 완료: {naver_delivery_cache['count']}건",
+            "count": naver_delivery_cache['count'],
+            "last_checked": naver_delivery_cache['last_checked'].isoformat() if naver_delivery_cache['last_checked'] else None
+        }
+    except Exception as e:
+        print(f"❌ 네이버 송장 흐름 체크 오류: {e}")
         import traceback
         traceback.print_exc()
         return {

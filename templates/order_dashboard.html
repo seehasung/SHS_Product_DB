@@ -405,12 +405,36 @@
         </div>
         
         <!-- 2. 네이버 송장 흐름 -->
-        <div class="stat-card" style="--stat-gradient: linear-gradient(90deg, #00b894 0%, #55efc4 100%);">
+        <div class="stat-card" style="--stat-gradient: linear-gradient(90deg, #00b894 0%, #55efc4 100%); position: relative;">
             <div class="stat-icon" style="background: linear-gradient(135deg, #00b894 0%, #55efc4 100%); color: white;">
                 <i class="bi bi-truck"></i>
             </div>
-            <div class="stat-value">{{ "{:,}".format(naver_delivery_count) }}</div>
+            <div class="stat-value" id="naverDeliveryCount">{{ "{:,}".format(naver_delivery_count) }}</div>
             <div class="stat-label">네이버 송장 흐름</div>
+            <!-- 새로고침 버튼 -->
+            <button onclick="event.stopPropagation(); confirmNaverDeliveryCheck();" 
+                    class="btn btn-sm" 
+                    style="position: absolute;
+                           top: 12px;
+                           right: 12px;
+                           padding: 0;
+                           background: white; 
+                           border: none; 
+                           color: #00b894;
+                           border-radius: 50%;
+                           width: 30px;
+                           height: 30px;
+                           display: flex;
+                           align-items: center;
+                           justify-content: center;
+                           transition: all 0.3s;
+                           box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+                           font-size: 1.2rem;"
+                    onmouseover="this.style.transform='rotate(180deg) scale(1.15)'; this.style.boxShadow='0 4px 12px rgba(0,0,0,0.25)'"
+                    onmouseout="this.style.transform='rotate(0deg) scale(1)'; this.style.boxShadow='0 2px 8px rgba(0,0,0,0.15)'"
+                    title="네이버 송장 흐름 재수집">
+                ↻
+            </button>
         </div>
         
         <!-- 3. 경동 이관 -->
@@ -1314,6 +1338,62 @@
     function confirmCustomsCheck() {
         if (confirm('통관 절차를 재수집 하시겠습니까?\n\n⚠️ 주의: 모든 조건 해당 주문을 체크하므로\n수 분이 소요될 수 있습니다.')) {
             refreshCustomsIssueCheck();
+        }
+    }
+
+    // ===== 네이버 송장 흐름 확인 팝업 =====
+    function confirmNaverDeliveryCheck() {
+        if (confirm('네이버 송장 흐름을 재수집 하시겠습니까?\n\n⚠️ 주의: 카페24/스마트스토어 주문을\nquickstar에서 조회하므로 수 분 소요됩니다.')) {
+            refreshNaverDeliveryCheck();
+        }
+    }
+
+    // ===== 네이버 송장 흐름 수동 체크 =====
+    async function refreshNaverDeliveryCheck() {
+        const countElement = document.getElementById('naverDeliveryCount');
+        const originalText = countElement.textContent;
+        
+        // 진행 토스트
+        const progressToast = showToast('📦 네이버 송장 흐름 체크 중...<br><small>quickstar 연동 중...</small>', 'info', false);
+        
+        // 로딩 표시
+        countElement.innerHTML = '<div class="spinner-border spinner-border-sm"></div>';
+        
+        try {
+            const response = await fetch('/orders/api/check-naver-delivery', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
+            
+            const result = await response.json();
+            
+            // 진행 토스트 제거
+            progressToast.classList.remove('show');
+            setTimeout(() => progressToast.remove(), 300);
+            
+            if (result.success) {
+                // 카운트 업데이트
+                countElement.textContent = result.count.toLocaleString();
+                
+                // 성공 토스트
+                showToast(`✅ 체크 완료! 반출신고: ${result.count}건`, 'success', true);
+                
+                // 3초 후 페이지 새로고침
+                setTimeout(() => window.location.reload(), 3000);
+            } else {
+                countElement.textContent = originalText;
+                showToast(`❌ 체크 실패: ${result.message}`, 'danger', true);
+            }
+        } catch (error) {
+            // 진행 토스트 제거
+            progressToast.classList.remove('show');
+            setTimeout(() => progressToast.remove(), 300);
+            
+            countElement.textContent = originalText;
+            console.error('네이버 송장 흐름 체크 오류:', error);
+            showToast('❌ 체크 중 오류가 발생했습니다.', 'danger', true);
         }
     }
 

@@ -368,11 +368,11 @@ def start_scheduler():
         replace_existing=True
     )
     
-    # ⭐ 네이버 송장 흐름 자동 체크: 매일 14시, 19시
+    # ⭐ 네이버 송장 흐름 자동 체크: 매일 9시, 13시, 18시
     scheduler.add_job(
         check_naver_delivery_flow,
         trigger='cron',
-        hour='14,19',
+        hour='9,13,18',  # 오전 9시, 오후 1시, 오후 6시
         minute=0,
         id='naver_delivery_check',
         name='네이버 송장 흐름 자동 체크',
@@ -384,7 +384,7 @@ def start_scheduler():
     print("   - 미완료 업무 알림: 30분마다")
     print("   - 알림 정리: 매일 자정")
     print("   - 통관 절차 이상 체크: 매일 13시, 18시")
-    print("   - 네이버 송장 흐름 체크: 매일 14시, 19시")
+    print("   - 네이버 송장 흐름 체크: 매일 9시, 13시, 18시")
 
 
 def stop_scheduler():
