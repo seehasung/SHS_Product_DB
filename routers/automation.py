@@ -161,6 +161,103 @@ async def worker_websocket(websocket: WebSocket, pc_number: int, db: Session = D
             db.commit()
 
 
+async def auto_assign_tasks(db: Session):
+    """대기 중인 Task들을 자동 할당"""
+    try:
+        # 대기 중인 Task들
+        pending_tasks = db.query(AutomationTask).filter(
+            AutomationTask.status == 'pending',
+            AutomationTask.assigned_pc_id == None
+        ).order_by(AutomationTask.priority.desc(), AutomationTask.scheduled_time.asc()).all()
+        
+        if not pending_tasks:
+            return
+        
+        # 온라인 PC 찾기
+        online_pcs = db.query(AutomationWorkerPC).filter(
+            AutomationWorkerPC.status == 'online'
+        ).all()
+        
+        if not online_pcs:
+            print("⚠️ 온라인 PC가 없습니다")
+            return
+        
+        assigned_count = 0
+        
+        for task in pending_tasks:
+            # 사용 가능한 PC 찾기 (현재 작업이 없는 PC)
+            for pc in online_pcs:
+                if pc.current_task_id:
+                    continue  # 이미 작업 중
+                
+                # 해당 PC의 계정 찾기
+                available_account = db.query(AutomationAccount).filter(
+                    AutomationAccount.assigned_pc_id == pc.id,
+                    AutomationAccount.status == 'active'
+                ).first()
+                
+                if not available_account:
+                    continue  # 사용 가능한 계정 없음
+                
+                # Task 할당
+                task.assigned_pc_id = pc.id
+                task.assigned_account_id = available_account.id
+                task.status = 'assigned'
+                pc.current_task_id = task.id
+                
+                assigned_count += 1
+                print(f"✅ Task #{task.id} → PC #{pc.pc_number} (계정: {available_account.account_id})")
+                
+                # 해당 PC의 WebSocket으로 작업 전송
+                if pc.pc_number in worker_connections:
+                    await send_task_to_worker(pc.pc_number, task, db)
+                
+                break  # 다음 Task로
+        
+        db.commit()
+        print(f"📊 {assigned_count}개 Task 할당 완료")
+        
+    except Exception as e:
+        print(f"❌ 자동 할당 오류: {e}")
+        import traceback
+        traceback.print_exc()
+
+
+async def send_task_to_worker(pc_number: int, task: AutomationTask, db: Session):
+    """Worker에게 Task 전송"""
+    try:
+        websocket = worker_connections.get(pc_number)
+        if not websocket:
+            return
+        
+        # 카페 정보
+        cafe = db.query(AutomationCafe).get(task.cafe_id) if task.cafe_id else None
+        
+        # 계정 정보
+        account = db.query(AutomationAccount).get(task.assigned_account_id) if task.assigned_account_id else None
+        
+        # Task 데이터
+        task_data = {
+            'type': 'new_task',
+            'task': {
+                'id': task.id,
+                'task_type': task.task_type,
+                'title': task.title,
+                'content': task.content,
+                'cafe_url': cafe.url if cafe else None,
+                'post_url': task.parent_task.post_url if task.parent_task_id else None,
+                'account_id': account.account_id if account else None,
+                'account_pw': account.account_pw if account else None
+            }
+        }
+        
+        await websocket.send_json(task_data)
+        print(f"📤 Task #{task.id} 전송 → PC #{pc_number}")
+        
+    except Exception as e:
+        print(f"❌ Task 전송 오류: {e}")
+
+
 async def assign_next_task(pc_number: int, db: Session, websocket: WebSocket):
     """다음 작업 할당"""
     # PC 정보
@@ -575,7 +672,7 @@ async def create_auto_schedules(
                         scheduled_time=datetime.combine(current_date, datetime.min.time()),
                         title=f"{product.product.name if product.product else '상품'} - {keyword_list[keyword_index]}",
                         content="AI가 자동 생성" if mode == 'ai' else "휴먼 모드",
-                        cafe_id=cafe_id,  # ⭐ 카페 ID 추가!
+                        cafe_id=cafe_id,
                         status='pending',
                         priority=0
                     )
@@ -587,6 +684,9 @@ async def create_auto_schedules(
             current_date += timedelta(days=1)
         
         db.commit()
+        
+        # ⭐ Task 생성 후 즉시 할당 시도
+        await auto_assign_tasks(db)
         
         return JSONResponse({
             'success': True,
