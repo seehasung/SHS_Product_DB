@@ -474,7 +474,35 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // 30초마다 PC 상태 갱신
     setInterval(loadPCs, 30000);
+    
+    // 모달 열릴 때 PC 목록 로드
+    document.getElementById('addAccountModal').addEventListener('show.bs.modal', function() {
+        loadPCsForDropdown();
+    });
 });
+
+// PC 드롭다운 로드
+async function loadPCsForDropdown() {
+    try {
+        const response = await fetch('/automation/api/pcs/list');
+        const data = await response.json();
+        
+        if (data.success) {
+            const select = document.querySelector('#addAccountModal select[name="assigned_pc_id"]');
+            
+            // 기존 옵션 유지하고 PC 추가
+            let html = '<option value="">나중에 할당</option>';
+            
+            data.pcs.forEach(pc => {
+                html += `<option value="${pc.id}">PC #${pc.pc_number} - ${pc.pc_name} (${pc.status})</option>`;
+            });
+            
+            select.innerHTML = html;
+        }
+    } catch (error) {
+        console.error('PC 목록 로드 오류:', error);
+    }
+}
 
 async function loadAllData() {
     await loadPCs();

@@ -693,7 +693,7 @@ async def register_pc(
 async def add_account(
     account_id: str = Form(...),
     account_pw: str = Form(...),
-    assigned_pc_id: int = Form(None),
+    assigned_pc_id: Optional[str] = Form(None),
     db: Session = Depends(get_db)
 ):
     """계정 추가"""
@@ -705,10 +705,18 @@ async def add_account(
     if existing:
         return JSONResponse({'success': False, 'message': '이미 등록된 계정입니다'})
     
+    # PC ID 처리 (빈 문자열이면 None)
+    pc_id = None
+    if assigned_pc_id and assigned_pc_id.strip():
+        try:
+            pc_id = int(assigned_pc_id)
+        except ValueError:
+            pass
+    
     account = AutomationAccount(
         account_id=account_id,
         account_pw=account_pw,
-        assigned_pc_id=assigned_pc_id if assigned_pc_id else None,
+        assigned_pc_id=pc_id,
         status='active'
     )
     db.add(account)
