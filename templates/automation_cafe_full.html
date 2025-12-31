@@ -363,8 +363,28 @@
                     <strong>Tip:</strong> 스케줄을 생성하면 자동으로 작업 큐에 추가됩니다.
                 </div>
                 
-                <div id="schedulesContent">
-                    <p class="text-center text-muted">스케줄 데이터 로딩 중...</p>
+                <div class="table-responsive">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>날짜</th>
+                                <th>모드</th>
+                                <th>상품</th>
+                                <th>키워드</th>
+                                <th>프롬프트</th>
+                                <th>상태</th>
+                                <th>작업</th>
+                                {% if is_admin %}<th>관리</th>{% endif %}
+                            </tr>
+                        </thead>
+                        <tbody id="schedulesTableBody">
+                            <tr>
+                                <td colspan="8" class="text-center text-muted">
+                                    <i class="bi bi-hourglass-split"></i> 데이터 로딩 중...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
                 </div>
             </div>
         </div>
@@ -643,6 +663,7 @@ async function loadAllData() {
     await loadAccounts();
     await loadCafes();
     await loadPrompts();
+    await loadSchedules();
 }
 
 async function loadPCs() {
@@ -1085,6 +1106,55 @@ function toggleModeFields() {
     }
 }
 
+async function loadSchedules() {
+    try {
+        const response = await fetch('/automation/api/schedules/list');
+        const data = await response.json();
+        
+        if (data.success) {
+            displaySchedules(data.schedules);
+        }
+    } catch (error) {
+        console.error('스케줄 데이터 로드 오류:', error);
+    }
+}
+
+function displaySchedules(schedules) {
+    const tbody = document.getElementById('schedulesTableBody');
+    
+    if (schedules.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="8" class="text-center text-muted">
+                    등록된 스케줄이 없습니다
+                </td>
+            </tr>
+        `;
+        return;
+    }
+    
+    const html = schedules.map(schedule => `
+        <tr>
+            <td>${schedule.scheduled_date}</td>
+            <td><span class="task-badge ${schedule.mode}">${schedule.mode === 'human' ? '👤 휴먼' : '🤖 AI'}</span></td>
+            <td>${schedule.product_name || '-'}</td>
+            <td><span class="badge bg-primary">${schedule.keyword_text}</span></td>
+            <td>${schedule.prompt_name || '-'}</td>
+            <td><span class="status-badge ${schedule.status}">${schedule.status}</span></td>
+            <td>${schedule.task_count || 0}개</td>
+            ${window.is_admin ? `
+            <td>
+                <button class="btn btn-sm btn-danger" onclick="deleteSchedule(${schedule.id})">
+                    <i class="bi bi-trash"></i>
+                </button>
+            </td>
+            ` : ''}
+        </tr>
+    `).join('');
+    
+    tbody.innerHTML = html;
+}
+
 async function createSchedule(event) {
     event.preventDefault();
     const formData = new FormData(event.target);
@@ -1098,15 +1168,36 @@ async function createSchedule(event) {
         const result = await response.json();
         
         if (result.success) {
-            alert('✅ 스케줄이 생성되었습니다!');
+            alert('✅ 스케줄 ' + result.count + '개가 생성되었습니다!');
             bootstrap.Modal.getInstance(document.getElementById('createScheduleModal')).hide();
-            location.reload();  // 페이지 새로고침
+            loadSchedules();  // 스케줄 목록 새로고침
         } else {
             alert('❌ ' + result.message);
         }
     } catch (error) {
         alert('❌ 스케줄 생성 중 오류가 발생했습니다');
         console.error(error);
+    }
+}
+
+async function deleteSchedule(id) {
+    if (!confirm('정말 이 스케줄을 삭제하시겠습니까?')) return;
+    
+    try {
+        const response = await fetch(`/automation/api/schedules/${id}/delete`, {
+            method: 'POST'
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            alert('✅ 스케줄이 삭제되었습니다');
+            loadSchedules();
+        } else {
+            alert('❌ ' + result.message);
+        }
+    } catch (error) {
+        alert('❌ 삭제 중 오류가 발생했습니다');
     }
 }
 </script>

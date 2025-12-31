@@ -371,6 +371,54 @@ async def generate_ai_content(
 # 스케줄 관리 API
 # ============================================
 
+@router.get("/api/schedules/list")
+async def list_schedules(db: Session = Depends(get_db)):
+    """스케줄 목록 조회"""
+    schedules = db.query(AutomationSchedule).options(
+        joinedload(AutomationSchedule.marketing_product).joinedload(MarketingProduct.product),
+        joinedload(AutomationSchedule.prompt)
+    ).order_by(AutomationSchedule.scheduled_date.desc()).limit(100).all()
+    
+    schedule_list = []
+    for schedule in schedules:
+        # 연관된 작업 개수
+        task_count = db.query(AutomationTask).filter(
+            AutomationTask.schedule_id == schedule.id
+        ).count()
+        
+        schedule_list.append({
+            'id': schedule.id,
+            'scheduled_date': schedule.scheduled_date.strftime('%Y-%m-%d'),
+            'mode': schedule.mode,
+            'product_name': schedule.marketing_product.product.name if schedule.marketing_product and schedule.marketing_product.product else None,
+            'keyword_text': schedule.keyword_text,
+            'prompt_name': schedule.prompt.name if schedule.prompt else None,
+            'status': schedule.status,
+            'task_count': task_count
+        })
+    
+    return JSONResponse({
+        'success': True,
+        'schedules': schedule_list
+    })
+
+
+@router.post("/api/schedules/{schedule_id}/delete")
+async def delete_schedule(schedule_id: int, db: Session = Depends(get_db)):
+    """스케줄 삭제"""
+    schedule = db.query(AutomationSchedule).get(schedule_id)
+    if not schedule:
+        return JSONResponse({'success': False, 'message': '스케줄을 찾을 수 없습니다'})
+    
+    # 연관된 작업도 삭제
+    db.query(AutomationTask).filter(AutomationTask.schedule_id == schedule_id).delete()
+    
+    db.delete(schedule)
+    db.commit()
+    
+    return JSONResponse({'success': True, 'message': '스케줄이 삭제되었습니다'})
+
+
 @router.post("/api/schedules/create-auto")
 async def create_auto_schedules(
     product_id: int = Form(...),
@@ -444,7 +492,8 @@ async def create_auto_schedules(
         
         return JSONResponse({
             'success': True,
-            'message': f'스케줄 {created_count}개가 생성되었습니다'
+            'message': f'스케줄 {created_count}개가 생성되었습니다',
+            'count': created_count
         })
         
     except Exception as e:
