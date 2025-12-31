@@ -467,6 +467,129 @@
     </div>
 </div>
 
+<!-- 스케줄 생성 모달 -->
+<div class="modal fade" id="createScheduleModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-calendar-plus"></i> 스케줄 자동 생성</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form onsubmit="createSchedule(event)">
+                <div class="modal-body">
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle"></i> 
+                        <strong>안내:</strong> 설정한 기간 동안 자동으로 스케줄을 생성합니다. (주말 포함)
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">모드 선택</label>
+                        <select class="form-select" name="mode" id="scheduleMode" required onchange="toggleModeFields()">
+                            <option value="">선택하세요</option>
+                            <option value="human">휴먼 모드 (사람이 작성한 글)</option>
+                            <option value="ai">AI 모드 (Claude 자동 생성)</option>
+                        </select>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">상품 선택</label>
+                        <select class="form-select" name="product_id" required>
+                            <option value="">선택하세요</option>
+                            <!-- JavaScript로 동적 로드 -->
+                        </select>
+                    </div>
+                    
+                    <div class="mb-3" id="promptField" style="display: none;">
+                        <label class="form-label">프롬프트 선택 (AI 모드)</label>
+                        <select class="form-select" name="prompt_id">
+                            <option value="">선택하세요</option>
+                            <!-- JavaScript로 동적 로드 -->
+                        </select>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">시작일</label>
+                            <input type="date" class="form-control" name="start_date" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">종료일</label>
+                            <input type="date" class="form-control" name="end_date" required>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">하루 작성 개수</label>
+                        <input type="number" class="form-control" name="daily_count" 
+                               value="3" min="1" max="10" required>
+                        <small class="text-muted">하루에 작성할 글 개수 (1~10개, 주말 포함)</small>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">취소</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-calendar-check"></i> 스케줄 생성
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- 프롬프트 추가 모달 -->
+<div class="modal fade" id="addPromptModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-chat-square-text"></i> 프롬프트 추가</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form onsubmit="addPrompt(event)">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">프롬프트 이름</label>
+                        <input type="text" class="form-control" name="name" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">타입</label>
+                        <select class="form-select" name="prompt_type" required>
+                            <option value="post">글 작성</option>
+                            <option value="comment">댓글 작성</option>
+                            <option value="reply">대댓글 작성</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">시스템 프롬프트</label>
+                        <textarea class="form-control" name="system_prompt" rows="4" required
+                                  placeholder="AI의 역할과 성격을 정의하세요"></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">사용자 프롬프트 템플릿</label>
+                        <textarea class="form-control" name="user_prompt_template" rows="6" required
+                                  placeholder="{product_name}, {keyword} 변수 사용 가능"></textarea>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Temperature (0.0~1.0)</label>
+                            <input type="number" class="form-control" name="temperature" 
+                                   value="0.7" step="0.1" min="0" max="1" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Max Tokens</label>
+                            <input type="number" class="form-control" name="max_tokens" 
+                                   value="1000" min="100" max="4000" required>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">취소</button>
+                    <button type="submit" class="btn btn-primary">등록</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 <script>
 // 페이지 로드 시 데이터 로드
 document.addEventListener('DOMContentLoaded', function() {
@@ -475,10 +598,21 @@ document.addEventListener('DOMContentLoaded', function() {
     // 30초마다 PC 상태 갱신
     setInterval(loadPCs, 30000);
     
-    // 모달 열릴 때 PC 목록 로드
-    document.getElementById('addAccountModal').addEventListener('show.bs.modal', function() {
-        loadPCsForDropdown();
-    });
+    // 모달 열릴 때 데이터 로드
+    const addAccountModal = document.getElementById('addAccountModal');
+    if (addAccountModal) {
+        addAccountModal.addEventListener('show.bs.modal', function() {
+            loadPCsForDropdown();
+        });
+    }
+    
+    const createScheduleModal = document.getElementById('createScheduleModal');
+    if (createScheduleModal) {
+        createScheduleModal.addEventListener('show.bs.modal', function() {
+            loadProductsForSchedule();
+            loadPromptsForSchedule();
+        });
+    }
 });
 
 // PC 드롭다운 로드
@@ -794,6 +928,31 @@ async function addCafe(event) {
     }
 }
 
+async function addPrompt(event) {
+    event.preventDefault();
+    const formData = new FormData(event.target);
+    
+    try {
+        const response = await fetch('/automation/api/prompts/add', {
+            method: 'POST',
+            body: formData
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            alert('✅ 프롬프트가 등록되었습니다!');
+            bootstrap.Modal.getInstance(document.getElementById('addPromptModal')).hide();
+            loadPrompts();
+        } else {
+            alert('❌ ' + result.message);
+        }
+    } catch (error) {
+        alert('❌ 프롬프트 추가 중 오류가 발생했습니다');
+        console.error(error);
+    }
+}
+
 async function deletePC(id) {
     if (!confirm('정말 이 PC를 삭제하시겠습니까?')) return;
     
@@ -867,6 +1026,88 @@ function editPrompt(id) {
 
 function viewPrompt(id) {
     alert('프롬프트 보기 기능은 준비 중입니다.');
+}
+
+// ===== 스케줄 생성 관련 함수 =====
+
+async function loadProductsForSchedule() {
+    try {
+        const response = await fetch('/automation/api/products/list');
+        const data = await response.json();
+        
+        if (data.success) {
+            const select = document.querySelector('#createScheduleModal select[name="product_id"]');
+            
+            let html = '<option value="">선택하세요</option>';
+            
+            data.products.forEach(product => {
+                html += `<option value="${product.id}">${product.name}</option>`;
+            });
+            
+            select.innerHTML = html;
+        }
+    } catch (error) {
+        console.error('상품 목록 로드 오류:', error);
+    }
+}
+
+async function loadPromptsForSchedule() {
+    try {
+        const response = await fetch('/automation/api/prompts/list');
+        const data = await response.json();
+        
+        if (data.success) {
+            const select = document.querySelector('#createScheduleModal select[name="prompt_id"]');
+            
+            let html = '<option value="">선택하세요</option>';
+            
+            data.prompts.filter(p => p.is_active && p.prompt_type === 'post').forEach(prompt => {
+                html += `<option value="${prompt.id}">${prompt.name}</option>`;
+            });
+            
+            select.innerHTML = html;
+        }
+    } catch (error) {
+        console.error('프롬프트 목록 로드 오류:', error);
+    }
+}
+
+function toggleModeFields() {
+    const mode = document.getElementById('scheduleMode').value;
+    const promptField = document.getElementById('promptField');
+    
+    if (mode === 'ai') {
+        promptField.style.display = 'block';
+        promptField.querySelector('select').required = true;
+    } else {
+        promptField.style.display = 'none';
+        promptField.querySelector('select').required = false;
+    }
+}
+
+async function createSchedule(event) {
+    event.preventDefault();
+    const formData = new FormData(event.target);
+    
+    try {
+        const response = await fetch('/automation/api/schedules/create-auto', {
+            method: 'POST',
+            body: formData
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            alert('✅ 스케줄이 생성되었습니다!');
+            bootstrap.Modal.getInstance(document.getElementById('createScheduleModal')).hide();
+            location.reload();  // 페이지 새로고침
+        } else {
+            alert('❌ ' + result.message);
+        }
+    } catch (error) {
+        alert('❌ 스케줄 생성 중 오류가 발생했습니다');
+        console.error(error);
+    }
 }
 </script>
 {% endblock %}

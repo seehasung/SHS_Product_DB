@@ -658,6 +658,23 @@ async def list_prompts(db: Session = Depends(get_db)):
     })
 
 
+@router.get("/api/products/list")
+async def list_products(db: Session = Depends(get_db)):
+    """마케팅 상품 목록 조회"""
+    products = db.query(MarketingProduct).options(
+        joinedload(MarketingProduct.product)
+    ).all()
+    
+    return JSONResponse({
+        'success': True,
+        'products': [{
+            'id': product.id,
+            'name': product.product.name if product.product else '상품명 없음',
+            'keywords': product.keywords
+        } for product in products]
+    })
+
+
 # ============================================
 # PC 관리 API
 # ============================================
@@ -749,6 +766,40 @@ async def add_cafe(
     db.commit()
     
     return JSONResponse({'success': True, 'message': '카페가 등록되었습니다'})
+
+
+@router.post("/api/prompts/add")
+async def add_prompt(
+    name: str = Form(...),
+    prompt_type: str = Form(...),
+    system_prompt: str = Form(...),
+    user_prompt_template: str = Form(...),
+    temperature: float = Form(0.7),
+    max_tokens: int = Form(1000),
+    db: Session = Depends(get_db)
+):
+    """프롬프트 추가"""
+    # 중복 확인
+    existing = db.query(AutomationPrompt).filter(
+        AutomationPrompt.name == name
+    ).first()
+    
+    if existing:
+        return JSONResponse({'success': False, 'message': '이미 등록된 프롬프트입니다'})
+    
+    prompt = AutomationPrompt(
+        name=name,
+        prompt_type=prompt_type,
+        system_prompt=system_prompt,
+        user_prompt_template=user_prompt_template,
+        temperature=temperature,
+        max_tokens=max_tokens,
+        is_active=True
+    )
+    db.add(prompt)
+    db.commit()
+    
+    return JSONResponse({'success': True, 'message': '프롬프트가 등록되었습니다'})
 
 
 @router.post("/api/pcs/{pc_id}/delete")
