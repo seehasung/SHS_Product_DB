@@ -483,6 +483,21 @@ async def create_auto_schedules(
                         status='pending'
                     )
                     db.add(schedule)
+                    db.flush()  # ID 생성
+                    
+                    # Task 생성 (본문 글)
+                    task = AutomationTask(
+                        task_type='post',
+                        mode=mode,
+                        schedule_id=schedule.id,
+                        scheduled_time=datetime.combine(current_date, datetime.min.time()),
+                        title=f"{product.product.name if product.product else '상품'} - {keyword_list[keyword_index]}",
+                        content="AI가 자동 생성" if mode == 'ai' else "휴먼 모드",
+                        status='pending',
+                        priority=0
+                    )
+                    db.add(task)
+                    
                     created_count += 1
                     keyword_index += 1
             
