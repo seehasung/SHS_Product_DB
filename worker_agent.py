@@ -56,8 +56,8 @@ class NaverCafeWorker:
         try:
             print("🔍 업데이트 확인 중...")
             
-            # 서버에서 최신 버전 정보 가져오기
-            version_url = f"https://{self.server_url}/static/worker_version.json"
+            # 서버에서 최신 버전 정보 가져오기 (API 사용)
+            version_url = f"https://{self.server_url}/automation/api/worker/version"
             response = requests.get(version_url, timeout=10, verify=False)
             
             if response.status_code != 200:
@@ -83,7 +83,7 @@ class NaverCafeWorker:
             # 자동 다운로드
             print(f"\n⬇️  업데이트 다운로드 중...")
             
-            download_url = f"https://{self.server_url}{server_version_info['download_url']}"
+            download_url = f"https://{self.server_url}/automation/api/worker/download"
             response = requests.get(download_url, timeout=30, verify=False)
             
             if response.status_code != 200:

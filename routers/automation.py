@@ -507,6 +507,54 @@ async def create_tasks_from_post(
 
 
 # ============================================
+# Worker 업데이트 API
+# ============================================
+
+@router.get("/api/worker/version")
+async def get_worker_version():
+    """Worker 버전 정보 제공"""
+    return JSONResponse({
+        "version": "1.0.1",
+        "release_date": "2025-12-31",
+        "download_url": "/automation/api/worker/download",
+        "changelog": [
+            "VPN IP 자동 감지",
+            "SSL 인증서 우회",
+            "한국 시간 정확 표시",
+            "자동 업데이트 기능"
+        ],
+        "required_packages": {
+            "selenium": "4.15.2",
+            "websockets": "12.0",
+            "psutil": "5.9.6",
+            "requests": "2.31.0",
+            "webdriver-manager": "4.0.1"
+        }
+    })
+
+
+@router.get("/api/worker/download")
+async def download_worker():
+    """Worker Agent 파일 다운로드"""
+    from pathlib import Path
+    from fastapi.responses import FileResponse
+    
+    worker_file = Path("worker_agent.py")
+    
+    if not worker_file.exists():
+        return JSONResponse({
+            'success': False,
+            'message': 'Worker 파일을 찾을 수 없습니다'
+        }, status_code=404)
+    
+    return FileResponse(
+        worker_file,
+        media_type='text/plain',
+        filename='worker_agent.py'
+    )
+
+
+# ============================================
 # 데이터 조회 API (목록)
 # ============================================
 
