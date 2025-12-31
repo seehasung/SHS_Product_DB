@@ -498,34 +498,35 @@
 </div>
 
 <!-- 계정 추가 모달 -->
-<div class="modal fade" id="addAccountModal" tabindex="-1">
+<div class="modal fade" id="addAccountModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title"><i class="bi bi-person-plus"></i> 계정 추가</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
-            <form onsubmit="addAccount(event)">
+            <form onsubmit="addAccount(event)" id="addAccountForm">
                 <div class="modal-body">
                     <div class="mb-3">
                         <label class="form-label">계정 ID</label>
-                        <input type="text" class="form-control" name="account_id" required>
+                        <input type="text" class="form-control" name="account_id" id="accountIdInput" required autocomplete="off">
                     </div>
                     <div class="mb-3">
                         <label class="form-label">비밀번호</label>
-                        <input type="password" class="form-control" name="account_pw" required>
+                        <input type="password" class="form-control" name="account_pw" id="accountPwInput" required autocomplete="new-password">
                     </div>
                     <div class="mb-3">
                         <label class="form-label">할당 PC</label>
-                        <select class="form-select" name="assigned_pc_id">
+                        <select class="form-select" name="assigned_pc_id" id="accountPcSelect">
                             <option value="">나중에 할당</option>
-                            <!-- JavaScript로 동적 로드 -->
                         </select>
                     </div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">취소</button>
-                    <button type="submit" class="btn btn-primary">등록</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-check-lg"></i> 등록
+                    </button>
                 </div>
             </form>
         </div>
@@ -700,11 +701,22 @@ document.addEventListener('DOMContentLoaded', function() {
     // 30초마다 PC 상태 갱신
     setInterval(loadPCs, 30000);
     
-    // 모달 열릴 때 데이터 로드
+    // 모달 열릴 때 데이터 로드 및 초기화
     const addAccountModal = document.getElementById('addAccountModal');
     if (addAccountModal) {
         addAccountModal.addEventListener('show.bs.modal', function() {
+            // 폼 리셋
+            const form = document.getElementById('addAccountForm');
+            if (form) form.reset();
+            
+            // PC 목록 로드
             loadPCsForDropdown();
+        });
+        
+        // 모달 닫힐 때 폼 리셋
+        addAccountModal.addEventListener('hidden.bs.modal', function() {
+            const form = document.getElementById('addAccountForm');
+            if (form) form.reset();
         });
     }
     
@@ -725,16 +737,23 @@ async function loadPCsForDropdown() {
         const data = await response.json();
         
         if (data.success) {
-            const select = document.querySelector('#addAccountModal select[name="assigned_pc_id"]');
+            const select = document.getElementById('accountPcSelect');
+            
+            if (!select) {
+                console.error('accountPcSelect 요소를 찾을 수 없습니다');
+                return;
+            }
             
             // 기존 옵션 유지하고 PC 추가
             let html = '<option value="">나중에 할당</option>';
             
             data.pcs.forEach(pc => {
-                html += `<option value="${pc.id}">PC #${pc.pc_number} - ${pc.pc_name} (${pc.status})</option>`;
+                const statusIcon = pc.status === 'online' ? '🟢' : '🔴';
+                html += `<option value="${pc.id}">${statusIcon} PC #${pc.pc_number} - ${pc.pc_name}</option>`;
             });
             
             select.innerHTML = html;
+            console.log('✅ PC 목록 로드 완료:', data.pcs.length);
         }
     } catch (error) {
         console.error('PC 목록 로드 오류:', error);
@@ -1067,7 +1086,15 @@ async function addPC(event) {
 
 async function addAccount(event) {
     event.preventDefault();
-    const formData = new FormData(event.target);
+    
+    const form = event.target;
+    const formData = new FormData(form);
+    
+    // 로딩 표시
+    const submitBtn = form.querySelector('button[type="submit"]');
+    const originalText = submitBtn.innerHTML;
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> 등록 중...';
     
     try {
         const response = await fetch('/automation/api/accounts/add', {
@@ -1077,16 +1104,30 @@ async function addAccount(event) {
         
         const result = await response.json();
         
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = originalText;
+        
         if (result.success) {
             alert('✅ 계정이 등록되었습니다!');
-            bootstrap.Modal.getInstance(document.getElementById('addAccountModal')).hide();
-            loadAccounts();
+            
+            // 모달 닫기
+            const modal = bootstrap.Modal.getInstance(document.getElementById('addAccountModal'));
+            if (modal) modal.hide();
+            
+            // 폼 리셋
+            form.reset();
+            
+            // 목록 새로고침
+            await loadAccounts();
         } else {
             alert('❌ ' + result.message);
         }
     } catch (error) {
-        alert('❌ 계정 추가 중 오류가 발생했습니다');
-        console.error(error);
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = originalText;
+        
+        alert('❌ 계정 추가 중 오류가 발생했습니다: ' + error.message);
+        console.error('계정 추가 오류:', error);
     }
 }
 
