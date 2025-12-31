@@ -422,6 +422,7 @@ async def delete_schedule(schedule_id: int, db: Session = Depends(get_db)):
 @router.post("/api/schedules/create-auto")
 async def create_auto_schedules(
     product_id: int = Form(...),
+    cafe_id: int = Form(...),  # 카페 선택 추가!
     daily_count: int = Form(...),
     start_date: str = Form(...),
     end_date: str = Form(...),
@@ -493,6 +494,7 @@ async def create_auto_schedules(
                         scheduled_time=datetime.combine(current_date, datetime.min.time()),
                         title=f"{product.product.name if product.product else '상품'} - {keyword_list[keyword_index]}",
                         content="AI가 자동 생성" if mode == 'ai' else "휴먼 모드",
+                        cafe_id=cafe_id,  # ⭐ 카페 ID 추가!
                         status='pending',
                         priority=0
                     )

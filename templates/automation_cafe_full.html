@@ -519,6 +519,14 @@
                         </select>
                     </div>
                     
+                    <div class="mb-3">
+                        <label class="form-label">카페 선택</label>
+                        <select class="form-select" name="cafe_id" required>
+                            <option value="">선택하세요</option>
+                            <!-- JavaScript로 동적 로드 -->
+                        </select>
+                    </div>
+                    
                     <div class="mb-3" id="promptField" style="display: none;">
                         <label class="form-label">프롬프트 선택 (AI 모드)</label>
                         <select class="form-select" name="prompt_id">
@@ -631,6 +639,7 @@ document.addEventListener('DOMContentLoaded', function() {
         createScheduleModal.addEventListener('show.bs.modal', function() {
             loadProductsForSchedule();
             loadPromptsForSchedule();
+            loadCafesForSchedule();
         });
     }
 });
@@ -1090,6 +1099,27 @@ async function loadPromptsForSchedule() {
         }
     } catch (error) {
         console.error('프롬프트 목록 로드 오류:', error);
+    }
+}
+
+async function loadCafesForSchedule() {
+    try {
+        const response = await fetch('/automation/api/cafes/list');
+        const data = await response.json();
+        
+        if (data.success) {
+            const select = document.querySelector('#createScheduleModal select[name="cafe_id"]');
+            
+            let html = '<option value="">선택하세요</option>';
+            
+            data.cafes.filter(c => c.status === 'active').forEach(cafe => {
+                html += `<option value="${cafe.id}">${cafe.name}</option>`;
+            });
+            
+            select.innerHTML = html;
+        }
+    } catch (error) {
+        console.error('카페 목록 로드 오류:', error);
     }
 }
 
