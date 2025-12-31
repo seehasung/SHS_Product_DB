@@ -488,33 +488,61 @@ class NaverCafeWorker:
         """서버로부터 작업 수신"""
         while self.is_running:
             try:
-                message = await self.websocket.recv()
-                data = json.loads(message)
+                message = await asyncio.wait_for(
+                    self.websocket.recv(),
+                    timeout=30.0  # 30초 타임아웃
+                )
                 
-                if data['type'] == 'new_task':
-                    task = data['task']
+                # ping/pong 처리
+                if message == 'ping':
+                    await self.websocket.send('pong')
+                    continue
+                
+                try:
+                    data = json.loads(message)
+                except json.JSONDecodeError:
+                    print(f"⚠️ JSON 파싱 실패: {message[:50]}")
+                    continue
+                
+                if data.get('type') == 'new_task':
+                    task = data.get('task', {})
+                    
+                    if not task or 'id' not in task:
+                        print("⚠️ 유효하지 않은 작업 데이터")
+                        continue
                     
                     print(f"\n📥 새 작업 수신: Task #{task['id']}")
                     
                     # 계정 로그인 확인
-                    if task['account_id'] != self.current_account:
+                    if task.get('account_id') and task['account_id'] != self.current_account:
                         print(f"🔄 계정 전환: {task['account_id']}")
-                        self.login_naver(
-                            task['account_id'],
-                            task['account_pw']
-                        )
+                        if task.get('account_pw'):
+                            self.login_naver(
+                                task['account_id'],
+                                task['account_pw']
+                            )
                     
                     # 작업 처리
                     await self.process_task(task)
                     
-                elif data['type'] == 'shutdown':
+                elif data.get('type') == 'shutdown':
                     print("⏹️ 종료 명령 수신")
                     self.is_running = False
+                    break
+                    
+            except asyncio.TimeoutError:
+                # 타임아웃은 정상 (계속 대기)
+                continue
                     
             except websockets.exceptions.ConnectionClosed:
                 print("❌ WebSocket 연결이 끊어졌습니다. 재연결 중...")
                 await asyncio.sleep(3)
-                await self.connect_to_server()
+                try:
+                    await self.connect_to_server()
+                except:
+                    print("❌ 재연결 실패, 5초 후 재시도...")
+                    await asyncio.sleep(5)
+                    
             except Exception as e:
                 print(f"❌ 메시지 처리 오류: {e}")
                 await asyncio.sleep(1)
