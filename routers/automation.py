@@ -390,28 +390,47 @@ async def create_auto_schedules(
         if not product:
             return JSONResponse({'success': False, 'message': '상품을 찾을 수 없습니다'})
         
-        keywords = json.loads(product.keywords) if product.keywords else []
+        # 키워드 파싱
+        try:
+            if isinstance(product.keywords, str):
+                keywords = json.loads(product.keywords)
+            else:
+                keywords = product.keywords or []
+        except:
+            keywords = []
+        
         if not keywords:
             return JSONResponse({'success': False, 'message': '키워드가 없습니다'})
+        
+        # 키워드가 dict 리스트인 경우 처리 (예: [{"text": "키워드"}])
+        keyword_list = []
+        for kw in keywords:
+            if isinstance(kw, dict):
+                keyword_list.append(kw.get('text', '') or kw.get('keyword', ''))
+            else:
+                keyword_list.append(str(kw))
+        
+        if not keyword_list:
+            return JSONResponse({'success': False, 'message': '유효한 키워드가 없습니다'})
         
         current_date = start
         keyword_index = 0
         created_count = 0
         
         while current_date <= end:
-            # AI 모드는 주말도 포함, 휴먼 모드는 평일만
-            include_day = (mode == 'ai') or (current_date.weekday() < 5)
+            # 주말 포함 (AI, 휴먼 모두)
+            include_day = True
             
             if include_day:
                 for _ in range(daily_count):
-                    if keyword_index >= len(keywords):
+                    if keyword_index >= len(keyword_list):
                         keyword_index = 0
                     
                     schedule = AutomationSchedule(
                         mode=mode,
                         scheduled_date=current_date,
                         marketing_product_id=product_id,
-                        keyword_text=keywords[keyword_index],
+                        keyword_text=keyword_list[keyword_index],
                         prompt_id=prompt_id if mode == 'ai' else None,
                         status='pending'
                     )
