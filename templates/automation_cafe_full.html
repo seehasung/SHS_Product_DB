@@ -177,21 +177,95 @@
             <div class="content-card">
                 <div class="card-header-custom">
                     <h4><i class="bi bi-speedometer2"></i> 실시간 대시보드</h4>
-                    <button class="btn btn-sm btn-outline-primary" onclick="location.reload()">
+                    <button class="btn btn-sm btn-outline-primary" onclick="loadTasks()">
                         <i class="bi bi-arrow-clockwise"></i> 새로고침
                     </button>
                 </div>
                 
-                <div class="alert alert-info">
-                    <i class="bi bi-info-circle"></i> 
-                    <strong>안내:</strong> 자동화 시스템이 활성화되었습니다. 
-                    각 탭에서 PC, 계정, 카페 등을 관리하세요.
-                </div>
+                <!-- 작업 큐 탭 -->
+                <ul class="nav nav-tabs mb-3" role="tablist">
+                    <li class="nav-item">
+                        <a class="nav-link active" data-bs-toggle="tab" href="#pending-tasks">
+                            <i class="bi bi-hourglass-split"></i> 대기 중
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" data-bs-toggle="tab" href="#in-progress-tasks">
+                            <i class="bi bi-arrow-repeat"></i> 진행 중
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" data-bs-toggle="tab" href="#completed-tasks">
+                            <i class="bi bi-check-circle"></i> 완료
+                        </a>
+                    </li>
+                </ul>
                 
-                <div class="row">
-                    <div class="col-md-12">
-                        <p>대시보드 내용은 <code>automation_dashboard.html</code>의 내용을 여기에 통합 예정</p>
-                        <p>현재는 각 탭에서 관리 기능을 사용하세요.</p>
+                <div class="tab-content">
+                    <!-- 대기 중 -->
+                    <div class="tab-pane fade show active" id="pending-tasks">
+                        <div class="table-responsive">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>모드</th>
+                                        <th>타입</th>
+                                        <th>카페</th>
+                                        <th>상품</th>
+                                        <th>키워드</th>
+                                        <th>상태</th>
+                                        <th>PC</th>
+                                        <th>계정</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="pendingTasksBody">
+                                    <tr><td colspan="9" class="text-center text-muted">로딩 중...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    
+                    <!-- 진행 중 -->
+                    <div class="tab-pane fade" id="in-progress-tasks">
+                        <div class="table-responsive">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>모드</th>
+                                        <th>카페</th>
+                                        <th>PC</th>
+                                        <th>계정</th>
+                                        <th>시작 시간</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="inProgressTasksBody">
+                                    <tr><td colspan="6" class="text-center text-muted">로딩 중...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    
+                    <!-- 완료 -->
+                    <div class="tab-pane fade" id="completed-tasks">
+                        <div class="table-responsive">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>모드</th>
+                                        <th>카페</th>
+                                        <th>상품</th>
+                                        <th>완료 시간</th>
+                                        <th>URL</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="completedTasksBody">
+                                    <tr><td colspan="6" class="text-center text-muted">로딩 중...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -673,6 +747,89 @@ async function loadAllData() {
     await loadCafes();
     await loadPrompts();
     await loadSchedules();
+    await loadTasks();
+}
+
+async function loadTasks() {
+    await loadTasksByStatus('pending', 'pendingTasksBody');
+    await loadTasksByStatus('in_progress', 'inProgressTasksBody');
+    await loadTasksByStatus('completed', 'completedTasksBody');
+}
+
+async function loadTasksByStatus(status, tbodyId) {
+    try {
+        const response = await fetch(`/automation/api/tasks/list?status=${status}`);
+        const data = await response.json();
+        
+        if (data.success) {
+            displayTasks(data.tasks, tbodyId, status);
+        }
+    } catch (error) {
+        console.error(`Task 로드 오류 (${status}):`, error);
+    }
+}
+
+function displayTasks(tasks, tbodyId, status) {
+    const tbody = document.getElementById(tbodyId);
+    
+    if (tasks.length === 0) {
+        const colSpan = status === 'completed' ? 6 : status === 'in_progress' ? 6 : 9;
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="${colSpan}" class="text-center text-muted">
+                    ${status === 'pending' ? '대기 중인' : status === 'in_progress' ? '진행 중인' : '완료된'} 작업이 없습니다
+                </td>
+            </tr>
+        `;
+        return;
+    }
+    
+    let html = '';
+    
+    tasks.forEach(task => {
+        const modeIcon = task.mode === 'human' ? '👤' : '🤖';
+        const typeIcon = task.task_type === 'post' ? '📝' : '💬';
+        
+        if (status === 'pending') {
+            html += `
+                <tr>
+                    <td><strong>#${task.id}</strong></td>
+                    <td><span class="task-badge ${task.mode}">${modeIcon} ${task.mode}</span></td>
+                    <td>${typeIcon} ${task.task_type}</td>
+                    <td>${task.cafe_name || '-'}</td>
+                    <td>${task.product_name || '-'}</td>
+                    <td><span class="badge bg-primary">${task.keyword_text || '-'}</span></td>
+                    <td><span class="status-badge ${task.status}">${task.status}</span></td>
+                    <td>${task.assigned_pc ? 'PC #' + task.assigned_pc : '-'}</td>
+                    <td>${task.assigned_account || '-'}</td>
+                </tr>
+            `;
+        } else if (status === 'in_progress') {
+            html += `
+                <tr>
+                    <td><strong>#${task.id}</strong></td>
+                    <td><span class="task-badge ${task.mode}">${modeIcon}</span></td>
+                    <td>${task.cafe_name || '-'}</td>
+                    <td>PC #${task.assigned_pc || '-'}</td>
+                    <td>${task.assigned_account || '-'}</td>
+                    <td>${task.started_at || '-'}</td>
+                </tr>
+            `;
+        } else if (status === 'completed') {
+            html += `
+                <tr>
+                    <td><strong>#${task.id}</strong></td>
+                    <td><span class="task-badge ${task.mode}">${modeIcon}</span></td>
+                    <td>${task.cafe_name || '-'}</td>
+                    <td>${task.product_name || '-'}</td>
+                    <td>${task.completed_at || '-'}</td>
+                    <td>${task.post_url ? `<a href="${task.post_url}" target="_blank">보기</a>` : '-'}</td>
+                </tr>
+            `;
+        }
+    });
+    
+    tbody.innerHTML = html;
 }
 
 async function loadPCs() {

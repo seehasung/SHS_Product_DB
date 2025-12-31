@@ -371,6 +371,44 @@ async def generate_ai_content(
 # 스케줄 관리 API
 # ============================================
 
+@router.get("/api/tasks/list")
+async def list_tasks(
+    status: Optional[str] = Query(None),
+    db: Session = Depends(get_db)
+):
+    """Task 목록 조회"""
+    query = db.query(AutomationTask).options(
+        joinedload(AutomationTask.schedule).joinedload(AutomationSchedule.marketing_product).joinedload(MarketingProduct.product),
+        joinedload(AutomationTask.cafe),
+        joinedload(AutomationTask.assigned_account),
+        joinedload(AutomationTask.assigned_pc)
+    )
+    
+    if status:
+        query = query.filter(AutomationTask.status == status)
+    
+    tasks = query.order_by(AutomationTask.scheduled_time.desc()).limit(50).all()
+    
+    return JSONResponse({
+        'success': True,
+        'tasks': [{
+            'id': task.id,
+            'task_type': task.task_type,
+            'mode': task.mode,
+            'title': task.title,
+            'cafe_name': task.cafe.name if task.cafe else None,
+            'product_name': task.schedule.marketing_product.product.name if task.schedule and task.schedule.marketing_product and task.schedule.marketing_product.product else None,
+            'keyword_text': task.schedule.keyword_text if task.schedule else None,
+            'status': task.status,
+            'assigned_pc': task.assigned_pc.pc_number if task.assigned_pc else None,
+            'assigned_account': task.assigned_account.account_id if task.assigned_account else None,
+            'scheduled_time': task.scheduled_time.strftime('%Y-%m-%d %H:%M'),
+            'started_at': task.started_at.strftime('%Y-%m-%d %H:%M:%S') if task.started_at else None,
+            'completed_at': task.completed_at.strftime('%Y-%m-%d %H:%M:%S') if task.completed_at else None
+        } for task in tasks]
+    })
+
+
 @router.get("/api/schedules/list")
 async def list_schedules(db: Session = Depends(get_db)):
     """스케줄 목록 조회"""
