@@ -377,36 +377,79 @@ async def list_tasks(
     db: Session = Depends(get_db)
 ):
     """Task 목록 조회"""
-    query = db.query(AutomationTask).options(
-        joinedload(AutomationTask.schedule).joinedload(AutomationSchedule.marketing_product).joinedload(MarketingProduct.product),
-        joinedload(AutomationTask.cafe),
-        joinedload(AutomationTask.assigned_account),
-        joinedload(AutomationTask.assigned_pc)
-    )
-    
-    if status:
-        query = query.filter(AutomationTask.status == status)
-    
-    tasks = query.order_by(AutomationTask.scheduled_time.desc()).limit(50).all()
-    
-    return JSONResponse({
-        'success': True,
-        'tasks': [{
-            'id': task.id,
-            'task_type': task.task_type,
-            'mode': task.mode,
-            'title': task.title,
-            'cafe_name': task.cafe.name if task.cafe else None,
-            'product_name': task.schedule.marketing_product.product.name if task.schedule and task.schedule.marketing_product and task.schedule.marketing_product.product else None,
-            'keyword_text': task.schedule.keyword_text if task.schedule else None,
-            'status': task.status,
-            'assigned_pc': task.assigned_pc.pc_number if task.assigned_pc else None,
-            'assigned_account': task.assigned_account.account_id if task.assigned_account else None,
-            'scheduled_time': task.scheduled_time.strftime('%Y-%m-%d %H:%M'),
-            'started_at': task.started_at.strftime('%Y-%m-%d %H:%M:%S') if task.started_at else None,
-            'completed_at': task.completed_at.strftime('%Y-%m-%d %H:%M:%S') if task.completed_at else None
-        } for task in tasks]
-    })
+    try:
+        query = db.query(AutomationTask)
+        
+        if status:
+            query = query.filter(AutomationTask.status == status)
+        
+        tasks = query.order_by(AutomationTask.id.desc()).limit(50).all()
+        
+        task_list = []
+        for task in tasks:
+            try:
+                # 안전하게 데이터 추출
+                cafe_name = None
+                if task.cafe_id:
+                    cafe = db.query(AutomationCafe).get(task.cafe_id)
+                    cafe_name = cafe.name if cafe else None
+                
+                product_name = None
+                keyword_text = None
+                if task.schedule_id:
+                    schedule = db.query(AutomationSchedule).get(task.schedule_id)
+                    if schedule:
+                        keyword_text = schedule.keyword_text
+                        if schedule.marketing_product_id:
+                            mp = db.query(MarketingProduct).options(
+                                joinedload(MarketingProduct.product)
+                            ).get(schedule.marketing_product_id)
+                            if mp and mp.product:
+                                product_name = mp.product.name
+                
+                assigned_pc_num = None
+                if task.assigned_pc_id:
+                    pc = db.query(AutomationWorkerPC).get(task.assigned_pc_id)
+                    assigned_pc_num = pc.pc_number if pc else None
+                
+                assigned_account_id = None
+                if task.assigned_account_id:
+                    acc = db.query(AutomationAccount).get(task.assigned_account_id)
+                    assigned_account_id = acc.account_id if acc else None
+                
+                task_list.append({
+                    'id': task.id,
+                    'task_type': task.task_type,
+                    'mode': task.mode,
+                    'title': task.title,
+                    'cafe_name': cafe_name,
+                    'product_name': product_name,
+                    'keyword_text': keyword_text,
+                    'status': task.status,
+                    'assigned_pc': assigned_pc_num,
+                    'assigned_account': assigned_account_id,
+                    'scheduled_time': task.scheduled_time.strftime('%Y-%m-%d %H:%M') if task.scheduled_time else None,
+                    'started_at': task.started_at.strftime('%Y-%m-%d %H:%M:%S') if task.started_at else None,
+                    'completed_at': task.completed_at.strftime('%Y-%m-%d %H:%M:%S') if task.completed_at else None,
+                    'post_url': task.post_url
+                })
+            except Exception as e:
+                print(f"Task {task.id} 파싱 오류: {e}")
+                continue
+        
+        return JSONResponse({
+            'success': True,
+            'tasks': task_list
+        })
+        
+    except Exception as e:
+        print(f"Task 목록 조회 오류: {e}")
+        import traceback
+        traceback.print_exc()
+        return JSONResponse({
+            'success': False,
+            'message': str(e)
+        }, status_code=500)
 
 
 @router.get("/api/schedules/list")
