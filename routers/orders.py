@@ -1140,9 +1140,11 @@ def get_orders_by_status(
     status: str,
     start_date: str = None,
     end_date: str = None,
+    page: int = 1,
+    limit: int = 100,
     db: Session = Depends(get_db)
 ):
-    """상태별 주문 목록 조회 (기간 필터)"""
+    """상태별 주문 목록 조회 (기간 필터 + 페이지네이션)"""
     user_info = check_order_permission(request)
     if not user_info:
         raise HTTPException(status_code=401, detail="권한 없음")
@@ -1154,7 +1156,7 @@ def get_orders_by_status(
     if not end_date:
         end_date = date.today().strftime('%Y-%m-%d')
     
-    print(f"🔍 상태별 조회 API: status={status}, start={start_date}, end={end_date}")
+    print(f"🔍 상태별 조회 API: status={status}, start={start_date}, end={end_date}, page={page}")
     
     # 모든 주문 조회 (기간 필터)
     query = db.query(Order).filter(
@@ -1171,9 +1173,16 @@ def get_orders_by_status(
         normalized = normalize_order_status(o.order_status, db)
         if normalized == status:
             filtered_orders.append(o)
-            print(f"    ✅ 매칭: {o.order_number} - {o.order_status} → {normalized}")
     
-    print(f"  📊 필터링된 주문: {len(filtered_orders)}건")
+    total_count = len(filtered_orders)
+    print(f"  📊 필터링된 주문: {total_count}건")
+    
+    # 페이지네이션 계산
+    total_pages = (total_count + limit - 1) // limit  # 올림
+    offset = (page - 1) * limit
+    
+    # 페이지에 해당하는 주문만 추출
+    paged_orders = filtered_orders[offset:offset + limit]
     
     result = {
         "orders": [
@@ -1191,11 +1200,19 @@ def get_orders_by_status(
                 "tracking_number": o.tracking_number[:-2] if o.tracking_number and o.tracking_number.endswith('.0') else o.tracking_number,
                 "courier_company": o.courier_company
             }
-            for o in filtered_orders[:100]
-        ]
+            for o in paged_orders
+        ],
+        "pagination": {
+            "total_count": total_count,
+            "total_pages": total_pages,
+            "current_page": page,
+            "per_page": limit,
+            "has_next": page < total_pages,
+            "has_prev": page > 1
+        }
     }
     
-    print(f"  📤 응답 주문 수: {len(result['orders'])}건")
+    print(f"  📤 응답: 페이지 {page}/{total_pages}, {len(result['orders'])}건")
     return result
 
 # ============================================
@@ -1589,18 +1606,31 @@ def search_customs(
 @router.get("/api/search/all")
 def search_orders_all(
     search: str = Query(..., description="검색어"),
+    page: int = Query(1, description="페이지 번호"),
+    limit: int = Query(100, description="페이지당 개수"),
     db: Session = Depends(get_db)
 ):
     """
-    통합 주문 검색 API
+    통합 주문 검색 API (페이지네이션 지원)
     검색 필드: 고객명(구매자), 수령자명, 연락처, 송장번호, 상품명
     """
     try:
-        print(f"🔍 통합 검색 시작: {search}")
+        print(f"🔍 통합 검색 시작: {search} (페이지: {page})")
         
         # 검색어가 비어있으면 빈 결과 반환
         if not search or not search.strip():
-            return {"orders": [], "search_term": ""}
+            return {
+                "orders": [], 
+                "search_term": "",
+                "pagination": {
+                    "total_count": 0,
+                    "total_pages": 0,
+                    "current_page": 1,
+                    "per_page": limit,
+                    "has_next": False,
+                    "has_prev": False
+                }
+            }
         
         search_term = f"%{search.strip()}%"
         
@@ -1615,8 +1645,15 @@ def search_orders_all(
             )
         )
         
-        # 주문일자 기준 내림차순 정렬
-        orders = query.order_by(Order.order_date.desc()).all()
+        # 전체 개수
+        total_count = query.count()
+        
+        # 페이지네이션 계산
+        total_pages = (total_count + limit - 1) // limit
+        offset = (page - 1) * limit
+        
+        # 주문일자 기준 내림차순 정렬 + 페이지네이션
+        orders = query.order_by(Order.order_date.desc()).offset(offset).limit(limit).all()
         
         # 결과를 딕셔너리로 변환
         results = []
@@ -1636,12 +1673,20 @@ def search_orders_all(
                 "payment_amount": order.payment_amount
             })
         
-        print(f"✅ 검색 완료: {len(results)}건")
+        print(f"✅ 검색 완료: 총 {total_count}건 중 {len(results)}건 (페이지 {page}/{total_pages})")
         
-        # 검색어도 함께 반환 (프론트엔드에서 하이라이트용)
+        # 검색어와 페이지 정보 함께 반환
         return {
             "orders": results,
-            "search_term": search.strip()
+            "search_term": search.strip(),
+            "pagination": {
+                "total_count": total_count,
+                "total_pages": total_pages,
+                "current_page": page,
+                "per_page": limit,
+                "has_next": page < total_pages,
+                "has_prev": page > 1
+            }
         }
         
     except Exception as e:

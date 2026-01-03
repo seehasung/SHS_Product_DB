@@ -20,6 +20,15 @@ import tempfile
 import pyautogui
 import pyperclip
 
+# ⭐ undetected-chromedriver (캡챠 우회)
+try:
+    import undetected_chromedriver as uc
+    UNDETECTED_AVAILABLE = True
+except ImportError:
+    UNDETECTED_AVAILABLE = False
+    print("⚠️ undetected_chromedriver가 없습니다")
+    print("   설치: pip install undetected-chromedriver")
+
 def random_delay(min_sec=1, max_sec=2):
     time.sleep(random.uniform(min_sec, max_sec))
 
@@ -105,14 +114,29 @@ def upload_image_with_pyautogui(file_path):
         return False
 
 def setup_driver():
-    options = webdriver.ChromeOptions()
-    options.add_argument('--disable-blink-features=AutomationControlled')
-    options.add_experimental_option("excludeSwitches", ["enable-automation"])
-    options.add_argument('--log-level=3')
-    
-    driver = webdriver.Chrome(options=options)
-    driver.set_window_size(1400, 900)
-    return driver
+    """브라우저 초기화 (캡챠 우회)"""
+    if UNDETECTED_AVAILABLE:
+        # ⭐ undetected-chromedriver 사용
+        print("🚀 undetected-chromedriver로 브라우저 실행 (캡챠 우회)")
+        
+        options = uc.ChromeOptions()
+        options.add_argument('--log-level=3')
+        
+        driver = uc.Chrome(options=options, version_main=None)
+        driver.set_window_size(1400, 900)
+        return driver
+    else:
+        # 일반 ChromeDriver
+        print("🚀 일반 ChromeDriver로 브라우저 실행")
+        
+        options = webdriver.ChromeOptions()
+        options.add_argument('--disable-blink-features=AutomationControlled')
+        options.add_experimental_option("excludeSwitches", ["enable-automation"])
+        options.add_argument('--log-level=3')
+        
+        driver = webdriver.Chrome(options=options)
+        driver.set_window_size(1400, 900)
+        return driver
 
 def main():
     print("""
@@ -143,27 +167,54 @@ def main():
     temp_files = []
     
     try:
-        # 로그인
+        # ⭐ 로그인 (캡챠 우회 버전)
         print("\n🔐 로그인...")
+        
+        # 1. 네이버 메인 먼저 접속
+        driver.get('https://www.naver.com')
+        random_delay(2, 3)
+        
+        # 2. 로그인 페이지로 이동
         driver.get('https://nid.naver.com/nidlogin.login')
         random_delay(2, 3)
         
+        # 3. ID 입력 (pyperclip + Ctrl+V)
         id_input = driver.find_element(By.ID, 'id')
-        human_type(id_input, account_id)
-        random_delay()
+        id_input.click()
+        random_delay(0.5, 1)
         
+        pyperclip.copy(account_id)
+        id_input.send_keys(Keys.CONTROL, 'v')
+        random_delay(0.5, 1)
+        
+        # 4. PW 입력 (pyperclip + Ctrl+V)
         pw_input = driver.find_element(By.ID, 'pw')
-        human_type(pw_input, account_pw)
-        random_delay()
+        pw_input.click()
+        random_delay(0.5, 1)
         
-        # Enter로 로그인 (버튼 클릭 대신)
-        pw_input.send_keys(Keys.ENTER)
+        pyperclip.copy(account_pw)
+        pw_input.send_keys(Keys.CONTROL, 'v')
+        random_delay(1, 2)
+        
+        # 5. 로그인 버튼 클릭
+        login_btn = driver.find_element(By.ID, 'log.login')
+        login_btn.click()
         random_delay(3, 5)
         
-        if 'nid.naver.com' in driver.current_url:
-            input("캡챠 해결 후 Enter...")
+        # 6. 로그인 확인
+        driver.get('https://www.naver.com')
+        random_delay(2, 3)
         
-        print("✅ 로그인 완료")
+        try:
+            logout_btn = driver.find_element(By.XPATH, '//*[@id="account"]/div[1]/div/button')
+            if logout_btn:
+                print("✅ 로그인 성공 (캡챠 없음!)")
+        except:
+            if 'nid.naver.com' in driver.current_url:
+                print("⚠️ 캡챠 발생")
+                input("캡챠 해결 후 Enter...")
+            else:
+                print("✅ 로그인 완료")
         
         # 신규발행 글
         print(f"\n📄 신규발행 글 접속...")

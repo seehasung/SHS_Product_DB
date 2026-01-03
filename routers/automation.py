@@ -116,6 +116,8 @@ async def worker_websocket(websocket: WebSocket, pc_number: int, db: Session = D
                         db.add(post)
                     elif task.task_type in ['comment', 'reply']:
                         parent_post_id = None
+                        cafe_comment_id = message.get('cafe_comment_id')  # ⭐ 카페 댓글 ID
+                        
                         if task.parent_task and task.parent_task.task_type == 'post':
                             # 본문 글에 대한 댓글
                             parent_post = db.query(AutomationPost).filter(
@@ -133,6 +135,14 @@ async def worker_websocket(websocket: WebSocket, pc_number: int, db: Session = D
                                 order_sequence=task.order_sequence
                             )
                             db.add(comment)
+                            db.flush()  # ID 생성
+                            
+                            # ⭐ 카페 댓글 ID 저장 (있으면)
+                            if cafe_comment_id:
+                                # AutomationComment에 cafe_comment_id 필드가 필요
+                                # 임시로 task에 저장
+                                task.error_message = f"cafe_comment_id:{cafe_comment_id}"
+                                print(f"  📌 카페 댓글 ID 저장: {cafe_comment_id}")
                         
                         # 댓글 원고 완료 처리
                         comment_script = db.query(CommentScript).filter(
@@ -155,6 +165,26 @@ async def worker_websocket(websocket: WebSocket, pc_number: int, db: Session = D
                             if next_script and next_script.generated_task_id:
                                 next_task = db.query(AutomationTask).get(next_script.generated_task_id)
                                 if next_task and next_task.assigned_pc_id in worker_connections:
+                                    # ⭐ 부모 댓글 ID 찾기
+                                    parent_cafe_comment_id = None
+                                    
+                                    # 대댓글이면 부모 그룹의 첫 댓글 ID 찾기
+                                    if not next_script.is_new_comment and next_script.parent_group:
+                                        parent_script = db.query(CommentScript).filter(
+                                            CommentScript.post_task_id == comment_script.post_task_id,
+                                            CommentScript.group_number == next_script.parent_group,
+                                            CommentScript.sequence_number == 1,
+                                            CommentScript.status == 'completed'
+                                        ).first()
+                                        
+                                        if parent_script and parent_script.generated_task_id:
+                                            parent_task = db.query(AutomationTask).get(parent_script.generated_task_id)
+                                            if parent_task and parent_task.error_message:
+                                                # error_message에서 cafe_comment_id 추출
+                                                if 'cafe_comment_id:' in parent_task.error_message:
+                                                    parent_cafe_comment_id = parent_task.error_message.split('cafe_comment_id:')[1]
+                                                    print(f"  📌 부모 댓글 ID 발견: {parent_cafe_comment_id}")
+                                    
                                     # 다음 댓글 작성 PC에게 시작 신호
                                     try:
                                         await worker_connections[next_task.assigned_pc_id].send_json({
@@ -166,7 +196,7 @@ async def worker_websocket(websocket: WebSocket, pc_number: int, db: Session = D
                                                 'post_url': task.post_url,  # 같은 글
                                                 'account_id': next_task.assigned_account.account_id if next_task.assigned_account else None,
                                                 'account_pw': next_task.assigned_account.account_pw if next_task.assigned_account else None,
-                                                'parent_comment_id': next_task.parent_task_id
+                                                'parent_comment_id': parent_cafe_comment_id  # ⭐ 카페 댓글 ID 전달
                                             }
                                         })
                                         print(f"✅ 다음 댓글 시작 신호 전송: 그룹 {next_script.group_number}-{next_script.sequence_number}")

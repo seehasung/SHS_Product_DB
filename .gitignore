@@ -182,3 +182,13 @@ celerybeat-schedule
 ~$*.xlsx
 ~$*.pptx
 
+# ===========================================
+# 테스트 파일 (로컬에서만 사용)
+# ===========================================
+test_claude_*.py
+test_full_*.py
+test_comment_only.py
+test_parse_generated.py
+generated_*.txt
+post_result.txt
+

@@ -367,6 +367,54 @@
         font-weight: 700;
         color: #2d3436;
     }
+    
+    /* 페이지네이션 스타일 */
+    .pagination {
+        display: flex;
+        gap: 5px;
+        flex-wrap: wrap;
+    }
+    
+    .pagination .page-item {
+        list-style: none;
+    }
+    
+    .pagination .page-link {
+        padding: 8px 16px;
+        border: 2px solid #e1e8ed;
+        border-radius: 8px;
+        color: #4A90E2;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        background: white;
+        text-decoration: none;
+    }
+    
+    .pagination .page-link:hover {
+        background: #4A90E2;
+        color: white;
+        border-color: #4A90E2;
+        transform: translateY(-2px);
+    }
+    
+    .pagination .page-item.active .page-link {
+        background: #4A90E2;
+        color: white;
+        border-color: #4A90E2;
+    }
+    
+    .pagination .page-item.disabled .page-link {
+        color: #b2bec3;
+        cursor: not-allowed;
+        border-color: #e1e8ed;
+    }
+    
+    .pagination .page-item.disabled .page-link:hover {
+        background: white;
+        color: #b2bec3;
+        transform: none;
+    }
 </style>
 {% endblock %}
 
@@ -571,6 +619,14 @@
                 <p style="font-size: 1.1rem; margin-top: 10px;">통계 카드 또는 상태를 클릭하세요</p>
                 <p style="color: #636e72;">해당 조건의 주문 목록이 표시됩니다</p>
             </div>
+        </div>
+        
+        <!-- 페이지네이션 -->
+        <div id="paginationContainer" style="display: none; margin-top: 20px; text-align: center;">
+            <nav>
+                <ul class="pagination justify-content-center" id="paginationButtons">
+                </ul>
+            </nav>
         </div>
     </div>
 </div>
@@ -1450,19 +1506,27 @@
     }
 
     // ===== 상태별 주문 목록 표시 =====
-    async function showOrdersByStatus(status) {
+    // 현재 상태 저장 (페이지네이션용)
+    let currentStatus = null;
+    let currentPage = 1;
+    
+    async function showOrdersByStatus(status, page = 1) {
         const startDate = document.getElementById('statusStartDate').value;
         const endDate = document.getElementById('statusEndDate').value;
         
+        // 상태 저장
+        currentStatus = status;
+        currentPage = page;
+        
         console.log('=== showOrdersByStatus ===');
-        console.log('상태:', status);
+        console.log('상태:', status, '/ 페이지:', page);
         console.log('기간:', startDate, '~', endDate);
         
         document.getElementById('ordersTableTitle').innerHTML = `<i class="bi bi-filter"></i> ${status} 주문 목록`;
         document.getElementById('ordersTableContainer').innerHTML = '<div style="text-align: center; padding: 40px;"><div class="spinner-border text-primary"></div></div>';
         
         try {
-            const url = `/orders/api/orders/by-status?status=${encodeURIComponent(status)}&start_date=${startDate}&end_date=${endDate}`;
+            const url = `/orders/api/orders/by-status?status=${encodeURIComponent(status)}&start_date=${startDate}&end_date=${endDate}&page=${page}&limit=100`;
             console.log('API URL:', url);
             
             const response = await fetch(url);
@@ -1470,9 +1534,15 @@
             
             console.log('API 응답:', data);
             console.log('주문 개수:', data.orders ? data.orders.length : 0);
+            console.log('페이지 정보:', data.pagination);
             
             if (data.orders && data.orders.length > 0) {
                 displayOrders(data.orders, status);
+                
+                // 페이지네이션 렌더링
+                if (data.pagination) {
+                    renderPagination(data.pagination, status);
+                }
             } else {
                 document.getElementById('ordersTableContainer').innerHTML = `
                     <div class="no-data">
@@ -1482,6 +1552,7 @@
                     </div>
                 `;
                 document.getElementById('ordersCount').textContent = '총 0건';
+                document.getElementById('paginationContainer').style.display = 'none';
             }
         } catch (error) {
             console.error('API 오류:', error);
@@ -1490,7 +1561,91 @@
                     <i class="bi bi-exclamation-triangle"></i> 주문 목록을 불러오는데 실패했습니다.
                 </div>
             `;
+            document.getElementById('paginationContainer').style.display = 'none';
         }
+    }
+    
+    // 페이지네이션 렌더링
+    function renderPagination(pagination, status) {
+        const container = document.getElementById('paginationContainer');
+        const buttons = document.getElementById('paginationButtons');
+        
+        if (pagination.total_pages <= 1) {
+            // 1페이지만 있으면 숨김
+            container.style.display = 'none';
+            return;
+        }
+        
+        container.style.display = 'block';
+        
+        let html = '';
+        
+        // 이전 버튼
+        html += `
+            <li class="page-item ${pagination.has_prev ? '' : 'disabled'}">
+                <a class="page-link" onclick="${pagination.has_prev ? `showOrdersByStatus('${status}', ${pagination.current_page - 1})` : 'return false;'}">
+                    <i class="bi bi-chevron-left"></i> 이전
+                </a>
+            </li>
+        `;
+        
+        // 페이지 번호 버튼
+        const maxButtons = 10;
+        let startPage = Math.max(1, pagination.current_page - 5);
+        let endPage = Math.min(pagination.total_pages, startPage + maxButtons - 1);
+        
+        // 시작 페이지 조정
+        if (endPage - startPage < maxButtons - 1) {
+            startPage = Math.max(1, endPage - maxButtons + 1);
+        }
+        
+        // 첫 페이지
+        if (startPage > 1) {
+            html += `
+                <li class="page-item">
+                    <a class="page-link" onclick="showOrdersByStatus('${status}', 1)">1</a>
+                </li>
+            `;
+            if (startPage > 2) {
+                html += `<li class="page-item disabled"><a class="page-link">...</a></li>`;
+            }
+        }
+        
+        // 페이지 번호들
+        for (let i = startPage; i <= endPage; i++) {
+            html += `
+                <li class="page-item ${i === pagination.current_page ? 'active' : ''}">
+                    <a class="page-link" onclick="showOrdersByStatus('${status}', ${i})">${i}</a>
+                </li>
+            `;
+        }
+        
+        // 마지막 페이지
+        if (endPage < pagination.total_pages) {
+            if (endPage < pagination.total_pages - 1) {
+                html += `<li class="page-item disabled"><a class="page-link">...</a></li>`;
+            }
+            html += `
+                <li class="page-item">
+                    <a class="page-link" onclick="showOrdersByStatus('${status}', ${pagination.total_pages})">${pagination.total_pages}</a>
+                </li>
+            `;
+        }
+        
+        // 다음 버튼
+        html += `
+            <li class="page-item ${pagination.has_next ? '' : 'disabled'}">
+                <a class="page-link" onclick="${pagination.has_next ? `showOrdersByStatus('${status}', ${pagination.current_page + 1})` : 'return false;'}">
+                    다음 <i class="bi bi-chevron-right"></i>
+                </a>
+            </li>
+        `;
+        
+        buttons.innerHTML = html;
+        
+        // 카운트 업데이트
+        document.getElementById('ordersCount').textContent = 
+            `총 ${pagination.total_count.toLocaleString()}건 (${pagination.current_page}/${pagination.total_pages} 페이지)`;
     }
 
     // ===== 주문 목록 표시 =====

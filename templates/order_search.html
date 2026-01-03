@@ -198,6 +198,55 @@
         margin-bottom: 20px;
         opacity: 0.5;
     }
+    
+    /* 페이지네이션 스타일 */
+    .pagination {
+        display: flex;
+        gap: 5px;
+        flex-wrap: wrap;
+    }
+    
+    .pagination .page-item {
+        list-style: none;
+    }
+    
+    .pagination .page-link {
+        padding: 8px 16px;
+        border: 2px solid #e1e8ed;
+        border-radius: 8px;
+        color: #4A90E2;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        background: white;
+        text-decoration: none;
+        display: inline-block;
+    }
+    
+    .pagination .page-link:hover {
+        background: #4A90E2;
+        color: white;
+        border-color: #4A90E2;
+        transform: translateY(-2px);
+    }
+    
+    .pagination .page-item.active .page-link {
+        background: #4A90E2;
+        color: white;
+        border-color: #4A90E2;
+    }
+    
+    .pagination .page-item.disabled .page-link {
+        color: #b2bec3;
+        cursor: not-allowed;
+        border-color: #e1e8ed;
+    }
+    
+    .pagination .page-item.disabled .page-link:hover {
+        background: white;
+        color: #b2bec3;
+        transform: none;
+    }
 </style>
 {% endblock %}
 
@@ -249,6 +298,14 @@
                 <p style="font-size: 1.1rem; margin-top: 10px;">검색어를 입력하세요</p>
                 <p style="color: #636e72;">고객명, 수령자명, 연락처, 송장번호, 상품명으로 검색할 수 있습니다</p>
             </div>
+        </div>
+        
+        <!-- 페이지네이션 -->
+        <div id="searchPaginationContainer" style="display: none; margin-top: 20px; text-align: center;">
+            <nav>
+                <ul class="pagination justify-content-center" id="searchPaginationButtons">
+                </ul>
+            </nav>
         </div>
     </div>
 </div>
@@ -317,6 +374,7 @@
 <script>
     // ===== 전역 변수: 검색어 저장 =====
     let currentSearchTerm = '';
+    let currentSearchPage = 1;
 
     // ===== 송장번호 정리 함수 (.0 제거) =====
     function cleanTrackingNumber(trackingNumber) {
@@ -340,8 +398,8 @@
         return textStr.replace(regex, '<span class="highlight">$1</span>');
     }
 
-    // ===== 통합 검색 =====
-    async function searchOrders() {
+    // ===== 통합 검색 (페이지네이션 지원) =====
+    async function searchOrders(page = 1) {
         const search = document.getElementById('searchInput').value.trim();
         const container = document.getElementById('resultsContainer');
         
@@ -353,9 +411,12 @@
                 </div>
             `;
             document.getElementById('resultsCount').textContent = '';
+            document.getElementById('searchPaginationContainer').style.display = 'none';
             currentSearchTerm = '';
             return;
         }
+        
+        currentSearchPage = page;
         
         container.innerHTML = `
             <div style="text-align: center; padding: 40px;">
@@ -365,16 +426,27 @@
         `;
         
         try {
-            // 통합 검색 API 호출
-            const response = await fetch(`/orders/api/search/all?search=${encodeURIComponent(search)}`);
+            // 통합 검색 API 호출 (페이지네이션)
+            const response = await fetch(`/orders/api/search/all?search=${encodeURIComponent(search)}&page=${page}&limit=100`);
             const data = await response.json();
+            
+            console.log('검색 결과:', data);
             
             // 검색어 저장
             currentSearchTerm = data.search_term || search;
             
             if (data.orders && data.orders.length > 0) {
-                document.getElementById('resultsCount').textContent = `총 ${data.orders.length}건`;
                 displayOrders(data.orders);
+                
+                // 페이지네이션 렌더링
+                if (data.pagination) {
+                    renderSearchPagination(data.pagination);
+                    document.getElementById('resultsCount').textContent = 
+                        `총 ${data.pagination.total_count.toLocaleString()}건 (${data.pagination.current_page}/${data.pagination.total_pages} 페이지)`;
+                } else {
+                    document.getElementById('resultsCount').textContent = `총 ${data.orders.length}건`;
+                    document.getElementById('searchPaginationContainer').style.display = 'none';
+                }
             } else {
                 container.innerHTML = `
                     <div class="no-data">
@@ -384,6 +456,7 @@
                     </div>
                 `;
                 document.getElementById('resultsCount').textContent = '';
+                document.getElementById('searchPaginationContainer').style.display = 'none';
                 currentSearchTerm = '';
             }
         } catch (error) {
@@ -394,8 +467,87 @@
                 </div>
             `;
             document.getElementById('resultsCount').textContent = '';
+            document.getElementById('searchPaginationContainer').style.display = 'none';
             currentSearchTerm = '';
         }
+    }
+    
+    // ===== 검색 페이지네이션 렌더링 =====
+    function renderSearchPagination(pagination) {
+        const container = document.getElementById('searchPaginationContainer');
+        const buttons = document.getElementById('searchPaginationButtons');
+        
+        if (pagination.total_pages <= 1) {
+            container.style.display = 'none';
+            return;
+        }
+        
+        container.style.display = 'block';
+        
+        let html = '';
+        
+        // 이전 버튼
+        html += `
+            <li class="page-item ${pagination.has_prev ? '' : 'disabled'}">
+                <a class="page-link" onclick="${pagination.has_prev ? `searchOrders(${pagination.current_page - 1})` : 'return false;'}">
+                    <i class="bi bi-chevron-left"></i> 이전
+                </a>
+            </li>
+        `;
+        
+        // 페이지 번호 버튼
+        const maxButtons = 10;
+        let startPage = Math.max(1, pagination.current_page - 5);
+        let endPage = Math.min(pagination.total_pages, startPage + maxButtons - 1);
+        
+        // 시작 페이지 조정
+        if (endPage - startPage < maxButtons - 1) {
+            startPage = Math.max(1, endPage - maxButtons + 1);
+        }
+        
+        // 첫 페이지
+        if (startPage > 1) {
+            html += `
+                <li class="page-item">
+                    <a class="page-link" onclick="searchOrders(1)">1</a>
+                </li>
+            `;
+            if (startPage > 2) {
+                html += `<li class="page-item disabled"><a class="page-link">...</a></li>`;
+            }
+        }
+        
+        // 페이지 번호들
+        for (let i = startPage; i <= endPage; i++) {
+            html += `
+                <li class="page-item ${i === pagination.current_page ? 'active' : ''}">
+                    <a class="page-link" onclick="searchOrders(${i})">${i}</a>
+                </li>
+            `;
+        }
+        
+        // 마지막 페이지
+        if (endPage < pagination.total_pages) {
+            if (endPage < pagination.total_pages - 1) {
+                html += `<li class="page-item disabled"><a class="page-link">...</a></li>`;
+            }
+            html += `
+                <li class="page-item">
+                    <a class="page-link" onclick="searchOrders(${pagination.total_pages})">${pagination.total_pages}</a>
+                </li>
+            `;
+        }
+        
+        // 다음 버튼
+        html += `
+            <li class="page-item ${pagination.has_next ? '' : 'disabled'}">
+                <a class="page-link" onclick="${pagination.has_next ? `searchOrders(${pagination.current_page + 1})` : 'return false;'}">
+                    다음 <i class="bi bi-chevron-right"></i>
+                </a>
+            </li>
+        `;
+        
+        buttons.innerHTML = html;
     }
 
     // ===== 주문 목록 표시 (하이라이트 적용) =====
