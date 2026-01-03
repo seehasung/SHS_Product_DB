@@ -1182,6 +1182,116 @@ class AutomationComment(Base):
     post = relationship("AutomationPost", back_populates="comments")
     account = relationship("AutomationAccount")
     parent = relationship("AutomationComment", remote_side=[id], backref="replies")
+
+
+class CafeBoardMapping(Base):
+    """카페별 게시판 맵핑"""
+    __tablename__ = "cafe_board_mappings"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    cafe_id = Column(Integer, ForeignKey('automation_cafes.id'), nullable=False)
+    board_name = Column(String(255), nullable=False)  # 실제 게시판 이름
+    board_value = Column(String(100), nullable=False)  # 게시판 선택 value
+    is_default = Column(Boolean, default=False)  # 기본 게시판 여부
+    
+    created_at = Column(DateTime, default=get_kst_now)
+    
+    # 관계
+    cafe = relationship("AutomationCafe")
+
+
+class CafeAccountLink(Base):
+    """카페-계정 연동 관리"""
+    __tablename__ = "cafe_account_links"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    cafe_id = Column(Integer, ForeignKey('automation_cafes.id'), nullable=False)
+    account_id = Column(Integer, ForeignKey('automation_accounts.id'), nullable=False)
+    is_member = Column(Boolean, default=True)  # 가입 여부
+    status = Column(String(20), default='active')  # active, suspended, banned
+    
+    # 신규발행 글 현황
+    draft_post_count = Column(Integer, default=0)  # 사용 가능한 신규발행 글 수
+    used_post_count = Column(Integer, default=0)  # 사용된 신규발행 글 수
+    
+    created_at = Column(DateTime, default=get_kst_now)
+    updated_at = Column(DateTime, default=get_kst_now, onupdate=get_kst_now)
+    
+    # 관계
+    cafe = relationship("AutomationCafe")
+    account = relationship("AutomationAccount")
+    draft_posts = relationship("DraftPost", back_populates="link", cascade="all, delete-orphan")
+    
+    __table_args__ = (
+        UniqueConstraint('cafe_id', 'account_id', name='unique_cafe_account'),
+    )
+
+
+class DraftPost(Base):
+    """신규발행 글 (가입인사글) URL 관리"""
+    __tablename__ = "draft_posts"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    link_id = Column(Integer, ForeignKey('cafe_account_links.id'), nullable=False)
+    
+    # 가입인사글 정보
+    draft_url = Column(String(500), nullable=False, unique=True)  # 원본 URL
+    article_id = Column(String(50), nullable=False)  # 글 번호
+    
+    # 사용 상태
+    status = Column(String(20), default='available')  # available, used, deleted
+    
+    # 수정 발행 정보
+    modified_url = Column(String(500), nullable=True)  # 수정 발행 후 새 URL
+    used_at = Column(DateTime, nullable=True)  # 사용 시간
+    
+    created_at = Column(DateTime, default=get_kst_now)
+    
+    # 관계
+    link = relationship("CafeAccountLink", back_populates="draft_posts")
+
+
+class CommentScript(Base):
+    """댓글 원고 스크립트 (순차 작성용)"""
+    __tablename__ = "comment_scripts"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    
+    # 연관 Task (본문 글 작성 Task)
+    post_task_id = Column(Integer, ForeignKey('automation_tasks.id'), nullable=False)
+    
+    # 그룹-순서 (1-1, 1-2, 2-1...)
+    group_number = Column(Integer, nullable=False)  # 그룹 (1, 2, 3...)
+    sequence_number = Column(Integer, nullable=False)  # 순서 (1, 2, 3...)
+    
+    # PC 번호 (PC1, PC2...)
+    pc_number = Column(Integer, nullable=False)
+    
+    # 댓글 내용
+    content = Column(Text, nullable=False)
+    
+    # 댓글 타입
+    is_new_comment = Column(Boolean, default=True)  # True: 새 댓글, False: 대댓글
+    parent_group = Column(Integer, nullable=True)  # 대댓글이면 부모 그룹 번호
+    
+    # 실행 상태
+    status = Column(String(20), default='pending')  # pending, in_progress, completed, failed
+    completed_at = Column(DateTime, nullable=True)
+    
+    # 생성된 Task ID (실제 실행할 AutomationTask)
+    generated_task_id = Column(Integer, ForeignKey('automation_tasks.id'), nullable=True)
+    
+    created_at = Column(DateTime, default=get_kst_now)
+    updated_at = Column(DateTime, default=get_kst_now, onupdate=get_kst_now)
+    
+    # 관계
+    post_task = relationship("AutomationTask", foreign_keys=[post_task_id], backref="comment_scripts")
+    generated_task = relationship("AutomationTask", foreign_keys=[generated_task_id])
+    
+    # 인덱스
+    __table_args__ = (
+        Index('idx_post_task_group_seq', 'post_task_id', 'group_number', 'sequence_number'),
+    )
     
     
 def get_db():
@@ -1208,5 +1318,9 @@ __all__ = [
     "BlogPostImage", "BlogKeywordProgress", "BlogWorkTask", "BlogPostSchedule",
     # ⭐ 자동화 시스템
     "AutomationWorkerPC", "AutomationAccount", "AutomationCafe", "AutomationPrompt",
-    "AutomationSchedule", "AutomationTask", "AutomationPost", "AutomationComment"
+    "AutomationSchedule", "AutomationTask", "AutomationPost", "AutomationComment",
+    # ⭐ 신규발행 글 관리
+    "CafeBoardMapping", "CafeAccountLink", "DraftPost",
+    # ⭐ 댓글 원고 시스템
+    "CommentScript"
 ]

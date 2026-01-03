@@ -1154,6 +1154,8 @@ def get_orders_by_status(
     if not end_date:
         end_date = date.today().strftime('%Y-%m-%d')
     
+    print(f"🔍 상태별 조회 API: status={status}, start={start_date}, end={end_date}")
+    
     # 모든 주문 조회 (기간 필터)
     query = db.query(Order).filter(
         Order.order_date >= start_date,
@@ -1161,21 +1163,26 @@ def get_orders_by_status(
     )
     
     all_orders = query.all()
+    print(f"  📊 기간 내 전체 주문: {len(all_orders)}건")
     
     # 상태로 필터링
-    filtered_orders = [
-        o for o in all_orders 
-        if normalize_order_status(o.order_status, db) == status
-    ]
+    filtered_orders = []
+    for o in all_orders:
+        normalized = normalize_order_status(o.order_status, db)
+        if normalized == status:
+            filtered_orders.append(o)
+            print(f"    ✅ 매칭: {o.order_number} - {o.order_status} → {normalized}")
     
-    return {
+    print(f"  📊 필터링된 주문: {len(filtered_orders)}건")
+    
+    result = {
         "orders": [
             {
                 "id": o.id,
                 "order_number": o.order_number,
                 "sales_channel": o.sales_channel,
                 "order_status": o.order_status,
-                "normalized_status": normalize_order_status(o.order_status, db),  # ⭐ db 추가!
+                "normalized_status": normalize_order_status(o.order_status, db),
                 "order_date": o.order_date[:10] if o.order_date else '-',
                 "buyer_name": o.buyer_name,
                 "recipient_name": o.recipient_name,
@@ -1187,6 +1194,9 @@ def get_orders_by_status(
             for o in filtered_orders[:100]
         ]
     }
+    
+    print(f"  📤 응답 주문 수: {len(result['orders'])}건")
+    return result
 
 # ============================================
 # 2. 데이터 업로드 페이지

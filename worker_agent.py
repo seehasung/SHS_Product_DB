@@ -354,28 +354,86 @@ class NaverCafeWorker:
             traceback.print_exc()
             return None
         
-    def write_comment(self, post_url: str, content: str) -> bool:
-        """댓글 작성 (봇 감지 우회)"""
-        print(f"💬 댓글 작성 시작: {content[:30]}...")
+    def write_comment(self, post_url: str, content: str, is_reply: bool = False, parent_comment_id: Optional[str] = None) -> bool:
+        """댓글/대댓글 작성 (봇 감지 우회)"""
+        comment_type = "대댓글" if is_reply else "댓글"
+        print(f"💬 {comment_type} 작성 시작: {content[:30]}...")
         
         try:
             # 글 페이지로 이동
             self.driver.get(post_url)
-            self.random_delay(2, 3)
+            self.random_delay(3, 5)
+            
+            # iframe 전환 (네이버 카페)
+            try:
+                iframe = WebDriverWait(self.driver, 10).until(
+                    EC.presence_of_element_located((By.ID, 'cafe_main'))
+                )
+                self.driver.switch_to.frame(iframe)
+                self.random_delay(2, 3)
+                print("  ✅ iframe 전환 완료")
+            except:
+                print("  ⚠️ iframe 전환 실패 (일반 페이지로 진행)")
+            
+            # 대댓글인 경우: 부모 댓글 찾아서 답글 버튼 클릭
+            if is_reply and parent_comment_id:
+                print(f"  🔍 부모 댓글 찾기 (ID: {parent_comment_id})...")
+                
+                parent_selectors = [
+                    f"#cmt_{parent_comment_id}",
+                    f"div[id='cmt_{parent_comment_id}']",
+                    f"li[id='cmt_{parent_comment_id}']"
+                ]
+                
+                parent_found = False
+                for selector in parent_selectors:
+                    try:
+                        parent_elem = self.driver.find_element(By.CSS_SELECTOR, selector)
+                        parent_found = True
+                        print(f"  ✅ 부모 댓글 발견")
+                        
+                        # 답글 버튼 찾기
+                        reply_btn_selectors = [
+                            "a.comment_reply",
+                            "button.comment_reply",
+                            ".comment_reply"
+                        ]
+                        
+                        for btn_selector in reply_btn_selectors:
+                            try:
+                                reply_btn = parent_elem.find_element(By.CSS_SELECTOR, btn_selector)
+                                reply_btn.click()
+                                self.random_delay(1, 2)
+                                print(f"  ✅ 답글 버튼 클릭")
+                                break
+                            except:
+                                continue
+                        
+                        break
+                    except:
+                        continue
+                
+                if not parent_found:
+                    print("  ⚠️ 부모 댓글을 찾을 수 없습니다")
             
             # 댓글 입력창 찾기 (여러 가지 선택자 시도)
             comment_selectors = [
+                'textarea.comment_inbox',
+                'textarea.comment_text_input',
+                'textarea[placeholder*="댓글"]',
                 'textarea[id*="comment"]',
                 'textarea.comment-box',
                 'div[contenteditable="true"]',
-                'textarea[placeholder*="댓글"]',
                 'textarea.textarea'
             ]
             
             comment_input = None
             for selector in comment_selectors:
                 try:
-                    comment_input = self.driver.find_element(By.CSS_SELECTOR, selector)
+                    comment_input = WebDriverWait(self.driver, 5).until(
+                        EC.presence_of_element_located((By.CSS_SELECTOR, selector))
+                    )
+                    print(f"  ✅ 입력창 발견: {selector}")
                     break
                 except:
                     continue
@@ -391,11 +449,14 @@ class NaverCafeWorker:
             # 댓글 내용 입력 (한 글자씩)
             self.human_type(comment_input, content)
             self.random_delay(1, 2)
+            print(f"  ✅ 내용 입력 완료")
             
             # 등록 버튼 찾기 및 클릭
             submit_selectors = [
-                'button[class*="comment-submit"]',
-                'a[class*="comment-submit"]',
+                'button.comment_submit',
+                'a.comment_submit',
+                'button[class*="submit"]',
+                'a[class*="submit"]',
                 'button.btn-submit',
                 'a.btn-submit'
             ]
@@ -404,6 +465,7 @@ class NaverCafeWorker:
             for selector in submit_selectors:
                 try:
                     submit_btn = self.driver.find_element(By.CSS_SELECTOR, selector)
+                    print(f"  ✅ 등록 버튼 발견: {selector}")
                     break
                 except:
                     continue
@@ -411,14 +473,14 @@ class NaverCafeWorker:
             if submit_btn:
                 submit_btn.click()
                 self.random_delay(2, 3)
-                print(f"✅ 댓글 작성 완료")
+                print(f"✅ {comment_type} 작성 완료")
                 return True
             else:
                 print("❌ 댓글 등록 버튼을 찾을 수 없습니다")
                 return False
                 
         except Exception as e:
-            print(f"❌ 댓글 작성 오류: {e}")
+            print(f"❌ {comment_type} 작성 오류: {e}")
             import traceback
             traceback.print_exc()
             return False
@@ -460,9 +522,14 @@ class NaverCafeWorker:
                 
             elif task_type in ['comment', 'reply']:
                 # 댓글 작성
+                is_reply = (task_type == 'reply')
+                parent_comment_id = task.get('parent_comment_id')
+                
                 success = self.write_comment(
                     task['post_url'],
-                    task['content']
+                    task['content'],
+                    is_reply=is_reply,
+                    parent_comment_id=parent_comment_id
                 )
                 
                 if success:
@@ -524,6 +591,17 @@ class NaverCafeWorker:
                     
                     # 작업 처리
                     await self.process_task(task)
+                    
+                elif data.get('type') == 'start_comment':
+                    # 댓글 시작 신호 (순차 실행)
+                    task_id = data.get('task_id')
+                    group = data.get('group')
+                    sequence = data.get('sequence')
+                    
+                    print(f"\n🚀 댓글 시작 신호: 그룹 {group}-{sequence} (Task #{task_id})")
+                    
+                    # 서버에서 Task 정보 가져오기 (API 호출)
+                    # 여기서는 바로 처리하지 않고 new_task로 재전송받음
                     
                 elif data.get('type') == 'shutdown':
                     print("⏹️ 종료 명령 수신")

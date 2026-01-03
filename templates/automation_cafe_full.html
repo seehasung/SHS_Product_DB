@@ -693,6 +693,59 @@
     </div>
 </div>
 
+<!-- 댓글 원고 관리 모달 -->
+<div class="modal fade" id="commentScriptModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-chat-dots"></i> 댓글 원고 관리</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form onsubmit="saveCommentScript(event)">
+                <div class="modal-body">
+                    <div class="alert alert-info">
+                        <i class="bi bi-lightbulb"></i> 
+                        <strong>댓글 원고 형식:</strong><br>
+                        <code>그룹-순서: PC번호 "내용"</code><br><br>
+                        <strong>예시:</strong><br>
+                        <code>1-1: PC1 도와주세요ㅠㅜㅠㅠㅠ</code><br>
+                        <code>1-2: PC2 저도 궁금하네요</code><br>
+                        <code>1-3: PC1 오 대박...</code><br><br>
+                        <code>2-1: PC3 다들 고민이... (새 댓글)</code><br>
+                        <code>2-2: PC1 와 헐 대박... (2-1에 대한 대댓글)</code><br>
+                    </div>
+                    
+                    <div id="scriptStats"></div>
+                    
+                    <input type="hidden" name="post_task_id" id="postTaskIdInput">
+                    
+                    <div class="mb-3">
+                        <label class="form-label">댓글 원고 입력</label>
+                        <textarea class="form-control" name="script_text" id="commentScriptText" 
+                                  rows="15" required
+                                  placeholder="1-1: PC1 도와주세요ㅠㅜㅠㅠㅠ
+1-2: PC2 저도 궁금하네요
+1-3: PC1 오 대박...
+
+2-1: PC3 다들 고민이...
+2-2: PC1 와 헐 대박..."
+                                  style="font-family: monospace;"></textarea>
+                        <small class="text-muted">
+                            그룹 번호가 바뀌면 새 댓글, 같은 그룹은 대댓글입니다.
+                        </small>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">취소</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-save"></i> 저장
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 <script>
 // 페이지 로드 시 데이터 로드
 document.addEventListener('DOMContentLoaded', function() {
@@ -810,6 +863,11 @@ function displayTasks(tasks, tbodyId, status) {
         const typeIcon = task.task_type === 'post' ? '📝' : '💬';
         
         if (status === 'pending') {
+            const commentBtn = task.task_type === 'post' ? 
+                `<button class="btn btn-sm btn-info" onclick="showCommentScriptModal(${task.id})" title="댓글 원고 관리">
+                    <i class="bi bi-chat-dots"></i>
+                </button>` : '';
+            
             html += `
                 <tr>
                     <td><strong>#${task.id}</strong></td>
@@ -820,7 +878,7 @@ function displayTasks(tasks, tbodyId, status) {
                     <td><span class="badge bg-primary">${task.keyword_text || '-'}</span></td>
                     <td><span class="status-badge ${task.status}">${task.status}</span></td>
                     <td>${task.assigned_pc ? 'PC #' + task.assigned_pc : '-'}</td>
-                    <td>${task.assigned_account || '-'}</td>
+                    <td>${task.assigned_account || '-'} ${commentBtn}</td>
                 </tr>
             `;
         } else if (status === 'in_progress') {
@@ -835,6 +893,11 @@ function displayTasks(tasks, tbodyId, status) {
                 </tr>
             `;
         } else if (status === 'completed') {
+            const commentBtn = task.task_type === 'post' && task.post_url ? 
+                `<button class="btn btn-sm btn-success" onclick="createCommentTasks(${task.id})" title="댓글 Task 생성">
+                    <i class="bi bi-plus-circle"></i> 댓글
+                </button>` : '';
+            
             html += `
                 <tr>
                     <td><strong>#${task.id}</strong></td>
@@ -842,7 +905,10 @@ function displayTasks(tasks, tbodyId, status) {
                     <td>${task.cafe_name || '-'}</td>
                     <td>${task.product_name || '-'}</td>
                     <td>${task.completed_at || '-'}</td>
-                    <td>${task.post_url ? `<a href="${task.post_url}" target="_blank">보기</a>` : '-'}</td>
+                    <td>
+                        ${task.post_url ? `<a href="${task.post_url}" target="_blank">보기</a>` : '-'}
+                        ${commentBtn}
+                    </td>
                 </tr>
             `;
         }
@@ -1057,6 +1123,35 @@ function displayPrompts(prompts) {
 // 관리자 권한 전역 변수
 window.is_admin = {{ 'true' if is_admin else 'false' }};
 
+// ===== 공통 유틸리티 함수 =====
+
+function closeModalCompletely(modalId) {
+    """모달 완전히 닫기"""
+    const modalElement = document.getElementById(modalId);
+    if (!modalElement) return;
+    
+    // Bootstrap 모달 인스턴스 닫기
+    const modal = bootstrap.Modal.getInstance(modalElement);
+    if (modal) {
+        modal.hide();
+    }
+    
+    // 강제 정리
+    modalElement.classList.remove('show');
+    modalElement.style.display = 'none';
+    modalElement.setAttribute('aria-hidden', 'true');
+    modalElement.removeAttribute('aria-modal');
+    
+    // backdrop 제거
+    const backdrops = document.querySelectorAll('.modal-backdrop');
+    backdrops.forEach(backdrop => backdrop.remove());
+    
+    // body 클래스 정리
+    document.body.classList.remove('modal-open');
+    document.body.style.overflow = '';
+    document.body.style.paddingRight = '';
+}
+
 // ===== 관리 API 함수들 =====
 
 async function addPC(event) {
@@ -1104,36 +1199,40 @@ async function addAccount(event) {
         
         const result = await response.json();
         
+        // 버튼 복원
         submitBtn.disabled = false;
         submitBtn.innerHTML = originalText;
         
         if (result.success) {
-            alert('✅ 계정이 등록되었습니다!');
-            
             // 모달 닫기
-            const modal = bootstrap.Modal.getInstance(document.getElementById('addAccountModal'));
-            if (modal) modal.hide();
+            closeModalCompletely('addAccountModal');
             
             // 폼 리셋
             form.reset();
             
             // 목록 새로고침
-            await loadAccounts();
+            loadAccounts();
+            
+            // 성공 메시지
+            alert('✅ 계정이 등록되었습니다!');
         } else {
             alert('❌ ' + result.message);
         }
     } catch (error) {
+        // 버튼 복원
         submitBtn.disabled = false;
         submitBtn.innerHTML = originalText;
         
-        alert('❌ 계정 추가 중 오류가 발생했습니다: ' + error.message);
+        alert('❌ 계정 추가 중 오류가 발생했습니다');
         console.error('계정 추가 오류:', error);
     }
 }
 
 async function addCafe(event) {
     event.preventDefault();
-    const formData = new FormData(event.target);
+    
+    const form = event.target;
+    const formData = new FormData(form);
     
     try {
         const response = await fetch('/automation/api/cafes/add', {
@@ -1144,9 +1243,13 @@ async function addCafe(event) {
         const result = await response.json();
         
         if (result.success) {
-            alert('✅ 카페가 등록되었습니다!');
-            bootstrap.Modal.getInstance(document.getElementById('addCafeModal')).hide();
+            // 모달 닫기
+            closeModalCompletely('addCafeModal');
+            
+            form.reset();
             loadCafes();
+            
+            alert('✅ 카페가 등록되었습니다!');
         } else {
             alert('❌ ' + result.message);
         }
@@ -1158,7 +1261,9 @@ async function addCafe(event) {
 
 async function addPrompt(event) {
     event.preventDefault();
-    const formData = new FormData(event.target);
+    
+    const form = event.target;
+    const formData = new FormData(form);
     
     try {
         const response = await fetch('/automation/api/prompts/add', {
@@ -1169,9 +1274,13 @@ async function addPrompt(event) {
         const result = await response.json();
         
         if (result.success) {
-            alert('✅ 프롬프트가 등록되었습니다!');
-            bootstrap.Modal.getInstance(document.getElementById('addPromptModal')).hide();
+            // 모달 강제 닫기
+            closeModalCompletely('addPromptModal');
+            
+            form.reset();
             loadPrompts();
+            
+            alert('✅ 프롬프트가 등록되었습니다!');
         } else {
             alert('❌ ' + result.message);
         }
@@ -1385,7 +1494,15 @@ function displaySchedules(schedules) {
 
 async function createSchedule(event) {
     event.preventDefault();
-    const formData = new FormData(event.target);
+    
+    const form = event.target;
+    const formData = new FormData(form);
+    
+    // 로딩 표시
+    const submitBtn = form.querySelector('button[type="submit"]');
+    const originalText = submitBtn.innerHTML;
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> 생성 중...';
     
     try {
         const response = await fetch('/automation/api/schedules/create-auto', {
@@ -1395,14 +1512,26 @@ async function createSchedule(event) {
         
         const result = await response.json();
         
+        // 버튼 복원
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = originalText;
+        
         if (result.success) {
+            // 모달 닫기
+            closeModalCompletely('createScheduleModal');
+            
+            form.reset();
+            loadSchedules();
+            loadTasks();  // Task 목록도 새로고침
+            
             alert('✅ 스케줄 ' + result.count + '개가 생성되었습니다!');
-            bootstrap.Modal.getInstance(document.getElementById('createScheduleModal')).hide();
-            loadSchedules();  // 스케줄 목록 새로고침
         } else {
             alert('❌ ' + result.message);
         }
     } catch (error) {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = originalText;
+        
         alert('❌ 스케줄 생성 중 오류가 발생했습니다');
         console.error(error);
     }
@@ -1426,6 +1555,105 @@ async function deleteSchedule(id) {
         }
     } catch (error) {
         alert('❌ 삭제 중 오류가 발생했습니다');
+    }
+}
+
+// ============================================
+// 댓글 원고 관리 함수
+// ============================================
+
+async function showCommentScriptModal(taskId) {
+    const modal = document.getElementById('commentScriptModal');
+    document.getElementById('postTaskIdInput').value = taskId;
+    
+    // 기존 댓글 원고 로드
+    try {
+        const response = await fetch(`/automation/api/comment-scripts/list?post_task_id=${taskId}`);
+        const data = await response.json();
+        
+        if (data.success && data.scripts && data.scripts.length > 0) {
+            // 원고 텍스트로 변환
+            let scriptText = '';
+            data.scripts.forEach(script => {
+                scriptText += `${script.group_number}-${script.sequence_number}: PC${script.pc_number} ${script.content}\n`;
+            });
+            document.getElementById('commentScriptText').value = scriptText;
+            
+            // 통계 표시
+            document.getElementById('scriptStats').innerHTML = `
+                <div class="alert alert-info">
+                    <i class="bi bi-info-circle"></i> 
+                    저장된 댓글: <strong>${data.total_count}개</strong> 
+                    / 그룹: <strong>${data.total_groups}개</strong>
+                </div>
+            `;
+        } else {
+            document.getElementById('commentScriptText').value = '';
+            document.getElementById('scriptStats').innerHTML = '';
+        }
+    } catch (error) {
+        console.error('댓글 원고 로드 오류:', error);
+    }
+    
+    const bsModal = new bootstrap.Modal(modal);
+    bsModal.show();
+}
+
+async function saveCommentScript(event) {
+    event.preventDefault();
+    
+    const formData = new FormData(event.target);
+    
+    try {
+        const response = await fetch('/automation/api/comment-scripts/parse', {
+            method: 'POST',
+            body: formData
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            alert(`✅ ${data.message}`);
+            bootstrap.Modal.getInstance(document.getElementById('commentScriptModal')).hide();
+            loadTasks();
+        } else {
+            let errorMsg = data.message || '댓글 원고 저장 실패';
+            if (data.errors && data.errors.length > 0) {
+                errorMsg += '\n\n오류:\n' + data.errors.join('\n');
+            }
+            alert('❌ ' + errorMsg);
+        }
+    } catch (error) {
+        console.error('댓글 원고 저장 오류:', error);
+        alert('❌ 저장 중 오류가 발생했습니다');
+    }
+}
+
+async function createCommentTasks(taskId) {
+    if (!confirm('본문 글 작성 완료 후 댓글 Task를 생성하시겠습니까?')) {
+        return;
+    }
+    
+    const formData = new FormData();
+    formData.append('post_task_id', taskId);
+    
+    try {
+        const response = await fetch('/automation/api/comment-scripts/create-tasks', {
+            method: 'POST',
+            body: formData
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            alert(`✅ ${data.message}`);
+            loadTasks();
+        } else {
+            alert('❌ ' + data.message);
+        }
+    } catch (error) {
+        console.error('댓글 Task 생성 오류:', error);
+        alert('❌ 생성 중 오류가 발생했습니다');
     }
 }
 </script>
