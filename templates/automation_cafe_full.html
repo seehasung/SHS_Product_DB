@@ -748,13 +748,7 @@
 
 <script>
 // 페이지 로드 시 데이터 로드
-// ⭐ 디버깅 로그
-console.log('🚀 자동화 페이지 JavaScript 로드 시작!');
-
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('✅ DOMContentLoaded 이벤트 발생!');
-    console.log('📊 loadAllData() 호출 시작...');
-    
     loadAllData();
     
     // 30초마다 PC 상태 갱신
@@ -869,11 +863,10 @@ function displayTasks(tasks, tbodyId, status) {
         const typeIcon = task.task_type === 'post' ? '📝' : '💬';
         
         if (status === 'pending') {
-            // const commentBtn = task.task_type === 'post' ?  // 임시 비활성화
-            //     `<button class="btn btn-sm btn-info" onclick="showCommentScriptModal(${task.id})" title="댓글 원고 관리">
-            //         <i class="bi bi-chat-dots"></i>
-            //     </button>` : '';
-            const commentBtn = '';  // 임시로 비활성화
+            const commentBtn = task.task_type === 'post' ? 
+                `<button class="btn btn-sm btn-info" onclick="showCommentScriptModal(${task.id})" title="댓글 원고 관리">
+                    <i class="bi bi-chat-dots"></i>
+                </button>` : '';
             
             html += `
                 <tr>
@@ -900,11 +893,10 @@ function displayTasks(tasks, tbodyId, status) {
                 </tr>
             `;
         } else if (status === 'completed') {
-            // const commentBtn = task.task_type === 'post' && task.post_url ?  // 임시 비활성화
-            //     `<button class="btn btn-sm btn-success" onclick="createCommentTasks(${task.id})" title="댓글 Task 생성">
-            //         <i class="bi bi-plus-circle"></i> 댓글
-            //     </button>` : '';
-            const commentBtn = '';  // 임시로 비활성화
+            const commentBtn = task.task_type === 'post' && task.post_url ? 
+                `<button class="btn btn-sm btn-success" onclick="createCommentTasks(${task.id})" title="댓글 Task 생성">
+                    <i class="bi bi-plus-circle"></i> 댓글
+                </button>` : '';
             
             html += `
                 <tr>
@@ -1570,7 +1562,6 @@ async function deleteSchedule(id) {
 // 댓글 원고 관리 함수
 // ============================================
 
-/* 임시로 주석 처리
 async function showCommentScriptModal(taskId) {
     const modal = document.getElementById('commentScriptModal');
     document.getElementById('postTaskIdInput').value = taskId;
@@ -1665,7 +1656,6 @@ async function createCommentTasks(taskId) {
         alert('❌ 생성 중 오류가 발생했습니다');
     }
 }
-*/ // 임시로 주석 처리 끝
 </script>
 {% endblock %}
 
