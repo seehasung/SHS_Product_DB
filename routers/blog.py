@@ -2068,15 +2068,6 @@ def auto_assign_daily_tasks(
             print(f"   ⚠️ 작업량이 0 → 스킵")
             continue
         
-        # 이 작업자가 아직 안 쓴 키워드 조회
-        completed = db.query(BlogKeywordProgress.keyword_text).filter(
-            BlogKeywordProgress.worker_id == worker.id,
-            BlogKeywordProgress.marketing_product_id == worker.current_product_id,
-            BlogKeywordProgress.is_completed == True
-        ).all()
-        completed_keywords = {k[0] for k in completed}
-        print(f"   - 완료한 키워드: {len(completed_keywords)}개")
-        
         # 이 상품의 활성 키워드
         active_kws = db.query(BlogProductKeyword.keyword_text).filter(
             BlogProductKeyword.marketing_product_id == worker.current_product_id,
@@ -2089,25 +2080,6 @@ def auto_assign_daily_tasks(
             print(f"   ⚠️ 활성 키워드 없음 → 스킵")
             continue
         
-        # 아직 안 쓴 키워드
-        unused = active_keywords - completed_keywords
-        print(f"   - 미사용 키워드: {len(unused)}개")
-        
-        # ⭐⭐⭐ 핵심 수정: 모든 작업자가 오늘 배정된 키워드 제외 ⭐⭐⭐
-        available = unused - today_assigned_keywords
-        print(f"   - 배정 가능 키워드 (중복 제외): {len(available)}개")
-        
-        if not available:
-            print(f"   ⚠️ 배정 가능한 키워드 없음 → 스킵")
-            if len(unused) > 0:
-                print(f"   💡 미사용 키워드는 {len(unused)}개 있지만, 모두 오늘 다른 작업자에게 배정됨")
-            continue
-        
-        # 할당량만큼 랜덤 선택
-        quota = min(worker.daily_quota, len(available))
-        selected = random.sample(list(available), quota)
-        print(f"   ✅ 선택된 키워드: {quota}개 - {selected[:3]}{'...' if len(selected) > 3 else ''}")
-        
         # 작업자의 블로그 계정들
         accounts = db.query(BlogAccount).filter(
             BlogAccount.assigned_worker_id == worker.id
@@ -2119,49 +2091,86 @@ def auto_assign_daily_tasks(
             print(f"   ⚠️ 배정된 계정 없음 → 스킵")
             continue
         
-        # 계정별 작업 분배 (계정당 최대 3개)
-        account_idx = 0
-        account_post_count = {}
-        assigned_for_worker = 0
+        # ⭐⭐⭐ 핵심 변경: 각 계정별로 사용 가능한 키워드 계산 ⭐⭐⭐
+        account_available_keywords = {}
         
-        for keyword in selected:
-            # 현재 계정이 3개 다 찼으면 다음 계정으로
-            if account_post_count.get(account_idx, 0) >= 3:
-                account_idx += 1
-                if account_idx >= len(accounts):
-                    print(f"   ⚠️ 모든 계정이 가득 참 (배정: {assigned_for_worker}개)")
-                    break
+        for account in accounts:
+            # 이 계정으로 이미 작성된 키워드 조회
+            used_in_account = db.query(BlogPost.keyword_text).filter(
+                BlogPost.blog_account_id == account.id,
+                BlogPost.marketing_product_id == worker.current_product_id
+            ).distinct().all()
+            used_keywords = {k[0] for k in used_in_account}
             
-            task = BlogWorkTask(
-                task_date=task_date,
-                status='pending',
-                keyword_text=keyword,
-                worker_id=worker.id,
-                marketing_product_id=worker.current_product_id,
-                blog_account_id=accounts[account_idx].id
-            )
-            db.add(task)
-            assigned_for_worker += 1
+            # 이 계정에서 사용 가능한 키워드 = 활성 키워드 - 이미 사용한 키워드 - 오늘 배정된 키워드
+            available_for_account = active_keywords - used_keywords - today_assigned_keywords
+            account_available_keywords[account.id] = available_for_account
             
-            # 진행 상황에도 기록
-            progress = db.query(BlogKeywordProgress).filter(
-                BlogKeywordProgress.worker_id == worker.id,
-                BlogKeywordProgress.marketing_product_id == worker.current_product_id,
-                BlogKeywordProgress.keyword_text == keyword
-            ).first()
+            print(f"   - 계정 {account.account_id}: 사용함={len(used_keywords)}개, 사용 가능={len(available_for_account)}개")
+        
+        # 모든 계정에서 사용 가능한 키워드 합산
+        total_available = set()
+        for keywords in account_available_keywords.values():
+            total_available.update(keywords)
+        
+        print(f"   - 전체 배정 가능 키워드: {len(total_available)}개")
+        
+        if len(total_available) == 0:
+            print(f"   ⚠️ 배정 가능한 키워드 없음 → 스킵")
+            continue
+        
+        # ⭐ 계정별로 작업 배정 (각 계정당 최대 3개, 계정별로 사용 가능한 키워드만)
+        assigned_for_worker = 0
+        remaining_quota = worker.daily_quota
+        
+        for account in accounts:
+            if remaining_quota <= 0:
+                break
             
-            if not progress:
-                progress = BlogKeywordProgress(
+            # 이 계정에서 사용 가능한 키워드
+            available = list(account_available_keywords.get(account.id, set()))
+            
+            if not available:
+                print(f"   - 계정 {account.account_id}: 사용 가능한 키워드 없음")
+                continue
+            
+            # 이 계정에 배정할 개수 (최대 3개)
+            count_for_account = min(3, len(available), remaining_quota)
+            selected_for_account = random.sample(available, count_for_account)
+            
+            print(f"   - 계정 {account.account_id}: {count_for_account}개 키워드 배정 - {selected_for_account}")
+            
+            for keyword in selected_for_account:
+                task = BlogWorkTask(
+                    task_date=task_date,
+                    status='pending',
+                    keyword_text=keyword,
                     worker_id=worker.id,
                     marketing_product_id=worker.current_product_id,
-                    keyword_text=keyword,
-                    is_completed=False
+                    blog_account_id=account.id
                 )
-                db.add(progress)
-            
-            # ⭐⭐⭐ 핵심: 배정된 키워드를 즉시 today_assigned_keywords에 추가 ⭐⭐⭐
-            today_assigned_keywords.add(keyword)
-            account_post_count[account_idx] = account_post_count.get(account_idx, 0) + 1
+                db.add(task)
+                assigned_for_worker += 1
+                remaining_quota -= 1
+                
+                # 진행 상황 기록 (선택사항 - 유지)
+                progress = db.query(BlogKeywordProgress).filter(
+                    BlogKeywordProgress.worker_id == worker.id,
+                    BlogKeywordProgress.marketing_product_id == worker.current_product_id,
+                    BlogKeywordProgress.keyword_text == keyword
+                ).first()
+                
+                if not progress:
+                    progress = BlogKeywordProgress(
+                        worker_id=worker.id,
+                        marketing_product_id=worker.current_product_id,
+                        keyword_text=keyword,
+                        is_completed=False
+                    )
+                    db.add(progress)
+                
+                # ⭐ 배정된 키워드를 today_assigned_keywords에 추가
+                today_assigned_keywords.add(keyword)
         
         print(f"   ✅ 이 작업자에게 {assigned_for_worker}개 작업 배정")
         total_assigned += assigned_for_worker
