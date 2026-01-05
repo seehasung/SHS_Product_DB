@@ -1470,9 +1470,10 @@ async def get_account_usage(db: Session = Depends(get_db)):
 
 
 # ============================================
-# 댓글 원고 관리 API
+# 댓글 원고 관리 API (임시 비활성화)
 # ============================================
 
+"""
 @router.post("/api/comment-scripts/parse")
 async def parse_comment_scripts(
     post_task_id: int = Form(...),
@@ -1775,5 +1776,5 @@ async def complete_comment_script(
         'success': True,
         'message': '댓글 완료 처리됨'
     })
-
+"""  # 임시 비활성화 끝
 
