@@ -144,12 +144,13 @@ async def worker_websocket(websocket: WebSocket, pc_number: int, db: Session = D
                                 task.error_message = f"cafe_comment_id:{cafe_comment_id}"
                                 print(f"  📌 카페 댓글 ID 저장: {cafe_comment_id}")
                         
-                        # 댓글 원고 완료 처리
-                        comment_script = db.query(CommentScript).filter(
-                            CommentScript.generated_task_id == task.id
-                        ).first()
+                        # 댓글 원고 완료 처리 (임시 비활성화)
+                        # comment_script = db.query(CommentScript).filter(
+                        #     CommentScript.generated_task_id == task.id
+                        # ).first()
                         
-                        if comment_script:
+                        comment_script = None  # 임시
+                        if False and comment_script:
                             comment_script.status = 'completed'
                             comment_script.completed_at = get_kst_now()
                             
@@ -1473,15 +1474,14 @@ async def get_account_usage(db: Session = Depends(get_db)):
 # 댓글 원고 관리 API (임시 비활성화)
 # ============================================
 
-"""
-@router.post("/api/comment-scripts/parse")
-async def parse_comment_scripts(
-    post_task_id: int = Form(...),
-    script_text: str = Form(...),
-    db: Session = Depends(get_db)
-):
-    """
-    댓글 원고 파싱 및 저장
+# @router.post("/api/comment-scripts/parse")
+# async def parse_comment_scripts(
+#     post_task_id: int = Form(...),
+#     script_text: str = Form(...),
+#     db: Session = Depends(get_db)
+# ):
+#     """
+#     댓글 원고 파싱 및 저장
     
     입력 형식:
         1-1: PC1 도와주세요ㅠㅜㅠㅠㅠ
