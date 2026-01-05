@@ -25,7 +25,7 @@ from database import (
     AutomationWorkerPC, AutomationAccount, AutomationCafe,
     AutomationPrompt, AutomationSchedule, AutomationTask,
     AutomationPost, AutomationComment, MarketingProduct, Product,
-    MarketingPost, User, CommentScript
+    MarketingPost, User  # CommentScript 임시 제거
 )
 
 router = APIRouter(prefix="/automation", tags=["automation"])
