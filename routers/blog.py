@@ -2076,6 +2076,7 @@ def auto_assign_daily_tasks(
         active_keywords = {k[0] for k in active_kws}
         print(f"   - 활성 키워드: {len(active_keywords)}개")
         
+        
         if len(active_keywords) == 0:
             print(f"   ⚠️ 활성 키워드 없음 → 스킵")
             continue
