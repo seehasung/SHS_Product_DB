@@ -1542,6 +1542,68 @@ def update_blog_account(
     return {"message": "계정 수정 완료"}
 
 
+@router.put("/blog/api/accounts/{account_id}/assign-worker")
+def assign_worker_to_account(
+    account_id: int,
+    worker_id: int = Form(None),
+    request: Request = None,
+    db: Session = Depends(get_db)
+):
+    """블로그 계정에 작업자 수동 배정/해제"""
+    user = get_current_user(request, db)
+    
+    if not check_is_blog_manager(user, db):
+        raise HTTPException(status_code=403, detail="관리자 권한이 필요합니다")
+    
+    account = db.query(BlogAccount).get(account_id)
+    if not account:
+        raise HTTPException(status_code=404, detail="계정을 찾을 수 없습니다")
+    
+    # 기존 작업자 정보 저장
+    old_worker_id = account.assigned_worker_id
+    
+    # worker_id가 None이거나 0이면 배정 해제
+    if worker_id is None or worker_id == 0:
+        account.assigned_worker_id = None
+        account.assignment_order = None
+        db.commit()
+        
+        print(f"✅ [ASSIGN] 계정 {account.account_id}: 작업자 배정 해제")
+        return {"message": "작업자 배정이 해제되었습니다"}
+    
+    # 새 작업자 존재 확인
+    new_worker = db.query(BlogWorker).get(worker_id)
+    if not new_worker:
+        raise HTTPException(status_code=404, detail="작업자를 찾을 수 없습니다")
+    
+    # 기존 작업자와 동일하면 변경 없음
+    if old_worker_id == worker_id:
+        return {"message": "이미 해당 작업자에게 배정되어 있습니다"}
+    
+    # 새 작업자의 현재 계정 수 확인
+    current_accounts = db.query(BlogAccount).filter(
+        BlogAccount.assigned_worker_id == worker_id
+    ).order_by(BlogAccount.assignment_order).all()
+    
+    # assignment_order 계산 (기존 계정 수 + 1)
+    new_order = len(current_accounts) + 1
+    
+    # 계정 재배정
+    account.assigned_worker_id = worker_id
+    account.assignment_order = new_order
+    
+    db.commit()
+    
+    worker_name = new_worker.user.username if new_worker.user else f"작업자 #{worker_id}"
+    print(f"✅ [ASSIGN] 계정 {account.account_id}: {worker_name}에게 배정 (순서: {new_order})")
+    
+    return {
+        "message": f"계정이 {worker_name}에게 배정되었습니다",
+        "worker_name": worker_name,
+        "assignment_order": new_order
+    }
+
+
 @router.delete("/blog/api/accounts/{account_id}")
 def delete_blog_account(account_id: int, request: Request, db: Session = Depends(get_db)):
     """블로그 계정 삭제"""

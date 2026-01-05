@@ -958,6 +958,15 @@
                         <option value="inactive">비활성</option>
                     </select>
                 </div>
+                
+                <!-- ⭐ 작업자 배정 추가 -->
+                <div class="mb-3">
+                    <label class="form-label">배정된 작업자</label>
+                    <select class="form-select" id="editAssignedWorker">
+                        <option value="0">배정 안 함</option>
+                    </select>
+                    <small class="text-muted">계정을 특정 작업자에게 수동으로 배정할 수 있습니다</small>
+                </div>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">취소</button>
@@ -2290,62 +2299,101 @@ function submitAccount() {
 }
 
 // ⭐ 계정 수정 함수
-function editAccount(accountId) {
-    fetch('/blog/api/accounts')
-        .then(response => response.json())
-        .then(accounts => {
-            const account = accounts.find(a => a.id === accountId);
-            if (!account) {
-                alert('계정을 찾을 수 없습니다.');
-                return;
-            }
-            
-            // 수정 모달에 데이터 채우기
-            document.getElementById('editAccountId').value = account.id;
-            document.getElementById('editAccountAccountId').value = account.account_id;
-            document.getElementById('editAccountPw').value = '';
-            document.getElementById('editBlogUrl').value = account.blog_url || '';
-            document.getElementById('editIpAddress').value = account.ip_address || '';
-            document.getElementById('editCategory').value = account.category || '';
-            document.getElementById('editStatus').value = account.status || 'active';
-            
-            // 모달 표시
-            const modal = new bootstrap.Modal(document.getElementById('editAccountModal'));
-            modal.show();
-        })
-        .catch(error => {
-            console.error('계정 정보 로드 실패:', error);
-            alert('계정 정보를 불러오는데 실패했습니다.');
+async function editAccount(accountId) {
+    try {
+        // 계정 정보와 작업자 목록 동시에 로드
+        const [accountsResponse, workersResponse] = await Promise.all([
+            fetch('/blog/api/accounts'),
+            fetch('/blog/api/workers')
+        ]);
+        
+        const accounts = await accountsResponse.json();
+        const workers = await workersResponse.json();
+        
+        const account = accounts.find(a => a.id === accountId);
+        if (!account) {
+            alert('계정을 찾을 수 없습니다.');
+            return;
+        }
+        
+        // 수정 모달에 데이터 채우기
+        document.getElementById('editAccountId').value = account.id;
+        document.getElementById('editAccountAccountId').value = account.account_id;
+        document.getElementById('editAccountPw').value = '';
+        document.getElementById('editBlogUrl').value = account.blog_url || '';
+        document.getElementById('editIpAddress').value = account.ip_address || '';
+        document.getElementById('editCategory').value = account.category || '';
+        document.getElementById('editStatus').value = account.status || 'active';
+        
+        // ⭐ 작업자 드롭다운 채우기
+        const workerSelect = document.getElementById('editAssignedWorker');
+        workerSelect.innerHTML = '<option value="0">배정 안 함</option>';
+        
+        workers.forEach(worker => {
+            const option = document.createElement('option');
+            option.value = worker.id;
+            option.textContent = `${worker.username} (${worker.accounts.length}개 계정)`;
+            workerSelect.appendChild(option);
         });
+        
+        // 현재 배정된 작업자 선택
+        const currentWorker = workers.find(w => w.username === account.assigned_worker_name);
+        if (currentWorker) {
+            workerSelect.value = currentWorker.id;
+        } else {
+            workerSelect.value = '0';
+        }
+        
+        // 모달 표시
+        const modal = new bootstrap.Modal(document.getElementById('editAccountModal'));
+        modal.show();
+    } catch (error) {
+        console.error('계정 정보 로드 실패:', error);
+        alert('계정 정보를 불러오는데 실패했습니다.');
+    }
 }
 
 // ⭐ 계정 수정 제출 함수
-function submitEditAccount() {
+async function submitEditAccount() {
     const accountId = document.getElementById('editAccountId').value;
-    const formData = new FormData();
     
-    const password = document.getElementById('editAccountPw').value;
-    if (password) formData.append('account_pw', password);
-    
-    formData.append('blog_url', document.getElementById('editBlogUrl').value);
-    formData.append('ip_address', document.getElementById('editIpAddress').value);
-    formData.append('category', document.getElementById('editCategory').value);
-    formData.append('status', document.getElementById('editStatus').value);
-    
-    fetch(`/blog/api/accounts/${accountId}`, {
-        method: 'PUT',
-        body: formData
-    })
-    .then(response => response.json())
-    .then(data => {
-        alert(data.message || '계정이 수정되었습니다.');
+    try {
+        // 1단계: 계정 정보 수정
+        const formData = new FormData();
+        
+        const password = document.getElementById('editAccountPw').value;
+        if (password) formData.append('account_pw', password);
+        
+        formData.append('blog_url', document.getElementById('editBlogUrl').value);
+        formData.append('ip_address', document.getElementById('editIpAddress').value);
+        formData.append('category', document.getElementById('editCategory').value);
+        formData.append('status', document.getElementById('editStatus').value);
+        
+        await fetch(`/blog/api/accounts/${accountId}`, {
+            method: 'PUT',
+            body: formData
+        });
+        
+        // 2단계: 작업자 배정 변경
+        const workerId = document.getElementById('editAssignedWorker').value;
+        const workerFormData = new FormData();
+        workerFormData.append('worker_id', workerId);
+        
+        const assignResponse = await fetch(`/blog/api/accounts/${accountId}/assign-worker`, {
+            method: 'PUT',
+            body: workerFormData
+        });
+        
+        const assignData = await assignResponse.json();
+        
+        alert(assignData.message || '계정이 수정되었습니다.');
         bootstrap.Modal.getInstance(document.getElementById('editAccountModal')).hide();
         loadAccounts();
-    })
-    .catch(error => {
+        
+    } catch (error) {
         console.error('계정 수정 오류:', error);
         alert('계정 수정 중 오류가 발생했습니다.');
-    });
+    }
 }
 
 // ⭐ 계정 삭제 함수
