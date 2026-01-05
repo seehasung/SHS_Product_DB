@@ -201,6 +201,113 @@ def blog_main_page(request: Request, db: Session = Depends(get_db)):
         "blog_worker": blog_worker,
         "is_manager": is_manager
     })
+
+@router.get("/blog/schedules")
+def blog_schedules_page(request: Request, db: Session = Depends(get_db)):
+    """블로그 전체 스케줄 페이지"""
+    from fastapi.templating import Jinja2Templates
+    templates = Jinja2Templates(directory="templates")
+    
+    user = get_current_user(request, db)
+    has_access, blog_worker_or_error = check_blog_access(user, db)
+    
+    if not has_access:
+        raise HTTPException(status_code=403, detail=blog_worker_or_error)
+    
+    blog_worker = blog_worker_or_error if not user.is_admin else db.query(BlogWorker).filter(
+        BlogWorker.user_id == user.id
+    ).first()
+    
+    is_manager = check_is_blog_manager(user, db)
+    
+    # 스케줄 조회
+    if is_manager:
+        # 관리자: 모든 작업 조회
+        tasks = db.query(BlogWorkTask).order_by(
+            desc(BlogWorkTask.task_date),
+            desc(BlogWorkTask.id)
+        ).all()
+    else:
+        # 일반 작업자: 자신의 작업만 조회
+        tasks = db.query(BlogWorkTask).filter(
+            BlogWorkTask.worker_id == blog_worker.id
+        ).order_by(
+            desc(BlogWorkTask.task_date),
+            desc(BlogWorkTask.id)
+        ).all()
+    
+    # 작업 정보 구성
+    schedules = []
+    for task in tasks:
+        # 작업자 정보
+        worker_name = "미할당"
+        if task.worker_id:
+            worker_obj = db.query(BlogWorker).filter(
+                BlogWorker.id == task.worker_id
+            ).first()
+            if worker_obj and worker_obj.user:
+                worker_name = worker_obj.user.username
+        
+        # 계정 정보
+        account_id = "미할당"
+        if task.blog_account_id:
+            account = db.query(BlogAccount).filter(
+                BlogAccount.id == task.blog_account_id
+            ).first()
+            if account:
+                account_id = account.account_id
+        
+        # 상품 정보
+        product_name = "-"
+        if task.marketing_product_id:
+            marketing_product = db.query(MarketingProduct).filter(
+                MarketingProduct.id == task.marketing_product_id
+            ).first()
+            
+            if marketing_product and marketing_product.product_id:
+                product = db.query(Product).filter(
+                    Product.id == marketing_product.product_id
+                ).first()
+                if product:
+                    product_name = product.name
+        
+        # 키워드
+        keyword_text = task.keyword_text if task.keyword_text else "-"
+        
+        # 작성된 글 정보
+        post_title = None
+        post_url = None
+        
+        if task.completed_post_id:
+            post = db.query(BlogPost).filter(
+                BlogPost.id == task.completed_post_id
+            ).first()
+            
+            if post:
+                post_title = post.post_title
+                post_url = post.post_url
+        
+        schedules.append({
+            "id": task.id,
+            "task_date": task.task_date,
+            "worker_name": worker_name,
+            "account_id": account_id,
+            "product_name": product_name,
+            "keyword": keyword_text,
+            "status": task.status,
+            "post_title": post_title,
+            "post_url": post_url,
+            "post_id": task.completed_post_id
+        })
+    
+    return templates.TemplateResponse("marketing_blog.html", {
+        "request": request,
+        "user": user,
+        "blog_worker": blog_worker,
+        "is_manager": is_manager,
+        "schedules": schedules,
+        "view_mode": "schedules"
+    })
     
 # ============================================
 # 전체 현황 API
@@ -574,6 +681,63 @@ def change_task_status(
     
     print(f"✅ [CHANGE STATUS] 작업 {task_id}: {status}")
     return {"message": "상태 변경 완료", "status": status}
+
+
+@router.post("/blog/api/tasks/{task_id}/delete")
+def delete_blog_task(
+    task_id: int,
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    """블로그 작업 삭제"""
+    user = get_current_user(request, db)
+    has_access, blog_worker_or_error = check_blog_access(user, db)
+    
+    if not has_access:
+        raise HTTPException(status_code=403)
+    
+    task = db.query(BlogWorkTask).get(task_id)
+    if not task:
+        raise HTTPException(status_code=404, detail="작업을 찾을 수 없습니다")
+    
+    # 권한 체크 - 관리자만 삭제 가능
+    if not check_is_blog_manager(user, db):
+        raise HTTPException(status_code=403, detail="관리자 권한이 필요합니다")
+    
+    try:
+        # 1단계: 관련 진행상황 삭제 또는 초기화
+        if task.worker_id and task.marketing_product_id and task.keyword_text:
+            progress = db.query(BlogKeywordProgress).filter(
+                BlogKeywordProgress.worker_id == task.worker_id,
+                BlogKeywordProgress.marketing_product_id == task.marketing_product_id,
+                BlogKeywordProgress.keyword_text == task.keyword_text
+            ).first()
+            
+            if progress:
+                # 완료되지 않은 진행상황은 삭제
+                if not progress.is_completed:
+                    db.delete(progress)
+                    print(f"🗑️ [DELETE TASK] 진행상황 삭제: {task.keyword_text}")
+                else:
+                    # 완료된 경우는 completed_post_id만 제거
+                    progress.completed_post_id = None
+                    db.add(progress)
+                    print(f"🔄 [DELETE TASK] 진행상황 참조 제거: {task.keyword_text}")
+        
+        # 2단계: 작업 삭제
+        keyword_text = task.keyword_text
+        task_date = task.task_date
+        db.delete(task)
+        db.commit()
+        
+        print(f"✅ [DELETE TASK] 작업 ID {task_id} 삭제 완료 (키워드: {keyword_text}, 날짜: {task_date})")
+        
+        return {"message": "작업이 삭제되었습니다"}
+        
+    except Exception as e:
+        db.rollback()
+        print(f"❌ [DELETE TASK] 오류 발생: {e}")
+        raise HTTPException(status_code=500, detail=f"삭제 중 오류 발생: {str(e)}")
 
 
 # ============================================
