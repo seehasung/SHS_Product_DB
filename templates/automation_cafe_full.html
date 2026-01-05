@@ -748,7 +748,13 @@
 
 <script>
 // 페이지 로드 시 데이터 로드
+// ⭐ 디버깅 로그
+console.log('🚀 자동화 페이지 JavaScript 로드 시작!');
+
 document.addEventListener('DOMContentLoaded', function() {
+    console.log('✅ DOMContentLoaded 이벤트 발생!');
+    console.log('📊 loadAllData() 호출 시작...');
+    
     loadAllData();
     
     // 30초마다 PC 상태 갱신
