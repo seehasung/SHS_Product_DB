@@ -1138,7 +1138,7 @@ async def generate_schedules(
                                     continue  # 사용 가능한 계정 없음
                         
                         
-                        # ✅ 제목 생성 작업
+                        # ✅ 제목 생성
                         post_title = generate_post_title(
                             user.username, 
                             current_date, 
