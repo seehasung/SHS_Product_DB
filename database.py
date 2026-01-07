@@ -1249,8 +1249,8 @@ class DraftPost(Base):
     
     # 관계
     link = relationship("CafeAccountLink", back_populates="draft_posts")
-
-
+    
+    
 class CommentScript(Base):
     """댓글 원고 스크립트 (순차 작성용)"""
     __tablename__ = "comment_scripts"

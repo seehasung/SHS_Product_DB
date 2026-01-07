@@ -1158,6 +1158,31 @@ async def add_prompt(
     return JSONResponse({'success': True, 'message': '프롬프트가 등록되었습니다'})
 
 
+@router.post("/api/prompts/{prompt_id}/update")
+async def update_prompt(
+    prompt_id: int,
+    name: str = Form(...),
+    prompt_type: str = Form(...),
+    temperature: float = Form(...),
+    max_tokens: int = Form(...),
+    db: Session = Depends(get_db)
+):
+    """프롬프트 수정"""
+    prompt = db.query(AutomationPrompt).get(prompt_id)
+    if not prompt:
+        return JSONResponse({'success': False, 'message': '프롬프트를 찾을 수 없습니다'})
+    
+    # 기본 정보만 수정 (보안상 시스템/사용자 프롬프트는 수정 불가)
+    prompt.name = name
+    prompt.prompt_type = prompt_type
+    prompt.temperature = temperature
+    prompt.max_tokens = max_tokens
+    
+    db.commit()
+    
+    return JSONResponse({'success': True, 'message': '프롬프트가 수정되었습니다'})
+
+
 @router.post("/api/pcs/{pc_id}/delete")
 async def delete_pc(pc_id: int, db: Session = Depends(get_db)):
     """PC 삭제"""

@@ -129,14 +129,14 @@ def setup_driver():
         # 일반 ChromeDriver
         print("🚀 일반 ChromeDriver로 브라우저 실행")
         
-        options = webdriver.ChromeOptions()
-        options.add_argument('--disable-blink-features=AutomationControlled')
-        options.add_experimental_option("excludeSwitches", ["enable-automation"])
-        options.add_argument('--log-level=3')
-        
-        driver = webdriver.Chrome(options=options)
-        driver.set_window_size(1400, 900)
-        return driver
+    options = webdriver.ChromeOptions()
+    options.add_argument('--disable-blink-features=AutomationControlled')
+    options.add_experimental_option("excludeSwitches", ["enable-automation"])
+    options.add_argument('--log-level=3')
+    
+    driver = webdriver.Chrome(options=options)
+    driver.set_window_size(1400, 900)
+    return driver
 
 def main():
     print("""
@@ -210,11 +210,11 @@ def main():
             if logout_btn:
                 print("✅ 로그인 성공 (캡챠 없음!)")
         except:
-            if 'nid.naver.com' in driver.current_url:
+        if 'nid.naver.com' in driver.current_url:
                 print("⚠️ 캡챠 발생")
-                input("캡챠 해결 후 Enter...")
+            input("캡챠 해결 후 Enter...")
             else:
-                print("✅ 로그인 완료")
+        print("✅ 로그인 완료")
         
         # 신규발행 글
         print(f"\n📄 신규발행 글 접속...")

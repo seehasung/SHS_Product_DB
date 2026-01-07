@@ -201,40 +201,40 @@ class NaverCafeWorker:
         else:
             # 일반 ChromeDriver (기존 방식)
             print("  ⚠️ 일반 ChromeDriver 사용")
-            
-            options = webdriver.ChromeOptions()
-            
-            # 봇 감지 우회 설정
-            options.add_argument('--disable-blink-features=AutomationControlled')
-            options.add_experimental_option("excludeSwitches", ["enable-automation", "enable-logging"])
-            options.add_experimental_option('useAutomationExtension', False)
-            
-            # User-Agent 설정
-            options.add_argument('--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36')
-            
-            # 기타 설정
-            options.add_argument('--disable-gpu')
-            options.add_argument('--no-sandbox')
-            options.add_argument('--disable-dev-shm-usage')
+        
+        options = webdriver.ChromeOptions()
+        
+        # 봇 감지 우회 설정
+        options.add_argument('--disable-blink-features=AutomationControlled')
+        options.add_experimental_option("excludeSwitches", ["enable-automation", "enable-logging"])
+        options.add_experimental_option('useAutomationExtension', False)
+        
+        # User-Agent 설정
+        options.add_argument('--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36')
+        
+        # 기타 설정
+        options.add_argument('--disable-gpu')
+        options.add_argument('--no-sandbox')
+        options.add_argument('--disable-dev-shm-usage')
             options.add_argument('--log-level=3')
-            options.add_argument('--silent')
-            options.add_argument('--disable-logging')
-            
-            # 브라우저 생성
-            self.driver = webdriver.Chrome(options=options)
-            
-            # WebDriver 속성 숨기기
+        options.add_argument('--silent')
+        options.add_argument('--disable-logging')
+        
+        # 브라우저 생성
+        self.driver = webdriver.Chrome(options=options)
+        
+        # WebDriver 속성 숨기기
             try:
-                self.driver.execute_cdp_cmd('Page.addScriptToEvaluateOnNewDocument', {
-                    'source': '''
-                        Object.defineProperty(navigator, 'webdriver', {
-                            get: () => undefined
-                        });
-                        Object.defineProperty(navigator, 'plugins', {
-                            get: () => [1, 2, 3, 4, 5]
-                        });
-                    '''
-                })
+        self.driver.execute_cdp_cmd('Page.addScriptToEvaluateOnNewDocument', {
+            'source': '''
+                Object.defineProperty(navigator, 'webdriver', {
+                    get: () => undefined
+                });
+                Object.defineProperty(navigator, 'plugins', {
+                    get: () => [1, 2, 3, 4, 5]
+                });
+            '''
+        })
             except:
                 pass
         
@@ -435,7 +435,7 @@ class NaverCafeWorker:
                     EC.presence_of_element_located((By.ID, 'cafe_main'))
                 )
                 self.driver.switch_to.frame(iframe)
-                self.random_delay(2, 3)
+            self.random_delay(2, 3)
                 print("  ✅ iframe 전환 완료")
             except:
                 print("  ⚠️ iframe 전환 실패 (일반 페이지로 진행)")
