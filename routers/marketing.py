@@ -1102,10 +1102,11 @@ async def generate_schedules(
                             )
                             
                             if total_posts >= 10:
-                                # 다른 계정 찾기
+                                # 다른 계정 찾기 (활성 상태만!)
                                 found = False
                                 for mb in memberships:
-                                    if mb.cafe_id == cafe_id:
+                                    # ⭐ 상태 체크 추가!
+                                    if mb.cafe_id == cafe_id and mb.status == 'active':
                                         total = get_total_account_cafe_posts(
                                             mb.account_id, 
                                             cafe_id
