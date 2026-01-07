@@ -175,18 +175,33 @@ async def marketing_cafe(request: Request, db: Session = Depends(get_db)):
     error_message = error_messages.get(error)
     
     # ✅ 5. 연동 관리 탭 데이터
+    view_type = request.query_params.get('view', 'cafe')  # ⭐ 보기 방식
     selected_cafe_id = request.query_params.get('cafe_id')
+    selected_account_id = request.query_params.get('account_id')
     status_filter = request.query_params.get('status_filter', 'all')
-    selected_cafe = None
-    memberships = []
     
-    if selected_cafe_id:
+    selected_cafe = None
+    selected_account = None
+    memberships = []
+    account_memberships = []
+    
+    # ⭐ 카페별 보기
+    if view_type == 'cafe' and selected_cafe_id:
         selected_cafe = db.query(TargetCafe).filter(TargetCafe.id == selected_cafe_id).first()
         query = db.query(CafeMembership).options(joinedload(CafeMembership.account))
         query = query.filter(CafeMembership.cafe_id == selected_cafe_id)
         if status_filter != 'all':
             query = query.filter(CafeMembership.status == status_filter)
         memberships = query.order_by(CafeMembership.account_id).all()
+    
+    # ⭐ 계정별 보기 (새로 추가!)
+    elif view_type == 'account' and selected_account_id:
+        selected_account = db.query(MarketingAccount).filter(MarketingAccount.id == selected_account_id).first()
+        query = db.query(CafeMembership).options(joinedload(CafeMembership.cafe))
+        query = query.filter(CafeMembership.account_id == selected_account_id)
+        if status_filter != 'all':
+            query = query.filter(CafeMembership.status == status_filter)
+        account_memberships = query.order_by(CafeMembership.cafe_id).all()
     
     # ✅ 6. 카페 목록
     cafes_raw = db.query(TargetCafe).all()
@@ -370,6 +385,9 @@ async def marketing_cafe(request: Request, db: Session = Depends(get_db)):
         "marketing_products": marketing_products,
         "memberships": memberships,
         "selected_cafe": selected_cafe,
+        "view_type": view_type,  # ⭐ 추가
+        "selected_account": selected_account,  # ⭐ 추가
+        "account_memberships": account_memberships,  # ⭐ 추가
         "status_filter": status_filter,
         "category_filter": category_filter,
         "error": error_message,

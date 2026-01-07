@@ -1243,24 +1243,56 @@
                     <div class="col-md-2"><button type="submit" class="btn btn-primary w-100">🔗 연동</button></div>
                 </div>
             </form>
-            <h3 class="mb-3">연동 목록</h3>
+            
+            <!-- ⭐ 보기 방식 선택 -->
+            <div class="mb-3">
+                <h3 class="mb-3">연동 목록</h3>
+                <div class="btn-group" role="group">
+                    <a href="?tab=memberships&view=cafe{% if selected_cafe %}&cafe_id={{ selected_cafe.id }}{% endif %}" 
+                       class="btn {{ 'btn-primary' if view_type != 'account' else 'btn-outline-primary' }}">
+                        <i class="bi bi-cup-hot"></i> 카페별 보기
+                    </a>
+                    <a href="?tab=memberships&view=account{% if selected_account %}&account_id={{ selected_account.id }}{% endif %}" 
+                       class="btn {{ 'btn-primary' if view_type == 'account' else 'btn-outline-primary' }}">
+                        <i class="bi bi-person-badge"></i> 계정별 보기
+                    </a>
+                </div>
+            </div>
+            
             <div class="row">
                 <div class="col-md-4">
+                    <!-- ⭐ 카페별 보기 -->
+                    {% if view_type != 'account' %}
                     <div class="list-group">
                         {% for cafe in cafes %}
-                        <a href="/marketing/cafe?tab=memberships&cafe_id={{ cafe.id }}" class="list-group-item list-group-item-action {{ 'active' if selected_cafe and selected_cafe.id == cafe.id else '' }}">{{ cafe.name }}</a>
+                        <a href="/marketing/cafe?tab=memberships&view=cafe&cafe_id={{ cafe.id }}" 
+                           class="list-group-item list-group-item-action {{ 'active' if selected_cafe and selected_cafe.id == cafe.id else '' }}">
+                            {{ cafe.name }}
+                        </a>
                         {% endfor %}
                     </div>
+                    {% else %}
+                    <!-- ⭐ 계정별 보기 -->
+                    <div class="list-group">
+                        {% for acc in accounts %}
+                        <a href="/marketing/cafe?tab=memberships&view=account&account_id={{ acc.id }}" 
+                           class="list-group-item list-group-item-action {{ 'active' if selected_account and selected_account.id == acc.id else '' }}">
+                            {{ acc.account_id }}
+                        </a>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
                 </div>
                 <div class="col-md-8">
-                    {% if selected_cafe %}
+                    <!-- ⭐ 카페별 상세 (기존과 동일) -->
+                    {% if view_type != 'account' and selected_cafe %}
                     <div class="d-flex justify-content-between align-items-center mb-3">
-                        <h4>{{ selected_cafe.name }} - 계정 목록</h4>
+                        <h4>{{ selected_cafe.name }} - 연동된 계정</h4>
                         <div>
-                            <a href="?tab=memberships&cafe_id={{ selected_cafe.id }}&status_filter=all" class="btn btn-sm {{ 'btn-dark' if status_filter == 'all' else 'btn-outline-dark' }}">전체</a>
-                            <a href="?tab=memberships&cafe_id={{ selected_cafe.id }}&status_filter=active" class="btn btn-sm {{ 'btn-success' if status_filter == 'active' else 'btn-outline-success' }}">활동중</a>
-                            <a href="?tab=memberships&cafe_id={{ selected_cafe.id }}&status_filter=suspended" class="btn btn-sm {{ 'btn-danger' if status_filter == 'suspended' else 'btn-outline-danger' }}">활동정지</a>
-                            <a href="?tab=memberships&cafe_id={{ selected_cafe.id }}&status_filter=graduated" class="btn btn-sm {{ 'btn-secondary' if status_filter == 'graduated' else 'btn-outline-secondary' }}">졸업</a>
+                            <a href="?tab=memberships&view=cafe&cafe_id={{ selected_cafe.id }}&status_filter=all" class="btn btn-sm {{ 'btn-dark' if status_filter == 'all' else 'btn-outline-dark' }}">전체</a>
+                            <a href="?tab=memberships&view=cafe&cafe_id={{ selected_cafe.id }}&status_filter=active" class="btn btn-sm {{ 'btn-success' if status_filter == 'active' else 'btn-outline-success' }}">활동중</a>
+                            <a href="?tab=memberships&view=cafe&cafe_id={{ selected_cafe.id }}&status_filter=suspended" class="btn btn-sm {{ 'btn-danger' if status_filter == 'suspended' else 'btn-outline-danger' }}">활동정지</a>
+                            <a href="?tab=memberships&view=cafe&cafe_id={{ selected_cafe.id }}&status_filter=graduated" class="btn btn-sm {{ 'btn-secondary' if status_filter == 'graduated' else 'btn-outline-secondary' }}">졸업</a>
                         </div>
                     </div>
                     <table class="table table-bordered table-hover text-center align-middle">
@@ -1282,6 +1314,57 @@
                                     {% endif %}">
                             <form action="/marketing/membership/update/{{ membership.id }}" method="post">
                                 <td>{{ membership.account.account_id }}</td>
+                                <td><input type="number" name="new_post_count" class="form-control form-control-sm" value="{{ membership.new_post_count }}"></td>
+                                <td><input type="number" name="edited_post_count" class="form-control form-control-sm" value="{{ membership.edited_post_count }}"></td>
+                                <td>
+                                    <select name="status" class="form-select form-select-sm">
+                                        <option value="active" {{ 'selected' if membership.status == 'active' }}>활동중</option>
+                                        <option value="suspended" {{ 'selected' if membership.status == 'suspended' }}>활동정지</option>
+                                        <option value="graduated" {{ 'selected' if membership.status == 'graduated' }}>졸업</option>
+                                    </select>
+                                </td>
+                                <td style="white-space: nowrap;"><button type="submit" class="btn btn-sm btn-outline-primary">저장</button></td>
+                            </form>
+                            <td style="white-space: nowrap;">
+                                <form action="/marketing/membership/delete/{{ membership.id }}" method="post" style="display:inline;" onsubmit="return confirm('정말로 이 연동을 삭제하시겠습니까?');">
+                                    <button type="submit" class="btn btn-sm btn-outline-danger">삭제</button>
+                                </form>
+                            </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                    
+                    <!-- ⭐ 계정별 상세 (카페별과 동일한 구조!) -->
+                    {% elif view_type == 'account' and selected_account %}
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h4>{{ selected_account.account_id }} - 연동된 카페</h4>
+                        <div>
+                            <a href="?tab=memberships&view=account&account_id={{ selected_account.id }}&status_filter=all" class="btn btn-sm {{ 'btn-dark' if status_filter == 'all' else 'btn-outline-dark' }}">전체</a>
+                            <a href="?tab=memberships&view=account&account_id={{ selected_account.id }}&status_filter=active" class="btn btn-sm {{ 'btn-success' if status_filter == 'active' else 'btn-outline-success' }}">활동중</a>
+                            <a href="?tab=memberships&view=account&account_id={{ selected_account.id }}&status_filter=suspended" class="btn btn-sm {{ 'btn-danger' if status_filter == 'suspended' else 'btn-outline-danger' }}">활동정지</a>
+                            <a href="?tab=memberships&view=account&account_id={{ selected_account.id }}&status_filter=graduated" class="btn btn-sm {{ 'btn-secondary' if status_filter == 'graduated' else 'btn-outline-secondary' }}">졸업</a>
+                        </div>
+                    </div>
+                    <table class="table table-bordered table-hover text-center align-middle">
+                        <thead class="table-dark">
+                            <tr>
+                                <th width="20%">카페명</th>
+                                <th width="17%">신규 글</th>
+                                <th width="17%">수정 글</th>
+                                <th width="20%">상태</th>
+                                <th width="13%">저장</th>
+                                <th width="13%">삭제</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for membership in account_memberships %}
+                            <tr class="{% if membership.status == 'active' %}membership-active
+                                    {% elif membership.status == 'suspended' %}membership-suspended
+                                    {% elif membership.status == 'graduated' %}membership-graduated
+                                    {% endif %}">
+                            <form action="/marketing/membership/update/{{ membership.id }}" method="post">
+                                <td>{{ membership.cafe.name }}</td>
                                 <td><input type="number" name="new_post_count" class="form-control form-control-sm" value="{{ membership.new_post_count }}"></td>
                                 <td><input type="number" name="edited_post_count" class="form-control form-control-sm" value="{{ membership.edited_post_count }}"></td>
                                 <td>
