@@ -1500,11 +1500,8 @@ def get_memos_dashboard(request: Request, db: Session = Depends(get_db)):
     if not current_user:
         raise HTTPException(status_code=404, detail="사용자를 찾을 수 없습니다")
     
-    # 관리자는 전체 메모, 일반 사용자는 자기 메모만
-    if current_user.is_admin:
-        base_query = db.query(PersonalMemo)
-    else:
-        base_query = db.query(PersonalMemo).filter(PersonalMemo.user_id == current_user.id)
+    # ⭐ 메모 현황은 항상 자기 것만! (관리자도!)
+    base_query = db.query(PersonalMemo).filter(PersonalMemo.user_id == current_user.id)
     
     total = base_query.count()
     active = base_query.filter(PersonalMemo.status == 'active').count()
