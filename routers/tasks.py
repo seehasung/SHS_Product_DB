@@ -1531,9 +1531,10 @@ def get_memos_dashboard(request: Request, db: Session = Depends(get_db)):
 def get_memos_list(
     request: Request,
     filter_type: str = Query("all"),  # all, today, week, month
+    admin_mode: bool = Query(False),  # ⭐ 관리자 모드
     db: Session = Depends(get_db)
 ):
-    """메모 목록 조회 (날짜별 필터링)"""
+    """메모 목록 조회 (날짜별 필터링 + 관리자 모드)"""
     username = request.session.get("user")
     if not username:
         raise HTTPException(status_code=401, detail="로그인이 필요합니다")
@@ -1542,10 +1543,14 @@ def get_memos_list(
     if not current_user:
         raise HTTPException(status_code=404, detail="사용자를 찾을 수 없습니다")
     
-    # 기본 쿼리 (관리자는 전체, 일반 사용자는 자기 것만)
-    if current_user.is_admin:
-        query = db.query(PersonalMemo).options(joinedload(PersonalMemo.user))
+    # ⭐ 쿼리 결정
+    if current_user.is_admin and admin_mode:
+        # 관리자 모드: 다른 직원 메모만! (자기 것 제외!)
+        query = db.query(PersonalMemo).options(joinedload(PersonalMemo.user)).filter(
+            PersonalMemo.user_id != current_user.id  # ⭐ 자기 것 제외!
+        )
     else:
+        # 일반 모드: 자기 것만
         query = db.query(PersonalMemo).filter(PersonalMemo.user_id == current_user.id)
     
     # 완료된 메모 제외
