@@ -170,7 +170,8 @@ async def marketing_cafe(request: Request, db: Session = Depends(get_db)):
         'no_keywords': "키워드가 없습니다.",
         'invalid_keywords': "키워드 형식이 잘못되었습니다.",
         'no_memberships': "활성 연동이 없습니다.",
-        'no_data': "활성 상품이나 연동이 없습니다."
+        'no_data': "활성 상품이나 연동이 없습니다.",
+        'no_available_memberships': "사용 가능한 활성 연동이 없습니다. 모든 연동이 10개 제한에 도달했거나 활동정지/졸업 상태입니다."  # ⭐ 추가
     }
     error_message = error_messages.get(error)
     
@@ -1276,24 +1277,53 @@ async def assign_next_task(request: Request, db: Session = Depends(get_db)):
             keyword_index += 1
             continue
         
-        # 카페 선택 (순환)
-        membership = active_memberships[created_count % len(active_memberships)]
+        # ⭐ 사용 가능한 연동 찾기 (활성 상태만!)
+        found_membership = None
+        attempts = 0
         
-        # 10개 제한 체크
-        total_posts = db.query(PostSchedule).filter(
-            PostSchedule.account_id == membership.account_id,
-            PostSchedule.cafe_id == membership.cafe_id,
-            PostSchedule.status.in_(['pending', 'in_progress', 'completed'])
-        ).count()
+        while attempts < len(active_memberships):
+            membership = active_memberships[(created_count + attempts) % len(active_memberships)]
+            
+            # ⭐ 상태 재확인 (DB에서 최신 상태 가져오기)
+            current_membership = db.query(CafeMembership).filter(
+                CafeMembership.id == membership.id
+            ).first()
+            
+            if not current_membership or current_membership.status != 'active':
+                attempts += 1
+                continue  # 비활성 연동은 건너뜀
+            
+            # ⭐ 10개 제한 체크
+            total_posts = db.query(PostSchedule).filter(
+                PostSchedule.account_id == membership.account_id,
+                PostSchedule.cafe_id == membership.cafe_id,
+                PostSchedule.status.in_(['pending', 'in_progress', 'completed'])
+            ).count()
+            
+            if total_posts >= 10:
+                # ⭐ 자동 졸업 처리!
+                current_membership.status = 'graduated'
+                db.commit()
+                print(f"🎓 자동 졸업: {membership.account.account_id} + {membership.cafe.name} (10개 도달)")
+                attempts += 1
+                continue  # 다음 연동 시도
+            
+            # ⭐ 사용 가능한 연동 찾음!
+            found_membership = membership
+            break
         
-        if total_posts >= 10:
-            keyword_index += 1
-            continue
+        if not found_membership:
+            # ⭐ 사용 가능한 연동 없음!
+            db.commit()
+            return RedirectResponse(
+                url=f"/marketing/cafe?tab=status&date={target_date}&error=no_available_memberships",
+                status_code=303
+            )
         
         # 제목 생성
         post_title = generate_post_title(current_user.username, target_date, current_user.id, db)
         
-        # MarketingPost 생성
+        # ⭐ MarketingPost 생성 (found_membership 사용!)
         new_post = MarketingPost(
             marketing_product_id=mp.id,
             keyword_text=keyword,
@@ -1301,18 +1331,18 @@ async def assign_next_task(request: Request, db: Session = Depends(get_db)):
             post_body="",
             post_url="",
             worker_id=current_user.id,
-            account_id=membership.account_id,
-            cafe_id=membership.cafe_id
+            account_id=found_membership.account_id,
+            cafe_id=found_membership.cafe_id
         )
         db.add(new_post)
         db.flush()
         
-        # PostSchedule 생성 (선택된 날짜로)
+        # ⭐ PostSchedule 생성
         new_schedule = PostSchedule(
-            scheduled_date=target_date,  # ✅ 선택된 날짜
+            scheduled_date=target_date,
             worker_id=current_user.id,
-            account_id=membership.account_id,
-            cafe_id=membership.cafe_id,
+            account_id=found_membership.account_id,
+            cafe_id=found_membership.cafe_id,
             marketing_product_id=mp.id,
             keyword_text=keyword,
             status="pending",

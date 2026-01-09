@@ -25,7 +25,7 @@ from database import (
     AutomationWorkerPC, AutomationAccount, AutomationCafe,
     AutomationPrompt, AutomationSchedule, AutomationTask,
     AutomationPost, AutomationComment, MarketingProduct, Product,
-    MarketingPost, User  # CommentScript 임시 제거
+    MarketingPost, User, CommentScript  # ⭐ 다시 추가!
 )
 
 router = APIRouter(prefix="/automation", tags=["automation"])
@@ -1493,4 +1493,176 @@ async def get_account_usage(db: Session = Depends(get_db)):
         'success': True,
         'account_usage': account_stats
     })
+
+
+# ============================================
+# 댓글 원고 관리 API
+# ============================================
+
+@router.post("/api/comment-scripts/parse")
+async def parse_comment_scripts(
+    post_task_id: int = Form(...),
+    script_text: str = Form(...),
+    db: Session = Depends(get_db)
+):
+    # 댓글 원고 파싱 및 저장
+    from utils.comment_parser import parse_comment_scripts, validate_comment_scripts
+    
+    try:
+        post_task = db.query(AutomationTask).get(post_task_id)
+        if not post_task or post_task.task_type != 'post':
+            return JSONResponse({'success': False, 'message': '본문 Task를 찾을 수 없습니다.'}, status_code=404)
+        
+        scripts = parse_comment_scripts(script_text)
+        if not scripts:
+            return JSONResponse({'success': False, 'message': '파싱할 댓글 원고가 없습니다.'}, status_code=400)
+        
+        validation = validate_comment_scripts(scripts)
+        if not validation['valid']:
+            return JSONResponse({'success': False, 'message': '유효성 검증 실패', 'errors': validation['errors']}, status_code=400)
+        
+        db.query(CommentScript).filter(CommentScript.post_task_id == post_task_id).delete()
+        db.commit()
+        
+        saved_scripts = []
+        for script in scripts:
+            comment_script = CommentScript(
+                post_task_id=post_task_id,
+                group_number=script['group'],
+                sequence_number=script['sequence'],
+                pc_number=script['pc'],
+                content=script['content'],
+                is_new_comment=script['is_new'],
+                parent_group=script['parent_group'],
+                status='pending'
+            )
+            db.add(comment_script)
+            saved_scripts.append(comment_script)
+        
+        db.commit()
+        
+        return JSONResponse({
+            'success': True,
+            'message': f'{len(saved_scripts)}개 댓글 원고 저장 완료',
+            'total_scripts': len(saved_scripts),
+            'groups': max([s['group'] for s in scripts])
+        })
+        
+    except Exception as e:
+        db.rollback()
+        return JSONResponse({'success': False, 'message': f'오류 발생: {str(e)}'}, status_code=500)
+
+
+@router.get("/api/comment-scripts/list")
+async def get_comment_scripts(
+    post_task_id: int = Query(...),
+    db: Session = Depends(get_db)
+):
+    # 특정 본문 Task의 댓글 원고 목록
+    scripts = db.query(CommentScript).filter(
+        CommentScript.post_task_id == post_task_id
+    ).order_by(
+        CommentScript.group_number,
+        CommentScript.sequence_number
+    ).all()
+    
+    groups = {}
+    for script in scripts:
+        group_num = script.group_number
+        if group_num not in groups:
+            groups[group_num] = []
+        
+        groups[group_num].append({
+            'id': script.id,
+            'group': script.group_number,
+            'sequence': script.sequence_number,
+            'pc_number': script.pc_number,
+            'content': script.content,
+            'is_new_comment': script.is_new_comment,
+            'parent_group': script.parent_group,
+            'status': script.status,
+            'completed_at': script.completed_at.strftime('%Y-%m-%d %H:%M:%S') if script.completed_at else None
+        })
+    
+    return JSONResponse({
+        'success': True,
+        'scripts': [s for s in scripts],
+        'groups': groups,
+        'total_count': len(scripts),
+        'total_groups': len(groups)
+    })
+
+
+@router.post("/api/comment-scripts/create-tasks")
+async def create_comment_tasks(
+    post_task_id: int = Form(...),
+    db: Session = Depends(get_db)
+):
+    # 댓글 원고에서 AutomationTask 생성
+    try:
+        post_task = db.query(AutomationTask).get(post_task_id)
+        if not post_task or post_task.status != 'completed' or not post_task.post_url:
+            return JSONResponse({'success': False, 'message': '본문 글이 완료되어야 합니다.'}, status_code=400)
+        
+        scripts = db.query(CommentScript).filter(
+            CommentScript.post_task_id == post_task_id,
+            CommentScript.status == 'pending'
+        ).order_by(CommentScript.group_number, CommentScript.sequence_number).all()
+        
+        if not scripts:
+            return JSONResponse({'success': False, 'message': '생성할 댓글 원고가 없습니다.'}, status_code=404)
+        
+        created_tasks = []
+        for script in scripts:
+            pc = db.query(AutomationWorkerPC).filter(AutomationWorkerPC.pc_number == script.pc_number).first()
+            if not pc:
+                continue
+            
+            account = db.query(AutomationAccount).filter(
+                AutomationAccount.assigned_pc_id == pc.id,
+                AutomationAccount.status == 'active'
+            ).first()
+            if not account:
+                continue
+            
+            task = AutomationTask(
+                task_type='comment' if script.is_new_comment else 'reply',
+                mode=post_task.mode,
+                schedule_id=post_task.schedule_id,
+                scheduled_time=get_kst_now(),
+                content=script.content,
+                parent_task_id=None,
+                order_sequence=script.group_number * 100 + script.sequence_number,
+                assigned_pc_id=pc.id,
+                assigned_account_id=account.id,
+                cafe_id=post_task.cafe_id,
+                status='pending',
+                priority=0
+            )
+            db.add(task)
+            db.flush()
+            
+            script.generated_task_id = task.id
+            script.status = 'task_created'
+            created_tasks.append(task)
+        
+        db.commit()
+        
+        for task in created_tasks:
+            if task.assigned_pc_id in worker_connections:
+                try:
+                    await worker_connections[task.assigned_pc_id].send_json({
+                        'type': 'new_task',
+                        'task_id': task.id,
+                        'task_type': task.task_type,
+                        'content': task.content[:50] + '...' if len(task.content) > 50 else task.content
+                    })
+                except:
+                    pass
+        
+        return JSONResponse({'success': True, 'message': f'{len(created_tasks)}개 댓글 Task 생성 완료', 'total_tasks': len(created_tasks)})
+        
+    except Exception as e:
+        db.rollback()
+        return JSONResponse({'success': False, 'message': f'오류 발생: {str(e)}'}, status_code=500)
 
