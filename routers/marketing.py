@@ -171,7 +171,10 @@ async def marketing_cafe(request: Request, db: Session = Depends(get_db)):
         'invalid_keywords': "키워드 형식이 잘못되었습니다.",
         'no_memberships': "활성 연동이 없습니다.",
         'no_data': "활성 상품이나 연동이 없습니다.",
-        'no_available_memberships': "사용 가능한 활성 연동이 없습니다. 모든 연동이 10개 제한에 도달했거나 활동정지/졸업 상태입니다."  # ⭐ 추가
+        'no_available_memberships': "사용 가능한 활성 연동이 없습니다. 모든 연동이 10개 제한에 도달했거나 활동정지/졸업 상태입니다.",
+        'no_product_selected': "상품을 선택해주세요.",
+        'invalid_product': "유효하지 않은 상품입니다.",
+        'product_not_found': "선택한 상품을 찾을 수 없습니다."
     }
     error_message = error_messages.get(error)
     
@@ -1200,9 +1203,10 @@ async def assign_next_task(request: Request, db: Session = Depends(get_db)):
     if not current_user:
         return RedirectResponse(url="/login", status_code=303)
     
-    # ✅ 폼에서 날짜 받기
+    # ⭐ 폼에서 날짜 및 상품 받기
     form_data = await request.form()
     target_date_str = form_data.get('target_date')
+    product_id_str = form_data.get('product_id')  # ⭐ 상품 ID
     
     if target_date_str:
         try:
@@ -1211,6 +1215,15 @@ async def assign_next_task(request: Request, db: Session = Depends(get_db)):
             target_date = date.today()
     else:
         target_date = date.today()
+    
+    # ⭐ 상품 ID 확인
+    if not product_id_str:
+        return RedirectResponse(url=f"/marketing/cafe?tab=status&date={target_date}&error=no_product_selected", status_code=303)
+    
+    try:
+        selected_product_id = int(product_id_str)
+    except:
+        return RedirectResponse(url=f"/marketing/cafe?tab=status&date={target_date}&error=invalid_product", status_code=303)
     
     daily_quota = current_user.daily_quota or 6
     
@@ -1226,33 +1239,36 @@ async def assign_next_task(request: Request, db: Session = Depends(get_db)):
     if to_create <= 0:
         return RedirectResponse(url=f"/marketing/cafe?tab=status&date={target_date}", status_code=303)
     
-    # ✅ 활성 마케팅 상품과 연동 가져오기
-    marketing_products = db.query(MarketingProduct).options(
+    # ⭐ 선택한 상품만 가져오기
+    selected_product = db.query(MarketingProduct).options(
         joinedload(MarketingProduct.product)
-    ).all()
+    ).get(selected_product_id)
     
+    if not selected_product:
+        return RedirectResponse(url=f"/marketing/cafe?tab=status&date={target_date}&error=product_not_found", status_code=303)
+    
+    # ⭐ 활성 연동만 가져오기
     active_memberships = db.query(CafeMembership).filter(
         CafeMembership.status == 'active'
     ).all()
     
-    if not marketing_products or not active_memberships:
+    if not active_memberships:
         return RedirectResponse(url=f"/marketing/cafe?tab=status&date={target_date}&error=no_data", status_code=303)
     
-    # ✅ 각 상품의 키워드 수집
+    # ⭐ 선택한 상품의 활성 키워드만 수집!
     all_keywords = []
-    for mp in marketing_products:
-        if mp.keywords:
-            try:
-                keywords_data = json.loads(mp.keywords)
-                for kw_item in keywords_data:
-                    if kw_item.get('active', True):
-                        all_keywords.append({
-                            'keyword': kw_item['keyword'],
-                            'product_id': mp.id,
-                            'product': mp
-                        })
-            except:
-                continue
+    if selected_product.keywords:
+        try:
+            keywords_data = json.loads(selected_product.keywords)
+            for kw_item in keywords_data:
+                if kw_item.get('active', True):
+                    all_keywords.append({
+                        'keyword': kw_item['keyword'],
+                        'product_id': selected_product.id,
+                        'product': selected_product
+                    })
+        except:
+            pass
     
     if not all_keywords:
         return RedirectResponse(url=f"/marketing/cafe?tab=status&date={target_date}&error=no_keywords", status_code=303)
@@ -1266,11 +1282,11 @@ async def assign_next_task(request: Request, db: Session = Depends(get_db)):
         keyword = kw_data['keyword']
         mp = kw_data['product']
         
-        # 이 키워드의 활성 글 수 체크 (6개 제한)
+        # ⭐ 이 키워드의 완료된 글 수 체크 (6개 제한, completed만!)
         active_count = db.query(PostSchedule).filter(
             PostSchedule.keyword_text == keyword,
             PostSchedule.marketing_product_id == mp.id,
-            PostSchedule.status.in_(['completed', 'pending', 'in_progress'])
+            PostSchedule.status == 'completed'  # ⭐ completed만!
         ).count()
         
         if active_count >= 6:
@@ -1828,6 +1844,37 @@ async def delete_target_cafe(cafe_id: int, db: Session = Depends(get_db)):
         db.delete(cafe_to_delete)
         db.commit()
     return RedirectResponse(url="/marketing/cafe?tab=cafes", status_code=303)
+
+
+# ⭐ 상품별 키워드 사용 현황 API
+@router.get("/api/product/{product_id}/keyword-stats")
+async def get_product_keyword_stats(product_id: int, db: Session = Depends(get_db)):
+    """상품별 키워드 사용 현황"""
+    product = db.query(MarketingProduct).get(product_id)
+    if not product:
+        return {"success": False, "message": "상품을 찾을 수 없습니다"}
+    
+    # 총 키워드 수
+    total_keywords = 0
+    if product.keywords:
+        try:
+            keywords_data = json.loads(product.keywords)
+            total_keywords = len([k for k in keywords_data if k.get('active', True)])
+        except:
+            total_keywords = 0
+    
+    # 1개 이상 글이 작성된 키워드 수 (completed만)
+    used_keywords = db.query(PostSchedule.keyword_text).filter(
+        PostSchedule.marketing_product_id == product_id,
+        PostSchedule.status == 'completed'
+    ).distinct().count()
+    
+    return {
+        "success": True,
+        "total_keywords": total_keywords,
+        "used_keywords": used_keywords
+    }
+
 
 # --- Marketing Product Management (기존 유지) ---
 # --- Marketing Product Management (수정됨) ---

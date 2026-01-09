@@ -1019,13 +1019,10 @@
                         </div>
                         <div>
                             {% if remaining_tasks > 0 %}
-                            <!-- ✅ 날짜를 hidden input으로 전달 -->
-                            <form action="/marketing/task/assign-next" method="post" class="d-inline">
-                                <input type="hidden" name="target_date" value="{{ selected_date }}">
-                                <button type="submit" class="btn btn-light btn-lg">
-                                    <i class="bi bi-plus-circle"></i> 다음 작업 할당받기
-                                </button>
-                            </form>
+                            <!-- ⭐ 상품 선택 모달 열기 -->
+                            <button type="button" class="btn btn-light btn-lg" data-bs-toggle="modal" data-bs-target="#selectProductModal">
+                                <i class="bi bi-plus-circle"></i> 다음 작업 할당받기
+                            </button>
                             {% else %}
                             <button type="button" class="btn btn-success btn-lg" disabled>
                                 <i class="bi bi-check-circle"></i> 오늘 작업 완료!
@@ -1720,6 +1717,67 @@
 </div>
 
 
+<!-- ⭐ 상품 선택 모달 -->
+<div class="modal fade" id="selectProductModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-box-seam"></i> 작업할 상품 선택</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form action="/marketing/task/assign-next" method="post">
+                <div class="modal-body">
+                    <input type="hidden" name="target_date" value="{{ selected_date }}">
+                    
+                    <div class="alert alert-info">
+                        <i class="bi bi-lightbulb"></i> 
+                        <strong>안내:</strong> 작업할 상품을 선택하세요. 해당 상품의 모든 키워드로 스케줄이 생성됩니다.
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">상품 선택 *</label>
+                        <select name="product_id" class="form-select" required onchange="updateProductInfo(this.value)">
+                            <option value="">선택하세요</option>
+                            {% for mp in marketing_products %}
+                            <option value="{{ mp.id }}" 
+                                    data-total-keywords="{{ mp.keyword_count or 0 }}"
+                                    data-used-keywords="0">
+                                {{ mp.product.name if mp.product else '상품명 없음' }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <div id="productInfo" style="display: none;">
+                        <div class="card bg-light">
+                            <div class="card-body">
+                                <h6 class="card-title"><i class="bi bi-info-circle"></i> 키워드 현황</h6>
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <p class="mb-1"><strong>총 키워드:</strong> <span id="totalKeywords">0</span>개</p>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <p class="mb-1"><strong>사용 중:</strong> <span id="usedKeywords">0</span>개 (1개 이상 글)</p>
+                                    </div>
+                                </div>
+                                <div class="progress mt-2">
+                                    <div id="progressBar" class="progress-bar" role="progressbar" style="width: 0%">0%</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">취소</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-check-lg"></i> 할당받기
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 <!-- 계정 수정 모달 -->
 <div class="modal fade" id="editAccountModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog">
@@ -1936,6 +1994,42 @@ function changeDate(days) {
 
 function selectDate(date) {
     window.location.href = `/marketing/cafe?tab=status&date=${date}`;
+}
+
+// ========================================
+// 📦 상품 정보 업데이트
+// ========================================
+
+async function updateProductInfo(productId) {
+    const infoDiv = document.getElementById('productInfo');
+    
+    if (!productId) {
+        infoDiv.style.display = 'none';
+        return;
+    }
+    
+    try {
+        // ⭐ 상품별 키워드 사용 현황 조회
+        const response = await fetch(`/marketing/api/product/${productId}/keyword-stats`);
+        const data = await response.json();
+        
+        if (data.success) {
+            document.getElementById('totalKeywords').textContent = data.total_keywords;
+            document.getElementById('usedKeywords').textContent = data.used_keywords;
+            
+            const percentage = data.total_keywords > 0 
+                ? Math.round((data.used_keywords / data.total_keywords) * 100)
+                : 0;
+            
+            const progressBar = document.getElementById('progressBar');
+            progressBar.style.width = percentage + '%';
+            progressBar.textContent = percentage + '%';
+            
+            infoDiv.style.display = 'block';
+        }
+    } catch (error) {
+        console.error('상품 정보 로드 오류:', error);
+    }
 }
 
 // ========================================
