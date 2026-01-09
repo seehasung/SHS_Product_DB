@@ -24,7 +24,7 @@ from database import (
     Base, engine, SessionLocal, User, PostSchedule, MarketingPost,
     MarketingProduct, Product
 )
-from routers import auth, admin_users, product, marketing, tasks, blog, homepage, orders, automation  
+from routers import auth, admin_users, product, marketing, tasks, blog, homepage, orders, automation, ai_automation  
 
 # ✅ Render Disk 경로 설정
 STATIC_DIR = "/opt/render/project/src/static"
@@ -121,6 +121,7 @@ app.include_router(tasks.router)
 app.include_router(blog.router)
 app.include_router(orders.router)
 app.include_router(automation.router)  # ⭐ 자동화 시스템
+app.include_router(ai_automation.router)  # ⭐ AI 자동화 마케팅
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 

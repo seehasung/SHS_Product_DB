@@ -138,6 +138,7 @@
     
     <!-- 탭 네비게이션 -->
     <ul class="nav nav-tabs" role="tablist">
+        <!-- 휴먼 모드 -->
         <li class="nav-item">
             <a class="nav-link active" data-bs-toggle="tab" href="#dashboard">
                 <i class="bi bi-speedometer2"></i> 대시보드
@@ -160,12 +161,47 @@
         </li>
         <li class="nav-item">
             <a class="nav-link" data-bs-toggle="tab" href="#prompts">
-                <i class="bi bi-chat-square-text"></i> 프롬프트 관리
+                <i class="bi bi-chat-square-text"></i> 프롬프트 (휴먼)
             </a>
         </li>
         <li class="nav-item">
             <a class="nav-link" data-bs-toggle="tab" href="#schedules">
-                <i class="bi bi-calendar-week"></i> 스케줄 관리
+                <i class="bi bi-calendar-week"></i> 스케줄 (휴먼)
+            </a>
+        </li>
+        
+        <!-- 구분선 -->
+        <li class="nav-item" style="margin: 0 10px; border-left: 2px solid #e1e8ed;"></li>
+        
+        <!-- AI 모드 -->
+        <li class="nav-item">
+            <a class="nav-link" data-bs-toggle="tab" href="#ai-product-setup">
+                <i class="bi bi-stars"></i> AI 상품 세팅
+            </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" data-bs-toggle="tab" href="#ai-prompt-templates">
+                <i class="bi bi-file-text"></i> AI 프롬프트 템플릿
+            </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" data-bs-toggle="tab" href="#ai-prompts">
+                <i class="bi bi-chat-dots"></i> AI 프롬프트
+            </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" data-bs-toggle="tab" href="#ai-schedules">
+                <i class="bi bi-calendar-check"></i> AI 스케줄
+            </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" data-bs-toggle="tab" href="#ai-posts">
+                <i class="bi bi-file-earmark-text"></i> AI 신규 발행
+            </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" data-bs-toggle="tab" href="#ai-connections">
+                <i class="bi bi-link-45deg"></i> AI 연동 관리
             </a>
         </li>
     </ul>
@@ -462,6 +498,172 @@
                 </div>
             </div>
         </div>
+        
+        <!-- ============================================ -->
+        <!-- AI 자동화 탭들 -->
+        <!-- ============================================ -->
+        
+        <!-- AI 상품 세팅 탭 -->
+        <div class="tab-pane fade" id="ai-product-setup">
+            <div class="content-card">
+                <div class="card-header-custom">
+                    <h4><i class="bi bi-stars"></i> AI 상품 세팅</h4>
+                    <button class="btn btn-primary" onclick="showAddProductModal()">
+                        <i class="bi bi-plus-circle"></i> 상품 추가
+                    </button>
+                </div>
+                
+                <div class="alert alert-info">
+                    <i class="bi bi-info-circle"></i>
+                    <strong>안내:</strong> 마케팅 상품을 AI 자동화에 추가하고 상세 정보를 입력하세요.
+                </div>
+                
+                <div id="aiProductList" class="row">
+                    <!-- JavaScript로 로드 -->
+                </div>
+            </div>
+        </div>
+        
+        <!-- AI 프롬프트 템플릿 탭 -->
+        <div class="tab-pane fade" id="ai-prompt-templates">
+            <div class="content-card">
+                <div class="card-header-custom">
+                    <h4><i class="bi bi-file-text"></i> AI 프롬프트 템플릿</h4>
+                    <button class="btn btn-primary" onclick="showAddTemplateModal()">
+                        <i class="bi bi-plus-circle"></i> 템플릿 추가
+                    </button>
+                </div>
+                
+                <div class="alert alert-info">
+                    <i class="bi bi-info-circle"></i>
+                    <strong>안내:</strong> 대안성/정보성 프롬프트 템플릿을 관리합니다. 변수 기능을 활용하세요.
+                </div>
+                
+                <div id="promptTemplatesList">
+                    <!-- JavaScript로 로드 -->
+                </div>
+            </div>
+        </div>
+        
+        <!-- AI 프롬프트 관리 탭 -->
+        <div class="tab-pane fade" id="ai-prompts">
+            <div class="content-card">
+                <div class="card-header-custom">
+                    <h4><i class="bi bi-chat-dots"></i> AI 프롬프트 관리</h4>
+                    <button class="btn btn-primary" onclick="showAddPromptModal()">
+                        <i class="bi bi-plus-circle"></i> 프롬프트 추가
+                    </button>
+                </div>
+                
+                <div class="mb-3">
+                    <div class="row">
+                        <div class="col-md-4">
+                            <select class="form-select" id="promptProductFilter" onchange="loadPrompts()">
+                                <option value="">전체 상품</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <select class="form-select" id="promptTypeFilter" onchange="loadPrompts()">
+                                <option value="all">전체 분류</option>
+                                <option value="alternative">대안성</option>
+                                <option value="informational">정보성</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                
+                <div id="promptsList">
+                    <!-- JavaScript로 로드 -->
+                </div>
+            </div>
+        </div>
+        
+        <!-- AI 스케줄 관리 탭 -->
+        <div class="tab-pane fade" id="ai-schedules">
+            <div class="content-card">
+                <div class="card-header-custom">
+                    <h4><i class="bi bi-calendar-check"></i> AI 스케줄 관리</h4>
+                    <button class="btn btn-primary" onclick="showAddScheduleModal()">
+                        <i class="bi bi-plus-circle"></i> 스케줄 생성
+                    </button>
+                </div>
+                
+                <div class="mb-3">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <input type="text" class="form-control" id="scheduleProductSearch" 
+                                   placeholder="상품명 검색..." onkeyup="searchSchedules()">
+                        </div>
+                        <div class="col-md-3">
+                            <select class="form-select" id="scheduleStatusFilter" onchange="searchSchedules()">
+                                <option value="all">전체 상태</option>
+                                <option value="scheduled">진행예정</option>
+                                <option value="in_progress">진행중</option>
+                                <option value="completed">종료</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                
+                <div id="schedulesList">
+                    <!-- JavaScript로 로드 -->
+                </div>
+                
+                <div id="schedulePagination" class="mt-3">
+                    <!-- 페이지네이션 -->
+                </div>
+            </div>
+        </div>
+        
+        <!-- AI 신규 발행 관리 탭 -->
+        <div class="tab-pane fade" id="ai-posts">
+            <div class="content-card">
+                <div class="card-header-custom">
+                    <h4><i class="bi bi-file-earmark-text"></i> AI 신규 발행 관리</h4>
+                </div>
+                
+                <div class="mb-3">
+                    <div class="row">
+                        <div class="col-md-4">
+                            <select class="form-select" id="postAccountFilter" onchange="loadGeneratedPosts()">
+                                <option value="">전체 계정</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <select class="form-select" id="postCafeFilter" onchange="loadGeneratedPosts()">
+                                <option value="">전체 카페</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                
+                <div id="generatedPostsList">
+                    <!-- JavaScript로 로드 -->
+                </div>
+            </div>
+        </div>
+        
+        <!-- AI 연동 관리 탭 -->
+        <div class="tab-pane fade" id="ai-connections">
+            <div class="content-card">
+                <div class="card-header-custom">
+                    <h4><i class="bi bi-link-45deg"></i> AI 연동 관리</h4>
+                    <button class="btn btn-primary" onclick="showAddConnectionModal()">
+                        <i class="bi bi-plus-circle"></i> 연동 추가
+                    </button>
+                </div>
+                
+                <div class="alert alert-warning">
+                    <i class="bi bi-exclamation-triangle"></i>
+                    <strong>주의:</strong> AI 자동화 전용 연동입니다. 휴먼 모드 계정/카페와는 별개로 관리됩니다.
+                </div>
+                
+                <div id="connectionsList">
+                    <!-- JavaScript로 로드 -->
+                </div>
+            </div>
+        </div>
+        
     </div>
 </div>
 
@@ -1845,6 +2047,385 @@ async function createCommentTasks(taskId) {
         alert('❌ 생성 중 오류가 발생했습니다');
     }
 }
+
+// ============================================
+// AI 자동화 관련 함수들
+// ============================================
+
+// AI 상품 목록 로드
+async function loadAIProducts() {
+    try {
+        const response = await fetch('/ai-automation/api/products');
+        const data = await response.json();
+        
+        if (data.success) {
+            const container = document.getElementById('aiProductList');
+            container.innerHTML = '';
+            
+            if (data.products.length === 0) {
+                container.innerHTML = `
+                    <div class="col-12">
+                        <div class="empty-state">
+                            <i class="bi bi-box-seam"></i>
+                            <p>등록된 AI 상품이 없습니다.<br>상품을 추가해주세요.</p>
+                        </div>
+                    </div>
+                `;
+                return;
+            }
+            
+            data.products.forEach(product => {
+                const card = `
+                    <div class="col-md-6 col-lg-4 mb-4">
+                        <div class="card h-100 shadow-sm">
+                            <div class="card-body">
+                                <div class="d-flex align-items-center mb-3">
+                                    <img src="${product.thumbnail || '/static/images/no-image.png'}" 
+                                         class="img-thumbnail me-3" style="width: 80px; height: 80px; object-fit: cover;">
+                                    <div>
+                                        <h5 class="card-title mb-1">${product.product_name}</h5>
+                                        <small class="text-muted">${product.product_code}</small>
+                                    </div>
+                                </div>
+                                <div class="mb-3">
+                                    <span class="badge ${product.use_for_cafe ? 'bg-primary' : 'bg-secondary'}">카페</span>
+                                    <span class="badge ${product.use_for_blog ? 'bg-success' : 'bg-secondary'}">블로그</span>
+                                </div>
+                                <div class="d-grid gap-2">
+                                    <button class="btn btn-sm btn-primary" onclick="editAIProduct(${product.id})">
+                                        <i class="bi bi-pencil"></i> 상세정보 수정
+                                    </button>
+                                    <div class="btn-group">
+                                        <button class="btn btn-sm btn-info" onclick="manageKeywords(${product.id})">
+                                            <i class="bi bi-key"></i> 키워드
+                                        </button>
+                                        <button class="btn btn-sm btn-success" onclick="manageReferences(${product.id})">
+                                            <i class="bi bi-book"></i> 레퍼런스
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                container.innerHTML += card;
+            });
+        }
+    } catch (error) {
+        console.error('AI 상품 로드 오류:', error);
+    }
+}
+
+// 탭 전환 시 데이터 로드
+document.addEventListener('DOMContentLoaded', function() {
+    // 탭 클릭 이벤트
+    const tabLinks = document.querySelectorAll('[data-bs-toggle="tab"]');
+    tabLinks.forEach(tab => {
+        tab.addEventListener('shown.bs.tab', function (event) {
+            const targetId = event.target.getAttribute('href').substring(1);
+            
+            switch(targetId) {
+                case 'ai-product-setup':
+                    loadAIProducts();
+                    break;
+                case 'ai-prompt-templates':
+                    loadPromptTemplates();
+                    break;
+                case 'ai-prompts':
+                    loadPrompts();
+                    break;
+                case 'ai-schedules':
+                    loadSchedules();
+                    break;
+                case 'ai-posts':
+                    loadGeneratedPosts();
+                    break;
+                case 'ai-connections':
+                    loadConnections();
+                    break;
+            }
+        });
+    });
+});
+
+// 프롬프트 템플릿 로드
+async function loadPromptTemplates() {
+    try {
+        const response = await fetch('/ai-automation/api/prompt-templates');
+        const data = await response.json();
+        
+        if (data.success) {
+            const container = document.getElementById('promptTemplatesList');
+            container.innerHTML = '';
+            
+            if (data.templates.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <i class="bi bi-file-text"></i>
+                        <p>등록된 템플릿이 없습니다.</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            const table = `
+                <div class="table-responsive">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>템플릿명</th>
+                                <th>분류</th>
+                                <th>생성일</th>
+                                <th>관리</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${data.templates.map(t => `
+                                <tr>
+                                    <td><strong>${t.template_name}</strong></td>
+                                    <td>
+                                        <span class="badge ${t.template_type === 'alternative' ? 'bg-success' : 'bg-info'}">
+                                            ${t.template_type === 'alternative' ? '대안성' : '정보성'}
+                                        </span>
+                                    </td>
+                                    <td>${new Date(t.created_at).toLocaleDateString()}</td>
+                                    <td>
+                                        <button class="btn btn-sm btn-primary" onclick="editTemplate(${t.id})">
+                                            <i class="bi bi-pencil"></i>
+                                        </button>
+                                        <button class="btn btn-sm btn-secondary" onclick="duplicateTemplate(${t.id})">
+                                            <i class="bi bi-files"></i>
+                                        </button>
+                                        <button class="btn btn-sm btn-danger" onclick="deleteTemplate(${t.id})">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            `;
+            container.innerHTML = table;
+        }
+    } catch (error) {
+        console.error('템플릿 로드 오류:', error);
+    }
+}
+
+// 프롬프트 로드
+async function loadPrompts() {
+    const productFilter = document.getElementById('promptProductFilter')?.value || '';
+    const typeFilter = document.getElementById('promptTypeFilter')?.value || 'all';
+    
+    try {
+        const response = await fetch(`/ai-automation/api/prompts?product=${productFilter}&type=${typeFilter}`);
+        const data = await response.json();
+        
+        if (data.success) {
+            const container = document.getElementById('promptsList');
+            container.innerHTML = '';
+            
+            if (data.prompts.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <i class="bi bi-chat-dots"></i>
+                        <p>등록된 프롬프트가 없습니다.</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            const table = `
+                <div class="table-responsive">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>상품명</th>
+                                <th>분류</th>
+                                <th>Temperature</th>
+                                <th>Max Tokens</th>
+                                <th>이미지 생성</th>
+                                <th>관리</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${data.prompts.map(p => `
+                                <tr>
+                                    <td><strong>${p.product_name}</strong></td>
+                                    <td>
+                                        <span class="badge ${p.keyword_classification === 'alternative' ? 'bg-success' : 'bg-info'}">
+                                            ${p.keyword_classification === 'alternative' ? '대안성' : '정보성'}
+                                        </span>
+                                    </td>
+                                    <td>${p.temperature}</td>
+                                    <td>${p.max_tokens}</td>
+                                    <td>${p.generate_images ? '✅' : '❌'}</td>
+                                    <td>
+                                        <button class="btn btn-sm btn-primary" onclick="editPrompt(${p.id})">
+                                            <i class="bi bi-pencil"></i>
+                                        </button>
+                                        <button class="btn btn-sm btn-danger" onclick="deletePrompt(${p.id})">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            `;
+            container.innerHTML = table;
+        }
+    } catch (error) {
+        console.error('프롬프트 로드 오류:', error);
+    }
+}
+
+// 스케줄 로드
+async function loadSchedules(page = 1) {
+    const productSearch = document.getElementById('scheduleProductSearch')?.value || '';
+    const statusFilter = document.getElementById('scheduleStatusFilter')?.value || 'all';
+    
+    try {
+        const response = await fetch(`/ai-automation/api/schedules?page=${page}&search=${productSearch}&status=${statusFilter}`);
+        const data = await response.json();
+        
+        if (data.success) {
+            const container = document.getElementById('schedulesList');
+            container.innerHTML = '';
+            
+            if (data.schedules.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <i class="bi bi-calendar-check"></i>
+                        <p>등록된 스케줄이 없습니다.</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            const table = `
+                <div class="table-responsive">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>상품명</th>
+                                <th>프롬프트 분류</th>
+                                <th>시작일</th>
+                                <th>종료일</th>
+                                <th>일일 개수</th>
+                                <th>예상 총 발행</th>
+                                <th>상태</th>
+                                <th>관리</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${data.schedules.map(s => `
+                                <tr>
+                                    <td><strong>${s.product_name}</strong></td>
+                                    <td>
+                                        <span class="badge ${s.keyword_classification === 'alternative' ? 'bg-success' : 'bg-info'}">
+                                            ${s.keyword_classification === 'alternative' ? '대안성' : '정보성'}
+                                        </span>
+                                    </td>
+                                    <td>${s.start_date}</td>
+                                    <td>${s.end_date}</td>
+                                    <td>${s.daily_post_count}개</td>
+                                    <td><strong>${s.expected_total_posts}개</strong></td>
+                                    <td>
+                                        <span class="badge ${s.status === 'scheduled' ? 'bg-warning' : s.status === 'in_progress' ? 'bg-primary' : 'bg-success'}">
+                                            ${s.status === 'scheduled' ? '진행예정' : s.status === 'in_progress' ? '진행중' : '종료'}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <button class="btn btn-sm btn-danger" onclick="deleteSchedule(${s.id})">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            `;
+            container.innerHTML = table;
+            
+            // 페이지네이션
+            if (data.total_pages > 1) {
+                let pagination = '<nav><ul class="pagination justify-content-center">';
+                for (let i = 1; i <= data.total_pages; i++) {
+                    pagination += `
+                        <li class="page-item ${i === page ? 'active' : ''}">
+                            <a class="page-link" href="#" onclick="loadSchedules(${i}); return false;">${i}</a>
+                        </li>
+                    `;
+                }
+                pagination += '</ul></nav>';
+                document.getElementById('schedulePagination').innerHTML = pagination;
+            }
+        }
+    } catch (error) {
+        console.error('스케줄 로드 오류:', error);
+    }
+}
+
+// 검색 함수
+function searchSchedules() {
+    loadSchedules(1);
+}
+
+// 신규 발행 글 로드
+async function loadGeneratedPosts() {
+    const accountFilter = document.getElementById('postAccountFilter')?.value || '';
+    const cafeFilter = document.getElementById('postCafeFilter')?.value || '';
+    
+    try {
+        const response = await fetch(`/ai-automation/api/generated-posts?account=${accountFilter}&cafe=${cafeFilter}`);
+        const data = await response.json();
+        
+        if (data.success) {
+            const container = document.getElementById('generatedPostsList');
+            // 구현 필요
+            container.innerHTML = '<div class="empty-state"><i class="bi bi-file-earmark-text"></i><p>기능 구현 중...</p></div>';
+        }
+    } catch (error) {
+        console.error('발행 글 로드 오류:', error);
+    }
+}
+
+// 연동 관리 로드
+async function loadConnections() {
+    try {
+        const response = await fetch('/ai-automation/api/connections');
+        const data = await response.json();
+        
+        if (data.success) {
+            const container = document.getElementById('connectionsList');
+            // 구현 필요
+            container.innerHTML = '<div class="empty-state"><i class="bi bi-link-45deg"></i><p>기능 구현 중...</p></div>';
+        }
+    } catch (error) {
+        console.error('연동 로드 오류:', error);
+    }
+}
+
+// 모달 함수들 (스텁)
+function showAddProductModal() { alert('기능 구현 중...'); }
+function editAIProduct(id) { alert('기능 구현 중...'); }
+function manageKeywords(id) { alert('키워드 관리 페이지로 이동합니다.'); }
+function manageReferences(id) { alert('레퍼런스 관리 페이지로 이동합니다.'); }
+function showAddTemplateModal() { alert('기능 구현 중...'); }
+function editTemplate(id) { alert('기능 구현 중...'); }
+function duplicateTemplate(id) { alert('기능 구현 중...'); }
+function deleteTemplate(id) { if(confirm('삭제하시겠습니까?')) alert('기능 구현 중...'); }
+function showAddPromptModal() { alert('기능 구현 중...'); }
+function editPrompt(id) { alert('기능 구현 중...'); }
+function deletePrompt(id) { if(confirm('삭제하시겠습니까?')) alert('기능 구현 중...'); }
+function showAddScheduleModal() { alert('기능 구현 중...'); }
+function deleteSchedule(id) { if(confirm('삭제하시겠습니까?')) alert('기능 구현 중...'); }
+function showAddConnectionModal() { alert('기능 구현 중...'); }
+
 </script>
 {% endblock %}
 

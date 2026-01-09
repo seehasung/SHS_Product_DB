@@ -1,0 +1,182 @@
+{% extends "base.html" %}
+
+{% block title %}레퍼런스 관리 - {{ ai_product.product_name }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row">
+        <div class="col-12">
+            <!-- 상단 헤더 -->
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <a href="/ai-automation/product-setup" class="btn btn-outline-secondary btn-sm mb-2">
+                        <i class="fas fa-arrow-left me-1"></i>상품 세팅으로 돌아가기
+                    </a>
+                    <h2><i class="fas fa-book me-2"></i>레퍼런스 관리</h2>
+                    <p class="text-muted mb-0">
+                        상품: <strong>{{ ai_product.product_name }}</strong>
+                        {% if ai_product.marketing_product and ai_product.marketing_product.product %}
+                        ({{ ai_product.marketing_product.product.product_code }})
+                        {% endif %}
+                    </p>
+                </div>
+                <div>
+                    <button class="btn btn-info" onclick="syncReferences()">
+                        <i class="fas fa-sync me-1"></i>마케팅-카페에서 동기화
+                    </button>
+                </div>
+            </div>
+
+            <!-- 통계 카드 -->
+            <div class="row mb-4">
+                <div class="col-md-3">
+                    <div class="card bg-primary text-white">
+                        <div class="card-body">
+                            <h6 class="card-title">전체 레퍼런스</h6>
+                            <h3 class="mb-0">{{ ai_references|length }}개</h3>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card bg-success text-white">
+                        <div class="card-body">
+                            <h6 class="card-title">대안성 레퍼런스</h6>
+                            <h3 class="mb-0">{{ ai_references|selectattr('reference_type', 'equalto', 'alternative')|list|length }}개</h3>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card bg-info text-white">
+                        <div class="card-body">
+                            <h6 class="card-title">정보성 레퍼런스</h6>
+                            <h3 class="mb-0">{{ ai_references|selectattr('reference_type', 'equalto', 'informational')|list|length }}개</h3>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card bg-secondary text-white">
+                        <div class="card-body">
+                            <h6 class="card-title">미분류 레퍼런스</h6>
+                            <h3 class="mb-0">{{ ai_references|selectattr('reference_type', 'equalto', 'unclassified')|list|length }}개</h3>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 레퍼런스 목록 -->
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">레퍼런스 목록</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th width="5%">#</th>
+                                    <th width="30%">제목</th>
+                                    <th width="15%">분류</th>
+                                    <th width="10%">댓글 수</th>
+                                    <th width="20%">원본 유형</th>
+                                    <th width="20%">관리</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for ai_ref in ai_references %}
+                                <tr>
+                                    <td>{{ loop.index }}</td>
+                                    <td>
+                                        <strong>{{ ai_ref.reference.title }}</strong>
+                                    </td>
+                                    <td>
+                                        <select class="form-select form-select-sm" onchange="updateReferenceType({{ ai_ref.id }}, this.value)">
+                                            <option value="unclassified" {% if ai_ref.reference_type == 'unclassified' %}selected{% endif %}>미분류</option>
+                                            <option value="alternative" {% if ai_ref.reference_type == 'alternative' %}selected{% endif %}>대안성</option>
+                                            <option value="informational" {% if ai_ref.reference_type == 'informational' %}selected{% endif %}>정보성</option>
+                                        </select>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-info">{{ ai_ref.reference.comments|length }}개</span>
+                                    </td>
+                                    <td>
+                                        {% if ai_ref.reference.ref_type == '대안' %}
+                                        <span class="badge bg-success">대안</span>
+                                        {% elif ai_ref.reference.ref_type == '정보' %}
+                                        <span class="badge bg-info">정보</span>
+                                        {% else %}
+                                        <span class="badge bg-secondary">{{ ai_ref.reference.ref_type }}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <a href="/marketing/reference/{{ ai_ref.reference.id }}" class="btn btn-sm btn-primary" target="_blank">
+                                            <i class="fas fa-eye"></i> 상세보기
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% else %}
+                                <tr>
+                                    <td colspan="6" class="text-center text-muted">
+                                        등록된 레퍼런스가 없습니다. "마케팅-카페에서 동기화" 버튼을 클릭해주세요.
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+async function syncReferences() {
+    if (!confirm('마케팅-카페의 레퍼런스를 동기화하시겠습니까?\n기존 레퍼런스는 유지되고, 새로운 레퍼런스만 미분류로 추가됩니다.')) {
+        return;
+    }
+
+    try {
+        const response = await fetch('/ai-automation/references/sync/{{ ai_product.id }}', {
+            method: 'POST'
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            alert(`${data.added_count}개의 레퍼런스가 추가되었습니다.`);
+            location.reload();
+        } else {
+            alert('오류: ' + data.error);
+        }
+    } catch (error) {
+        alert('동기화 중 오류가 발생했습니다.');
+        console.error(error);
+    }
+}
+
+async function updateReferenceType(aiRefId, newType) {
+    try {
+        const formData = new FormData();
+        formData.append('reference_type', newType);
+
+        const response = await fetch(`/ai-automation/references/update/${aiRefId}`, {
+            method: 'POST',
+            body: formData
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            console.log('분류가 업데이트되었습니다.');
+        } else {
+            alert('오류: ' + data.error);
+            location.reload();
+        }
+    } catch (error) {
+        alert('분류 업데이트 중 오류가 발생했습니다.');
+        console.error(error);
+        location.reload();
+    }
+}
+</script>
+{% endblock %}

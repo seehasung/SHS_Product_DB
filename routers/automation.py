@@ -1666,3 +1666,217 @@ async def create_comment_tasks(
         db.rollback()
         return JSONResponse({'success': False, 'message': f'오류 발생: {str(e)}'}, status_code=500)
 
+
+# ============================================
+# AI 자동화 마케팅 API
+# ============================================
+
+from database import (
+    AIMarketingProduct, AIProductKeyword, AIProductReference,
+    AIPromptTemplate, AIPrompt, AIMarketingSchedule, AIGeneratedPost
+)
+
+@router.get("/api/ai/products")
+async def get_ai_products(db: Session = Depends(get_db)):
+    """AI 상품 목록 조회"""
+    try:
+        products = db.query(AIMarketingProduct).options(
+            joinedload(AIMarketingProduct.marketing_product).joinedload(MarketingProduct.product)
+        ).all()
+        
+        products_data = []
+        for p in products:
+            if p.marketing_product and p.marketing_product.product:
+                products_data.append({
+                    'id': p.id,
+                    'product_name': p.product_name,
+                    'product_code': p.marketing_product.product.product_code,
+                    'thumbnail': p.marketing_product.product.thumbnail,
+                    'use_for_cafe': p.use_for_cafe,
+                    'use_for_blog': p.use_for_blog,
+                    'marketing_link': p.marketing_link
+                })
+        
+        return JSONResponse({'success': True, 'products': products_data})
+    except Exception as e:
+        return JSONResponse({'success': False, 'error': str(e)}, status_code=500)
+
+
+@router.get("/api/ai/prompt-templates")
+async def get_prompt_templates(db: Session = Depends(get_db)):
+    """프롬프트 템플릿 목록 조회"""
+    try:
+        templates = db.query(AIPromptTemplate).filter(
+            AIPromptTemplate.is_template == True
+        ).all()
+        
+        templates_data = [{
+            'id': t.id,
+            'template_name': t.template_name,
+            'template_type': t.template_type,
+            'created_at': t.created_at.isoformat() if t.created_at else None
+        } for t in templates]
+        
+        return JSONResponse({'success': True, 'templates': templates_data})
+    except Exception as e:
+        return JSONResponse({'success': False, 'error': str(e)}, status_code=500)
+
+
+@router.get("/api/ai/prompts")
+async def get_prompts(
+    product: Optional[int] = Query(None),
+    type: str = Query('all'),
+    db: Session = Depends(get_db)
+):
+    """프롬프트 목록 조회"""
+    try:
+        query = db.query(AIPrompt).options(
+            joinedload(AIPrompt.ai_product).joinedload(AIMarketingProduct.marketing_product).joinedload(MarketingProduct.product)
+        )
+        
+        if product:
+            query = query.filter(AIPrompt.ai_product_id == product)
+        
+        if type != 'all':
+            query = query.filter(AIPrompt.keyword_classification == type)
+        
+        prompts = query.all()
+        
+        prompts_data = []
+        for p in prompts:
+            if p.ai_product and p.ai_product.marketing_product and p.ai_product.marketing_product.product:
+                prompts_data.append({
+                    'id': p.id,
+                    'product_name': p.ai_product.product_name,
+                    'keyword_classification': p.keyword_classification,
+                    'temperature': p.temperature,
+                    'max_tokens': p.max_tokens,
+                    'generate_images': p.generate_images
+                })
+        
+        return JSONResponse({'success': True, 'prompts': prompts_data})
+    except Exception as e:
+        return JSONResponse({'success': False, 'error': str(e)}, status_code=500)
+
+
+@router.get("/api/ai/schedules")
+async def get_schedules(
+    page: int = Query(1, ge=1),
+    search: str = Query(''),
+    status: str = Query('all'),
+    db: Session = Depends(get_db)
+):
+    """스케줄 목록 조회 (페이지네이션)"""
+    try:
+        PAGE_SIZE = 20
+        
+        query = db.query(AIMarketingSchedule).options(
+            joinedload(AIMarketingSchedule.ai_product).joinedload(AIMarketingProduct.marketing_product).joinedload(MarketingProduct.product),
+            joinedload(AIMarketingSchedule.prompt)
+        )
+        
+        # 검색 필터
+        if search:
+            query = query.join(
+                AIMarketingProduct,
+                AIMarketingSchedule.ai_product_id == AIMarketingProduct.id
+            ).filter(AIMarketingProduct.product_name.like(f'%{search}%'))
+        
+        # 상태 필터
+        if status != 'all':
+            query = query.filter(AIMarketingSchedule.status == status)
+        
+        # 전체 개수
+        total_count = query.count()
+        total_pages = (total_count + PAGE_SIZE - 1) // PAGE_SIZE
+        
+        # 페이지네이션
+        offset = (page - 1) * PAGE_SIZE
+        schedules = query.order_by(AIMarketingSchedule.created_at.desc()).offset(offset).limit(PAGE_SIZE).all()
+        
+        schedules_data = []
+        for s in schedules:
+            if s.ai_product and s.ai_product.marketing_product and s.ai_product.marketing_product.product and s.prompt:
+                schedules_data.append({
+                    'id': s.id,
+                    'product_name': s.ai_product.product_name,
+                    'keyword_classification': s.prompt.keyword_classification,
+                    'start_date': s.start_date.isoformat() if s.start_date else None,
+                    'end_date': s.end_date.isoformat() if s.end_date else None,
+                    'daily_post_count': s.daily_post_count,
+                    'expected_total_posts': s.expected_total_posts,
+                    'status': s.status
+                })
+        
+        return JSONResponse({
+            'success': True,
+            'schedules': schedules_data,
+            'total_pages': total_pages,
+            'current_page': page
+        })
+    except Exception as e:
+        return JSONResponse({'success': False, 'error': str(e)}, status_code=500)
+
+
+@router.get("/api/ai/generated-posts")
+async def get_generated_posts(
+    account: Optional[int] = Query(None),
+    cafe: Optional[int] = Query(None),
+    db: Session = Depends(get_db)
+):
+    """신규 발행 글 목록 조회"""
+    try:
+        query = db.query(AIGeneratedPost).options(
+            joinedload(AIGeneratedPost.ai_product),
+            joinedload(AIGeneratedPost.account),
+            joinedload(AIGeneratedPost.cafe)
+        )
+        
+        if account:
+            query = query.filter(AIGeneratedPost.account_id == account)
+        
+        if cafe:
+            query = query.filter(AIGeneratedPost.cafe_id == cafe)
+        
+        posts = query.order_by(AIGeneratedPost.created_at.desc()).all()
+        
+        posts_data = [{
+            'id': p.id,
+            'product_name': p.ai_product.product_name if p.ai_product else '',
+            'account_name': p.account.account_id if p.account else '',
+            'cafe_name': p.cafe.name if p.cafe else '',
+            'post_title': p.post_title,
+            'post_url': p.post_url,
+            'status': p.status,
+            'created_at': p.created_at.isoformat() if p.created_at else None
+        } for p in posts]
+        
+        return JSONResponse({'success': True, 'posts': posts_data})
+    except Exception as e:
+        return JSONResponse({'success': False, 'error': str(e)}, status_code=500)
+
+
+@router.get("/api/ai/connections")
+async def get_connections(db: Session = Depends(get_db)):
+    """연동 관리 목록 조회"""
+    try:
+        from database import CafeAccountLink
+        
+        connections = db.query(CafeAccountLink).options(
+            joinedload(CafeAccountLink.cafe),
+            joinedload(CafeAccountLink.account)
+        ).all()
+        
+        connections_data = [{
+            'id': c.id,
+            'cafe_name': c.cafe.name if c.cafe else '',
+            'account_name': c.account.account_id if c.account else '',
+            'status': c.status,
+            'draft_post_count': c.draft_post_count,
+            'used_post_count': c.used_post_count
+        } for c in connections]
+        
+        return JSONResponse({'success': True, 'connections': connections_data})
+    except Exception as e:
+        return JSONResponse({'success': False, 'error': str(e)}, status_code=500)
+

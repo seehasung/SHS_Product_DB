@@ -1,0 +1,236 @@
+{% extends "base.html" %}
+
+{% block title %}키워드 관리 - {{ ai_product.product_name }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row">
+        <div class="col-12">
+            <!-- 상단 헤더 -->
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <a href="/ai-automation/product-setup" class="btn btn-outline-secondary btn-sm mb-2">
+                        <i class="fas fa-arrow-left me-1"></i>상품 세팅으로 돌아가기
+                    </a>
+                    <h2><i class="fas fa-key me-2"></i>키워드 관리</h2>
+                    <p class="text-muted mb-0">
+                        상품: <strong>{{ ai_product.product_name }}</strong>
+                        {% if ai_product.marketing_product and ai_product.marketing_product.product %}
+                        ({{ ai_product.marketing_product.product.product_code }})
+                        {% endif %}
+                    </p>
+                </div>
+                <div>
+                    <button class="btn btn-info me-2" onclick="syncKeywords()">
+                        <i class="fas fa-sync me-1"></i>마케팅-카페에서 동기화
+                    </button>
+                    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addKeywordModal">
+                        <i class="fas fa-plus me-1"></i>키워드 추가
+                    </button>
+                </div>
+            </div>
+
+            <!-- 통계 카드 -->
+            <div class="row mb-4">
+                <div class="col-md-3">
+                    <div class="card bg-primary text-white">
+                        <div class="card-body">
+                            <h6 class="card-title">전체 키워드</h6>
+                            <h3 class="mb-0">{{ keywords|length }}개</h3>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card bg-success text-white">
+                        <div class="card-body">
+                            <h6 class="card-title">대안성 키워드</h6>
+                            <h3 class="mb-0">{{ keywords|selectattr('keyword_type', 'equalto', 'alternative')|list|length }}개</h3>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card bg-info text-white">
+                        <div class="card-body">
+                            <h6 class="card-title">정보성 키워드</h6>
+                            <h3 class="mb-0">{{ keywords|selectattr('keyword_type', 'equalto', 'informational')|list|length }}개</h3>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card bg-secondary text-white">
+                        <div class="card-body">
+                            <h6 class="card-title">미분류 키워드</h6>
+                            <h3 class="mb-0">{{ keywords|selectattr('keyword_type', 'equalto', 'unclassified')|list|length }}개</h3>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 키워드 목록 -->
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">키워드 목록</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th width="5%">#</th>
+                                    <th width="40%">키워드</th>
+                                    <th width="20%">분류</th>
+                                    <th width="15%">상태</th>
+                                    <th width="20%">관리</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for keyword in keywords %}
+                                <tr>
+                                    <td>{{ loop.index }}</td>
+                                    <td>
+                                        <strong>{{ keyword.keyword_text }}</strong>
+                                    </td>
+                                    <td>
+                                        <select class="form-select form-select-sm" onchange="updateKeywordType({{ keyword.id }}, this.value)">
+                                            <option value="unclassified" {% if keyword.keyword_type == 'unclassified' %}selected{% endif %}>미분류</option>
+                                            <option value="alternative" {% if keyword.keyword_type == 'alternative' %}selected{% endif %}>대안성</option>
+                                            <option value="informational" {% if keyword.keyword_type == 'informational' %}selected{% endif %}>정보성</option>
+                                        </select>
+                                    </td>
+                                    <td>
+                                        {% if keyword.is_active %}
+                                        <span class="badge bg-success">활성</span>
+                                        {% else %}
+                                        <span class="badge bg-secondary">비활성</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <button class="btn btn-sm btn-danger" onclick="deleteKeyword({{ keyword.id }})">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                                {% else %}
+                                <tr>
+                                    <td colspan="5" class="text-center text-muted">
+                                        등록된 키워드가 없습니다. "마케팅-카페에서 동기화" 버튼을 클릭하거나 직접 추가해주세요.
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 키워드 추가 모달 -->
+<div class="modal fade" id="addKeywordModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="POST" action="/ai-automation/keywords/add/{{ ai_product.id }}">
+                <div class="modal-header">
+                    <h5 class="modal-title">키워드 추가</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">키워드 <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" name="keyword_text" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">분류</label>
+                        <select class="form-select" name="keyword_type">
+                            <option value="unclassified">미분류</option>
+                            <option value="alternative">대안성</option>
+                            <option value="informational">정보성</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">취소</button>
+                    <button type="submit" class="btn btn-primary">추가</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+async function syncKeywords() {
+    if (!confirm('마케팅-카페의 키워드를 동기화하시겠습니까?\n기존 키워드는 유지되고, 새로운 키워드만 미분류로 추가됩니다.')) {
+        return;
+    }
+
+    try {
+        const response = await fetch('/ai-automation/keywords/sync/{{ ai_product.id }}', {
+            method: 'POST'
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            alert(`${data.added_count}개의 키워드가 추가되었습니다.`);
+            location.reload();
+        } else {
+            alert('오류: ' + data.error);
+        }
+    } catch (error) {
+        alert('동기화 중 오류가 발생했습니다.');
+        console.error(error);
+    }
+}
+
+async function updateKeywordType(keywordId, newType) {
+    try {
+        const formData = new FormData();
+        formData.append('keyword_type', newType);
+
+        const response = await fetch(`/ai-automation/keywords/update/${keywordId}`, {
+            method: 'POST',
+            body: formData
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            // 성공 메시지 (선택사항)
+            console.log('분류가 업데이트되었습니다.');
+        } else {
+            alert('오류: ' + data.error);
+            location.reload();
+        }
+    } catch (error) {
+        alert('분류 업데이트 중 오류가 발생했습니다.');
+        console.error(error);
+        location.reload();
+    }
+}
+
+async function deleteKeyword(keywordId) {
+    if (!confirm('정말로 이 키워드를 삭제하시겠습니까?')) {
+        return;
+    }
+
+    try {
+        const response = await fetch(`/ai-automation/keywords/delete/${keywordId}`, {
+            method: 'POST'
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            alert('키워드가 삭제되었습니다.');
+            location.reload();
+        } else {
+            alert('오류: ' + data.error);
+        }
+    } catch (error) {
+        alert('키워드 삭제 중 오류가 발생했습니다.');
+        console.error(error);
+    }
+}
+</script>
+{% endblock %}

@@ -1292,6 +1292,211 @@ class CommentScript(Base):
     __table_args__ = (
         Index('idx_post_task_group_seq', 'post_task_id', 'group_number', 'sequence_number'),
     )
+
+
+# ============================================
+# AI 자동화 마케팅 시스템 모델
+# ============================================
+
+class AIMarketingProduct(Base):
+    """AI 자동화용 상품 설정"""
+    __tablename__ = "ai_marketing_products"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    marketing_product_id = Column(Integer, ForeignKey('marketing_products.id'), unique=True, nullable=False)
+    
+    # 플랫폼 권한 (체크박스)
+    use_for_blog = Column(Boolean, default=False)  # 블로그 사용 여부
+    use_for_cafe = Column(Boolean, default=False)  # 카페 사용 여부
+    
+    # 상품 상세 정보 (필수)
+    product_name = Column(String(500), nullable=False)  # 1. 우리제품명
+    core_value = Column(Text, nullable=False)  # 2. 우리 제품의 핵심
+    sub_core_value = Column(Text, nullable=False)  # 3. 우리 제품의 서브 핵심
+    size_weight = Column(Text, nullable=False)  # 4. 우리 제품 사이즈 & 무게
+    difference = Column(Text, nullable=False)  # 5. 타사 제품과 차별점
+    famous_brands = Column(Text, nullable=False)  # 6. 해당 제품의 유명 브랜드들
+    market_problem = Column(Text, nullable=False)  # 7. 기존 시장의 문제점
+    our_price = Column(String(100), nullable=False)  # 8. 우리 제품의 가격
+    market_avg_price = Column(String(100), nullable=False)  # 9. 기존 시장의 평균 가격
+    target_age = Column(String(100), nullable=False)  # 10. 고객의 예상 연령대
+    target_gender = Column(String(50), nullable=False)  # 11. 고객의 예상 성별
+    additional_info = Column(Text, nullable=True)  # 12. 기타 추가 특이사항 (선택)
+    
+    # 마케팅 링크 (필수)
+    marketing_link = Column(String(2083), nullable=False)
+    
+    created_at = Column(DateTime, default=get_kst_now)
+    updated_at = Column(DateTime, default=get_kst_now, onupdate=get_kst_now)
+    
+    # 관계
+    marketing_product = relationship("MarketingProduct")
+    keywords = relationship("AIProductKeyword", back_populates="ai_product", cascade="all, delete-orphan")
+    references = relationship("AIProductReference", back_populates="ai_product", cascade="all, delete-orphan")
+    prompt_templates = relationship("AIPromptTemplate", back_populates="ai_product")
+
+
+class AIProductKeyword(Base):
+    """AI 상품별 키워드 관리 (대안성/정보성 분류)"""
+    __tablename__ = "ai_product_keywords"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    ai_product_id = Column(Integer, ForeignKey('ai_marketing_products.id'), nullable=False)
+    
+    keyword_text = Column(String(255), nullable=False)
+    keyword_type = Column(String(20), nullable=False)  # alternative(대안성), informational(정보성), unclassified(미분류)
+    is_active = Column(Boolean, default=True)
+    
+    created_at = Column(DateTime, default=get_kst_now)
+    updated_at = Column(DateTime, default=get_kst_now, onupdate=get_kst_now)
+    
+    # 관계
+    ai_product = relationship("AIMarketingProduct", back_populates="keywords")
+    
+    __table_args__ = (
+        UniqueConstraint('ai_product_id', 'keyword_text', name='unique_ai_keyword_per_product'),
+    )
+
+
+class AIProductReference(Base):
+    """AI 상품별 레퍼런스 관리 (대안성/정보성 분류)"""
+    __tablename__ = "ai_product_references"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    ai_product_id = Column(Integer, ForeignKey('ai_marketing_products.id'), nullable=False)
+    
+    # 기존 Reference 연결
+    reference_id = Column(Integer, ForeignKey('references.id'), nullable=False)
+    
+    # 분류
+    reference_type = Column(String(20), nullable=False)  # alternative(대안성), informational(정보성), unclassified(미분류)
+    
+    created_at = Column(DateTime, default=get_kst_now)
+    updated_at = Column(DateTime, default=get_kst_now, onupdate=get_kst_now)
+    
+    # 관계
+    ai_product = relationship("AIMarketingProduct", back_populates="references")
+    reference = relationship("Reference")
+    
+    __table_args__ = (
+        UniqueConstraint('ai_product_id', 'reference_id', name='unique_ai_reference_per_product'),
+    )
+
+
+class AIPromptTemplate(Base):
+    """AI 프롬프트 템플릿 (대안성/정보성별)"""
+    __tablename__ = "ai_prompt_templates"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    
+    # 템플릿 정보
+    template_name = Column(String(255), nullable=False)  # 템플릿 이름
+    template_type = Column(String(20), nullable=False)  # alternative(대안성), informational(정보성)
+    
+    # 프롬프트 내용
+    user_prompt_template = Column(Text, nullable=False)  # 변수 포함된 템플릿
+    
+    is_template = Column(Boolean, default=True)  # True: 템플릿, False: 실제 상품용 프롬프트
+    ai_product_id = Column(Integer, ForeignKey('ai_marketing_products.id'), nullable=True)  # 실제 상품용일 경우
+    
+    created_at = Column(DateTime, default=get_kst_now)
+    updated_at = Column(DateTime, default=get_kst_now, onupdate=get_kst_now)
+    
+    # 관계
+    ai_product = relationship("AIMarketingProduct", back_populates="prompt_templates")
+
+
+class AIPrompt(Base):
+    """AI 프롬프트 관리 (상품별)"""
+    __tablename__ = "ai_prompts"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    
+    # 상품 연결
+    ai_product_id = Column(Integer, ForeignKey('ai_marketing_products.id'), nullable=False)
+    
+    # 프롬프트 정보
+    keyword_classification = Column(String(20), nullable=False)  # alternative(대안성), informational(정보성)
+    system_prompt = Column(Text, nullable=False)  # 시스템 프롬프트
+    user_prompt = Column(Text, nullable=False)  # 사용자 프롬프트 (변수 치환 완료)
+    
+    # Claude API 설정
+    temperature = Column(Float, default=0.7)
+    max_tokens = Column(Integer, default=2000)
+    
+    # 이미지 생성 여부
+    generate_images = Column(Boolean, default=False)
+    
+    created_at = Column(DateTime, default=get_kst_now)
+    updated_at = Column(DateTime, default=get_kst_now, onupdate=get_kst_now)
+    
+    # 관계
+    ai_product = relationship("AIMarketingProduct")
+    schedules = relationship("AIMarketingSchedule", back_populates="prompt")
+
+
+class AIMarketingSchedule(Base):
+    """AI 마케팅 스케줄 관리"""
+    __tablename__ = "ai_marketing_schedules"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    
+    # 스케줄 정보
+    ai_product_id = Column(Integer, ForeignKey('ai_marketing_products.id'), nullable=False)
+    prompt_id = Column(Integer, ForeignKey('ai_prompts.id'), nullable=False)
+    
+    # 기간 및 개수
+    start_date = Column(Date, nullable=False)
+    end_date = Column(Date, nullable=False)
+    daily_post_count = Column(Integer, nullable=False)  # 하루 작성 개수
+    
+    # 예상 통계
+    expected_total_posts = Column(Integer, nullable=False)  # 예상 총 글 발행 수
+    
+    # 상태
+    status = Column(String(20), default='scheduled')  # scheduled(진행예정), in_progress(진행중), completed(종료)
+    
+    created_at = Column(DateTime, default=get_kst_now)
+    updated_at = Column(DateTime, default=get_kst_now, onupdate=get_kst_now)
+    
+    # 관계
+    ai_product = relationship("AIMarketingProduct")
+    prompt = relationship("AIPrompt", back_populates="schedules")
+
+
+class AIGeneratedPost(Base):
+    """AI로 생성된 신규 발행 글 관리"""
+    __tablename__ = "ai_generated_posts"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    
+    # 상품 및 스케줄 정보
+    ai_product_id = Column(Integer, ForeignKey('ai_marketing_products.id'), nullable=False)
+    schedule_id = Column(Integer, ForeignKey('ai_marketing_schedules.id'), nullable=False)
+    
+    # 계정 및 카페 정보
+    account_id = Column(Integer, ForeignKey('automation_accounts.id'), nullable=False)
+    cafe_id = Column(Integer, ForeignKey('automation_cafes.id'), nullable=False)
+    
+    # 글 내용
+    post_title = Column(Text, nullable=False)
+    post_body = Column(Text, nullable=False)
+    post_url = Column(String(500), nullable=True)
+    
+    # 이미지 정보
+    image_urls = Column(JSON, nullable=True)  # 생성된 이미지 URL 리스트
+    
+    # 상태
+    status = Column(String(20), default='draft')  # draft(초안), published(발행완료)
+    
+    created_at = Column(DateTime, default=get_kst_now)
+    published_at = Column(DateTime, nullable=True)
+    
+    # 관계
+    ai_product = relationship("AIMarketingProduct")
+    schedule = relationship("AIMarketingSchedule")
+    account = relationship("AutomationAccount")
+    cafe = relationship("AutomationCafe")
     
     
 def get_db():
@@ -1322,5 +1527,8 @@ __all__ = [
     # ⭐ 신규발행 글 관리
     "CafeBoardMapping", "CafeAccountLink", "DraftPost",
     # ⭐ 댓글 원고 시스템
-    "CommentScript"
+    "CommentScript",
+    # ⭐ AI 자동화 마케팅 시스템
+    "AIMarketingProduct", "AIProductKeyword", "AIProductReference", "AIPromptTemplate",
+    "AIPrompt", "AIMarketingSchedule", "AIGeneratedPost"
 ]

@@ -1,0 +1,280 @@
+{% extends "base.html" %}
+
+{% block title %}AI 자동화 - 상품 세팅{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2><i class="fas fa-robot me-2"></i>AI 자동화 - 상품 세팅</h2>
+                <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addProductModal">
+                    <i class="fas fa-plus me-2"></i>상품 추가
+                </button>
+            </div>
+
+            <!-- 상품 목록 -->
+            <div class="row">
+                {% for ai_product in ai_products %}
+                <div class="col-md-6 col-lg-4 mb-4">
+                    <div class="card h-100 shadow-sm">
+                        <div class="card-body">
+                            <div class="d-flex align-items-center mb-3">
+                                {% if ai_product.marketing_product and ai_product.marketing_product.product %}
+                                <img src="{{ ai_product.marketing_product.product.thumbnail or '/static/images/no-image.png' }}" 
+                                     class="img-thumbnail me-3" style="width: 80px; height: 80px; object-fit: cover;">
+                                <div>
+                                    <h5 class="card-title mb-1">{{ ai_product.product_name or ai_product.marketing_product.product.name }}</h5>
+                                    <small class="text-muted">상품코드: {{ ai_product.marketing_product.product.product_code }}</small>
+                                </div>
+                                {% endif %}
+                            </div>
+
+                            <div class="mb-3">
+                                <div class="form-check form-check-inline">
+                                    <input class="form-check-input" type="checkbox" {% if ai_product.use_for_cafe %}checked{% endif %} disabled>
+                                    <label class="form-check-label">카페</label>
+                                </div>
+                                <div class="form-check form-check-inline">
+                                    <input class="form-check-input" type="checkbox" {% if ai_product.use_for_blog %}checked{% endif %} disabled>
+                                    <label class="form-check-label">블로그</label>
+                                </div>
+                            </div>
+
+                            <div class="d-flex gap-2">
+                                <button class="btn btn-sm btn-primary flex-fill" onclick="editProduct({{ ai_product.id }})">
+                                    <i class="fas fa-edit me-1"></i>상세정보 수정
+                                </button>
+                                <a href="/ai-automation/keywords/{{ ai_product.id }}" class="btn btn-sm btn-info flex-fill">
+                                    <i class="fas fa-key me-1"></i>키워드 관리
+                                </a>
+                                <a href="/ai-automation/references/{{ ai_product.id }}" class="btn btn-sm btn-success flex-fill">
+                                    <i class="fas fa-book me-1"></i>레퍼런스
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% else %}
+                <div class="col-12">
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>등록된 AI 자동화 상품이 없습니다. 상품을 추가해주세요.
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 상품 추가 모달 -->
+<div class="modal fade" id="addProductModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">상품 추가</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row">
+                    {% for product in available_products %}
+                    <div class="col-md-6 mb-3">
+                        <div class="card cursor-pointer" onclick="addProduct({{ product.id }})">
+                            <div class="card-body d-flex align-items-center">
+                                {% if product.product %}
+                                <img src="{{ product.product.thumbnail or '/static/images/no-image.png' }}" 
+                                     class="img-thumbnail me-3" style="width: 60px; height: 60px; object-fit: cover;">
+                                <div>
+                                    <h6 class="mb-1">{{ product.product.name }}</h6>
+                                    <small class="text-muted">{{ product.product.product_code }}</small>
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    {% else %}
+                    <div class="col-12">
+                        <p class="text-muted text-center">추가 가능한 상품이 없습니다.</p>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 상세 정보 수정 모달 -->
+<div class="modal fade" id="editProductModal" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <form method="POST" id="editProductForm">
+                <div class="modal-header">
+                    <h5 class="modal-title">상품 상세 정보 수정</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row mb-3">
+                        <div class="col-12">
+                            <h6>플랫폼 사용 권한</h6>
+                            <div class="form-check form-check-inline">
+                                <input class="form-check-input" type="checkbox" id="use_for_cafe" name="use_for_cafe" value="true">
+                                <label class="form-check-label" for="use_for_cafe">카페</label>
+                            </div>
+                            <div class="form-check form-check-inline">
+                                <input class="form-check-input" type="checkbox" id="use_for_blog" name="use_for_blog" value="true">
+                                <label class="form-check-label" for="use_for_blog">블로그</label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">1. 우리제품명 <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" name="product_name" id="product_name" required>
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <label class="form-label">8. 우리 제품의 가격 <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" name="our_price" id="our_price" required>
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <label class="form-label">9. 기존 시장 평균 가격 <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" name="market_avg_price" id="market_avg_price" required>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">10. 고객의 예상 연령대 <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" name="target_age" id="target_age" placeholder="예: 20-30대" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">11. 고객의 예상 성별 <span class="text-danger">*</span></label>
+                            <select class="form-select" name="target_gender" id="target_gender" required>
+                                <option value="">선택하세요</option>
+                                <option value="남성">남성</option>
+                                <option value="여성">여성</option>
+                                <option value="남녀공용">남녀공용</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">2. 우리 제품의 핵심 <span class="text-danger">*</span></label>
+                        <textarea class="form-control" name="core_value" id="core_value" rows="4" required></textarea>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">3. 우리 제품의 서브 핵심 <span class="text-danger">*</span></label>
+                        <textarea class="form-control" name="sub_core_value" id="sub_core_value" rows="3" required></textarea>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">5. 타사 제품과 차별점 <span class="text-danger">*</span></label>
+                        <textarea class="form-control" name="difference" id="difference" rows="4" required></textarea>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">7. 기존 시장의 문제점 <span class="text-danger">*</span></label>
+                        <textarea class="form-control" name="market_problem" id="market_problem" rows="4" required></textarea>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">4. 우리 제품 사이즈 & 무게 <span class="text-danger">*</span></label>
+                            <textarea class="form-control" name="size_weight" id="size_weight" rows="2" required></textarea>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">6. 해당 제품의 유명 브랜드들 <span class="text-danger">*</span></label>
+                            <textarea class="form-control" name="famous_brands" id="famous_brands" rows="2" required></textarea>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">12. 기타 추가 특이사항 (선택)</label>
+                        <textarea class="form-control" name="additional_info" id="additional_info" rows="3"></textarea>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">마케팅 링크 <span class="text-danger">*</span></label>
+                        <input type="url" class="form-control" name="marketing_link" id="marketing_link" required>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">취소</button>
+                    <button type="submit" class="btn btn-primary">저장</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<style>
+.cursor-pointer {
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+.cursor-pointer:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+</style>
+
+<script>
+async function addProduct(marketingProductId) {
+    try {
+        const response = await fetch(`/ai-automation/product-setup/add/${marketingProductId}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            alert('상품이 추가되었습니다.');
+            location.reload();
+        } else {
+            alert('오류: ' + data.error);
+        }
+    } catch (error) {
+        alert('상품 추가 중 오류가 발생했습니다.');
+        console.error(error);
+    }
+}
+
+async function editProduct(aiProductId) {
+    // AI 상품 정보 로드
+    const ai_products = {{ ai_products | tojson }};
+    const product = ai_products.find(p => p.id === aiProductId);
+    
+    if (!product) {
+        alert('상품을 찾을 수 없습니다.');
+        return;
+    }
+    
+    // 폼 액션 설정
+    document.getElementById('editProductForm').action = `/ai-automation/product-setup/update/${aiProductId}`;
+    
+    // 필드 채우기
+    document.getElementById('use_for_cafe').checked = product.use_for_cafe;
+    document.getElementById('use_for_blog').checked = product.use_for_blog;
+    document.getElementById('product_name').value = product.product_name || '';
+    document.getElementById('core_value').value = product.core_value || '';
+    document.getElementById('sub_core_value').value = product.sub_core_value || '';
+    document.getElementById('size_weight').value = product.size_weight || '';
+    document.getElementById('difference').value = product.difference || '';
+    document.getElementById('famous_brands').value = product.famous_brands || '';
+    document.getElementById('market_problem').value = product.market_problem || '';
+    document.getElementById('our_price').value = product.our_price || '';
+    document.getElementById('market_avg_price').value = product.market_avg_price || '';
+    document.getElementById('target_age').value = product.target_age || '';
+    document.getElementById('target_gender').value = product.target_gender || '';
+    document.getElementById('additional_info').value = product.additional_info || '';
+    document.getElementById('marketing_link').value = product.marketing_link || '';
+    
+    // 모달 표시
+    new bootstrap.Modal(document.getElementById('editProductModal')).show();
+}
+</script>
+{% endblock %}
