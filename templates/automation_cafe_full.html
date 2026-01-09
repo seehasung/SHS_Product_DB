@@ -2410,22 +2410,931 @@ async function loadConnections() {
     }
 }
 
-// 모달 함수들 (스텁)
-function showAddProductModal() { alert('기능 구현 중...'); }
-function editAIProduct(id) { alert('기능 구현 중...'); }
-function manageKeywords(id) { alert('키워드 관리 페이지로 이동합니다.'); }
-function manageReferences(id) { alert('레퍼런스 관리 페이지로 이동합니다.'); }
-function showAddTemplateModal() { alert('기능 구현 중...'); }
-function editTemplate(id) { alert('기능 구현 중...'); }
-function duplicateTemplate(id) { alert('기능 구현 중...'); }
-function deleteTemplate(id) { if(confirm('삭제하시겠습니까?')) alert('기능 구현 중...'); }
-function showAddPromptModal() { alert('기능 구현 중...'); }
-function editPrompt(id) { alert('기능 구현 중...'); }
-function deletePrompt(id) { if(confirm('삭제하시겠습니까?')) alert('기능 구현 중...'); }
-function showAddScheduleModal() { alert('기능 구현 중...'); }
-function deleteSchedule(id) { if(confirm('삭제하시겠습니까?')) alert('기능 구현 중...'); }
-function showAddConnectionModal() { alert('기능 구현 중...'); }
+// ============================================
+// AI 모달 관리 함수들
+// ============================================
+
+// 상품 추가 모달
+async function showAddProductModal() {
+    try {
+        const response = await fetch('/ai-automation/api/available-products');
+        const data = await response.json();
+        
+        if (!data.success || data.products.length === 0) {
+            alert('추가 가능한 상품이 없습니다.');
+            return;
+        }
+        
+        const modal = new bootstrap.Modal(document.getElementById('addAIProductModal'));
+        
+        // 상품 목록 채우기
+        const container = document.getElementById('availableProductsList');
+        container.innerHTML = data.products.map(p => `
+            <div class="col-md-6 mb-2">
+                <div class="card cursor-pointer" onclick="addAIProduct(${p.id})">
+                    <div class="card-body d-flex align-items-center p-2">
+                        <img src="${p.thumbnail || '/static/images/no-image.png'}" 
+                             class="img-thumbnail me-2" style="width: 50px; height: 50px;">
+                        <div>
+                            <small><strong>${p.name}</strong></small><br>
+                            <small class="text-muted">${p.product_code}</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `).join('');
+        
+        modal.show();
+    } catch (error) {
+        console.error('상품 목록 로드 오류:', error);
+        alert('상품 목록을 불러올 수 없습니다.');
+    }
+}
+
+async function addAIProduct(marketingProductId) {
+    try {
+        const response = await fetch(`/ai-automation/api/products/add/${marketingProductId}`, {
+            method: 'POST'
+        });
+        const data = await response.json();
+        
+        if (data.success) {
+            alert('상품이 추가되었습니다.');
+            bootstrap.Modal.getInstance(document.getElementById('addAIProductModal')).hide();
+            loadAIProducts();
+        } else {
+            alert('오류: ' + data.error);
+        }
+    } catch (error) {
+        alert('상품 추가 중 오류가 발생했습니다.');
+    }
+}
+
+// 상품 수정 모달
+async function editAIProduct(id) {
+    try {
+        const response = await fetch(`/ai-automation/api/products/${id}`);
+        const data = await response.json();
+        
+        if (!data.success) {
+            alert('상품 정보를 불러올 수 없습니다.');
+            return;
+        }
+        
+        const product = data.product;
+        
+        // 폼 채우기
+        document.getElementById('editProductId').value = id;
+        document.getElementById('editUseCafe').checked = product.use_for_cafe;
+        document.getElementById('editUseBlog').checked = product.use_for_blog;
+        document.getElementById('editProductName').value = product.product_name || '';
+        document.getElementById('editCoreValue').value = product.core_value || '';
+        document.getElementById('editSubCoreValue').value = product.sub_core_value || '';
+        document.getElementById('editSizeWeight').value = product.size_weight || '';
+        document.getElementById('editDifference').value = product.difference || '';
+        document.getElementById('editFamousBrands').value = product.famous_brands || '';
+        document.getElementById('editMarketProblem').value = product.market_problem || '';
+        document.getElementById('editOurPrice').value = product.our_price || '';
+        document.getElementById('editMarketAvgPrice').value = product.market_avg_price || '';
+        document.getElementById('editTargetAge').value = product.target_age || '';
+        document.getElementById('editTargetGender').value = product.target_gender || '';
+        document.getElementById('editAdditionalInfo').value = product.additional_info || '';
+        document.getElementById('editMarketingLink').value = product.marketing_link || '';
+        
+        const modal = new bootstrap.Modal(document.getElementById('editAIProductModal'));
+        modal.show();
+    } catch (error) {
+        console.error('상품 정보 로드 오류:', error);
+        alert('상품 정보를 불러올 수 없습니다.');
+    }
+}
+
+async function saveAIProduct() {
+    const form = document.getElementById('editAIProductForm');
+    const formData = new FormData(form);
+    const id = document.getElementById('editProductId').value;
+    
+    try {
+        const response = await fetch(`/ai-automation/api/products/update/${id}`, {
+            method: 'POST',
+            body: formData
+        });
+        const data = await response.json();
+        
+        if (data.success) {
+            alert('저장되었습니다.');
+            bootstrap.Modal.getInstance(document.getElementById('editAIProductModal')).hide();
+            loadAIProducts();
+        } else {
+            alert('오류: ' + data.error);
+        }
+    } catch (error) {
+        alert('저장 중 오류가 발생했습니다.');
+    }
+}
+
+// 키워드/레퍼런스 관리는 모달 대신 별도 섹션으로
+function manageKeywords(id) {
+    // 키워드 관리는 같은 페이지 내 별도 섹션에서 처리
+    // TODO: 키워드 관리 UI 추가
+    alert('키워드 관리 기능은 별도 UI에서 구현 예정입니다.');
+}
+
+function manageReferences(id) {
+    // 레퍼런스 관리는 같은 페이지 내 별도 섹션에서 처리
+    alert('레퍼런스 관리 기능은 별도 UI에서 구현 예정입니다.');
+}
+
+// 프롬프트 템플릿 모달
+function showAddTemplateModal() {
+    const modal = new bootstrap.Modal(document.getElementById('addTemplateModal'));
+    modal.show();
+}
+
+async function saveTemplate(event) {
+    event.preventDefault();
+    const formData = new FormData(event.target);
+    
+    try {
+        const response = await fetch('/ai-automation/api/prompt-templates/add', {
+            method: 'POST',
+            body: formData
+        });
+        const data = await response.json();
+        
+        if (data.success) {
+            alert('템플릿이 추가되었습니다.');
+            bootstrap.Modal.getInstance(document.getElementById('addTemplateModal')).hide();
+            event.target.reset();
+            loadPromptTemplates();
+        } else {
+            alert('오류: ' + data.error);
+        }
+    } catch (error) {
+        alert('템플릿 추가 중 오류가 발생했습니다.');
+    }
+}
+
+async function editTemplate(id) {
+    try {
+        const response = await fetch(`/ai-automation/api/prompt-templates/${id}`);
+        const data = await response.json();
+        
+        if (!data.success) {
+            alert('템플릿 정보를 불러올 수 없습니다.');
+            return;
+        }
+        
+        const template = data.template;
+        
+        document.getElementById('editTemplateId').value = id;
+        document.getElementById('editTemplateName').value = template.template_name;
+        document.getElementById('editTemplateType').value = template.template_type;
+        document.getElementById('editTemplatePrompt').value = template.user_prompt_template;
+        
+        const modal = new bootstrap.Modal(document.getElementById('editTemplateModal'));
+        modal.show();
+    } catch (error) {
+        alert('템플릿 정보를 불러올 수 없습니다.');
+    }
+}
+
+async function updateTemplate() {
+    const id = document.getElementById('editTemplateId').value;
+    const formData = new FormData();
+    formData.append('template_name', document.getElementById('editTemplateName').value);
+    formData.append('template_type', document.getElementById('editTemplateType').value);
+    formData.append('user_prompt_template', document.getElementById('editTemplatePrompt').value);
+    
+    try {
+        const response = await fetch(`/ai-automation/api/prompt-templates/update/${id}`, {
+            method: 'POST',
+            body: formData
+        });
+        const data = await response.json();
+        
+        if (data.success) {
+            alert('템플릿이 수정되었습니다.');
+            bootstrap.Modal.getInstance(document.getElementById('editTemplateModal')).hide();
+            loadPromptTemplates();
+        } else {
+            alert('오류: ' + data.error);
+        }
+    } catch (error) {
+        alert('템플릿 수정 중 오류가 발생했습니다.');
+    }
+}
+
+async function duplicateTemplate(id) {
+    if (!confirm('이 템플릿을 복제하시겠습니까?')) return;
+    
+    try {
+        const response = await fetch(`/ai-automation/api/prompt-templates/duplicate/${id}`, {
+            method: 'POST'
+        });
+        const data = await response.json();
+        
+        if (data.success) {
+            alert('템플릿이 복제되었습니다.');
+            loadPromptTemplates();
+        } else {
+            alert('오류: ' + data.error);
+        }
+    } catch (error) {
+        alert('템플릿 복제 중 오류가 발생했습니다.');
+    }
+}
+
+async function deleteTemplate(id) {
+    if (!confirm('정말로 삭제하시겠습니까?')) return;
+    
+    try {
+        const response = await fetch(`/ai-automation/api/prompt-templates/delete/${id}`, {
+            method: 'POST'
+        });
+        const data = await response.json();
+        
+        if (data.success) {
+            alert('템플릿이 삭제되었습니다.');
+            loadPromptTemplates();
+        } else {
+            alert('오류: ' + data.error);
+        }
+    } catch (error) {
+        alert('템플릿 삭제 중 오류가 발생했습니다.');
+    }
+}
+
+// 프롬프트 관리 모달
+function showAddPromptModal() {
+    const modal = new bootstrap.Modal(document.getElementById('addPromptModal'));
+    modal.show();
+}
+
+async function savePrompt(event) {
+    event.preventDefault();
+    const formData = new FormData(event.target);
+    
+    try {
+        const response = await fetch('/ai-automation/api/prompts/add', {
+            method: 'POST',
+            body: formData
+        });
+        const data = await response.json();
+        
+        if (data.success) {
+            alert('프롬프트가 추가되었습니다.');
+            bootstrap.Modal.getInstance(document.getElementById('addPromptModal')).hide();
+            event.target.reset();
+            loadPrompts();
+        } else {
+            alert('오류: ' + data.error);
+        }
+    } catch (error) {
+        alert('프롬프트 추가 중 오류가 발생했습니다.');
+    }
+}
+
+async function editPrompt(id) {
+    // 프롬프트 수정 모달
+    alert('프롬프트 수정 기능은 추후 구현 예정입니다.');
+}
+
+async function deletePrompt(id) {
+    if (!confirm('정말로 삭제하시겠습니까?')) return;
+    
+    try {
+        const response = await fetch(`/ai-automation/api/prompts/delete/${id}`, {
+            method: 'POST'
+        });
+        const data = await response.json();
+        
+        if (data.success) {
+            alert('프롬프트가 삭제되었습니다.');
+            loadPrompts();
+        } else {
+            alert('오류: ' + data.error);
+        }
+    } catch (error) {
+        alert('프롬프트 삭제 중 오류가 발생했습니다.');
+    }
+}
+
+// 스케줄 모달
+function showAddScheduleModal() {
+    const modal = new bootstrap.Modal(document.getElementById('addScheduleModal'));
+    modal.show();
+}
+
+async function saveSchedule(event) {
+    event.preventDefault();
+    const formData = new FormData(event.target);
+    
+    try {
+        const response = await fetch('/ai-automation/api/schedules/add', {
+            method: 'POST',
+            body: formData
+        });
+        const data = await response.json();
+        
+        if (data.success) {
+            alert('스케줄이 생성되었습니다.');
+            bootstrap.Modal.getInstance(document.getElementById('addScheduleModal')).hide();
+            event.target.reset();
+            loadSchedules();
+        } else {
+            alert('오류: ' + data.error);
+        }
+    } catch (error) {
+        alert('스케줄 생성 중 오류가 발생했습니다.');
+    }
+}
+
+async function deleteSchedule(id) {
+    if (!confirm('정말로 삭제하시겠습니까?')) return;
+    
+    try {
+        const response = await fetch(`/ai-automation/api/schedules/delete/${id}`, {
+            method: 'POST'
+        });
+        const data = await response.json();
+        
+        if (data.success) {
+            alert('스케줄이 삭제되었습니다.');
+            loadSchedules();
+        } else {
+            alert('오류: ' + data.error);
+        }
+    } catch (error) {
+        alert('스케줄 삭제 중 오류가 발생했습니다.');
+    }
+}
+
+// 연동 관리 모달
+function showAddConnectionModal() {
+    alert('연동 관리 기능은 추후 구현 예정입니다.');
+}
+
+// ============================================
+// 변수 시스템 (프롬프트 템플릿용)
+// ============================================
+
+// 변수 삽입 함수
+function insertVariable(textareaId, variableName) {
+    const textarea = document.getElementById(textareaId);
+    const cursorPos = textarea.selectionStart;
+    const textBefore = textarea.value.substring(0, cursorPos);
+    const textAfter = textarea.value.substring(cursorPos);
+    
+    const variableText = `{${variableName}}`;
+    textarea.value = textBefore + variableText + textAfter;
+    
+    // 커서 위치 조정
+    const newCursorPos = cursorPos + variableText.length;
+    textarea.setSelectionRange(newCursorPos, newCursorPos);
+    textarea.focus();
+}
+
+// 모든 변수 목록
+const AVAILABLE_VARIABLES = {
+    'product_name': '우리제품명',
+    'core_value': '우리 제품의 핵심',
+    'sub_core_value': '우리 제품의 서브 핵심',
+    'size_weight': '우리 제품 사이즈 & 무게',
+    'difference': '타사 제품과 차별점',
+    'famous_brands': '해당 제품의 유명 브랜드들',
+    'market_problem': '기존 시장의 문제점',
+    'our_price': '우리 제품의 가격',
+    'market_avg_price': '기존 시장의 평균 가격',
+    'target_age': '고객의 예상 연령대',
+    'target_gender': '고객의 예상 성별',
+    'additional_info': '기타 추가 특이사항',
+    'marketing_link': '마케팅 링크'
+};
+
+// 템플릿 내용 로드 (프롬프트 생성 시)
+async function loadTemplatesForType() {
+    const type = document.getElementById('promptTypeSelect').value;
+    if (!type) return;
+    
+    try {
+        const response = await fetch(`/ai-automation/api/prompt-templates?type=${type}`);
+        const data = await response.json();
+        
+        if (data.success) {
+            const select = document.getElementById('templateSelectForPrompt');
+            select.innerHTML = '<option value="">직접 입력</option>';
+            
+            data.templates.forEach(t => {
+                const option = document.createElement('option');
+                option.value = t.id;
+                option.textContent = t.template_name;
+                option.dataset.content = t.user_prompt_template;
+                select.appendChild(option);
+            });
+        }
+    } catch (error) {
+        console.error('템플릿 로드 오류:', error);
+    }
+}
+
+function loadTemplateContent() {
+    const select = document.getElementById('templateSelectForPrompt');
+    const selectedOption = select.options[select.selectedIndex];
+    
+    if (selectedOption.value && selectedOption.dataset.content) {
+        document.getElementById('userPromptArea').value = selectedOption.dataset.content;
+    }
+}
+
+// 키워드 개수 표시
+async function showKeywordCount() {
+    const productId = document.getElementById('scheduleProductSelect').value;
+    if (!productId) {
+        document.getElementById('keywordCountDisplay').textContent = '';
+        document.getElementById('schedulePromptSelect').innerHTML = '<option value="">먼저 상품을 선택하세요</option>';
+        return;
+    }
+    
+    try {
+        // 키워드 개수 가져오기
+        const keywordResponse = await fetch(`/ai-automation/api/products/${productId}/keywords`);
+        const keywordData = await keywordResponse.json();
+        
+        if (keywordData.success) {
+            document.getElementById('keywordCountDisplay').textContent = 
+                `해당 상품의 활성 키워드: ${keywordData.count}개`;
+        }
+        
+        // 해당 상품의 프롬프트 목록 가져오기
+        const promptResponse = await fetch(`/ai-automation/api/prompts?product=${productId}`);
+        const promptData = await promptResponse.json();
+        
+        if (promptData.success) {
+            const select = document.getElementById('schedulePromptSelect');
+            select.innerHTML = '<option value="">선택하세요</option>';
+            
+            promptData.prompts.forEach(p => {
+                const option = document.createElement('option');
+                option.value = p.id;
+                option.textContent = `${p.keyword_classification === 'alternative' ? '대안성' : '정보성'} 프롬프트`;
+                option.dataset.classification = p.keyword_classification;
+                select.appendChild(option);
+            });
+        }
+    } catch (error) {
+        console.error('데이터 로드 오류:', error);
+    }
+}
+
+// 총 발행 수 계산
+function calculateTotal() {
+    const startDate = document.getElementById('scheduleStartDate').value;
+    const endDate = document.getElementById('scheduleEndDate').value;
+    const dailyCount = parseInt(document.getElementById('dailyPostCount').value) || 0;
+    
+    if (!startDate || !endDate || !dailyCount) {
+        document.getElementById('totalPostsDisplay').style.display = 'none';
+        return;
+    }
+    
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    
+    if (start > end) {
+        alert('종료일은 시작일보다 이후여야 합니다.');
+        return;
+    }
+    
+    // 주말 제외한 일수 계산
+    let workDays = 0;
+    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+        if (d.getDay() !== 0 && d.getDay() !== 6) { // 일요일(0), 토요일(6) 제외
+            workDays++;
+        }
+    }
+    
+    const totalPosts = workDays * dailyCount;
+    document.getElementById('totalPostsCount').textContent = totalPosts;
+    document.getElementById('totalPostsDisplay').style.display = 'block';
+}
+
+// 모달이 열릴 때 상품 목록 로드
+document.addEventListener('DOMContentLoaded', function() {
+    // 프롬프트 추가 모달이 열릴 때
+    const addPromptModal = document.getElementById('addPromptModal');
+    if (addPromptModal) {
+        addPromptModal.addEventListener('show.bs.modal', async function() {
+            try {
+                const response = await fetch('/ai-automation/api/products');
+                const data = await response.json();
+                
+                if (data.success) {
+                    const select = document.getElementById('promptProductSelect');
+                    select.innerHTML = '<option value="">선택하세요</option>';
+                    
+                    data.products.forEach(p => {
+                        const option = document.createElement('option');
+                        option.value = p.id;
+                        option.textContent = p.product_name;
+                        select.appendChild(option);
+                    });
+                }
+            } catch (error) {
+                console.error('상품 목록 로드 오류:', error);
+            }
+        });
+    }
+    
+    // 스케줄 추가 모달이 열릴 때
+    const addScheduleModal = document.getElementById('addScheduleModal');
+    if (addScheduleModal) {
+        addScheduleModal.addEventListener('show.bs.modal', async function() {
+            try {
+                const response = await fetch('/ai-automation/api/products');
+                const data = await response.json();
+                
+                if (data.success) {
+                    const select = document.getElementById('scheduleProductSelect');
+                    select.innerHTML = '<option value="">선택하세요</option>';
+                    
+                    data.products.forEach(p => {
+                        const option = document.createElement('option');
+                        option.value = p.id;
+                        option.textContent = p.product_name;
+                        select.appendChild(option);
+                    });
+                }
+            } catch (error) {
+                console.error('상품 목록 로드 오류:', error);
+            }
+        });
+    }
+});
 
 </script>
+
+<!-- ============================================ -->
+<!-- AI 자동화 모달들 -->
+<!-- ============================================ -->
+
+<!-- 상품 추가 모달 -->
+<div class="modal fade" id="addAIProductModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-stars"></i> AI 상품 추가</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="availableProductsList" class="row">
+                    <!-- JavaScript로 로드 -->
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 상품 수정 모달 -->
+<div class="modal fade" id="editAIProductModal" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-pencil"></i> 상품 상세 정보 수정</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="editAIProductForm" onsubmit="event.preventDefault(); saveAIProduct();">
+                <input type="hidden" id="editProductId">
+                <div class="modal-body">
+                    <div class="row mb-3">
+                        <div class="col-12">
+                            <h6>플랫폼 사용 권한</h6>
+                            <div class="form-check form-check-inline">
+                                <input class="form-check-input" type="checkbox" id="editUseCafe" name="use_for_cafe">
+                                <label class="form-check-label" for="editUseCafe">카페</label>
+                            </div>
+                            <div class="form-check form-check-inline">
+                                <input class="form-check-input" type="checkbox" id="editUseBlog" name="use_for_blog">
+                                <label class="form-check-label" for="editUseBlog">블로그</label>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">1. 우리제품명 <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="editProductName" name="product_name" required>
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <label class="form-label">8. 우리 제품의 가격 <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="editOurPrice" name="our_price" required>
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <label class="form-label">9. 기존 시장 평균 가격 <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="editMarketAvgPrice" name="market_avg_price" required>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">10. 고객의 예상 연령대 <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="editTargetAge" name="target_age" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">11. 고객의 예상 성별 <span class="text-danger">*</span></label>
+                            <select class="form-select" id="editTargetGender" name="target_gender" required>
+                                <option value="">선택하세요</option>
+                                <option value="남성">남성</option>
+                                <option value="여성">여성</option>
+                                <option value="남녀공용">남녀공용</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">2. 우리 제품의 핵심 <span class="text-danger">*</span></label>
+                        <textarea class="form-control" id="editCoreValue" name="core_value" rows="4" required></textarea>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">3. 우리 제품의 서브 핵심 <span class="text-danger">*</span></label>
+                        <textarea class="form-control" id="editSubCoreValue" name="sub_core_value" rows="3" required></textarea>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">5. 타사 제품과 차별점 <span class="text-danger">*</span></label>
+                        <textarea class="form-control" id="editDifference" name="difference" rows="4" required></textarea>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">7. 기존 시장의 문제점 <span class="text-danger">*</span></label>
+                        <textarea class="form-control" id="editMarketProblem" name="market_problem" rows="4" required></textarea>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">4. 우리 제품 사이즈 & 무게 <span class="text-danger">*</span></label>
+                            <textarea class="form-control" id="editSizeWeight" name="size_weight" rows="2" required></textarea>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">6. 해당 제품의 유명 브랜드들 <span class="text-danger">*</span></label>
+                            <textarea class="form-control" id="editFamousBrands" name="famous_brands" rows="2" required></textarea>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">12. 기타 추가 특이사항 (선택)</label>
+                        <textarea class="form-control" id="editAdditionalInfo" name="additional_info" rows="3"></textarea>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">마케팅 링크 <span class="text-danger">*</span></label>
+                        <input type="url" class="form-control" id="editMarketingLink" name="marketing_link" required>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">취소</button>
+                    <button type="submit" class="btn btn-primary">저장</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- 템플릿 추가 모달 -->
+<div class="modal fade" id="addTemplateModal" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-file-text"></i> 프롬프트 템플릿 추가</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form onsubmit="saveTemplate(event)">
+                <div class="modal-body">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">템플릿 이름 <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" name="template_name" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">분류 <span class="text-danger">*</span></label>
+                            <select class="form-select" name="template_type" required>
+                                <option value="">선택하세요</option>
+                                <option value="alternative">대안성</option>
+                                <option value="informational">정보성</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <label class="form-label mb-0">사용자 프롬프트 템플릿 <span class="text-danger">*</span></label>
+                            <div class="btn-group btn-group-sm">
+                                <button type="button" class="btn btn-outline-primary" onclick="insertVariable('addTemplatePrompt', 'product_name')">
+                                    <i class="bi bi-plus"></i> {product_name}
+                                </button>
+                                <button type="button" class="btn btn-outline-primary" onclick="insertVariable('addTemplatePrompt', 'core_value')">
+                                    <i class="bi bi-plus"></i> {core_value}
+                                </button>
+                                <button type="button" class="btn btn-outline-primary" onclick="insertVariable('addTemplatePrompt', 'marketing_link')">
+                                    <i class="bi bi-plus"></i> {marketing_link}
+                                </button>
+                            </div>
+                        </div>
+                        <textarea class="form-control" id="addTemplatePrompt" name="user_prompt_template" rows="10" required 
+                                  placeholder="변수 예시: {product_name}, {core_value}, {sub_core_value}, {size_weight}, {difference}, {famous_brands}, {market_problem}, {our_price}, {market_avg_price}, {target_age}, {target_gender}, {additional_info}, {marketing_link}"></textarea>
+                        <small class="text-muted">변수를 사용하면 실제 상품 정보로 자동 치환됩니다.</small>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">취소</button>
+                    <button type="submit" class="btn btn-primary">저장</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- 템플릿 수정 모달 -->
+<div class="modal fade" id="editTemplateModal" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-pencil"></i> 프롬프트 템플릿 수정</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="editTemplateId">
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">템플릿 이름 <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="editTemplateName" required>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">분류 <span class="text-danger">*</span></label>
+                        <select class="form-select" id="editTemplateType" required>
+                            <option value="alternative">대안성</option>
+                            <option value="informational">정보성</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="mb-3">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <label class="form-label mb-0">사용자 프롬프트 템플릿 <span class="text-danger">*</span></label>
+                        <div class="btn-group btn-group-sm">
+                            <button type="button" class="btn btn-outline-primary" onclick="insertVariable('editTemplatePrompt', 'product_name')">
+                                <i class="bi bi-plus"></i> {product_name}
+                            </button>
+                            <button type="button" class="btn btn-outline-primary" onclick="insertVariable('editTemplatePrompt', 'core_value')">
+                                <i class="bi bi-plus"></i> {core_value}
+                            </button>
+                            <button type="button" class="btn btn-outline-primary" onclick="insertVariable('editTemplatePrompt', 'marketing_link')">
+                                <i class="bi bi-plus"></i> {marketing_link}
+                            </button>
+                        </div>
+                    </div>
+                    <textarea class="form-control" id="editTemplatePrompt" rows="10" required></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">취소</button>
+                <button type="button" class="btn btn-primary" onclick="updateTemplate()">저장</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 프롬프트 추가 모달 -->
+<div class="modal fade" id="addPromptModal" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-chat-dots"></i> AI 프롬프트 추가</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form onsubmit="savePrompt(event)">
+                <div class="modal-body">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">상품 선택 <span class="text-danger">*</span></label>
+                            <select class="form-select" name="ai_product_id" id="promptProductSelect" required>
+                                <option value="">선택하세요</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">키워드 분류 <span class="text-danger">*</span></label>
+                            <select class="form-select" name="keyword_classification" id="promptTypeSelect" onchange="loadTemplatesForType()" required>
+                                <option value="">선택하세요</option>
+                                <option value="alternative">대안성</option>
+                                <option value="informational">정보성</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="row mb-3">
+                        <div class="col-12">
+                            <label class="form-label">템플릿 선택 (선택사항)</label>
+                            <select class="form-select" id="templateSelectForPrompt" onchange="loadTemplateContent()">
+                                <option value="">직접 입력</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">시스템 프롬프트 <span class="text-danger">*</span></label>
+                        <textarea class="form-control" name="system_prompt" rows="4" required 
+                                  placeholder="AI의 역할과 행동 방식을 정의합니다."></textarea>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">사용자 프롬프트 <span class="text-danger">*</span></label>
+                        <textarea class="form-control" id="userPromptArea" name="user_prompt" rows="10" required 
+                                  placeholder="실제 요청 내용을 작성합니다. 변수는 자동으로 치환됩니다."></textarea>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">Temperature</label>
+                            <input type="number" class="form-control" name="temperature" value="0.7" step="0.1" min="0" max="1" required>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">Max Tokens</label>
+                            <input type="number" class="form-control" name="max_tokens" value="2000" min="100" max="4000" required>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">이미지 생성</label>
+                            <div class="form-check mt-2">
+                                <input class="form-check-input" type="checkbox" name="generate_images" id="generateImages">
+                                <label class="form-check-label" for="generateImages">
+                                    이미지 3장 자동 생성
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">취소</button>
+                    <button type="submit" class="btn btn-primary">저장</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- 스케줄 추가 모달 -->
+<div class="modal fade" id="addScheduleModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-calendar-check"></i> AI 스케줄 생성</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form onsubmit="saveSchedule(event)">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">상품 선택 <span class="text-danger">*</span></label>
+                        <select class="form-select" name="ai_product_id" id="scheduleProductSelect" onchange="showKeywordCount()" required>
+                            <option value="">선택하세요</option>
+                        </select>
+                        <small id="keywordCountDisplay" class="text-muted"></small>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">프롬프트 선택 <span class="text-danger">*</span></label>
+                        <select class="form-select" name="prompt_id" id="schedulePromptSelect" required>
+                            <option value="">먼저 상품을 선택하세요</option>
+                        </select>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">시작일 <span class="text-danger">*</span></label>
+                            <input type="date" class="form-control" name="start_date" id="scheduleStartDate" onchange="calculateTotal()" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">종료일 <span class="text-danger">*</span></label>
+                            <input type="date" class="form-control" name="end_date" id="scheduleEndDate" onchange="calculateTotal()" required>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">하루 작성 개수 <span class="text-danger">*</span></label>
+                        <input type="number" class="form-control" name="daily_post_count" id="dailyPostCount" min="1" onchange="calculateTotal()" required>
+                    </div>
+                    
+                    <div id="totalPostsDisplay" class="alert alert-info" style="display: none;">
+                        <i class="bi bi-info-circle"></i> 예상 총 글 발행 수: <strong id="totalPostsCount">0</strong>개
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">취소</button>
+                    <button type="submit" class="btn btn-primary">생성</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 {% endblock %}
 

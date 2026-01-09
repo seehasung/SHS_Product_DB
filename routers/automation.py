@@ -1880,3 +1880,674 @@ async def get_connections(db: Session = Depends(get_db)):
     except Exception as e:
         return JSONResponse({'success': False, 'error': str(e)}, status_code=500)
 
+
+# ============================================
+# AI 상품 관리 API
+# ============================================
+
+@router.get("/api/ai/available-products")
+async def get_available_products(db: Session = Depends(get_db)):
+    """추가 가능한 상품 목록"""
+    try:
+        # 이미 AI 자동화에 추가된 상품 ID들
+        existing_ids = [p.marketing_product_id for p in db.query(AIMarketingProduct).all()]
+        
+        # 추가 가능한 상품들
+        available = db.query(MarketingProduct).options(
+            joinedload(MarketingProduct.product)
+        ).filter(MarketingProduct.id.notin_(existing_ids) if existing_ids else True).all()
+        
+        products_data = []
+        for mp in available:
+            if mp.product:
+                products_data.append({
+                    'id': mp.id,
+                    'name': mp.product.name,
+                    'product_code': mp.product.product_code,
+                    'thumbnail': mp.product.thumbnail
+                })
+        
+        return JSONResponse({'success': True, 'products': products_data})
+    except Exception as e:
+        return JSONResponse({'success': False, 'error': str(e)}, status_code=500)
+
+
+@router.post("/api/ai/products/add/{marketing_product_id}")
+async def add_ai_product(marketing_product_id: int, db: Session = Depends(get_db)):
+    """AI 상품 추가"""
+    try:
+        # 중복 체크
+        existing = db.query(AIMarketingProduct).filter(
+            AIMarketingProduct.marketing_product_id == marketing_product_id
+        ).first()
+        
+        if existing:
+            return JSONResponse({'success': False, 'error': '이미 추가된 상품입니다'}, status_code=400)
+        
+        # 마케팅 상품 정보 조회
+        mp = db.query(MarketingProduct).options(
+            joinedload(MarketingProduct.product)
+        ).filter(MarketingProduct.id == marketing_product_id).first()
+        
+        if not mp or not mp.product:
+            return JSONResponse({'success': False, 'error': '상품을 찾을 수 없습니다'}, status_code=404)
+        
+        # AI 상품 생성
+        ai_product = AIMarketingProduct(
+            marketing_product_id=marketing_product_id,
+            use_for_cafe=True,
+            use_for_blog=False,
+            product_name=mp.product.name,
+            core_value='',
+            sub_core_value='',
+            size_weight='',
+            difference='',
+            famous_brands='',
+            market_problem='',
+            our_price='',
+            market_avg_price='',
+            target_age='',
+            target_gender='',
+            marketing_link=''
+        )
+        
+        db.add(ai_product)
+        db.commit()
+        db.refresh(ai_product)
+        
+        return JSONResponse({'success': True, 'id': ai_product.id})
+    except Exception as e:
+        db.rollback()
+        return JSONResponse({'success': False, 'error': str(e)}, status_code=500)
+
+
+@router.get("/api/ai/products/{product_id}")
+async def get_ai_product(product_id: int, db: Session = Depends(get_db)):
+    """AI 상품 정보 조회"""
+    try:
+        product = db.query(AIMarketingProduct).filter(AIMarketingProduct.id == product_id).first()
+        
+        if not product:
+            return JSONResponse({'success': False, 'error': '상품을 찾을 수 없습니다'}, status_code=404)
+        
+        return JSONResponse({
+            'success': True,
+            'product': {
+                'id': product.id,
+                'use_for_cafe': product.use_for_cafe,
+                'use_for_blog': product.use_for_blog,
+                'product_name': product.product_name,
+                'core_value': product.core_value,
+                'sub_core_value': product.sub_core_value,
+                'size_weight': product.size_weight,
+                'difference': product.difference,
+                'famous_brands': product.famous_brands,
+                'market_problem': product.market_problem,
+                'our_price': product.our_price,
+                'market_avg_price': product.market_avg_price,
+                'target_age': product.target_age,
+                'target_gender': product.target_gender,
+                'additional_info': product.additional_info,
+                'marketing_link': product.marketing_link
+            }
+        })
+    except Exception as e:
+        return JSONResponse({'success': False, 'error': str(e)}, status_code=500)
+
+
+@router.post("/api/ai/products/update/{product_id}")
+async def update_ai_product(
+    product_id: int,
+    use_for_cafe: bool = Form(False),
+    use_for_blog: bool = Form(False),
+    product_name: str = Form(...),
+    core_value: str = Form(...),
+    sub_core_value: str = Form(...),
+    size_weight: str = Form(...),
+    difference: str = Form(...),
+    famous_brands: str = Form(...),
+    market_problem: str = Form(...),
+    our_price: str = Form(...),
+    market_avg_price: str = Form(...),
+    target_age: str = Form(...),
+    target_gender: str = Form(...),
+    marketing_link: str = Form(...),
+    additional_info: Optional[str] = Form(None),
+    db: Session = Depends(get_db)
+):
+    """AI 상품 정보 업데이트"""
+    try:
+        product = db.query(AIMarketingProduct).filter(AIMarketingProduct.id == product_id).first()
+        
+        if not product:
+            return JSONResponse({'success': False, 'error': '상품을 찾을 수 없습니다'}, status_code=404)
+        
+        # 업데이트
+        product.use_for_cafe = use_for_cafe
+        product.use_for_blog = use_for_blog
+        product.product_name = product_name
+        product.core_value = core_value
+        product.sub_core_value = sub_core_value
+        product.size_weight = size_weight
+        product.difference = difference
+        product.famous_brands = famous_brands
+        product.market_problem = market_problem
+        product.our_price = our_price
+        product.market_avg_price = market_avg_price
+        product.target_age = target_age
+        product.target_gender = target_gender
+        product.additional_info = additional_info
+        product.marketing_link = marketing_link
+        
+        db.commit()
+        
+        return JSONResponse({'success': True})
+    except Exception as e:
+        db.rollback()
+        return JSONResponse({'success': False, 'error': str(e)}, status_code=500)
+
+
+@router.get("/api/ai/products/{product_id}/keywords")
+async def get_product_keyword_count(product_id: int, db: Session = Depends(get_db)):
+    """상품의 활성 키워드 개수 조회"""
+    try:
+        count = db.query(AIProductKeyword).filter(
+            AIProductKeyword.ai_product_id == product_id,
+            AIProductKeyword.is_active == True
+        ).count()
+        
+        return JSONResponse({'success': True, 'count': count})
+    except Exception as e:
+        return JSONResponse({'success': False, 'error': str(e)}, status_code=500)
+
+
+# ============================================
+# 프롬프트 템플릿 관리 API
+# ============================================
+
+@router.get("/api/ai/prompt-templates")
+async def get_prompt_templates_filtered(type: Optional[str] = Query(None), db: Session = Depends(get_db)):
+    """프롬프트 템플릿 목록 (분류별 필터)"""
+    try:
+        query = db.query(AIPromptTemplate).filter(AIPromptTemplate.is_template == True)
+        
+        if type:
+            query = query.filter(AIPromptTemplate.template_type == type)
+        
+        templates = query.all()
+        
+        templates_data = [{
+            'id': t.id,
+            'template_name': t.template_name,
+            'template_type': t.template_type,
+            'user_prompt_template': t.user_prompt_template,
+            'created_at': t.created_at.isoformat() if t.created_at else None
+        } for t in templates]
+        
+        return JSONResponse({'success': True, 'templates': templates_data})
+    except Exception as e:
+        return JSONResponse({'success': False, 'error': str(e)}, status_code=500)
+
+
+@router.post("/api/ai/prompt-templates/add")
+async def add_prompt_template(
+    template_name: str = Form(...),
+    template_type: str = Form(...),
+    user_prompt_template: str = Form(...),
+    db: Session = Depends(get_db)
+):
+    """프롬프트 템플릿 추가"""
+    try:
+        if template_type not in ['alternative', 'informational']:
+            return JSONResponse({'success': False, 'error': '잘못된 분류입니다'}, status_code=400)
+        
+        template = AIPromptTemplate(
+            template_name=template_name,
+            template_type=template_type,
+            user_prompt_template=user_prompt_template,
+            is_template=True
+        )
+        
+        db.add(template)
+        db.commit()
+        
+        return JSONResponse({'success': True})
+    except Exception as e:
+        db.rollback()
+        return JSONResponse({'success': False, 'error': str(e)}, status_code=500)
+
+
+@router.get("/api/ai/prompt-templates/{template_id}")
+async def get_prompt_template(template_id: int, db: Session = Depends(get_db)):
+    """프롬프트 템플릿 정보 조회"""
+    try:
+        template = db.query(AIPromptTemplate).filter(AIPromptTemplate.id == template_id).first()
+        
+        if not template:
+            return JSONResponse({'success': False, 'error': '템플릿을 찾을 수 없습니다'}, status_code=404)
+        
+        return JSONResponse({
+            'success': True,
+            'template': {
+                'id': template.id,
+                'template_name': template.template_name,
+                'template_type': template.template_type,
+                'user_prompt_template': template.user_prompt_template
+            }
+        })
+    except Exception as e:
+        return JSONResponse({'success': False, 'error': str(e)}, status_code=500)
+
+
+@router.post("/api/ai/prompt-templates/update/{template_id}")
+async def update_prompt_template(
+    template_id: int,
+    template_name: str = Form(...),
+    template_type: str = Form(...),
+    user_prompt_template: str = Form(...),
+    db: Session = Depends(get_db)
+):
+    """프롬프트 템플릿 수정"""
+    try:
+        template = db.query(AIPromptTemplate).filter(AIPromptTemplate.id == template_id).first()
+        
+        if not template:
+            return JSONResponse({'success': False, 'error': '템플릿을 찾을 수 없습니다'}, status_code=404)
+        
+        template.template_name = template_name
+        template.template_type = template_type
+        template.user_prompt_template = user_prompt_template
+        
+        db.commit()
+        
+        return JSONResponse({'success': True})
+    except Exception as e:
+        db.rollback()
+        return JSONResponse({'success': False, 'error': str(e)}, status_code=500)
+
+
+@router.post("/api/ai/prompt-templates/duplicate/{template_id}")
+async def duplicate_prompt_template(template_id: int, db: Session = Depends(get_db)):
+    """프롬프트 템플릿 복제"""
+    try:
+        original = db.query(AIPromptTemplate).filter(AIPromptTemplate.id == template_id).first()
+        
+        if not original:
+            return JSONResponse({'success': False, 'error': '템플릿을 찾을 수 없습니다'}, status_code=404)
+        
+        duplicate = AIPromptTemplate(
+            template_name=f"{original.template_name} (복사본)",
+            template_type=original.template_type,
+            user_prompt_template=original.user_prompt_template,
+            is_template=True
+        )
+        
+        db.add(duplicate)
+        db.commit()
+        
+        return JSONResponse({'success': True})
+    except Exception as e:
+        db.rollback()
+        return JSONResponse({'success': False, 'error': str(e)}, status_code=500)
+
+
+@router.post("/api/ai/prompt-templates/delete/{template_id}")
+async def delete_prompt_template(template_id: int, db: Session = Depends(get_db)):
+    """프롬프트 템플릿 삭제"""
+    try:
+        template = db.query(AIPromptTemplate).filter(AIPromptTemplate.id == template_id).first()
+        
+        if template:
+            db.delete(template)
+            db.commit()
+        
+        return JSONResponse({'success': True})
+    except Exception as e:
+        db.rollback()
+        return JSONResponse({'success': False, 'error': str(e)}, status_code=500)
+
+
+# ============================================
+# 프롬프트 관리 API
+# ============================================
+
+@router.post("/api/ai/prompts/add")
+async def add_prompt(
+    ai_product_id: int = Form(...),
+    keyword_classification: str = Form(...),
+    system_prompt: str = Form(...),
+    user_prompt: str = Form(...),
+    temperature: float = Form(0.7),
+    max_tokens: int = Form(2000),
+    generate_images: bool = Form(False),
+    db: Session = Depends(get_db)
+):
+    """프롬프트 추가"""
+    try:
+        if keyword_classification not in ['alternative', 'informational']:
+            return JSONResponse({'success': False, 'error': '잘못된 분류입니다'}, status_code=400)
+        
+        prompt = AIPrompt(
+            ai_product_id=ai_product_id,
+            keyword_classification=keyword_classification,
+            system_prompt=system_prompt,
+            user_prompt=user_prompt,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            generate_images=generate_images
+        )
+        
+        db.add(prompt)
+        db.commit()
+        
+        return JSONResponse({'success': True})
+    except Exception as e:
+        db.rollback()
+        return JSONResponse({'success': False, 'error': str(e)}, status_code=500)
+
+
+@router.post("/api/ai/prompts/delete/{prompt_id}")
+async def delete_prompt(prompt_id: int, db: Session = Depends(get_db)):
+    """프롬프트 삭제"""
+    try:
+        prompt = db.query(AIPrompt).filter(AIPrompt.id == prompt_id).first()
+        
+        if prompt:
+            db.delete(prompt)
+            db.commit()
+        
+        return JSONResponse({'success': True})
+    except Exception as e:
+        db.rollback()
+        return JSONResponse({'success': False, 'error': str(e)}, status_code=500)
+
+
+# ============================================
+# 스케줄 관리 API
+# ============================================
+
+@router.post("/api/ai/schedules/add")
+async def add_schedule(
+    ai_product_id: int = Form(...),
+    prompt_id: int = Form(...),
+    start_date: date = Form(...),
+    end_date: date = Form(...),
+    daily_post_count: int = Form(...),
+    db: Session = Depends(get_db)
+):
+    """스케줄 추가"""
+    try:
+        # 예상 총 글 발행 수 계산
+        current = start_date
+        work_days = 0
+        while current <= end_date:
+            if current.weekday() < 5:  # 월~금
+                work_days += 1
+            current += timedelta(days=1)
+        
+        expected_total = work_days * daily_post_count
+        
+        schedule = AIMarketingSchedule(
+            ai_product_id=ai_product_id,
+            prompt_id=prompt_id,
+            start_date=start_date,
+            end_date=end_date,
+            daily_post_count=daily_post_count,
+            expected_total_posts=expected_total,
+            status='scheduled'
+        )
+        
+        db.add(schedule)
+        db.commit()
+        
+        return JSONResponse({'success': True})
+    except Exception as e:
+        db.rollback()
+        return JSONResponse({'success': False, 'error': str(e)}, status_code=500)
+
+
+@router.post("/api/ai/schedules/delete/{schedule_id}")
+async def delete_schedule(schedule_id: int, db: Session = Depends(get_db)):
+    """스케줄 삭제"""
+    try:
+        schedule = db.query(AIMarketingSchedule).filter(AIMarketingSchedule.id == schedule_id).first()
+        
+        if schedule:
+            db.delete(schedule)
+            db.commit()
+        
+        return JSONResponse({'success': True})
+    except Exception as e:
+        db.rollback()
+        return JSONResponse({'success': False, 'error': str(e)}, status_code=500)
+
+
+# ============================================
+# Claude API 연동 - 글 생성
+# ============================================
+
+@router.post("/api/ai/generate-content")
+async def generate_content(request: Request, db: Session = Depends(get_db)):
+    """Claude API를 사용하여 컨텐츠 생성"""
+    try:
+        data = await request.json()
+        prompt_id = data.get('prompt_id')
+        keyword = data.get('keyword', '')
+        
+        if not prompt_id:
+            return JSONResponse({'success': False, 'error': '프롬프트 ID가 필요합니다'}, status_code=400)
+        
+        # 프롬프트 정보 조회
+        prompt = db.query(AIPrompt).options(
+            joinedload(AIPrompt.ai_product)
+        ).filter(AIPrompt.id == prompt_id).first()
+        
+        if not prompt or not prompt.ai_product:
+            return JSONResponse({'success': False, 'error': '프롬프트를 찾을 수 없습니다'}, status_code=404)
+        
+        # 변수 치환
+        user_prompt = prompt.user_prompt
+        product = prompt.ai_product
+        
+        replacements = {
+            '{product_name}': product.product_name,
+            '{core_value}': product.core_value,
+            '{sub_core_value}': product.sub_core_value,
+            '{size_weight}': product.size_weight,
+            '{difference}': product.difference,
+            '{famous_brands}': product.famous_brands,
+            '{market_problem}': product.market_problem,
+            '{our_price}': product.our_price,
+            '{market_avg_price}': product.market_avg_price,
+            '{target_age}': product.target_age,
+            '{target_gender}': product.target_gender,
+            '{additional_info}': product.additional_info or '',
+            '{marketing_link}': product.marketing_link,
+            '{keyword}': keyword
+        }
+        
+        for var, value in replacements.items():
+            user_prompt = user_prompt.replace(var, str(value))
+        
+        # Claude API 호출
+        if not ANTHROPIC_AVAILABLE:
+            return JSONResponse({'success': False, 'error': 'Anthropic 모듈이 설치되지 않았습니다'}, status_code=500)
+        
+        import os
+        api_key = os.environ.get('ANTHROPIC_API_KEY')
+        if not api_key:
+            return JSONResponse({'success': False, 'error': 'ANTHROPIC_API_KEY 환경변수가 설정되지 않았습니다'}, status_code=500)
+        
+        client = anthropic.Anthropic(api_key=api_key)
+        
+        response = client.messages.create(
+            model="claude-3-5-sonnet-20241022",
+            max_tokens=prompt.max_tokens,
+            temperature=prompt.temperature,
+            system=prompt.system_prompt,
+            messages=[
+                {"role": "user", "content": user_prompt}
+            ]
+        )
+        
+        generated_content = response.content[0].text
+        
+        return JSONResponse({
+            'success': True,
+            'content': generated_content,
+            'usage': {
+                'input_tokens': response.usage.input_tokens,
+                'output_tokens': response.usage.output_tokens
+            }
+        })
+        
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return JSONResponse({'success': False, 'error': str(e)}, status_code=500)
+
+
+# ============================================
+# 이미지 생성 기능
+# ============================================
+
+@router.post("/api/ai/generate-images")
+async def generate_images(request: Request, db: Session = Depends(get_db)):
+    """Claude API를 사용하여 이미지 생성 프롬프트 작성"""
+    try:
+        data = await request.json()
+        prompt_id = data.get('prompt_id')
+        keyword = data.get('keyword', '')
+        generated_content = data.get('generated_content', '')
+        
+        if not prompt_id:
+            return JSONResponse({'success': False, 'error': '프롬프트 ID가 필요합니다'}, status_code=400)
+        
+        # 프롬프트 정보 조회
+        prompt = db.query(AIPrompt).options(
+            joinedload(AIPrompt.ai_product)
+        ).filter(AIPrompt.id == prompt_id).first()
+        
+        if not prompt or not prompt.ai_product:
+            return JSONResponse({'success': False, 'error': '프롬프트를 찾을 수 없습니다'}, status_code=404)
+        
+        product = prompt.ai_product
+        
+        # 이미지 생성 프롬프트 작성
+        image_generation_prompt = f"""
+위 내용을 정확하게 참조해서 다음 3가지 이미지를 생성해주세요:
+
+상품 정보:
+- 상품명: {product.product_name}
+- 핵심 가치: {product.core_value}
+- 타겟 고객: {product.target_age}, {product.target_gender}
+
+생성할 이미지:
+1. 제품 파손, 불량 등 부정적인 실제 사진같은 이미지
+2. 실제 한국사람이 고통스러워 하고있는 실제 사진같은 이미지  
+3. 해당 제품의 실제 사용하는 것 같은 이미지
+
+각 이미지에 대한 상세한 설명을 제공해주세요.
+"""
+        
+        # Claude API 호출
+        if not ANTHROPIC_AVAILABLE:
+            return JSONResponse({'success': False, 'error': 'Anthropic 모듈이 설치되지 않았습니다'}, status_code=500)
+        
+        import os
+        api_key = os.environ.get('ANTHROPIC_API_KEY')
+        if not api_key:
+            return JSONResponse({'success': False, 'error': 'ANTHROPIC_API_KEY 환경변수가 설정되지 않았습니다'}, status_code=500)
+        
+        client = anthropic.Anthropic(api_key=api_key)
+        
+        response = client.messages.create(
+            model="claude-3-5-sonnet-20241022",
+            max_tokens=1500,
+            temperature=0.7,
+            system="당신은 이미지 생성 전문가입니다. 주어진 컨텐츠를 바탕으로 효과적인 이미지 설명을 작성합니다.",
+            messages=[
+                {
+                    "role": "user", 
+                    "content": f"생성된 글 내용:\n\n{generated_content}\n\n{image_generation_prompt}"
+                }
+            ]
+        )
+        
+        image_descriptions = response.content[0].text
+        
+        return JSONResponse({
+            'success': True,
+            'image_descriptions': image_descriptions,
+            'usage': {
+                'input_tokens': response.usage.input_tokens,
+                'output_tokens': response.usage.output_tokens
+            }
+        })
+        
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return JSONResponse({'success': False, 'error': str(e)}, status_code=500)
+
+
+@router.post("/api/ai/test-generation")
+async def test_generation(request: Request, db: Session = Depends(get_db)):
+    """테스트: 전체 프로세스 (글 생성 + 이미지 설명 생성)"""
+    try:
+        data = await request.json()
+        prompt_id = data.get('prompt_id')
+        keyword = data.get('keyword', '')
+        
+        if not prompt_id:
+            return JSONResponse({'success': False, 'error': '프롬프트 ID가 필요합니다'}, status_code=400)
+        
+        # 1단계: 글 생성
+        content_response = await generate_content(request, db)
+        if not content_response.body:
+            return JSONResponse({'success': False, 'error': '글 생성 실패'}, status_code=500)
+        
+        content_data = json.loads(content_response.body)
+        if not content_data.get('success'):
+            return content_data
+        
+        generated_content = content_data['content']
+        
+        # 2단계: 이미지 생성 여부 확인
+        prompt = db.query(AIPrompt).filter(AIPrompt.id == prompt_id).first()
+        
+        image_descriptions = None
+        if prompt and prompt.generate_images:
+            # 이미지 설명 생성
+            image_request = Request(
+                scope={
+                    'type': 'http',
+                    'method': 'POST',
+                    'headers': [],
+                    'query_string': b'',
+                }
+            )
+            image_request._json = {
+                'prompt_id': prompt_id,
+                'keyword': keyword,
+                'generated_content': generated_content
+            }
+            
+            image_response = await generate_images(image_request, db)
+            if image_response.body:
+                image_data = json.loads(image_response.body)
+                if image_data.get('success'):
+                    image_descriptions = image_data['image_descriptions']
+        
+        return JSONResponse({
+            'success': True,
+            'content': generated_content,
+            'images': image_descriptions,
+            'images_generated': prompt.generate_images if prompt else False
+        })
+        
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return JSONResponse({'success': False, 'error': str(e)}, status_code=500)
+
