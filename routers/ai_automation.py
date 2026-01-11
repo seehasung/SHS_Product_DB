@@ -846,3 +846,298 @@ async def generated_posts_page(
         "account_filter": account_filter,
         "cafe_filter": cafe_filter
     })
+
+
+# ============================================
+# JSON API 엔드포인트 (automation_cafe_full.html 용)
+# ============================================
+
+@router.get("/api/products")
+async def api_get_products(
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    """AI 상품 목록 조회 (JSON)"""
+    current_user = get_current_user(request, db)
+    if not current_user:
+        return JSONResponse({"success": False, "error": "로그인이 필요합니다"}, status_code=401)
+    
+    try:
+        products = db.query(AIMarketingProduct).options(
+            joinedload(AIMarketingProduct.marketing_product).joinedload(MarketingProduct.product)
+        ).all()
+        
+        products_data = []
+        for p in products:
+            if p.marketing_product and p.marketing_product.product:
+                products_data.append({
+                    'id': p.id,
+                    'product_name': p.product_name,
+                    'product_code': p.marketing_product.product.product_code,
+                    'thumbnail': p.marketing_product.product.thumbnail,
+                    'use_for_cafe': p.use_for_cafe,
+                    'use_for_blog': p.use_for_blog,
+                    'marketing_link': p.marketing_link
+                })
+        
+        return JSONResponse({'success': True, 'products': products_data})
+    except Exception as e:
+        return JSONResponse({'success': False, 'error': str(e)}, status_code=500)
+
+
+@router.get("/api/products/{product_id}")
+async def api_get_product(
+    product_id: int,
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    """AI 상품 상세 정보 조회 (JSON)"""
+    current_user = get_current_user(request, db)
+    if not current_user:
+        return JSONResponse({"success": False, "error": "로그인이 필요합니다"}, status_code=401)
+    
+    try:
+        product = db.query(AIMarketingProduct).filter(AIMarketingProduct.id == product_id).first()
+        
+        if not product:
+            return JSONResponse({'success': False, 'error': '상품을 찾을 수 없습니다'}, status_code=404)
+        
+        return JSONResponse({
+            'success': True,
+            'product': {
+                'id': product.id,
+                'use_for_cafe': product.use_for_cafe,
+                'use_for_blog': product.use_for_blog,
+                'product_name': product.product_name,
+                'core_value': product.core_value,
+                'sub_core_value': product.sub_core_value,
+                'size_weight': product.size_weight,
+                'difference': product.difference,
+                'famous_brands': product.famous_brands,
+                'market_problem': product.market_problem,
+                'our_price': product.our_price,
+                'market_avg_price': product.market_avg_price,
+                'target_age': product.target_age,
+                'target_gender': product.target_gender,
+                'additional_info': product.additional_info,
+                'marketing_link': product.marketing_link
+            }
+        })
+    except Exception as e:
+        return JSONResponse({'success': False, 'error': str(e)}, status_code=500)
+
+
+@router.post("/api/products/update/{product_id}")
+async def api_update_product(
+    product_id: int,
+    request: Request,
+    use_for_cafe: bool = Form(False),
+    use_for_blog: bool = Form(False),
+    product_name: str = Form(...),
+    core_value: str = Form(...),
+    sub_core_value: str = Form(...),
+    size_weight: str = Form(...),
+    difference: str = Form(...),
+    famous_brands: str = Form(...),
+    market_problem: str = Form(...),
+    our_price: str = Form(...),
+    market_avg_price: str = Form(...),
+    target_age: str = Form(...),
+    target_gender: str = Form(...),
+    marketing_link: str = Form(...),
+    additional_info: Optional[str] = Form(None),
+    db: Session = Depends(get_db)
+):
+    """AI 상품 정보 업데이트 (JSON)"""
+    current_user = get_current_user(request, db)
+    if not current_user:
+        return JSONResponse({"success": False, "error": "로그인이 필요합니다"}, status_code=401)
+    
+    try:
+        product = db.query(AIMarketingProduct).filter(AIMarketingProduct.id == product_id).first()
+        
+        if not product:
+            return JSONResponse({'success': False, 'error': '상품을 찾을 수 없습니다'}, status_code=404)
+        
+        # 업데이트
+        product.use_for_cafe = use_for_cafe
+        product.use_for_blog = use_for_blog
+        product.product_name = product_name
+        product.core_value = core_value
+        product.sub_core_value = sub_core_value
+        product.size_weight = size_weight
+        product.difference = difference
+        product.famous_brands = famous_brands
+        product.market_problem = market_problem
+        product.our_price = our_price
+        product.market_avg_price = market_avg_price
+        product.target_age = target_age
+        product.target_gender = target_gender
+        product.additional_info = additional_info
+        product.marketing_link = marketing_link
+        
+        db.commit()
+        
+        return JSONResponse({'success': True})
+    except Exception as e:
+        db.rollback()
+        return JSONResponse({'success': False, 'error': str(e)}, status_code=500)
+
+
+@router.get("/api/available-products")
+async def api_get_available_products(
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    """추가 가능한 상품 목록 (JSON)"""
+    current_user = get_current_user(request, db)
+    if not current_user:
+        return JSONResponse({"success": False, "error": "로그인이 필요합니다"}, status_code=401)
+    
+    try:
+        # 이미 AI 자동화에 추가된 상품 ID들
+        existing_ids = [p.marketing_product_id for p in db.query(AIMarketingProduct).all()]
+        
+        # 추가 가능한 상품들
+        available = db.query(MarketingProduct).options(
+            joinedload(MarketingProduct.product)
+        ).filter(MarketingProduct.id.notin_(existing_ids) if existing_ids else True).all()
+        
+        products_data = []
+        for mp in available:
+            if mp.product:
+                products_data.append({
+                    'id': mp.id,
+                    'name': mp.product.name,
+                    'product_code': mp.product.product_code,
+                    'thumbnail': mp.product.thumbnail
+                })
+        
+        return JSONResponse({'success': True, 'products': products_data})
+    except Exception as e:
+        return JSONResponse({'success': False, 'error': str(e)}, status_code=500)
+
+
+@router.post("/api/products/add/{marketing_product_id}")
+async def api_add_product(
+    marketing_product_id: int,
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    """AI 상품 추가 (JSON)"""
+    current_user = get_current_user(request, db)
+    if not current_user:
+        return JSONResponse({"success": False, "error": "로그인이 필요합니다"}, status_code=401)
+    
+    try:
+        # 중복 체크
+        existing = db.query(AIMarketingProduct).filter(
+            AIMarketingProduct.marketing_product_id == marketing_product_id
+        ).first()
+        
+        if existing:
+            return JSONResponse({'success': False, 'error': '이미 추가된 상품입니다'}, status_code=400)
+        
+        # 마케팅 상품 정보 조회
+        mp = db.query(MarketingProduct).options(
+            joinedload(MarketingProduct.product)
+        ).filter(MarketingProduct.id == marketing_product_id).first()
+        
+        if not mp or not mp.product:
+            return JSONResponse({'success': False, 'error': '상품을 찾을 수 없습니다'}, status_code=404)
+        
+        # AI 상품 생성 (초기값으로)
+        ai_product = AIMarketingProduct(
+            marketing_product_id=marketing_product_id,
+            use_for_cafe=True,
+            use_for_blog=False,
+            product_name=mp.product.name,
+            core_value='',
+            sub_core_value='',
+            size_weight='',
+            difference='',
+            famous_brands='',
+            market_problem='',
+            our_price='',
+            market_avg_price='',
+            target_age='',
+            target_gender='',
+            marketing_link=''
+        )
+        
+        db.add(ai_product)
+        db.commit()
+        db.refresh(ai_product)
+        
+        return JSONResponse({'success': True, 'id': ai_product.id})
+    except Exception as e:
+        db.rollback()
+        return JSONResponse({'success': False, 'error': str(e)}, status_code=500)
+
+
+@router.get("/api/prompt-templates")
+async def api_get_prompt_templates(
+    request: Request,
+    type: Optional[str] = Query(None),
+    db: Session = Depends(get_db)
+):
+    """프롬프트 템플릿 목록 조회 (JSON)"""
+    current_user = get_current_user(request, db)
+    if not current_user:
+        return JSONResponse({"success": False, "error": "로그인이 필요합니다"}, status_code=401)
+    
+    try:
+        query = db.query(AIPromptTemplate).filter(
+            AIPromptTemplate.is_template == True
+        )
+        
+        # 타입 필터 적용
+        if type and type in ['alternative', 'informational']:
+            query = query.filter(AIPromptTemplate.template_type == type)
+        
+        templates = query.all()
+        
+        templates_data = [{
+            'id': t.id,
+            'template_name': t.template_name,
+            'template_type': t.template_type,
+            'user_prompt_template': t.user_prompt_template,
+            'created_at': t.created_at.isoformat() if t.created_at else None
+        } for t in templates]
+        
+        return JSONResponse({'success': True, 'templates': templates_data})
+    except Exception as e:
+        return JSONResponse({'success': False, 'error': str(e)}, status_code=500)
+
+
+@router.post("/api/prompt-templates/add")
+async def api_add_prompt_template(
+    request: Request,
+    template_name: str = Form(...),
+    template_type: str = Form(...),
+    user_prompt_template: str = Form(...),
+    db: Session = Depends(get_db)
+):
+    """프롬프트 템플릿 추가 (JSON)"""
+    current_user = get_current_user(request, db)
+    if not current_user:
+        return JSONResponse({"success": False, "error": "로그인이 필요합니다"}, status_code=401)
+    
+    try:
+        if template_type not in ['alternative', 'informational']:
+            return JSONResponse({'success': False, 'error': '잘못된 분류입니다'}, status_code=400)
+        
+        template = AIPromptTemplate(
+            template_name=template_name,
+            template_type=template_type,
+            user_prompt_template=user_prompt_template,
+            is_template=True
+        )
+        
+        db.add(template)
+        db.commit()
+        
+        return JSONResponse({'success': True})
+    except Exception as e:
+        db.rollback()
+        return JSONResponse({'success': False, 'error': str(e)}, status_code=500)

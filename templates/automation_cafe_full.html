@@ -510,9 +510,13 @@
                     </button>
                 </div>
                 
-                <div class="alert alert-info">
-                    <i class="bi bi-info-circle"></i>
-                    <strong>안내:</strong> 대안성/정보성 프롬프트 템플릿을 관리합니다. 변수 기능을 활용하세요.
+                <div class="mb-3">
+                    <label class="form-label">분류 필터</label>
+                    <select class="form-select" id="templateTypeFilter" style="max-width: 200px;" onchange="loadPromptTemplates()">
+                        <option value="all">전체</option>
+                        <option value="alternative">대안성</option>
+                        <option value="informational">정보성</option>
+                    </select>
                 </div>
                 
                 <div id="promptTemplatesList">
@@ -2127,7 +2131,14 @@ document.addEventListener('DOMContentLoaded', function() {
 // 프롬프트 템플릿 로드
 async function loadPromptTemplates() {
     try {
-        const response = await fetch('/ai-automation/api/prompt-templates');
+        // 필터 값 가져오기
+        const typeFilter = document.getElementById('templateTypeFilter')?.value || 'all';
+        
+        const url = typeFilter === 'all' 
+            ? '/ai-automation/api/prompt-templates' 
+            : `/ai-automation/api/prompt-templates?type=${typeFilter}`;
+        
+        const response = await fetch(url);
         const data = await response.json();
         
         if (data.success) {
@@ -2151,6 +2162,7 @@ async function loadPromptTemplates() {
                             <tr>
                                 <th>템플릿명</th>
                                 <th>분류</th>
+                                <th style="width: 40%;">프롬프트 미리보기</th>
                                 <th>생성일</th>
                                 <th>관리</th>
                             </tr>
@@ -2164,15 +2176,20 @@ async function loadPromptTemplates() {
                                             ${t.template_type === 'alternative' ? '대안성' : '정보성'}
                                         </span>
                                     </td>
+                                    <td>
+                                        <small style="line-height: 1.8;">
+                                            ${renderVariablesAsBadges(t.user_prompt_template?.substring(0, 150) + '...')}
+                                        </small>
+                                    </td>
                                     <td>${new Date(t.created_at).toLocaleDateString()}</td>
                                     <td>
-                                        <button class="btn btn-sm btn-primary" onclick="editTemplate(${t.id})">
+                                        <button class="btn btn-sm btn-primary" onclick="editTemplate(${t.id})" title="수정">
                                             <i class="bi bi-pencil"></i>
                                         </button>
-                                        <button class="btn btn-sm btn-secondary" onclick="duplicateTemplate(${t.id})">
+                                        <button class="btn btn-sm btn-secondary" onclick="duplicateTemplate(${t.id})" title="복제">
                                             <i class="bi bi-files"></i>
                                         </button>
-                                        <button class="btn btn-sm btn-danger" onclick="deleteTemplate(${t.id})">
+                                        <button class="btn btn-sm btn-danger" onclick="deleteTemplate(${t.id})" title="삭제">
                                             <i class="bi bi-trash"></i>
                                         </button>
                                     </td>
@@ -2771,6 +2788,47 @@ function insertVariable(textareaId, variableName) {
     textarea.focus();
 }
 
+// 드롭박스에서 변수 선택 후 삽입
+function insertVariableFromSelect(textareaId, selectId) {
+    const select = document.getElementById(selectId);
+    const variableName = select.value;
+    
+    if (!variableName) {
+        alert('변수를 선택해주세요.');
+        return;
+    }
+    
+    insertVariable(textareaId, variableName);
+    
+    // 선택 초기화
+    select.value = '';
+}
+
+// 이미지 생성 프롬프트 추가
+function insertImageGenerationPrompt(textareaId) {
+    const textarea = document.getElementById(textareaId);
+    const imagePrompt = '\n\n위 내용을 정확하게 참조해서\n1. 제품 파손, 불량 등 부정적인 실제 사진같은 이미지\n2. 실제 한국사람이 고통스러워 하고있는 실제 사진같은 이미지\n3. 해당 제품의 실제 사용하는 것 같은 이미지\n이렇게 총 3장을 만들어줘';
+    
+    // 맨 끝에 추가
+    textarea.value = textarea.value.trim() + imagePrompt;
+    
+    // 커서를 맨 끝으로
+    textarea.setSelectionRange(textarea.value.length, textarea.value.length);
+    textarea.focus();
+    
+    alert('이미지 생성 프롬프트가 추가되었습니다.');
+}
+
+// 템플릿 텍스트에서 변수를 뱃지로 변환
+function renderVariablesAsBadges(text) {
+    if (!text) return '';
+    
+    // {변수명} 패턴을 찾아서 뱃지로 변환
+    return text.replace(/\{([a-z_]+)\}/g, (match, varName) => {
+        return `<span class="badge bg-primary">{${varName}}</span>`;
+    });
+}
+
 // 모든 변수 목록
 const AVAILABLE_VARIABLES = {
     'product_name': '우리제품명',
@@ -3105,21 +3163,31 @@ document.addEventListener('DOMContentLoaded', function() {
                     <div class="mb-3">
                         <div class="d-flex justify-content-between align-items-center mb-2">
                             <label class="form-label mb-0">사용자 프롬프트 템플릿 <span class="text-danger">*</span></label>
-                            <div class="btn-group btn-group-sm">
-                                <button type="button" class="btn btn-outline-primary" onclick="insertVariable('addTemplatePrompt', 'product_name')">
-                                    <i class="bi bi-plus"></i> {product_name}
-                                </button>
-                                <button type="button" class="btn btn-outline-primary" onclick="insertVariable('addTemplatePrompt', 'core_value')">
-                                    <i class="bi bi-plus"></i> {core_value}
-                                </button>
-                                <button type="button" class="btn btn-outline-primary" onclick="insertVariable('addTemplatePrompt', 'marketing_link')">
-                                    <i class="bi bi-plus"></i> {marketing_link}
+                            <div class="input-group input-group-sm" style="width: auto;">
+                                <select class="form-select" id="addTemplateVariableSelect" style="width: 200px;">
+                                    <option value="">변수 선택</option>
+                                    <option value="product_name">1. 우리제품명</option>
+                                    <option value="core_value">2. 우리 제품의 핵심</option>
+                                    <option value="sub_core_value">3. 서브 핵심</option>
+                                    <option value="size_weight">4. 사이즈 & 무게</option>
+                                    <option value="difference">5. 타사 차별점</option>
+                                    <option value="famous_brands">6. 유명 브랜드들</option>
+                                    <option value="market_problem">7. 시장 문제점</option>
+                                    <option value="our_price">8. 우리 가격</option>
+                                    <option value="market_avg_price">9. 시장 평균 가격</option>
+                                    <option value="target_age">10. 예상 연령대</option>
+                                    <option value="target_gender">11. 예상 성별</option>
+                                    <option value="additional_info">12. 기타 특이사항</option>
+                                    <option value="marketing_link">마케팅 링크</option>
+                                </select>
+                                <button type="button" class="btn btn-primary" onclick="insertVariableFromSelect('addTemplatePrompt', 'addTemplateVariableSelect')">
+                                    <i class="bi bi-plus-circle"></i> 변수 추가
                                 </button>
                             </div>
                         </div>
                         <textarea class="form-control" id="addTemplatePrompt" name="user_prompt_template" rows="10" required 
-                                  placeholder="변수 예시: {product_name}, {core_value}, {sub_core_value}, {size_weight}, {difference}, {famous_brands}, {market_problem}, {our_price}, {market_avg_price}, {target_age}, {target_gender}, {additional_info}, {marketing_link}"></textarea>
-                        <small class="text-muted">변수를 사용하면 실제 상품 정보로 자동 치환됩니다.</small>
+                                  placeholder="위에서 변수를 선택하고 추가 버튼을 눌러 템플릿에 삽입하세요."></textarea>
+                        <small class="text-muted">변수는 실제 상품 정보로 자동 치환됩니다.</small>
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -3158,15 +3226,25 @@ document.addEventListener('DOMContentLoaded', function() {
                 <div class="mb-3">
                     <div class="d-flex justify-content-between align-items-center mb-2">
                         <label class="form-label mb-0">사용자 프롬프트 템플릿 <span class="text-danger">*</span></label>
-                        <div class="btn-group btn-group-sm">
-                            <button type="button" class="btn btn-outline-primary" onclick="insertVariable('editTemplatePrompt', 'product_name')">
-                                <i class="bi bi-plus"></i> {product_name}
-                            </button>
-                            <button type="button" class="btn btn-outline-primary" onclick="insertVariable('editTemplatePrompt', 'core_value')">
-                                <i class="bi bi-plus"></i> {core_value}
-                            </button>
-                            <button type="button" class="btn btn-outline-primary" onclick="insertVariable('editTemplatePrompt', 'marketing_link')">
-                                <i class="bi bi-plus"></i> {marketing_link}
+                        <div class="input-group input-group-sm" style="width: auto;">
+                            <select class="form-select" id="editTemplateVariableSelect" style="width: 200px;">
+                                <option value="">변수 선택</option>
+                                <option value="product_name">1. 우리제품명</option>
+                                <option value="core_value">2. 우리 제품의 핵심</option>
+                                <option value="sub_core_value">3. 서브 핵심</option>
+                                <option value="size_weight">4. 사이즈 & 무게</option>
+                                <option value="difference">5. 타사 차별점</option>
+                                <option value="famous_brands">6. 유명 브랜드들</option>
+                                <option value="market_problem">7. 시장 문제점</option>
+                                <option value="our_price">8. 우리 가격</option>
+                                <option value="market_avg_price">9. 시장 평균 가격</option>
+                                <option value="target_age">10. 예상 연령대</option>
+                                <option value="target_gender">11. 예상 성별</option>
+                                <option value="additional_info">12. 기타 특이사항</option>
+                                <option value="marketing_link">마케팅 링크</option>
+                            </select>
+                            <button type="button" class="btn btn-primary" onclick="insertVariableFromSelect('editTemplatePrompt', 'editTemplateVariableSelect')">
+                                <i class="bi bi-plus-circle"></i> 변수 추가
                             </button>
                         </div>
                     </div>
@@ -3224,7 +3302,33 @@ document.addEventListener('DOMContentLoaded', function() {
                     </div>
                     
                     <div class="mb-3">
-                        <label class="form-label">사용자 프롬프트 <span class="text-danger">*</span></label>
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <label class="form-label mb-0">사용자 프롬프트 <span class="text-danger">*</span></label>
+                            <div class="btn-group btn-group-sm">
+                                <select class="form-select form-select-sm" id="promptVariableSelect" style="width: 180px;">
+                                    <option value="">변수 선택</option>
+                                    <option value="product_name">1. 우리제품명</option>
+                                    <option value="core_value">2. 제품 핵심</option>
+                                    <option value="sub_core_value">3. 서브 핵심</option>
+                                    <option value="size_weight">4. 사이즈&무게</option>
+                                    <option value="difference">5. 타사 차별점</option>
+                                    <option value="famous_brands">6. 유명 브랜드</option>
+                                    <option value="market_problem">7. 시장 문제점</option>
+                                    <option value="our_price">8. 우리 가격</option>
+                                    <option value="market_avg_price">9. 시장 평균가</option>
+                                    <option value="target_age">10. 연령대</option>
+                                    <option value="target_gender">11. 성별</option>
+                                    <option value="additional_info">12. 특이사항</option>
+                                    <option value="marketing_link">마케팅 링크</option>
+                                </select>
+                                <button type="button" class="btn btn-primary btn-sm" onclick="insertVariableFromSelect('userPromptArea', 'promptVariableSelect')">
+                                    <i class="bi bi-plus-circle"></i> 추가
+                                </button>
+                                <button type="button" class="btn btn-success btn-sm" onclick="insertImageGenerationPrompt('userPromptArea')">
+                                    <i class="bi bi-image"></i> 이미지 생성
+                                </button>
+                            </div>
+                        </div>
                         <textarea class="form-control" id="userPromptArea" name="user_prompt" rows="10" required 
                                   placeholder="실제 요청 내용을 작성합니다. 변수는 자동으로 치환됩니다."></textarea>
                     </div>
