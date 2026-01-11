@@ -180,6 +180,26 @@
                 <i class="bi bi-file-text"></i> AI 템플릿
             </a>
         </li>
+        <li class="nav-item">
+            <a class="nav-link" data-bs-toggle="tab" href="#ai-prompts">
+                <i class="bi bi-chat-dots"></i> AI 프롬프트
+            </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" data-bs-toggle="tab" href="#ai-schedules">
+                <i class="bi bi-calendar-check"></i> AI 스케줄
+            </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" data-bs-toggle="tab" href="#ai-posts">
+                <i class="bi bi-file-earmark-text"></i> AI 신규발행
+            </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" data-bs-toggle="tab" href="#ai-connections">
+                <i class="bi bi-link-45deg"></i> AI 연동
+            </a>
+        </li>
     </ul>
     
     <!-- 탭 컨텐츠 -->
@@ -2112,12 +2132,14 @@ document.addEventListener('DOMContentLoaded', function() {
                     loadPromptTemplates();
                     break;
                 case 'ai-prompts':
+                    loadPromptProductFilter();
                     loadPrompts();
                     break;
                 case 'ai-schedules':
                     loadSchedules();
                     break;
                 case 'ai-posts':
+                    loadPostFilters();
                     loadGeneratedPosts();
                     break;
                 case 'ai-connections':
@@ -2207,6 +2229,28 @@ async function loadPromptTemplates() {
 }
 
 // 프롬프트 로드
+// 프롬프트 상품 필터 로드
+async function loadPromptProductFilter() {
+    try {
+        const response = await fetch('/ai-automation/api/products');
+        const data = await response.json();
+        
+        if (data.success) {
+            const select = document.getElementById('promptProductFilter');
+            select.innerHTML = '<option value="">전체 상품</option>';
+            
+            data.products.forEach(p => {
+                const option = document.createElement('option');
+                option.value = p.id;
+                option.textContent = p.product_name;
+                select.appendChild(option);
+            });
+        }
+    } catch (error) {
+        console.error('상품 필터 로드 오류:', error);
+    }
+}
+
 async function loadPrompts() {
     const productFilter = document.getElementById('promptProductFilter')?.value || '';
     const typeFilter = document.getElementById('promptTypeFilter')?.value || 'all';
@@ -2368,6 +2412,45 @@ function searchSchedules() {
     loadSchedules(1);
 }
 
+// 신규 발행 글 필터 로드
+async function loadPostFilters() {
+    try {
+        // 계정 목록
+        const accountsResponse = await fetch('/automation/api/accounts/list');
+        const accountsData = await accountsResponse.json();
+        
+        if (accountsData.success) {
+            const accountSelect = document.getElementById('postAccountFilter');
+            accountSelect.innerHTML = '<option value="">전체 계정</option>';
+            
+            accountsData.accounts.forEach(acc => {
+                const option = document.createElement('option');
+                option.value = acc.id;
+                option.textContent = acc.account_id;
+                accountSelect.appendChild(option);
+            });
+        }
+        
+        // 카페 목록
+        const cafesResponse = await fetch('/automation/api/cafes/list');
+        const cafesData = await cafesResponse.json();
+        
+        if (cafesData.success) {
+            const cafeSelect = document.getElementById('postCafeFilter');
+            cafeSelect.innerHTML = '<option value="">전체 카페</option>';
+            
+            cafesData.cafes.forEach(cafe => {
+                const option = document.createElement('option');
+                option.value = cafe.id;
+                option.textContent = cafe.name;
+                cafeSelect.appendChild(option);
+            });
+        }
+    } catch (error) {
+        console.error('필터 로드 오류:', error);
+    }
+}
+
 // 신규 발행 글 로드
 async function loadGeneratedPosts() {
     const accountFilter = document.getElementById('postAccountFilter')?.value || '';
@@ -2379,8 +2462,55 @@ async function loadGeneratedPosts() {
         
         if (data.success) {
             const container = document.getElementById('generatedPostsList');
-            // 구현 필요
-            container.innerHTML = '<div class="empty-state"><i class="bi bi-file-earmark-text"></i><p>기능 구현 중...</p></div>';
+            container.innerHTML = '';
+            
+            if (data.posts.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <i class="bi bi-file-earmark-text"></i>
+                        <p>생성된 글이 없습니다.</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            const table = `
+                <div class="table-responsive">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>상품명</th>
+                                <th>계정</th>
+                                <th>카페</th>
+                                <th>제목</th>
+                                <th>상태</th>
+                                <th>생성일</th>
+                                <th>관리</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${data.posts.map(p => `
+                                <tr>
+                                    <td>${p.product_name}</td>
+                                    <td>${p.account_name}</td>
+                                    <td>${p.cafe_name}</td>
+                                    <td><strong>${p.post_title}</strong></td>
+                                    <td>
+                                        <span class="badge ${p.status === 'published' ? 'bg-success' : 'bg-secondary'}">
+                                            ${p.status === 'published' ? '발행완료' : '초안'}
+                                        </span>
+                                    </td>
+                                    <td>${new Date(p.created_at).toLocaleString('ko-KR')}</td>
+                                    <td>
+                                        ${p.post_url ? `<a href="${p.post_url}" target="_blank" class="btn btn-sm btn-info"><i class="bi bi-box-arrow-up-right"></i></a>` : ''}
+                                    </td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            `;
+            container.innerHTML = table;
         }
     } catch (error) {
         console.error('발행 글 로드 오류:', error);
@@ -2395,6 +2525,55 @@ async function loadConnections() {
         
         if (data.success) {
             const container = document.getElementById('connectionsList');
+            container.innerHTML = '';
+            
+            if (data.connections.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <i class="bi bi-link-45deg"></i>
+                        <p>연동된 카페-계정이 없습니다.</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            const table = `
+                <div class="table-responsive">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>카페</th>
+                                <th>계정</th>
+                                <th>가입 여부</th>
+                                <th>상태</th>
+                                <th>신규발행 글</th>
+                                <th>사용된 글</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${data.connections.map(c => `
+                                <tr>
+                                    <td><strong>${c.cafe_name}</strong></td>
+                                    <td>${c.account_name}</td>
+                                    <td>
+                                        <span class="badge ${c.is_member ? 'bg-success' : 'bg-secondary'}">
+                                            ${c.is_member ? '가입완료' : '미가입'}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <span class="badge ${c.status === 'active' ? 'bg-success' : 'bg-danger'}">
+                                            ${c.status === 'active' ? '활성' : '정지'}
+                                        </span>
+                                    </td>
+                                    <td><span class="badge bg-primary">${c.draft_post_count}개</span></td>
+                                    <td><span class="badge bg-info">${c.used_post_count}개</span></td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            `;
+            container.innerHTML = table;
             // 구현 필요
             container.innerHTML = '<div class="empty-state"><i class="bi bi-link-45deg"></i><p>기능 구현 중...</p></div>';
         }
@@ -2526,16 +2705,298 @@ async function saveAIProduct() {
     }
 }
 
-// 키워드/레퍼런스 관리는 모달 대신 별도 섹션으로
-function manageKeywords(id) {
-    // 키워드 관리는 같은 페이지 내 별도 섹션에서 처리
-    // TODO: 키워드 관리 UI 추가
-    alert('키워드 관리 기능은 별도 UI에서 구현 예정입니다.');
+// ============================================
+// 키워드 관리
+// ============================================
+
+async function manageKeywords(productId) {
+    document.getElementById('keywordProductId').value = productId;
+    
+    const modal = new bootstrap.Modal(document.getElementById('manageKeywordsModal'));
+    modal.show();
+    
+    await loadKeywords(productId);
 }
 
-function manageReferences(id) {
-    // 레퍼런스 관리는 같은 페이지 내 별도 섹션에서 처리
-    alert('레퍼런스 관리 기능은 별도 UI에서 구현 예정입니다.');
+async function loadKeywords(productId) {
+    try {
+        const response = await fetch(`/ai-automation/api/products/${productId}/keywords`);
+        const data = await response.json();
+        
+        if (data.success) {
+            const tbody = document.getElementById('keywordsTableBody');
+            tbody.innerHTML = '';
+            
+            if (data.keywords.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted">키워드가 없습니다. 동기화 버튼을 눌러주세요.</td></tr>';
+                return;
+            }
+            
+            data.keywords.forEach(kw => {
+                const typeClass = kw.keyword_type === 'alternative' ? 'success' : 
+                                 kw.keyword_type === 'informational' ? 'info' : 'secondary';
+                const typeName = kw.keyword_type === 'alternative' ? '대안성' :
+                                kw.keyword_type === 'informational' ? '정보성' : '미분류';
+                
+                const row = `
+                    <tr>
+                        <td><strong>${kw.keyword_text}</strong></td>
+                        <td>
+                            <select class="form-select form-select-sm" onchange="updateKeywordType(${kw.id}, this.value)">
+                                <option value="unclassified" ${kw.keyword_type === 'unclassified' ? 'selected' : ''}>미분류</option>
+                                <option value="alternative" ${kw.keyword_type === 'alternative' ? 'selected' : ''}>대안성</option>
+                                <option value="informational" ${kw.keyword_type === 'informational' ? 'selected' : ''}>정보성</option>
+                            </select>
+                        </td>
+                        <td>
+                            <span class="badge ${kw.is_active ? 'bg-success' : 'bg-secondary'}">
+                                ${kw.is_active ? '활성' : '비활성'}
+                            </span>
+                        </td>
+                        <td>
+                            <button class="btn btn-sm btn-danger" onclick="deleteKeyword(${kw.id})">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </td>
+                    </tr>
+                `;
+                tbody.innerHTML += row;
+            });
+        }
+    } catch (error) {
+        console.error('키워드 로드 오류:', error);
+    }
+}
+
+async function syncKeywordsFromMarketing() {
+    const productId = document.getElementById('keywordProductId').value;
+    
+    if (!confirm('마케팅 상품의 키워드를 동기화하시겠습니까?')) {
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/ai-automation/keywords/sync/${productId}`, {
+            method: 'POST'
+        });
+        const data = await response.json();
+        
+        if (data.success) {
+            alert(`${data.added_count}개의 키워드가 추가되었습니다.`);
+            await loadKeywords(productId);
+        } else {
+            alert('오류: ' + data.error);
+        }
+    } catch (error) {
+        alert('동기화 중 오류가 발생했습니다.');
+    }
+}
+
+async function updateKeywordType(keywordId, newType) {
+    try {
+        const formData = new FormData();
+        formData.append('keyword_type', newType);
+        
+        const response = await fetch(`/ai-automation/keywords/update/${keywordId}`, {
+            method: 'POST',
+            body: formData
+        });
+        const data = await response.json();
+        
+        if (data.success) {
+            // 성공 메시지 (조용히)
+        } else {
+            alert('오류: ' + data.error);
+            // 실패 시 페이지 새로고침
+            const productId = document.getElementById('keywordProductId').value;
+            await loadKeywords(productId);
+        }
+    } catch (error) {
+        alert('업데이트 중 오류가 발생했습니다.');
+    }
+}
+
+function showAddKeywordForm() {
+    const form = document.getElementById('addKeywordForm');
+    form.style.display = form.style.display === 'none' ? 'block' : 'none';
+}
+
+async function saveNewKeyword() {
+    const productId = document.getElementById('keywordProductId').value;
+    const keywordText = document.getElementById('newKeywordText').value.trim();
+    const keywordType = document.getElementById('newKeywordType').value;
+    
+    if (!keywordText) {
+        alert('키워드를 입력해주세요.');
+        return;
+    }
+    
+    try {
+        const formData = new FormData();
+        formData.append('keyword_text', keywordText);
+        formData.append('keyword_type', keywordType);
+        
+        const response = await fetch(`/ai-automation/keywords/add/${productId}`, {
+            method: 'POST',
+            body: formData
+        });
+        const data = await response.json();
+        
+        if (data.success) {
+            alert('키워드가 추가되었습니다.');
+            document.getElementById('newKeywordText').value = '';
+            document.getElementById('newKeywordType').value = 'unclassified';
+            document.getElementById('addKeywordForm').style.display = 'none';
+            await loadKeywords(productId);
+        } else {
+            alert('오류: ' + data.error);
+        }
+    } catch (error) {
+        alert('추가 중 오류가 발생했습니다.');
+    }
+}
+
+async function deleteKeyword(keywordId) {
+    if (!confirm('이 키워드를 삭제하시겠습니까?')) {
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/ai-automation/keywords/delete/${keywordId}`, {
+            method: 'POST'
+        });
+        const data = await response.json();
+        
+        if (data.success) {
+            const productId = document.getElementById('keywordProductId').value;
+            await loadKeywords(productId);
+        } else {
+            alert('삭제 중 오류가 발생했습니다.');
+        }
+    } catch (error) {
+        alert('삭제 중 오류가 발생했습니다.');
+    }
+}
+
+// ============================================
+// 레퍼런스 관리
+// ============================================
+
+async function manageReferences(productId) {
+    document.getElementById('referenceProductId').value = productId;
+    
+    const modal = new bootstrap.Modal(document.getElementById('manageReferencesModal'));
+    modal.show();
+    
+    await loadReferences(productId);
+}
+
+async function loadReferences(productId) {
+    try {
+        const response = await fetch(`/ai-automation/api/products/${productId}/references`);
+        const data = await response.json();
+        
+        if (data.success) {
+            const tbody = document.getElementById('referencesTableBody');
+            tbody.innerHTML = '';
+            
+            if (data.references.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted">레퍼런스가 없습니다. 동기화 버튼을 눌러주세요.</td></tr>';
+                return;
+            }
+            
+            data.references.forEach(ref => {
+                const typeClass = ref.reference_type === 'alternative' ? 'success' : 
+                                 ref.reference_type === 'informational' ? 'info' : 'secondary';
+                const typeName = ref.reference_type === 'alternative' ? '대안성' :
+                                ref.reference_type === 'informational' ? '정보성' : '미분류';
+                
+                const refTypeBadge = ref.ref_type ? `<span class="badge bg-secondary">${ref.ref_type}</span>` : '';
+                const contentPreview = ref.content ? ref.content.substring(0, 100) + '...' : '';
+                
+                const row = `
+                    <tr>
+                        <td>
+                            <strong>${ref.title}</strong>
+                            <br>${refTypeBadge}
+                        </td>
+                        <td>
+                            <select class="form-select form-select-sm" onchange="updateReferenceType(${ref.id}, this.value)">
+                                <option value="unclassified" ${ref.reference_type === 'unclassified' ? 'selected' : ''}>미분류</option>
+                                <option value="alternative" ${ref.reference_type === 'alternative' ? 'selected' : ''}>대안성</option>
+                                <option value="informational" ${ref.reference_type === 'informational' ? 'selected' : ''}>정보성</option>
+                            </select>
+                        </td>
+                        <td>${refTypeBadge}</td>
+                        <td>
+                            <small class="text-muted">${contentPreview}</small>
+                        </td>
+                        <td>
+                            <button class="btn btn-sm btn-info" onclick="viewReferenceDetail(${ref.reference_id}, '${ref.title.replace(/'/g, "\\'")}', \`${(ref.content || '').replace(/`/g, '\\`')}\`)">
+                                <i class="bi bi-eye"></i>
+                            </button>
+                        </td>
+                    </tr>
+                `;
+                tbody.innerHTML += row;
+            });
+        }
+    } catch (error) {
+        console.error('레퍼런스 로드 오류:', error);
+    }
+}
+
+async function syncReferencesFromMarketing() {
+    const productId = document.getElementById('referenceProductId').value;
+    
+    if (!confirm('마케팅 레퍼런스를 동기화하시겠습니까?')) {
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/ai-automation/references/sync/${productId}`, {
+            method: 'POST'
+        });
+        const data = await response.json();
+        
+        if (data.success) {
+            alert(`${data.added_count}개의 레퍼런스가 추가되었습니다.`);
+            await loadReferences(productId);
+        } else {
+            alert('오류: ' + data.error);
+        }
+    } catch (error) {
+        alert('동기화 중 오류가 발생했습니다.');
+    }
+}
+
+async function updateReferenceType(aiRefId, newType) {
+    try {
+        const formData = new FormData();
+        formData.append('reference_type', newType);
+        
+        const response = await fetch(`/ai-automation/references/update/${aiRefId}`, {
+            method: 'POST',
+            body: formData
+        });
+        const data = await response.json();
+        
+        if (!data.success) {
+            alert('오류: ' + data.error);
+            const productId = document.getElementById('referenceProductId').value;
+            await loadReferences(productId);
+        }
+    } catch (error) {
+        alert('업데이트 중 오류가 발생했습니다.');
+    }
+}
+
+function viewReferenceDetail(refId, title, content) {
+    document.getElementById('viewRefTitle').textContent = title;
+    document.getElementById('viewRefContent').textContent = content;
+    
+    const modal = new bootstrap.Modal(document.getElementById('viewReferenceModal'));
+    modal.show();
 }
 
 // 프롬프트 템플릿 모달
@@ -3358,6 +3819,151 @@ document.addEventListener('DOMContentLoaded', function() {
                     <button type="submit" class="btn btn-primary">저장</button>
                 </div>
             </form>
+        </div>
+    </div>
+</div>
+
+<!-- 키워드 관리 모달 -->
+<div class="modal fade" id="manageKeywordsModal" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-key"></i> 키워드 관리</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="keywordProductId">
+                
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h6 class="mb-0">키워드 목록</h6>
+                    <button type="button" class="btn btn-success btn-sm" onclick="syncKeywordsFromMarketing()">
+                        <i class="bi bi-arrow-repeat"></i> 마케팅에서 동기화
+                    </button>
+                </div>
+                
+                <div class="alert alert-info">
+                    <i class="bi bi-info-circle"></i>
+                    <strong>안내:</strong> 동기화하면 마케팅 상품의 키워드가 추가됩니다. 각 키워드를 대안성/정보성으로 분류하세요.
+                </div>
+                
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th style="width: 40%;">키워드</th>
+                                <th style="width: 30%;">분류</th>
+                                <th style="width: 15%;">활성</th>
+                                <th style="width: 15%;">관리</th>
+                            </tr>
+                        </thead>
+                        <tbody id="keywordsTableBody">
+                            <tr><td colspan="4" class="text-center">로딩 중...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                
+                <div class="mt-3">
+                    <button type="button" class="btn btn-primary btn-sm" onclick="showAddKeywordForm()">
+                        <i class="bi bi-plus-circle"></i> 키워드 추가
+                    </button>
+                </div>
+                
+                <!-- 키워드 추가 폼 (숨김) -->
+                <div id="addKeywordForm" class="mt-3" style="display: none;">
+                    <div class="card">
+                        <div class="card-body">
+                            <h6>새 키워드 추가</h6>
+                            <form onsubmit="event.preventDefault(); saveNewKeyword();">
+                                <div class="row">
+                                    <div class="col-md-6 mb-2">
+                                        <input type="text" class="form-control" id="newKeywordText" placeholder="키워드 입력" required>
+                                    </div>
+                                    <div class="col-md-4 mb-2">
+                                        <select class="form-select" id="newKeywordType">
+                                            <option value="unclassified">미분류</option>
+                                            <option value="alternative">대안성</option>
+                                            <option value="informational">정보성</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-2 mb-2">
+                                        <button type="submit" class="btn btn-primary w-100">추가</button>
+                                    </div>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">닫기</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 레퍼런스 관리 모달 -->
+<div class="modal fade" id="manageReferencesModal" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-book"></i> 레퍼런스 관리</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="referenceProductId">
+                
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h6 class="mb-0">레퍼런스 목록</h6>
+                    <button type="button" class="btn btn-success btn-sm" onclick="syncReferencesFromMarketing()">
+                        <i class="bi bi-arrow-repeat"></i> 마케팅에서 동기화
+                    </button>
+                </div>
+                
+                <div class="alert alert-info">
+                    <i class="bi bi-info-circle"></i>
+                    <strong>안내:</strong> 동기화하면 마케팅 레퍼런스가 추가됩니다. 각 레퍼런스를 대안성/정보성으로 분류하세요.
+                </div>
+                
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th style="width: 30%;">제목</th>
+                                <th style="width: 15%;">분류</th>
+                                <th style="width: 15%;">원본 분류</th>
+                                <th style="width: 30%;">내용 미리보기</th>
+                                <th style="width: 10%;">관리</th>
+                            </tr>
+                        </thead>
+                        <tbody id="referencesTableBody">
+                            <tr><td colspan="5" class="text-center">로딩 중...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">닫기</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 레퍼런스 상세 보기 모달 -->
+<div class="modal fade" id="viewReferenceModal" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-eye"></i> 레퍼런스 상세 보기</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <h6 id="viewRefTitle"></h6>
+                <hr>
+                <div id="viewRefContent" style="white-space: pre-wrap; line-height: 1.8;"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">닫기</button>
+            </div>
         </div>
     </div>
 </div>
