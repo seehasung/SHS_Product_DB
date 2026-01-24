@@ -3090,16 +3090,16 @@ async function updateReferenceType(aiRefId, newType) {
 // 레퍼런스 상세 보기 (본문+댓글)
 async function viewReferenceDetailFull(referenceId) {
     try {
-        // 레퍼런스 정보 가져오기
-        const response = await fetch(`/marketing/api/reference/${referenceId}`);
+        // 레퍼런스 정보 가져오기 (본문 + 댓글)
+        const response = await fetch(`/marketing/reference/${referenceId}/content`);
         const data = await response.json();
         
         if (data.success) {
             document.getElementById('viewRefId').value = referenceId;
-            document.getElementById('viewRefTitle').textContent = data.reference.title;
-            document.getElementById('viewRefContent').textContent = data.reference.content || '내용 없음';
+            document.getElementById('viewRefTitle').textContent = data.title;
+            document.getElementById('viewRefContent').textContent = data.body || '내용 없음';
             
-            // 댓글 표시
+            // 댓글 표시 (본문 + 댓글 모두 표시)
             const commentsDiv = document.getElementById('viewRefComments');
             const comments = data.comments || [];
             
@@ -3108,17 +3108,26 @@ async function viewReferenceDetailFull(referenceId) {
             if (comments.length === 0) {
                 commentsDiv.innerHTML = '<p class="text-muted text-center">댓글이 없습니다.</p>';
             } else {
-                commentsDiv.innerHTML = comments.map((comment, idx) => `
-                    <div class="card mb-2">
+                commentsDiv.innerHTML = comments.map((comment, idx) => {
+                    // 대댓글은 들여쓰기
+                    const marginLeft = comment.is_reply ? 'margin-left: 40px;' : '';
+                    const replyBadge = comment.is_reply ? '<span class="badge bg-info me-2">↪ 대댓글</span>' : '';
+                    
+                    return `
+                    <div class="card mb-2" style="${marginLeft}">
                         <div class="card-body">
                             <div class="d-flex justify-content-between align-items-start mb-2">
-                                <strong>댓글 ${idx + 1}</strong>
-                                <small class="text-muted">계정 순서: ${comment.account_sequence || 0}</small>
+                                <div>
+                                    ${replyBadge}
+                                    <strong>${comment.commenter_name}</strong>
+                                </div>
+                                <small class="text-muted">계정 순서: ${comment.account_sequence}</small>
                             </div>
-                            <p class="mb-0" style="white-space: pre-wrap;">${comment.text}</p>
+                            <p class="mb-0" style="white-space: pre-wrap;">${comment.comment_text || comment.text}</p>
                         </div>
                     </div>
-                `).join('');
+                `;
+                }).join('');
             }
             
             const modal = new bootstrap.Modal(document.getElementById('viewReferenceModal'));
@@ -3135,14 +3144,14 @@ async function viewReferenceDetailFull(referenceId) {
 // 레퍼런스 수정 모달 열기
 async function editReference(aiRefId, referenceId) {
     try {
-        const response = await fetch(`/marketing/api/reference/${referenceId}`);
+        const response = await fetch(`/marketing/reference/${referenceId}/content`);
         const data = await response.json();
         
         if (data.success) {
             document.getElementById('editRefId').value = referenceId;
             document.getElementById('editAiRefId').value = aiRefId;
-            document.getElementById('editRefTitle').value = data.reference.title;
-            document.getElementById('editRefContent').value = data.reference.content || '';
+            document.getElementById('editRefTitle').value = data.title;
+            document.getElementById('editRefContent').value = data.body || '';
             
             // 현재 AI 분류 가져오기
             const productId = document.getElementById('referenceProductId').value;

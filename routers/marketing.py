@@ -1514,7 +1514,7 @@ async def update_reference(request: Request, ref_id: int, title: str = Form(...)
 
 @router.get("/reference/{ref_id}/content")
 async def get_reference_content(ref_id: int, db: Session = Depends(get_db)):
-    """레퍼런스 내용 가져오기 (JSON)"""
+    """레퍼런스 내용 가져오기 (JSON) - 본문 + 모든 댓글 + 대댓글"""
     reference = db.query(Reference).options(
         joinedload(Reference.comments)
     ).filter(Reference.id == ref_id).first()
@@ -1522,20 +1522,42 @@ async def get_reference_content(ref_id: int, db: Session = Depends(get_db)):
     if not reference:
         return {"success": False, "error": "Reference not found"}
     
-    # 댓글 정보 구성
+    # 댓글 정보 구성 (최상위 + 대댓글 모두 포함)
     comments_data = []
-    for comment in reference.comments:
-        if not comment.parent_id:  # 최상위 댓글만
+    
+    # 최상위 댓글 찾기
+    top_comments = [c for c in reference.comments if not c.parent_id]
+    
+    for top_comment in sorted(top_comments, key=lambda x: x.id):
+        # 최상위 댓글 추가
+        comments_data.append({
+            "id": top_comment.id,
+            "commenter_name": f"계정{top_comment.account_sequence}",
+            "comment_text": top_comment.text,
+            "account_sequence": top_comment.account_sequence,
+            "is_reply": False,
+            "level": 0
+        })
+        
+        # 해당 댓글의 대댓글 찾기
+        replies = [c for c in reference.comments if c.parent_id == top_comment.id]
+        for reply in sorted(replies, key=lambda x: x.id):
             comments_data.append({
-                "commenter_name": f"계정{comment.account_sequence}",
-                "comment_text": comment.text
+                "id": reply.id,
+                "commenter_name": f"계정{reply.account_sequence}",
+                "comment_text": reply.text,
+                "account_sequence": reply.account_sequence,
+                "is_reply": True,
+                "level": 1,
+                "parent_id": top_comment.id
             })
     
     return {
         "success": True,
         "title": reference.title,
         "body": reference.content or "",
-        "comments": comments_data
+        "comments": comments_data,
+        "total_comments": len(comments_data)
     }
 
 @router.post("/comment/add/{ref_id}", response_class=RedirectResponse)
