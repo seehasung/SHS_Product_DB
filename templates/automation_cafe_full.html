@@ -1264,6 +1264,49 @@ async function loadCafes() {
     }
 }
 
+async function loadHumanPrompts() {
+    try {
+        const response = await fetch('/automation/api/prompts/list');
+        const data = await response.json();
+        
+        if (data.success) {
+            displayHumanPrompts(data.prompts);
+        }
+    } catch (error) {
+        console.error('휴먼 프롬프트 로드 오류:', error);
+    }
+}
+
+function displayHumanPrompts(prompts) {
+    const tbody = document.getElementById('promptsTableBody');
+    
+    if (!tbody) return;
+    
+    if (prompts.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted">등록된 프롬프트가 없습니다</td></tr>';
+        return;
+    }
+    
+    tbody.innerHTML = prompts.map(p => `
+        <tr>
+            <td>${p.name}</td>
+            <td><span class="badge bg-info">${p.prompt_type}</span></td>
+            <td>${p.temperature}</td>
+            <td>${p.max_tokens}</td>
+            <td><span class="badge ${p.is_active ? 'bg-success' : 'bg-secondary'}">${p.is_active ? '활성' : '비활성'}</span></td>
+            <td>
+                <button class="btn btn-sm btn-warning" onclick="editHumanPrompt(${p.id})"><i class="bi bi-pencil"></i></button>
+                <button class="btn btn-sm btn-danger" onclick="deleteHumanPrompt(${p.id})"><i class="bi bi-trash"></i></button>
+            </td>
+        </tr>
+    `).join('');
+}
+
+async function loadHumanSchedules() {
+    // 휴먼 스케줄 로드 (추후 구현)
+    console.log('휴먼 스케줄 로드');
+}
+
 function displayCafes(cafes) {
     const tbody = document.getElementById('cafesTableBody');
     
@@ -2151,6 +2194,27 @@ document.addEventListener('DOMContentLoaded', function() {
             const targetId = event.target.getAttribute('href').substring(1);
             
             switch(targetId) {
+                // 설정 탭들
+                case 'dashboard':
+                    loadTasks();
+                    loadPCs();
+                    break;
+                case 'pcs':
+                    loadPCs();
+                    break;
+                case 'accounts':
+                    loadAccounts();
+                    break;
+                case 'cafes':
+                    loadCafes();
+                    break;
+                case 'prompts':
+                    loadHumanPrompts();
+                    break;
+                case 'schedules':
+                    loadHumanSchedules();
+                    break;
+                // AI 탭들
                 case 'ai-product-setup':
                     loadAIProducts();
                     break;
