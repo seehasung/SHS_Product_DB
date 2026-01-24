@@ -632,6 +632,129 @@ async def delete_prompt_template(template_id: int, db: Session = Depends(get_db)
     return JSONResponse({"success": True})
 
 
+@router.post("/api/prompt-templates/duplicate/{template_id}")
+async def duplicate_prompt_template(
+    template_id: int,
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    """프롬프트 템플릿 복제 (JSON)"""
+    current_user = get_current_user(request, db)
+    if not current_user:
+        return JSONResponse({"success": False, "error": "로그인이 필요합니다"}, status_code=401)
+    
+    try:
+        original = db.query(AIPromptTemplate).filter(AIPromptTemplate.id == template_id).first()
+        
+        if not original:
+            return JSONResponse({'success': False, 'error': '템플릿을 찾을 수 없습니다'}, status_code=404)
+        
+        # 복제 생성
+        duplicate = AIPromptTemplate(
+            template_name=f"{original.template_name} (복사본)",
+            template_type=original.template_type,
+            user_prompt_template=original.user_prompt_template,
+            is_template=True
+        )
+        
+        db.add(duplicate)
+        db.commit()
+        
+        return JSONResponse({'success': True})
+    except Exception as e:
+        db.rollback()
+        return JSONResponse({'success': False, 'error': str(e)}, status_code=500)
+
+
+@router.post("/api/prompt-templates/update/{template_id}")
+async def update_prompt_template_json(
+    template_id: int,
+    request: Request,
+    template_name: str = Form(...),
+    template_type: str = Form(...),
+    user_prompt_template: str = Form(...),
+    db: Session = Depends(get_db)
+):
+    """프롬프트 템플릿 수정 (JSON)"""
+    current_user = get_current_user(request, db)
+    if not current_user:
+        return JSONResponse({"success": False, "error": "로그인이 필요합니다"}, status_code=401)
+    
+    try:
+        template = db.query(AIPromptTemplate).filter(AIPromptTemplate.id == template_id).first()
+        
+        if not template:
+            return JSONResponse({'success': False, 'error': '템플릿을 찾을 수 없습니다'}, status_code=404)
+        
+        template.template_name = template_name
+        template.template_type = template_type
+        template.user_prompt_template = user_prompt_template
+        
+        db.commit()
+        
+        return JSONResponse({'success': True})
+    except Exception as e:
+        db.rollback()
+        return JSONResponse({'success': False, 'error': str(e)}, status_code=500)
+
+
+@router.post("/api/prompt-templates/delete/{template_id}")
+async def delete_prompt_template_json(
+    template_id: int,
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    """프롬프트 템플릿 삭제 (JSON)"""
+    current_user = get_current_user(request, db)
+    if not current_user:
+        return JSONResponse({"success": False, "error": "로그인이 필요합니다"}, status_code=401)
+    
+    try:
+        template = db.query(AIPromptTemplate).filter(AIPromptTemplate.id == template_id).first()
+        
+        if template:
+            db.delete(template)
+            db.commit()
+        
+        return JSONResponse({'success': True})
+    except Exception as e:
+        db.rollback()
+        return JSONResponse({'success': False, 'error': str(e)}, status_code=500)
+
+
+@router.post("/api/prompt-templates/add")
+async def api_add_prompt_template(
+    request: Request,
+    template_name: str = Form(...),
+    template_type: str = Form(...),
+    user_prompt_template: str = Form(...),
+    db: Session = Depends(get_db)
+):
+    """프롬프트 템플릿 추가 (JSON)"""
+    current_user = get_current_user(request, db)
+    if not current_user:
+        return JSONResponse({"success": False, "error": "로그인이 필요합니다"}, status_code=401)
+    
+    try:
+        if template_type not in ['alternative', 'informational']:
+            return JSONResponse({'success': False, 'error': '잘못된 분류입니다'}, status_code=400)
+        
+        template = AIPromptTemplate(
+            template_name=template_name,
+            template_type=template_type,
+            user_prompt_template=user_prompt_template,
+            is_template=True
+        )
+        
+        db.add(template)
+        db.commit()
+        
+        return JSONResponse({'success': True})
+    except Exception as e:
+        db.rollback()
+        return JSONResponse({'success': False, 'error': str(e)}, status_code=500)
+
+
 # ============================================
 # 5. 프롬프트 관리 (상품별)
 # ============================================
@@ -1259,6 +1382,36 @@ async def api_get_prompt_templates(
         } for t in templates]
         
         return JSONResponse({'success': True, 'templates': templates_data})
+    except Exception as e:
+        return JSONResponse({'success': False, 'error': str(e)}, status_code=500)
+
+
+@router.get("/api/prompt-templates/{template_id}")
+async def get_prompt_template_detail(
+    template_id: int,
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    """프롬프트 템플릿 상세 조회 (JSON)"""
+    current_user = get_current_user(request, db)
+    if not current_user:
+        return JSONResponse({"success": False, "error": "로그인이 필요합니다"}, status_code=401)
+    
+    try:
+        template = db.query(AIPromptTemplate).filter(AIPromptTemplate.id == template_id).first()
+        
+        if not template:
+            return JSONResponse({'success': False, 'error': '템플릿을 찾을 수 없습니다'}, status_code=404)
+        
+        return JSONResponse({
+            'success': True,
+            'template': {
+                'id': template.id,
+                'template_name': template.template_name,
+                'template_type': template.template_type,
+                'user_prompt_template': template.user_prompt_template
+            }
+        })
     except Exception as e:
         return JSONResponse({'success': False, 'error': str(e)}, status_code=500)
 
