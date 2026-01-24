@@ -132,35 +132,13 @@
 
 {% block content %}
 <div class="automation-container">
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <h1 style="font-weight: 800;">
-            <i class="bi bi-robot"></i> AI 카페 자동화
-        </h1>
-        
-        <!-- 설정 드롭다운 -->
-        <div class="dropdown">
-            <button class="btn btn-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown">
-                <i class="bi bi-gear"></i> 설정
-            </button>
-            <ul class="dropdown-menu dropdown-menu-end">
-                <li><a class="dropdown-item" href="#" onclick="showSettings('dashboard'); return false;">
-                    <i class="bi bi-speedometer2"></i> 대시보드
-                </a></li>
-                <li><a class="dropdown-item" href="#" onclick="showSettings('pcs'); return false;">
-                    <i class="bi bi-pc-display"></i> PC 관리
-                </a></li>
-                <li><a class="dropdown-item" href="#" onclick="showSettings('accounts'); return false;">
-                    <i class="bi bi-person-badge"></i> 계정 관리
-                </a></li>
-                <li><a class="dropdown-item" href="#" onclick="showSettings('cafes'); return false;">
-                    <i class="bi bi-cup-hot"></i> 카페 관리
-                </a></li>
-            </ul>
-        </div>
-    </div>
+    <h1 style="font-weight: 800; margin-bottom: 30px;">
+        <i class="bi bi-robot"></i> 카페 자동화 관리
+    </h1>
     
-    <!-- AI 전용 탭 -->
+    <!-- 통합 탭 (휴먼 + AI) -->
     <ul class="nav nav-tabs" role="tablist">
+        <!-- AI 자동화 메인 탭들 -->
         <li class="nav-item">
             <a class="nav-link active" data-bs-toggle="tab" href="#ai-product-setup">
                 <i class="bi bi-stars"></i> AI 상품 세팅
@@ -191,63 +169,39 @@
                 <i class="bi bi-link-45deg"></i> AI 연동
             </a>
         </li>
+        
+        <!-- 공통 설정 탭들 (드롭다운 스타일) -->
+        <li class="nav-item dropdown ms-auto">
+            <a class="nav-link dropdown-toggle" data-bs-toggle="dropdown" href="#" role="button">
+                <i class="bi bi-gear"></i> 설정
+            </a>
+            <ul class="dropdown-menu">
+                <li><a class="nav-link" data-bs-toggle="tab" href="#dashboard">
+                    <i class="bi bi-speedometer2"></i> 대시보드
+                </a></li>
+                <li><a class="nav-link" data-bs-toggle="tab" href="#pcs">
+                    <i class="bi bi-pc-display"></i> PC 관리
+                </a></li>
+                <li><a class="nav-link" data-bs-toggle="tab" href="#accounts">
+                    <i class="bi bi-person-badge"></i> 계정 관리
+                </a></li>
+                <li><a class="nav-link" data-bs-toggle="tab" href="#cafes">
+                    <i class="bi bi-cup-hot"></i> 카페 관리
+                </a></li>
+                <li><a class="nav-link" data-bs-toggle="tab" href="#prompts">
+                    <i class="bi bi-chat-square-text"></i> 프롬프트 (휴먼)
+                </a></li>
+                <li><a class="nav-link" data-bs-toggle="tab" href="#schedules">
+                    <i class="bi bi-calendar-week"></i> 스케줄 (휴먼)
+                </a></li>
+            </ul>
+        </li>
     </ul>
     
-    <!-- 설정 모달 (대시보드, PC, 계정, 카페) -->
-    <div class="modal fade" id="settingsModal" tabindex="-1" data-bs-backdrop="static">
-        <div class="modal-dialog modal-fullscreen">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="settingsModalTitle"><i class="bi bi-gear"></i> 설정</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body">
-                    <ul class="nav nav-tabs mb-3">
-                        <li class="nav-item">
-                            <a class="nav-link active" data-bs-toggle="tab" href="#settings-dashboard">
-                                <i class="bi bi-speedometer2"></i> 대시보드
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" data-bs-toggle="tab" href="#settings-pcs">
-                                <i class="bi bi-pc-display"></i> PC 관리
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" data-bs-toggle="tab" href="#settings-accounts">
-                                <i class="bi bi-person-badge"></i> 계정 관리
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" data-bs-toggle="tab" href="#settings-cafes">
-                                <i class="bi bi-cup-hot"></i> 카페 관리
-                            </a>
-                        </li>
-                    </ul>
-                    
-                    <div class="tab-content">
-                        <div class="tab-pane fade show active" id="settings-dashboard">
-                            <p class="text-muted text-center py-5">대시보드 컨텐츠</p>
-                        </div>
-                        <div class="tab-pane fade" id="settings-pcs">
-                            <p class="text-muted text-center py-5">PC 관리 컨텐츠</p>
-                        </div>
-                        <div class="tab-pane fade" id="settings-accounts">
-                            <p class="text-muted text-center py-5">계정 관리 컨텐츠</p>
-                        </div>
-                        <div class="tab-pane fade" id="settings-cafes">
-                            <p class="text-muted text-center py-5">카페 관리 컨텐츠</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-    
-    <!-- AI 탭 컨텐츠 -->
+    <!-- 탭 컨텐츠 -->
     <div class="tab-content">
-        <!-- AI 상품 세팅 탭 -->
-        <div class="tab-pane fade show active" id="ai-product-setup">
+        <!-- 대시보드 탭 -->
+        <div class="tab-pane fade" id="dashboard">
             <div class="content-card">
                 <div class="card-header-custom">
                     <h4><i class="bi bi-speedometer2"></i> 실시간 대시보드</h4>
@@ -542,7 +496,7 @@
         <!-- ============================================ -->
         
         <!-- AI 상품 세팅 탭 -->
-        <div class="tab-pane fade" id="ai-product-setup">
+        <div class="tab-pane fade show active" id="ai-product-setup">
             <div class="content-card">
                 <div class="card-header-custom">
                     <h4><i class="bi bi-stars"></i> AI 상품 세팅</h4>
