@@ -415,9 +415,9 @@
         <div class="tab-pane fade" id="prompts">
             <div class="content-card">
                 <div class="card-header-custom">
-                    <h4><i class="bi bi-chat-square-text"></i> AI 프롬프트 관리</h4>
+                    <h4><i class="bi bi-chat-square-text"></i> 휴먼 프롬프트 관리 (기존)</h4>
                     {% if is_admin %}
-                    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addPromptModal">
+                    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addHumanPromptModal">
                         <i class="bi bi-plus-circle"></i> 프롬프트 추가
                     </button>
                     {% endif %}
@@ -837,12 +837,12 @@
     </div>
 </div>
 
-<!-- 프롬프트 추가 모달 -->
-<div class="modal fade" id="addPromptModal" tabindex="-1">
+<!-- 휴먼 프롬프트 추가 모달 -->
+<div class="modal fade" id="addHumanPromptModal" tabindex="-1">
     <div class="modal-dialog modal-lg">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title"><i class="bi bi-chat-square-text"></i> 프롬프트 추가</h5>
+                <h5 class="modal-title"><i class="bi bi-chat-square-text"></i> 휴먼 프롬프트 추가</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <form onsubmit="addPrompt(event)">
