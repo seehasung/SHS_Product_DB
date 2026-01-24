@@ -1031,6 +1031,52 @@ async def add_schedule(
     return RedirectResponse("/ai-automation/schedules", status_code=303)
 
 
+@router.post("/api/schedules/add")
+async def add_schedule_json(
+    request: Request,
+    ai_product_id: int = Form(...),
+    prompt_id: int = Form(...),
+    start_date: date = Form(...),
+    end_date: date = Form(...),
+    daily_post_count: int = Form(...),
+    db: Session = Depends(get_db)
+):
+    """스케줄 추가 (JSON)"""
+    current_user = get_current_user(request, db)
+    if not current_user:
+        return JSONResponse({"success": False, "error": "로그인이 필요합니다"}, status_code=401)
+    
+    try:
+        # 예상 총 글 발행 수 계산 (주말 제외)
+        current = start_date
+        work_days = 0
+        while current <= end_date:
+            if current.weekday() < 5:  # 월~금
+                work_days += 1
+            current += timedelta(days=1)
+        
+        expected_total = work_days * daily_post_count
+        
+        new_schedule = AIMarketingSchedule(
+            ai_product_id=ai_product_id,
+            prompt_id=prompt_id,
+            start_date=start_date,
+            end_date=end_date,
+            daily_post_count=daily_post_count,
+            expected_total_posts=expected_total,
+            status='scheduled'
+        )
+        
+        db.add(new_schedule)
+        db.commit()
+        db.refresh(new_schedule)
+        
+        return JSONResponse({"success": True, "id": new_schedule.id})
+    except Exception as e:
+        db.rollback()
+        return JSONResponse({"success": False, "error": str(e)}, status_code=500)
+
+
 @router.post("/schedules/delete/{schedule_id}")
 async def delete_schedule(schedule_id: int, db: Session = Depends(get_db)):
     """스케줄 삭제"""
@@ -1041,6 +1087,30 @@ async def delete_schedule(schedule_id: int, db: Session = Depends(get_db)):
         db.commit()
     
     return JSONResponse({"success": True})
+
+
+@router.post("/api/schedules/delete/{schedule_id}")
+async def delete_schedule_json(
+    schedule_id: int,
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    """스케줄 삭제 (JSON)"""
+    current_user = get_current_user(request, db)
+    if not current_user:
+        return JSONResponse({"success": False, "error": "로그인이 필요합니다"}, status_code=401)
+    
+    try:
+        schedule = db.query(AIMarketingSchedule).filter(AIMarketingSchedule.id == schedule_id).first()
+        
+        if schedule:
+            db.delete(schedule)
+            db.commit()
+        
+        return JSONResponse({"success": True})
+    except Exception as e:
+        db.rollback()
+        return JSONResponse({"success": False, "error": str(e)}, status_code=500)
 
 
 # ============================================
