@@ -694,7 +694,7 @@ async def add_prompt(
     generate_images: bool = Form(False),
     db: Session = Depends(get_db)
 ):
-    """프롬프트 추가"""
+    """프롬프트 추가 (HTML Redirect)"""
     if keyword_classification not in ['alternative', 'informational']:
         return JSONResponse({"success": False, "error": "잘못된 분류입니다"}, status_code=400)
     
@@ -712,6 +712,47 @@ async def add_prompt(
     db.commit()
     
     return RedirectResponse("/ai-automation/prompts", status_code=303)
+
+
+@router.post("/api/prompts/add")
+async def add_prompt_json(
+    request: Request,
+    ai_product_id: int = Form(...),
+    keyword_classification: str = Form(...),
+    system_prompt: str = Form(...),
+    user_prompt: str = Form(...),
+    temperature: float = Form(0.7),
+    max_tokens: int = Form(2000),
+    generate_images: bool = Form(False),
+    db: Session = Depends(get_db)
+):
+    """프롬프트 추가 (JSON Response)"""
+    current_user = get_current_user(request, db)
+    if not current_user:
+        return JSONResponse({"success": False, "error": "로그인이 필요합니다"}, status_code=401)
+    
+    try:
+        if keyword_classification not in ['alternative', 'informational']:
+            return JSONResponse({"success": False, "error": "잘못된 분류입니다"}, status_code=400)
+        
+        new_prompt = AIPrompt(
+            ai_product_id=ai_product_id,
+            keyword_classification=keyword_classification,
+            system_prompt=system_prompt,
+            user_prompt=user_prompt,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            generate_images=generate_images
+        )
+        
+        db.add(new_prompt)
+        db.commit()
+        db.refresh(new_prompt)
+        
+        return JSONResponse({"success": True, "id": new_prompt.id})
+    except Exception as e:
+        db.rollback()
+        return JSONResponse({"success": False, "error": str(e)}, status_code=500)
 
 
 @router.post("/prompts/update/{prompt_id}")
