@@ -2547,7 +2547,14 @@ async function loadGeneratedPosts() {
     const cafeFilter = document.getElementById('postCafeFilter')?.value || '';
     
     try {
-        const response = await fetch(`/ai-automation/api/generated-posts?account=${accountFilter}&cafe=${cafeFilter}`);
+        // 빈 문자열이면 파라미터 제외
+        let url = '/ai-automation/api/generated-posts?';
+        const params = [];
+        if (accountFilter) params.push(`account=${accountFilter}`);
+        if (cafeFilter) params.push(`cafe=${cafeFilter}`);
+        url += params.join('&');
+        
+        const response = await fetch(url);
         const data = await response.json();
         
         if (data.success) {

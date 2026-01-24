@@ -1626,7 +1626,12 @@ async def get_cafe_connections(
         } for c in connections]
         
         return JSONResponse({'success': True, 'connections': connections_data})
+    except ImportError:
+        # CafeAccountLink 테이블이 없는 경우
+        return JSONResponse({'success': True, 'connections': []})
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         return JSONResponse({'success': False, 'error': str(e)}, status_code=500)
 
 
