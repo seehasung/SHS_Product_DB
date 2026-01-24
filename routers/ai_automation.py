@@ -473,6 +473,47 @@ async def update_reference_classification(
     return JSONResponse({"success": True})
 
 
+@router.post("/references/add/{ai_product_id}")
+async def add_ai_reference(
+    ai_product_id: int,
+    reference_id: int = Form(...),
+    reference_type: str = Form('unclassified'),
+    db: Session = Depends(get_db)
+):
+    """AI 레퍼런스 추가 (기존 Reference 연결)"""
+    # 중복 체크
+    existing = db.query(AIProductReference).filter(
+        AIProductReference.ai_product_id == ai_product_id,
+        AIProductReference.reference_id == reference_id
+    ).first()
+    
+    if existing:
+        return JSONResponse({"success": False, "error": "이미 추가된 레퍼런스입니다"}, status_code=400)
+    
+    ai_ref = AIProductReference(
+        ai_product_id=ai_product_id,
+        reference_id=reference_id,
+        reference_type=reference_type
+    )
+    
+    db.add(ai_ref)
+    db.commit()
+    
+    return JSONResponse({"success": True})
+
+
+@router.post("/references/delete/{ai_ref_id}")
+async def delete_ai_reference(ai_ref_id: int, db: Session = Depends(get_db)):
+    """AI 레퍼런스 삭제 (연결만 끊기, 원본은 유지)"""
+    ai_ref = db.query(AIProductReference).filter(AIProductReference.id == ai_ref_id).first()
+    
+    if ai_ref:
+        db.delete(ai_ref)
+        db.commit()
+    
+    return JSONResponse({"success": True})
+
+
 @router.get("/api/products/{product_id}/references")
 async def get_product_references(
     product_id: int,

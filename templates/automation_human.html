@@ -1,0 +1,269 @@
+{% extends "base.html" %}
+{% block title %}자동화 - 휴먼 모드{% endblock %}
+
+{% block head %}
+{{ super() }}
+<style>
+    .automation-container {
+        max-width: 1600px;
+        margin: 0 auto;
+        padding: 20px;
+    }
+    
+    /* 탭 스타일 */
+    .nav-tabs {
+        border-bottom: 2px solid #e1e8ed;
+        margin-bottom: 30px;
+    }
+    
+    .nav-tabs .nav-link {
+        border: none;
+        color: #636e72;
+        font-weight: 600;
+        padding: 15px 30px;
+        transition: all 0.3s;
+        position: relative;
+    }
+    
+    .nav-tabs .nav-link:hover {
+        color: #4A90E2;
+        background: rgba(74, 144, 226, 0.05);
+    }
+    
+    .nav-tabs .nav-link.active {
+        color: #4A90E2;
+        background: transparent;
+    }
+    
+    .nav-tabs .nav-link.active::after {
+        content: '';
+        position: absolute;
+        bottom: -2px;
+        left: 0;
+        right: 0;
+        height: 3px;
+        background: #4A90E2;
+    }
+    
+    /* 설정 드롭다운 스타일 */
+    .settings-dropdown {
+        position: relative;
+        display: inline-block;
+    }
+    
+    .settings-btn {
+        background: linear-gradient(135deg, #636e72 0%, #2d3436 100%);
+        color: white;
+        border: none;
+        padding: 12px 25px;
+        border-radius: 8px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s;
+    }
+    
+    .settings-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(0,0,0,0.15);
+    }
+    
+    .settings-menu {
+        display: none;
+        position: absolute;
+        top: 100%;
+        left: 0;
+        margin-top: 10px;
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 8px 30px rgba(0,0,0,0.15);
+        min-width: 200px;
+        z-index: 1000;
+    }
+    
+    .settings-menu.show {
+        display: block;
+    }
+    
+    .settings-menu-item {
+        padding: 12px 20px;
+        cursor: pointer;
+        transition: all 0.2s;
+        border-bottom: 1px solid #f1f3f5;
+    }
+    
+    .settings-menu-item:last-child {
+        border-bottom: none;
+    }
+    
+    .settings-menu-item:hover {
+        background: #f8f9fa;
+        color: #4A90E2;
+    }
+    
+    .settings-menu-item i {
+        margin-right: 10px;
+        width: 20px;
+        text-align: center;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="automation-container">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 style="font-weight: 800;">
+            <i class="bi bi-person-check"></i> 휴먼 자동화 관리
+        </h1>
+        
+        <!-- 설정 드롭다운 -->
+        <div class="settings-dropdown">
+            <button class="settings-btn" onclick="toggleSettings()">
+                <i class="bi bi-gear"></i> 설정
+            </button>
+            <div class="settings-menu" id="settingsMenu">
+                <div class="settings-menu-item" onclick="showSettingsTab('dashboard')">
+                    <i class="bi bi-speedometer2"></i> 대시보드
+                </div>
+                <div class="settings-menu-item" onclick="showSettingsTab('pcs')">
+                    <i class="bi bi-pc-display"></i> PC 관리
+                </div>
+                <div class="settings-menu-item" onclick="showSettingsTab('accounts')">
+                    <i class="bi bi-person-badge"></i> 계정 관리
+                </div>
+                <div class="settings-menu-item" onclick="showSettingsTab('cafes')">
+                    <i class="bi bi-cup-hot"></i> 카페 관리
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 설정 탭 컨텐츠 (모달 방식) -->
+    <div id="settingsContent" style="display: none;">
+        <div class="content-card">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h4 id="settingsTitle"></h4>
+                <button class="btn btn-secondary" onclick="closeSettings()">
+                    <i class="bi bi-x-lg"></i> 닫기
+                </button>
+            </div>
+            <div id="settingsBody">
+                <!-- 동적 로드 -->
+            </div>
+        </div>
+    </div>
+    
+    <!-- 휴먼 탭 -->
+    <div id="mainContent">
+        <ul class="nav nav-tabs" role="tablist">
+            <li class="nav-item">
+                <a class="nav-link active" data-bs-toggle="tab" href="#prompts">
+                    <i class="bi bi-chat-square-text"></i> 프롬프트 관리
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" data-bs-toggle="tab" href="#schedules">
+                    <i class="bi bi-calendar-week"></i> 스케줄 관리
+                </a>
+            </li>
+        </ul>
+        
+        <div class="tab-content">
+            <!-- 프롬프트 관리 탭 -->
+            <div class="tab-pane fade show active" id="prompts">
+                <div class="content-card">
+                    <div class="card-header-custom">
+                        <h4><i class="bi bi-chat-square-text"></i> 휴먼 프롬프트 관리</h4>
+                    </div>
+                    <p class="text-center text-muted">휴먼 모드 프롬프트 기능은 곧 업데이트됩니다.</p>
+                </div>
+            </div>
+            
+            <!-- 스케줄 관리 탭 -->
+            <div class="tab-pane fade" id="schedules">
+                <div class="content-card">
+                    <div class="card-header-custom">
+                        <h4><i class="bi bi-calendar-week"></i> 휴먼 스케줄 관리</h4>
+                    </div>
+                    <p class="text-center text-muted">휴먼 모드 스케줄 기능은 곧 업데이트됩니다.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// 설정 드롭다운 토글
+function toggleSettings() {
+    const menu = document.getElementById('settingsMenu');
+    menu.classList.toggle('show');
+}
+
+// 설정 탭 표시
+function showSettingsTab(tab) {
+    document.getElementById('settingsMenu').classList.remove('show');
+    document.getElementById('settingsContent').style.display = 'block';
+    document.getElementById('mainContent').style.display = 'none';
+    
+    const titles = {
+        'dashboard': '대시보드',
+        'pcs': 'PC 관리',
+        'accounts': '계정 관리',
+        'cafes': '카페 관리'
+    };
+    
+    document.getElementById('settingsTitle').innerHTML = 
+        `<i class="bi bi-${tab === 'dashboard' ? 'speedometer2' : tab === 'pcs' ? 'pc-display' : tab === 'accounts' ? 'person-badge' : 'cup-hot'}"></i> ${titles[tab]}`;
+    
+    loadSettingsContent(tab);
+}
+
+// 설정 닫기
+function closeSettings() {
+    document.getElementById('settingsContent').style.display = 'none';
+    document.getElementById('mainContent').style.display = 'block';
+}
+
+// 설정 컨텐츠 로드
+async function loadSettingsContent(tab) {
+    const body = document.getElementById('settingsBody');
+    body.innerHTML = '<div class="text-center py-5"><div class="spinner-border text-primary"></div></div>';
+    
+    try {
+        // 공통 API 사용
+        let apiUrl = '';
+        switch(tab) {
+            case 'dashboard':
+                // 대시보드 데이터는 automation_cafe_full.html에서 복사
+                body.innerHTML = '<p class="text-muted">대시보드 기능은 공통 설정입니다.</p>';
+                break;
+            case 'pcs':
+                apiUrl = '/automation/api/pcs/list';
+                break;
+            case 'accounts':
+                apiUrl = '/automation/api/accounts/list';
+                break;
+            case 'cafes':
+                apiUrl = '/automation/api/cafes/list';
+                break;
+        }
+        
+        if (apiUrl) {
+            const response = await fetch(apiUrl);
+            const data = await response.json();
+            // 간단한 테이블로 표시
+            body.innerHTML = '<pre>' + JSON.stringify(data, null, 2) + '</pre>';
+        }
+    } catch (error) {
+        body.innerHTML = '<div class="alert alert-danger">로드 오류</div>';
+    }
+}
+
+// 외부 클릭 시 드롭다운 닫기
+document.addEventListener('click', function(event) {
+    const dropdown = document.querySelector('.settings-dropdown');
+    if (!dropdown?.contains(event.target)) {
+        document.getElementById('settingsMenu')?.classList.remove('show');
+    }
+});
+</script>
+{% endblock %}

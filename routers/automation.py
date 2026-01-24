@@ -393,7 +393,7 @@ async def assign_next_task(pc_number: int, db: Session, websocket: WebSocket):
 
 @router.get("/cafe", response_class=HTMLResponse)
 async def automation_cafe(request: Request, db: Session = Depends(get_db)):
-    """자동화 카페 관리 (통합)"""
+    """AI 카페 자동화 (AI 전용)"""
     username = request.session.get("user")
     if not username:
         return RedirectResponse("/login")
@@ -401,6 +401,22 @@ async def automation_cafe(request: Request, db: Session = Depends(get_db)):
     is_admin = request.session.get("is_admin", False)
     
     return templates.TemplateResponse("automation_cafe_full.html", {
+        "request": request,
+        "username": username,
+        "is_admin": is_admin
+    })
+
+
+@router.get("/human", response_class=HTMLResponse)
+async def automation_human(request: Request, db: Session = Depends(get_db)):
+    """휴먼 카페 자동화 (휴먼 전용)"""
+    username = request.session.get("user")
+    if not username:
+        return RedirectResponse("/login")
+    
+    is_admin = request.session.get("is_admin", False)
+    
+    return templates.TemplateResponse("automation_human.html", {
         "request": request,
         "username": username,
         "is_admin": is_admin
