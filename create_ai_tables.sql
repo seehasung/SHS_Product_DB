@@ -206,6 +206,57 @@ ON ai_generated_posts(status);
 
 
 -- ============================================
+-- 8. 카페-계정 연동 테이블
+-- ============================================
+CREATE TABLE IF NOT EXISTS cafe_account_links (
+    id SERIAL PRIMARY KEY,
+    cafe_id INTEGER NOT NULL REFERENCES automation_cafes(id) ON DELETE CASCADE,
+    account_id INTEGER NOT NULL REFERENCES automation_accounts(id) ON DELETE CASCADE,
+    is_member BOOLEAN DEFAULT TRUE,
+    status VARCHAR(20) DEFAULT 'active',
+    
+    -- 신규발행 글 현황
+    draft_post_count INTEGER DEFAULT 0,
+    used_post_count INTEGER DEFAULT 0,
+    
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    
+    UNIQUE(cafe_id, account_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_cafe_account_links_cafe 
+ON cafe_account_links(cafe_id);
+
+CREATE INDEX IF NOT EXISTS idx_cafe_account_links_account 
+ON cafe_account_links(account_id);
+
+
+-- ============================================
+-- 9. 신규발행 글 (가입인사글) URL 관리
+-- ============================================
+CREATE TABLE IF NOT EXISTS draft_posts (
+    id SERIAL PRIMARY KEY,
+    link_id INTEGER NOT NULL REFERENCES cafe_account_links(id) ON DELETE CASCADE,
+    
+    draft_url VARCHAR(500) NOT NULL UNIQUE,
+    article_id VARCHAR(50) NOT NULL,
+    
+    status VARCHAR(20) DEFAULT 'available',
+    modified_url VARCHAR(500),
+    used_at TIMESTAMP,
+    
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_draft_posts_link 
+ON draft_posts(link_id);
+
+CREATE INDEX IF NOT EXISTS idx_draft_posts_status 
+ON draft_posts(status);
+
+
+-- ============================================
 -- 완료 메시지
 -- ============================================
 DO $$
@@ -218,6 +269,8 @@ BEGIN
     RAISE NOTICE '   - ai_prompts';
     RAISE NOTICE '   - ai_marketing_schedules';
     RAISE NOTICE '   - ai_generated_posts';
+    RAISE NOTICE '   - cafe_account_links';
+    RAISE NOTICE '   - draft_posts';
     RAISE NOTICE '';
     RAISE NOTICE '🚀 서버를 재시작하세요!';
 END $$;

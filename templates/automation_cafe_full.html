@@ -3449,8 +3449,15 @@ async function savePrompt(event) {
 }
 
 async function editPrompt(id) {
-    // 프롬프트 수정 모달
-    alert('프롬프트 수정 기능은 추후 구현 예정입니다.');
+    // AI 프롬프트는 삭제 후 재생성 권장
+    if (!confirm('프롬프트를 삭제하고 새로 만드시겠습니까?\n\n(프롬프트 수정보다는 삭제 후 재생성을 권장합니다)')) {
+        return;
+    }
+    
+    await deletePrompt(id);
+    
+    // 프롬프트 추가 모달 열기
+    showAddPromptModal();
 }
 
 async function deletePrompt(id) {

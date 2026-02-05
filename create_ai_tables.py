@@ -39,7 +39,9 @@ def create_ai_tables():
         'ai_prompt_templates',
         'ai_prompts',
         'ai_marketing_schedules',
-        'ai_generated_posts'
+        'ai_generated_posts',
+        'cafe_account_links',
+        'draft_posts'
     ]
     
     # AI 테이블 존재 여부 확인
@@ -122,7 +124,9 @@ def show_table_info():
         'ai_prompt_templates',
         'ai_prompts',
         'ai_marketing_schedules',
-        'ai_generated_posts'
+        'ai_generated_posts',
+        'cafe_account_links',
+        'draft_posts'
     ]
     
     print("\n" + "="*60)
