@@ -2721,6 +2721,15 @@ async function deleteConnection(id) {
 // 신규발행 글 URL 관리
 // ============================================
 
+// 버튼에서 data 속성 읽기
+function manageDraftPostsFromButton(button) {
+    const linkId = button.getAttribute('data-link-id');
+    const cafeName = button.getAttribute('data-cafe-name');
+    const accountName = button.getAttribute('data-account-name');
+    
+    manageDraftPosts(linkId, cafeName, accountName);
+}
+
 async function manageDraftPosts(linkId, cafeName, accountName) {
     document.getElementById('draftLinkId').value = linkId;
     document.getElementById('draftCafeName').textContent = cafeName;
@@ -2883,7 +2892,12 @@ async function loadConnections() {
                                     <td><span class="badge bg-info">${c.used_post_count}개</span></td>
                                     <td>
                                         <div class="btn-group btn-group-sm">
-                                            <button class="btn btn-info" onclick="manageDraftPosts(${c.id}, '${c.cafe_name}', '${c.account_name}')" title="URL 관리">
+                                            <button class="btn btn-info" 
+                                                    data-link-id="${c.id}" 
+                                                    data-cafe-name="${c.cafe_name}" 
+                                                    data-account-name="${c.account_name}"
+                                                    onclick="manageDraftPostsFromButton(this)" 
+                                                    title="URL 관리">
                                                 <i class="bi bi-link-45deg"></i> URL
                                             </button>
                                             <button class="btn btn-danger" onclick="deleteConnection(${c.id})" title="연동 삭제">
