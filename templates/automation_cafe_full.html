@@ -2731,30 +2731,34 @@ function manageDraftPostsFromButton(button) {
 }
 
 async function manageDraftPosts(linkId, cafeName, accountName) {
-    // 요소 존재 확인
+    // 요소 확인 (헤더에 있는 요소 사용)
     const linkIdInput = document.getElementById('draftLinkId');
-    const cafeNameSpan = document.getElementById('draftCafeName');
-    const accountNameSpan = document.getElementById('draftAccountName');
+    const cafeNameHeader = document.getElementById('draftCafeNameHeader');
+    const accountNameHeader = document.getElementById('draftAccountNameHeader');
     const modalEl = document.getElementById('manageDraftPostsModal');
     
-    if (!linkIdInput || !cafeNameSpan || !accountNameSpan || !modalEl) {
+    if (!linkIdInput || !cafeNameHeader || !accountNameHeader || !modalEl) {
         console.error('모달 요소를 찾을 수 없습니다:', {
-            linkIdInput, cafeNameSpan, accountNameSpan, modalEl
+            linkIdInput, cafeNameHeader, accountNameHeader, modalEl
         });
-        alert('모달을 열 수 없습니다. 페이지를 새로고침해주세요.');
+        alert('모달을 열 수 없습니다. 페이지를 새로고침(Ctrl+Shift+R)해주세요.');
         return;
     }
     
-    // 값 설정
+    // 값 설정 (헤더에 표시 - 계속 보임!)
     linkIdInput.value = linkId || '';
-    cafeNameSpan.textContent = cafeName || '알 수 없음';
-    accountNameSpan.textContent = accountName || '알 수 없음';
+    cafeNameHeader.textContent = cafeName || '알 수 없음';
+    accountNameHeader.textContent = accountName || '알 수 없음';
     
-    // 모달 열기
-    const modal = new bootstrap.Modal(modalEl, {
-        backdrop: 'static',  // 바깥 클릭으로 안 닫히게
-        keyboard: true
-    });
+    // 기존 모달 인스턴스 확인
+    let modal = bootstrap.Modal.getInstance(modalEl);
+    if (!modal) {
+        modal = new bootstrap.Modal(modalEl, {
+            backdrop: 'static',
+            keyboard: true
+        });
+    }
+    
     modal.show();
     
     // URL 목록 로드
@@ -4835,19 +4839,17 @@ document.addEventListener('DOMContentLoaded', function() {
     <div class="modal-dialog modal-lg">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title"><i class="bi bi-link-45deg"></i> 신규발행 글 URL 관리</h5>
+                <div>
+                    <h5 class="modal-title mb-2"><i class="bi bi-link-45deg"></i> 신규발행 글 URL 관리</h5>
+                    <div class="text-muted small">
+                        <i class="bi bi-cup-hot"></i> 카페: <strong id="draftCafeNameHeader">-</strong> | 
+                        <i class="bi bi-person"></i> 계정: <strong id="draftAccountNameHeader">-</strong>
+                    </div>
+                </div>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
                 <input type="hidden" id="draftLinkId">
-                
-                <div class="mb-3">
-                    <h6><i class="bi bi-info-circle"></i> 연동 정보</h6>
-                    <div class="alert alert-light">
-                        <strong>카페:</strong> <span id="draftCafeName"></span><br>
-                        <strong>계정:</strong> <span id="draftAccountName"></span>
-                    </div>
-                </div>
                 
                 <div class="alert alert-info">
                     <i class="bi bi-lightbulb"></i>
