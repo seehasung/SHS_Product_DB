@@ -240,7 +240,7 @@ CREATE TABLE IF NOT EXISTS draft_posts (
     link_id INTEGER NOT NULL REFERENCES cafe_account_links(id) ON DELETE CASCADE,
     
     draft_url VARCHAR(500) NOT NULL UNIQUE,
-    article_id VARCHAR(50) NOT NULL,
+    article_id VARCHAR(500) NOT NULL,  -- 네이버 URL이 길 수 있음
     
     status VARCHAR(20) DEFAULT 'available',
     modified_url VARCHAR(500),

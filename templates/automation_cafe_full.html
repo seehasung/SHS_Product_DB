@@ -731,6 +731,50 @@
     </div>
 </div>
 
+<!-- 계정 수정 모달 -->
+<div class="modal fade" id="editAccountModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-pencil"></i> 계정 수정</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form onsubmit="event.preventDefault(); updateAccount();">
+                <input type="hidden" id="editAccountId">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">계정 ID</label>
+                        <input type="text" class="form-control" id="editAccountIdInput" readonly>
+                        <small class="text-muted">계정 ID는 변경할 수 없습니다.</small>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">비밀번호 (변경 시만 입력)</label>
+                        <input type="password" class="form-control" id="editAccountPw" autocomplete="new-password">
+                        <small class="text-muted">비워두면 변경하지 않습니다.</small>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">할당 PC</label>
+                        <select class="form-select" id="editAccountPc">
+                            <option value="">나중에 할당</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">상태</label>
+                        <select class="form-select" id="editAccountStatus">
+                            <option value="active">활성</option>
+                            <option value="suspended">정지</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">취소</button>
+                    <button type="submit" class="btn btn-primary">저장</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 <!-- 카페 추가 모달 -->
 <div class="modal fade" id="addCafeModal" tabindex="-1">
     <div class="modal-dialog">
@@ -1624,8 +1668,89 @@ async function deleteCafe(id) {
     }
 }
 
-function editAccount(id) {
-    alert('계정 수정 기능은 준비 중입니다.\n\n현재는 삭제 후 다시 추가해주세요.');
+async function editAccount(id) {
+    try {
+        // 계정 정보 가져오기
+        const response = await fetch('/automation/api/accounts/list');
+        const data = await response.json();
+        
+        if (data.success) {
+            const account = data.accounts.find(acc => acc.id === id);
+            
+            if (!account) {
+                alert('계정 정보를 찾을 수 없습니다.');
+                return;
+            }
+            
+            // 폼 채우기
+            document.getElementById('editAccountId').value = id;
+            document.getElementById('editAccountIdInput').value = account.account_id;
+            document.getElementById('editAccountPw').value = '';  // 비밀번호는 비워둠
+            document.getElementById('editAccountStatus').value = account.status;
+            
+            // PC 목록 로드
+            await loadPCsForEdit();
+            
+            // 현재 할당된 PC 선택
+            if (account.assigned_pc && account.assigned_pc.id) {
+                document.getElementById('editAccountPc').value = account.assigned_pc.id;
+            }
+            
+            // 모달 열기
+            const modal = new bootstrap.Modal(document.getElementById('editAccountModal'));
+            modal.show();
+        }
+    } catch (error) {
+        console.error('계정 정보 로드 오류:', error);
+        alert('오류가 발생했습니다.');
+    }
+}
+
+async function loadPCsForEdit() {
+    const response = await fetch('/automation/api/pcs/list');
+    const data = await response.json();
+    
+    if (data.success) {
+        const select = document.getElementById('editAccountPc');
+        select.innerHTML = '<option value="">나중에 할당</option>';
+        
+        data.pcs.forEach(pc => {
+            const option = document.createElement('option');
+            option.value = pc.id;
+            option.textContent = `PC #${pc.pc_number} - ${pc.pc_name}`;
+            select.appendChild(option);
+        });
+    }
+}
+
+async function updateAccount() {
+    const id = document.getElementById('editAccountId').value;
+    const password = document.getElementById('editAccountPw').value;
+    const pcId = document.getElementById('editAccountPc').value;
+    const status = document.getElementById('editAccountStatus').value;
+    
+    try {
+        const formData = new FormData();
+        if (password) formData.append('account_pw', password);
+        if (pcId) formData.append('assigned_pc_id', pcId);
+        formData.append('status', status);
+        
+        const response = await fetch(`/automation/api/accounts/update/${id}`, {
+            method: 'POST',
+            body: formData
+        });
+        const data = await response.json();
+        
+        if (data.success) {
+            alert('계정이 수정되었습니다.');
+            bootstrap.Modal.getInstance(document.getElementById('editAccountModal')).hide();
+            loadAccounts();
+        } else {
+            alert('오류: ' + data.message);
+        }
+    } catch (error) {
+        alert('수정 중 오류가 발생했습니다.');
+    }
 }
 
 // 프롬프트 보기

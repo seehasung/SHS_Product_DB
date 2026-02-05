@@ -1114,6 +1114,41 @@ async def add_account(
     return JSONResponse({'success': True, 'message': '계정이 등록되었습니다'})
 
 
+@router.post("/api/accounts/update/{account_id}")
+async def update_account(
+    account_id: int,
+    account_pw: Optional[str] = Form(None),
+    assigned_pc_id: Optional[str] = Form(None),
+    status: str = Form('active'),
+    db: Session = Depends(get_db)
+):
+    """계정 수정"""
+    account = db.query(AutomationAccount).filter(AutomationAccount.id == account_id).first()
+    
+    if not account:
+        return JSONResponse({'success': False, 'message': '계정을 찾을 수 없습니다'}, status_code=404)
+    
+    # 비밀번호 변경 (입력했을 때만)
+    if account_pw and account_pw.strip():
+        account.account_pw = account_pw
+    
+    # PC 할당 변경
+    if assigned_pc_id and assigned_pc_id.strip():
+        try:
+            account.assigned_pc_id = int(assigned_pc_id)
+        except ValueError:
+            pass
+    else:
+        account.assigned_pc_id = None
+    
+    # 상태 변경
+    account.status = status
+    
+    db.commit()
+    
+    return JSONResponse({'success': True, 'message': '계정이 수정되었습니다'})
+
+
 @router.post("/api/cafes/add")
 async def add_cafe(
     cafe_name: str = Form(...),
