@@ -2614,6 +2614,102 @@ async function loadGeneratedPosts() {
     }
 }
 
+// 연동 추가 모달 열기
+async function showAddConnectionModal() {
+    // 계정 목록 로드
+    const accountsResponse = await fetch('/automation/api/accounts/list');
+    const accountsData = await accountsResponse.json();
+    
+    if (accountsData.success) {
+        const select = document.getElementById('connectionAccountSelect');
+        select.innerHTML = '<option value="">선택하세요</option>';
+        
+        accountsData.accounts.forEach(acc => {
+            const option = document.createElement('option');
+            option.value = acc.id;
+            option.textContent = acc.account_id;
+            select.appendChild(option);
+        });
+    }
+    
+    // 카페 목록 로드
+    const cafesResponse = await fetch('/automation/api/cafes/list');
+    const cafesData = await cafesResponse.json();
+    
+    if (cafesData.success) {
+        const select = document.getElementById('connectionCafeSelect');
+        select.innerHTML = '<option value="">선택하세요</option>';
+        
+        cafesData.cafes.forEach(cafe => {
+            const option = document.createElement('option');
+            option.value = cafe.id;
+            option.textContent = cafe.name;
+            select.appendChild(option);
+        });
+    }
+    
+    // 모달 열기
+    const modal = new bootstrap.Modal(document.getElementById('addConnectionModal'));
+    modal.show();
+}
+
+// 연동 저장
+async function saveConnection() {
+    const accountId = document.getElementById('connectionAccountSelect').value;
+    const cafeId = document.getElementById('connectionCafeSelect').value;
+    const isMember = document.getElementById('connectionIsMember').checked;
+    
+    if (!accountId || !cafeId) {
+        alert('계정과 카페를 모두 선택해주세요.');
+        return;
+    }
+    
+    try {
+        const formData = new FormData();
+        formData.append('account_id', accountId);
+        formData.append('cafe_id', cafeId);
+        formData.append('is_member', isMember);
+        
+        const response = await fetch('/ai-automation/api/connections/add', {
+            method: 'POST',
+            body: formData
+        });
+        const data = await response.json();
+        
+        if (data.success) {
+            alert('연동이 추가되었습니다.');
+            bootstrap.Modal.getInstance(document.getElementById('addConnectionModal')).hide();
+            loadConnections();
+        } else {
+            alert('오류: ' + data.error);
+        }
+    } catch (error) {
+        alert('연동 추가 중 오류가 발생했습니다.');
+    }
+}
+
+// 연동 삭제
+async function deleteConnection(id) {
+    if (!confirm('이 연동을 삭제하시겠습니까?')) {
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/ai-automation/api/connections/delete/${id}`, {
+            method: 'POST'
+        });
+        const data = await response.json();
+        
+        if (data.success) {
+            loadConnections();
+        } else {
+            alert('삭제 중 오류가 발생했습니다.');
+        }
+    } catch (error) {
+        alert('삭제 중 오류가 발생했습니다.');
+    }
+}
+
 // 연동 관리 로드
 async function loadConnections() {
     try {
@@ -2628,7 +2724,7 @@ async function loadConnections() {
                 container.innerHTML = `
                     <div class="empty-state">
                         <i class="bi bi-link-45deg"></i>
-                        <p>연동된 카페-계정이 없습니다.</p>
+                        <p>연동된 카페-계정이 없습니다.<br>연동 추가 버튼을 눌러주세요.</p>
                     </div>
                 `;
                 return;
@@ -2645,13 +2741,14 @@ async function loadConnections() {
                                 <th>상태</th>
                                 <th>신규발행 글</th>
                                 <th>사용된 글</th>
+                                <th>관리</th>
                             </tr>
                         </thead>
                         <tbody>
                             ${data.connections.map(c => `
                                 <tr>
                                     <td><strong>${c.cafe_name}</strong></td>
-                                    <td>${c.account_name}</td>
+                                    <td><code>${c.account_name}</code></td>
                                     <td>
                                         <span class="badge ${c.is_member ? 'bg-success' : 'bg-secondary'}">
                                             ${c.is_member ? '가입완료' : '미가입'}
@@ -2664,6 +2761,11 @@ async function loadConnections() {
                                     </td>
                                     <td><span class="badge bg-primary">${c.draft_post_count}개</span></td>
                                     <td><span class="badge bg-info">${c.used_post_count}개</span></td>
+                                    <td>
+                                        <button class="btn btn-sm btn-danger" onclick="deleteConnection(${c.id})">
+                                            <i class="bi bi-trash"></i> 삭제
+                                        </button>
+                                    </td>
                                 </tr>
                             `).join('')}
                         </tbody>
@@ -4503,6 +4605,64 @@ document.addEventListener('DOMContentLoaded', function() {
                                 <label class="form-check-label">3장 자동 생성</label>
                             </div>
                         </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">취소</button>
+                    <button type="submit" class="btn btn-primary">저장</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- AI 연동 추가 모달 -->
+<div class="modal fade" id="addConnectionModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-link-45deg"></i> 카페-계정 연동 추가</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form onsubmit="event.preventDefault(); saveConnection();">
+                <div class="modal-body">
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle"></i>
+                        <strong>안내:</strong> 카페-계정을 연동하면 AI 자동 발행에 사용됩니다.
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">계정 선택 <span class="text-danger">*</span></label>
+                        <select class="form-select" id="connectionAccountSelect" required>
+                            <option value="">선택하세요</option>
+                        </select>
+                        <small class="text-muted">자동화 계정 목록입니다.</small>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">카페 선택 <span class="text-danger">*</span></label>
+                        <select class="form-select" id="connectionCafeSelect" required>
+                            <option value="">선택하세요</option>
+                        </select>
+                        <small class="text-muted">자동화 카페 목록입니다.</small>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="connectionIsMember" checked>
+                            <label class="form-check-label" for="connectionIsMember">
+                                카페 가입 완료
+                            </label>
+                        </div>
+                        <small class="text-muted">가입하지 않았다면 체크 해제하세요.</small>
+                    </div>
+                    
+                    <div class="alert alert-warning">
+                        <i class="bi bi-exclamation-triangle"></i>
+                        <strong>다음 단계:</strong><br>
+                        1. 연동 추가<br>
+                        2. 네이버에서 가입인사글 2개 작성<br>
+                        3. URL을 연동 관리에서 등록
                     </div>
                 </div>
                 <div class="modal-footer">

@@ -1714,6 +1714,81 @@ async def get_cafe_connections(
         return JSONResponse({'success': False, 'error': str(e)}, status_code=500)
 
 
+@router.post("/api/connections/add")
+async def add_connection(
+    request: Request,
+    account_id: int = Form(...),
+    cafe_id: int = Form(...),
+    is_member: bool = Form(True),
+    db: Session = Depends(get_db)
+):
+    """카페-계정 연동 추가 (JSON)"""
+    current_user = get_current_user(request, db)
+    if not current_user:
+        return JSONResponse({"success": False, "error": "로그인이 필요합니다"}, status_code=401)
+    
+    try:
+        from database import CafeAccountLink
+        
+        # 중복 확인
+        existing = db.query(CafeAccountLink).filter(
+            CafeAccountLink.cafe_id == cafe_id,
+            CafeAccountLink.account_id == account_id
+        ).first()
+        
+        if existing:
+            return JSONResponse({'success': False, 'error': '이미 연동된 카페-계정입니다'}, status_code=400)
+        
+        # 연동 추가
+        connection = CafeAccountLink(
+            cafe_id=cafe_id,
+            account_id=account_id,
+            is_member=is_member,
+            status='active',
+            draft_post_count=0,
+            used_post_count=0
+        )
+        
+        db.add(connection)
+        db.commit()
+        db.refresh(connection)
+        
+        return JSONResponse({'success': True, 'id': connection.id})
+    except ImportError:
+        return JSONResponse({'success': False, 'error': 'CafeAccountLink 테이블이 없습니다. 테이블을 먼저 생성하세요.'}, status_code=500)
+    except Exception as e:
+        db.rollback()
+        import traceback
+        traceback.print_exc()
+        return JSONResponse({'success': False, 'error': str(e)}, status_code=500)
+
+
+@router.post("/api/connections/delete/{connection_id}")
+async def delete_connection(
+    connection_id: int,
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    """카페-계정 연동 삭제 (JSON)"""
+    current_user = get_current_user(request, db)
+    if not current_user:
+        return JSONResponse({"success": False, "error": "로그인이 필요합니다"}, status_code=401)
+    
+    try:
+        from database import CafeAccountLink
+        
+        connection = db.query(CafeAccountLink).filter(CafeAccountLink.id == connection_id).first()
+        
+        if connection:
+            db.delete(connection)
+            db.commit()
+        
+        return JSONResponse({'success': True})
+    except Exception as e:
+        db.rollback()
+        return JSONResponse({'success': False, 'error': str(e)}, status_code=500)
+
+
 @router.get("/api/schedules")
 async def get_ai_schedules(
     request: Request,
