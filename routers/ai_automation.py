@@ -919,6 +919,7 @@ async def get_prompt_detail(
 async def update_prompt_json(
     prompt_id: int,
     request: Request,
+    ai_product_id: int = Form(...),
     keyword_classification: str = Form(...),
     system_prompt: str = Form(...),
     user_prompt: str = Form(...),
@@ -942,6 +943,7 @@ async def update_prompt_json(
             return JSONResponse({'success': False, 'error': '잘못된 분류입니다'}, status_code=400)
         
         # 수정
+        prompt.ai_product_id = ai_product_id
         prompt.keyword_classification = keyword_classification
         prompt.system_prompt = system_prompt
         prompt.user_prompt = user_prompt
@@ -1611,7 +1613,7 @@ async def get_prompts_for_product(
     
     try:
         query = db.query(AIPrompt).options(
-            joinedload(AIPrompt.ai_product)
+            joinedload(AIPrompt.ai_product).joinedload(AIMarketingProduct.marketing_product).joinedload(MarketingProduct.product)
         )
         
         # product가 있고 빈 문자열이 아닌 경우에만 필터
@@ -1626,6 +1628,8 @@ async def get_prompts_for_product(
         
         prompts_data = [{
             'id': p.id,
+            'ai_product_id': p.ai_product_id,
+            'product_name': p.ai_product.product_name if p.ai_product else '알 수 없음',
             'keyword_classification': p.keyword_classification,
             'temperature': p.temperature,
             'max_tokens': p.max_tokens,

@@ -2852,26 +2852,73 @@ async function deleteConnection(id) {
 // ============================================
 
 async function showTestGenerationModal() {
-    // 프롬프트 목록 로드
-    const response = await fetch('/ai-automation/api/prompts');
+    // 상품 목록 로드
+    const response = await fetch('/ai-automation/api/products');
     const data = await response.json();
     
     if (data.success) {
-        const select = document.getElementById('testPromptSelect');
-        select.innerHTML = '<option value="">프롬프트를 선택하세요</option>';
+        const select = document.getElementById('testProductSelect');
+        select.innerHTML = '<option value="">상품을 선택하세요</option>';
         
-        data.prompts.forEach(p => {
+        data.products.forEach(p => {
             const option = document.createElement('option');
             option.value = p.id;
-            option.textContent = `${p.keyword_classification === 'alternative' ? '대안성' : '정보성'} 프롬프트`;
-            option.dataset.classification = p.keyword_classification;
-            option.dataset.productId = p.ai_product_id || '';
+            option.textContent = p.product_name;
             select.appendChild(option);
         });
     }
     
     const modal = new bootstrap.Modal(document.getElementById('testGenerationModal'));
     modal.show();
+}
+
+async function updateTestTemplates() {
+    const productId = document.getElementById('testProductSelect').value;
+    
+    if (!productId) {
+        document.getElementById('testTemplateSelect').innerHTML = '<option value="">먼저 상품을 선택하세요</option>';
+        document.getElementById('testPromptSelect').innerHTML = '<option value="">먼저 상품을 선택하세요</option>';
+        document.getElementById('testKeywordSelect').innerHTML = '<option value="">먼저 프롬프트를 선택하세요</option>';
+        return;
+    }
+    
+    // 템플릿 목록 로드
+    const templatesResp = await fetch('/ai-automation/api/prompt-templates');
+    const templatesData = await templatesResp.json();
+    
+    if (templatesData.success) {
+        const select = document.getElementById('testTemplateSelect');
+        select.innerHTML = '<option value="">템플릿 없이 진행</option>';
+        
+        templatesData.templates.forEach(t => {
+            const option = document.createElement('option');
+            option.value = t.id;
+            option.textContent = `${t.template_name} (${t.template_type === 'alternative' ? '대안성' : '정보성'})`;
+            select.appendChild(option);
+        });
+    }
+    
+    // 프롬프트 목록 로드
+    const promptsResp = await fetch(`/ai-automation/api/prompts?product=${productId}`);
+    const promptsData = await promptsResp.json();
+    
+    if (promptsData.success) {
+        const select = document.getElementById('testPromptSelect');
+        select.innerHTML = '<option value="">프롬프트를 선택하세요</option>';
+        
+        promptsData.prompts.forEach(p => {
+            const option = document.createElement('option');
+            option.value = p.id;
+            option.textContent = `${p.keyword_classification === 'alternative' ? '대안성' : '정보성'} 프롬프트`;
+            option.dataset.classification = p.keyword_classification;
+            option.dataset.productId = p.ai_product_id;
+            select.appendChild(option);
+        });
+        
+        if (promptsData.prompts.length === 0) {
+            select.innerHTML = '<option value="">해당 상품의 프롬프트가 없습니다</option>';
+        }
+    }
 }
 
 async function updateTestKeywords() {
@@ -3977,6 +4024,22 @@ async function savePrompt(event) {
 
 async function editPrompt(id) {
     try {
+        // 상품 목록 로드
+        const productsResp = await fetch('/ai-automation/api/products');
+        const productsData = await productsResp.json();
+        
+        if (productsData.success) {
+            const select = document.getElementById('editPromptProduct');
+            select.innerHTML = '<option value="">선택하세요</option>';
+            
+            productsData.products.forEach(p => {
+                const option = document.createElement('option');
+                option.value = p.id;
+                option.textContent = p.product_name;
+                select.appendChild(option);
+            });
+        }
+        
         // 프롬프트 정보 가져오기
         const response = await fetch(`/ai-automation/api/prompts/${id}`);
         const data = await response.json();
@@ -3990,7 +4053,7 @@ async function editPrompt(id) {
         
         // 폼 채우기
         document.getElementById('editPromptId').value = id;
-        document.getElementById('editPromptProduct').value = prompt.product_name;
+        document.getElementById('editPromptProduct').value = prompt.ai_product_id;  // 상품 ID로 선택
         document.getElementById('editPromptClassification').value = prompt.keyword_classification;
         document.getElementById('editPromptSystem').value = prompt.system_prompt;
         document.getElementById('editPromptUser').value = prompt.user_prompt;
@@ -4009,9 +4072,16 @@ async function editPrompt(id) {
 
 async function updatePrompt() {
     const id = document.getElementById('editPromptId').value;
+    const productId = document.getElementById('editPromptProduct').value;
+    
+    if (!productId) {
+        alert('상품을 선택해주세요.');
+        return;
+    }
     
     try {
         const formData = new FormData();
+        formData.append('ai_product_id', productId);
         formData.append('keyword_classification', document.getElementById('editPromptClassification').value);
         formData.append('system_prompt', document.getElementById('editPromptSystem').value);
         formData.append('user_prompt', document.getElementById('editPromptUser').value);
@@ -4963,8 +5033,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 <div class="modal-body">
                     <div class="row">
                         <div class="col-md-6 mb-3">
-                            <label class="form-label">상품 <span class="text-danger">*</span></label>
-                            <input type="text" class="form-control" id="editPromptProduct" readonly>
+                            <label class="form-label">상품 선택 <span class="text-danger">*</span></label>
+                            <select class="form-select" id="editPromptProduct" required>
+                                <option value="">선택하세요</option>
+                            </select>
                         </div>
                         <div class="col-md-6 mb-3">
                             <label class="form-label">키워드 분류 <span class="text-danger">*</span></label>
@@ -5171,18 +5243,33 @@ document.addEventListener('DOMContentLoaded', function() {
             <div class="modal-body">
                 <div class="alert alert-info">
                     <i class="bi bi-lightbulb"></i>
-                    <strong>안내:</strong> 프롬프트와 키워드를 선택하면 Claude AI가 실제 글을 생성합니다.
+                    <strong>안내:</strong> 상품을 선택하면 해당 템플릿과 프롬프트가 표시됩니다.
                 </div>
                 
                 <div class="mb-3">
-                    <label class="form-label">프롬프트 선택 <span class="text-danger">*</span></label>
-                    <select class="form-select" id="testPromptSelect" onchange="updateTestKeywords()" required>
-                        <option value="">프롬프트를 선택하세요</option>
+                    <label class="form-label">1. 상품 선택 <span class="text-danger">*</span></label>
+                    <select class="form-select" id="testProductSelect" onchange="updateTestTemplates()" required>
+                        <option value="">상품을 선택하세요</option>
                     </select>
                 </div>
                 
                 <div class="mb-3">
-                    <label class="form-label">키워드 선택 <span class="text-danger">*</span></label>
+                    <label class="form-label">2. 템플릿 선택 (선택사항)</label>
+                    <select class="form-select" id="testTemplateSelect">
+                        <option value="">먼저 상품을 선택하세요</option>
+                    </select>
+                    <small class="text-muted">템플릿을 참고로만 보고 싶을 때 선택하세요.</small>
+                </div>
+                
+                <div class="mb-3">
+                    <label class="form-label">3. 프롬프트 선택 <span class="text-danger">*</span></label>
+                    <select class="form-select" id="testPromptSelect" onchange="updateTestKeywords()" required>
+                        <option value="">먼저 상품을 선택하세요</option>
+                    </select>
+                </div>
+                
+                <div class="mb-3">
+                    <label class="form-label">4. 키워드 선택 <span class="text-danger">*</span></label>
                     <select class="form-select" id="testKeywordSelect" required>
                         <option value="">먼저 프롬프트를 선택하세요</option>
                     </select>
