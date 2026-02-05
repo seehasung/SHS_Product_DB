@@ -2731,14 +2731,36 @@ function manageDraftPostsFromButton(button) {
 }
 
 async function manageDraftPosts(linkId, cafeName, accountName) {
-    document.getElementById('draftLinkId').value = linkId;
-    document.getElementById('draftCafeName').textContent = cafeName;
-    document.getElementById('draftAccountName').textContent = accountName;
+    // 요소 존재 확인
+    const linkIdInput = document.getElementById('draftLinkId');
+    const cafeNameSpan = document.getElementById('draftCafeName');
+    const accountNameSpan = document.getElementById('draftAccountName');
+    const modalEl = document.getElementById('manageDraftPostsModal');
     
-    const modal = new bootstrap.Modal(document.getElementById('manageDraftPostsModal'));
+    if (!linkIdInput || !cafeNameSpan || !accountNameSpan || !modalEl) {
+        console.error('모달 요소를 찾을 수 없습니다:', {
+            linkIdInput, cafeNameSpan, accountNameSpan, modalEl
+        });
+        alert('모달을 열 수 없습니다. 페이지를 새로고침해주세요.');
+        return;
+    }
+    
+    // 값 설정
+    linkIdInput.value = linkId || '';
+    cafeNameSpan.textContent = cafeName || '알 수 없음';
+    accountNameSpan.textContent = accountName || '알 수 없음';
+    
+    // 모달 열기
+    const modal = new bootstrap.Modal(modalEl, {
+        backdrop: 'static',  // 바깥 클릭으로 안 닫히게
+        keyboard: true
+    });
     modal.show();
     
-    await loadDraftPosts(linkId);
+    // URL 목록 로드
+    if (linkId) {
+        await loadDraftPosts(linkId);
+    }
 }
 
 async function loadDraftPosts(linkId) {
