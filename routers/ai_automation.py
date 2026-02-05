@@ -1884,6 +1884,125 @@ async def add_draft_post(
         return JSONResponse({'success': False, 'error': str(e)}, status_code=500)
 
 
+@router.post("/api/test-generate")
+async def test_generate_content(
+    request: Request,
+    prompt_id: int = Form(...),
+    keyword: str = Form(...),
+    db: Session = Depends(get_db)
+):
+    """Claude API 테스트 - 실제 글 생성"""
+    current_user = get_current_user(request, db)
+    if not current_user:
+        return JSONResponse({"success": False, "error": "로그인이 필요합니다"}, status_code=401)
+    
+    try:
+        # anthropic 모듈 확인
+        try:
+            import anthropic
+        except ImportError:
+            return JSONResponse({
+                'success': False,
+                'error': 'anthropic 모듈이 설치되지 않았습니다. pip install anthropic'
+            }, status_code=500)
+        
+        # 프롬프트 정보 가져오기
+        prompt = db.query(AIPrompt).options(
+            joinedload(AIPrompt.ai_product)
+        ).filter(AIPrompt.id == prompt_id).first()
+        
+        if not prompt or not prompt.ai_product:
+            return JSONResponse({'success': False, 'error': '프롬프트를 찾을 수 없습니다'}, status_code=404)
+        
+        product = prompt.ai_product
+        
+        # 레퍼런스 가져오기 (같은 분류)
+        ai_refs = db.query(AIProductReference).options(
+            joinedload(AIProductReference.reference).joinedload(Reference.comments)
+        ).filter(
+            AIProductReference.ai_product_id == product.id,
+            AIProductReference.reference_type == prompt.keyword_classification
+        ).limit(3).all()
+        
+        # 레퍼런스 텍스트 조합
+        reference_text = ""
+        for idx, ai_ref in enumerate(ai_refs):
+            if ai_ref.reference:
+                ref = ai_ref.reference
+                reference_text += f"\n\n【예시 {idx + 1}: {ref.title}】\n"
+                reference_text += f"{ref.content}\n"
+                
+                # 댓글도 포함
+                if ref.comments:
+                    reference_text += "\n댓글:\n"
+                    for comment in ref.comments[:5]:  # 최대 5개
+                        reference_text += f"- 계정{comment.account_sequence}: {comment.text}\n"
+        
+        # 변수 치환
+        user_prompt = prompt.user_prompt
+        replacements = {
+            '{product_name}': product.product_name,
+            '{core_value}': product.core_value,
+            '{sub_core_value}': product.sub_core_value,
+            '{size_weight}': product.size_weight,
+            '{difference}': product.difference,
+            '{famous_brands}': product.famous_brands,
+            '{market_problem}': product.market_problem,
+            '{our_price}': product.our_price,
+            '{market_avg_price}': product.market_avg_price,
+            '{target_age}': product.target_age,
+            '{target_gender}': product.target_gender,
+            '{additional_info}': product.additional_info or '',
+            '{marketing_link}': product.marketing_link,
+            '{keyword}': keyword
+        }
+        
+        for var, value in replacements.items():
+            user_prompt = user_prompt.replace(var, str(value))
+        
+        # 레퍼런스 추가
+        if reference_text:
+            user_prompt += f"\n\n참고할 예시 글들:{reference_text}\n\n위 예시들의 톤과 스타일을 참고하여 자연스럽고 진정성 있는 글을 작성해주세요."
+        
+        # Claude API 호출
+        import os
+        api_key = os.environ.get('ANTHROPIC_API_KEY')
+        if not api_key:
+            return JSONResponse({
+                'success': False,
+                'error': 'ANTHROPIC_API_KEY 환경변수가 설정되지 않았습니다'
+            }, status_code=500)
+        
+        client = anthropic.Anthropic(api_key=api_key)
+        
+        response = client.messages.create(
+            model="claude-3-5-sonnet-20241022",
+            max_tokens=prompt.max_tokens,
+            temperature=prompt.temperature,
+            system=prompt.system_prompt,
+            messages=[{"role": "user", "content": user_prompt}]
+        )
+        
+        generated_content = response.content[0].text
+        
+        return JSONResponse({
+            'success': True,
+            'content': generated_content,
+            'keyword': keyword,
+            'prompt_name': f"{product.product_name} - {prompt.keyword_classification}",
+            'references_used': len(ai_refs),
+            'usage': {
+                'input_tokens': response.usage.input_tokens,
+                'output_tokens': response.usage.output_tokens
+            }
+        })
+        
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return JSONResponse({'success': False, 'error': str(e)}, status_code=500)
+
+
 @router.post("/api/draft-posts/delete/{draft_id}")
 async def delete_draft_post(
     draft_id: int,

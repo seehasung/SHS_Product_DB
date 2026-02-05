@@ -546,9 +546,14 @@
             <div class="content-card">
                 <div class="card-header-custom">
                     <h4><i class="bi bi-chat-dots"></i> AI 프롬프트 관리</h4>
-                    <button class="btn btn-primary" onclick="showAddPromptModal()">
-                        <i class="bi bi-plus-circle"></i> 프롬프트 추가
-                    </button>
+                    <div class="btn-group">
+                        <button class="btn btn-success" onclick="showTestGenerationModal()">
+                            <i class="bi bi-magic"></i> AI 글 생성 테스트
+                        </button>
+                        <button class="btn btn-primary" onclick="showAddPromptModal()">
+                            <i class="bi bi-plus-circle"></i> 프롬프트 추가
+                        </button>
+                    </div>
                 </div>
                 
                 <div class="mb-3">
@@ -2843,6 +2848,138 @@ async function deleteConnection(id) {
 }
 
 // ============================================
+// Claude API 테스트
+// ============================================
+
+async function showTestGenerationModal() {
+    // 프롬프트 목록 로드
+    const response = await fetch('/ai-automation/api/prompts');
+    const data = await response.json();
+    
+    if (data.success) {
+        const select = document.getElementById('testPromptSelect');
+        select.innerHTML = '<option value="">프롬프트를 선택하세요</option>';
+        
+        data.prompts.forEach(p => {
+            const option = document.createElement('option');
+            option.value = p.id;
+            option.textContent = `${p.keyword_classification === 'alternative' ? '대안성' : '정보성'} 프롬프트`;
+            option.dataset.classification = p.keyword_classification;
+            option.dataset.productId = p.ai_product_id || '';
+            select.appendChild(option);
+        });
+    }
+    
+    const modal = new bootstrap.Modal(document.getElementById('testGenerationModal'));
+    modal.show();
+}
+
+async function updateTestKeywords() {
+    const promptSelect = document.getElementById('testPromptSelect');
+    const selectedOption = promptSelect.options[promptSelect.selectedIndex];
+    
+    if (!selectedOption || !selectedOption.value) {
+        document.getElementById('testKeywordSelect').innerHTML = '<option value="">먼저 프롬프트를 선택하세요</option>';
+        return;
+    }
+    
+    const productId = selectedOption.dataset.productId;
+    const classification = selectedOption.dataset.classification;
+    
+    // 키워드 가져오기
+    const response = await fetch(`/ai-automation/api/products/${productId}/keywords`);
+    const data = await response.json();
+    
+    if (data.success) {
+        const keywordSelect = document.getElementById('testKeywordSelect');
+        keywordSelect.innerHTML = '<option value="">키워드를 선택하세요</option>';
+        
+        // 같은 분류의 키워드만
+        const filtered = data.keywords.filter(k => k.keyword_type === classification && k.is_active);
+        
+        filtered.forEach(kw => {
+            const option = document.createElement('option');
+            option.value = kw.keyword_text;
+            option.textContent = kw.keyword_text;
+            keywordSelect.appendChild(option);
+        });
+        
+        if (filtered.length === 0) {
+            keywordSelect.innerHTML = '<option value="">해당 분류의 활성 키워드가 없습니다</option>';
+        }
+    }
+}
+
+async function generateTestContent() {
+    const promptId = document.getElementById('testPromptSelect').value;
+    const keyword = document.getElementById('testKeywordSelect').value;
+    
+    if (!promptId || !keyword) {
+        alert('프롬프트와 키워드를 선택해주세요.');
+        return;
+    }
+    
+    // 입력 모달 닫기
+    bootstrap.Modal.getInstance(document.getElementById('testGenerationModal')).hide();
+    
+    // 결과 모달 열기 (로딩 중)
+    const resultModal = new bootstrap.Modal(document.getElementById('testResultModal'));
+    resultModal.show();
+    
+    try {
+        const formData = new FormData();
+        formData.append('prompt_id', promptId);
+        formData.append('keyword', keyword);
+        
+        const response = await fetch('/ai-automation/api/test-generate', {
+            method: 'POST',
+            body: formData
+        });
+        const data = await response.json();
+        
+        if (data.success) {
+            // 결과 표시
+            document.getElementById('testResultContent').innerHTML = `
+                <div class="alert alert-success">
+                    <h5><i class="bi bi-check-circle"></i> AI 생성 완료!</h5>
+                    <p class="mb-0">
+                        <strong>키워드:</strong> ${data.keyword}<br>
+                        <strong>프롬프트:</strong> ${data.prompt_name}<br>
+                        <strong>참고 레퍼런스:</strong> ${data.references_used}개<br>
+                        <strong>사용 토큰:</strong> 입력 ${data.usage.input_tokens} / 출력 ${data.usage.output_tokens}
+                    </p>
+                </div>
+                
+                <div class="card">
+                    <div class="card-header bg-primary text-white">
+                        <h6 class="mb-0"><i class="bi bi-file-text"></i> 생성된 글</h6>
+                    </div>
+                    <div class="card-body">
+                        <div style="white-space: pre-wrap; line-height: 1.8; font-size: 1.05rem;">
+                            ${data.content}
+                        </div>
+                    </div>
+                </div>
+            `;
+        } else {
+            document.getElementById('testResultContent').innerHTML = `
+                <div class="alert alert-danger">
+                    <h5><i class="bi bi-x-circle"></i> 생성 실패</h5>
+                    <p class="mb-0">${data.error}</p>
+                </div>
+            `;
+        }
+    } catch (error) {
+        document.getElementById('testResultContent').innerHTML = `
+            <div class="alert alert-danger">
+                <h5><i class="bi bi-x-circle"></i> 오류 발생</h5>
+                <p class="mb-0">${error.message}</p>
+            </div>
+        `;
+    }
+}
+
+// ============================================
 // 신규발행 글 URL 관리
 // ============================================
 
@@ -5013,6 +5150,70 @@ document.addEventListener('DOMContentLoaded', function() {
                         <div id="draftPostsList">
                             <p class="text-center text-muted">로딩 중...</p>
                         </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">닫기</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- AI 글 생성 테스트 모달 -->
+<div class="modal fade" id="testGenerationModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-magic"></i> AI 글 생성 테스트</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-info">
+                    <i class="bi bi-lightbulb"></i>
+                    <strong>안내:</strong> 프롬프트와 키워드를 선택하면 Claude AI가 실제 글을 생성합니다.
+                </div>
+                
+                <div class="mb-3">
+                    <label class="form-label">프롬프트 선택 <span class="text-danger">*</span></label>
+                    <select class="form-select" id="testPromptSelect" onchange="updateTestKeywords()" required>
+                        <option value="">프롬프트를 선택하세요</option>
+                    </select>
+                </div>
+                
+                <div class="mb-3">
+                    <label class="form-label">키워드 선택 <span class="text-danger">*</span></label>
+                    <select class="form-select" id="testKeywordSelect" required>
+                        <option value="">먼저 프롬프트를 선택하세요</option>
+                    </select>
+                    <small class="text-muted">프롬프트의 분류에 맞는 키워드만 표시됩니다.</small>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">취소</button>
+                <button type="button" class="btn btn-success" onclick="generateTestContent()">
+                    <i class="bi bi-magic"></i> AI 생성 시작
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- AI 생성 결과 모달 -->
+<div class="modal fade" id="testResultModal" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-check-circle"></i> AI 생성 결과</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="testResultContent">
+                    <div class="text-center py-5">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">생성 중...</span>
+                        </div>
+                        <p class="mt-3">AI가 글을 생성하고 있습니다...</p>
                     </div>
                 </div>
             </div>
