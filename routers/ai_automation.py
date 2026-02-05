@@ -878,6 +878,85 @@ async def add_prompt_json(
         return JSONResponse({"success": False, "error": str(e)}, status_code=500)
 
 
+@router.get("/api/prompts/{prompt_id}")
+async def get_prompt_detail(
+    prompt_id: int,
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    """프롬프트 상세 조회 (JSON)"""
+    current_user = get_current_user(request, db)
+    if not current_user:
+        return JSONResponse({"success": False, "error": "로그인이 필요합니다"}, status_code=401)
+    
+    try:
+        prompt = db.query(AIPrompt).options(
+            joinedload(AIPrompt.ai_product).joinedload(AIMarketingProduct.marketing_product).joinedload(MarketingProduct.product)
+        ).filter(AIPrompt.id == prompt_id).first()
+        
+        if not prompt:
+            return JSONResponse({'success': False, 'error': '프롬프트를 찾을 수 없습니다'}, status_code=404)
+        
+        return JSONResponse({
+            'success': True,
+            'prompt': {
+                'id': prompt.id,
+                'ai_product_id': prompt.ai_product_id,
+                'product_name': prompt.ai_product.product_name if prompt.ai_product else '',
+                'keyword_classification': prompt.keyword_classification,
+                'system_prompt': prompt.system_prompt,
+                'user_prompt': prompt.user_prompt,
+                'temperature': prompt.temperature,
+                'max_tokens': prompt.max_tokens,
+                'generate_images': prompt.generate_images
+            }
+        })
+    except Exception as e:
+        return JSONResponse({'success': False, 'error': str(e)}, status_code=500)
+
+
+@router.post("/api/prompts/update/{prompt_id}")
+async def update_prompt_json(
+    prompt_id: int,
+    request: Request,
+    keyword_classification: str = Form(...),
+    system_prompt: str = Form(...),
+    user_prompt: str = Form(...),
+    temperature: float = Form(...),
+    max_tokens: int = Form(...),
+    generate_images: bool = Form(False),
+    db: Session = Depends(get_db)
+):
+    """프롬프트 수정 (JSON)"""
+    current_user = get_current_user(request, db)
+    if not current_user:
+        return JSONResponse({"success": False, "error": "로그인이 필요합니다"}, status_code=401)
+    
+    try:
+        prompt = db.query(AIPrompt).filter(AIPrompt.id == prompt_id).first()
+        
+        if not prompt:
+            return JSONResponse({'success': False, 'error': '프롬프트를 찾을 수 없습니다'}, status_code=404)
+        
+        if keyword_classification not in ['alternative', 'informational']:
+            return JSONResponse({'success': False, 'error': '잘못된 분류입니다'}, status_code=400)
+        
+        # 수정
+        prompt.keyword_classification = keyword_classification
+        prompt.system_prompt = system_prompt
+        prompt.user_prompt = user_prompt
+        prompt.temperature = temperature
+        prompt.max_tokens = max_tokens
+        prompt.generate_images = generate_images
+        
+        db.commit()
+        
+        return JSONResponse({'success': True})
+    except Exception as e:
+        db.rollback()
+        return JSONResponse({'success': False, 'error': str(e)}, status_code=500)
+
+
 @router.post("/prompts/update/{prompt_id}")
 async def update_prompt(
     prompt_id: int,

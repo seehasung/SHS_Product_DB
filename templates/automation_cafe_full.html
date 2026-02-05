@@ -3449,15 +3449,65 @@ async function savePrompt(event) {
 }
 
 async function editPrompt(id) {
-    // AI 프롬프트는 삭제 후 재생성 권장
-    if (!confirm('프롬프트를 삭제하고 새로 만드시겠습니까?\n\n(프롬프트 수정보다는 삭제 후 재생성을 권장합니다)')) {
-        return;
+    try {
+        // 프롬프트 정보 가져오기
+        const response = await fetch(`/ai-automation/api/prompts/${id}`);
+        const data = await response.json();
+        
+        if (!data.success) {
+            alert('프롬프트 정보를 불러올 수 없습니다.');
+            return;
+        }
+        
+        const prompt = data.prompt;
+        
+        // 폼 채우기
+        document.getElementById('editPromptId').value = id;
+        document.getElementById('editPromptProduct').value = prompt.product_name;
+        document.getElementById('editPromptClassification').value = prompt.keyword_classification;
+        document.getElementById('editPromptSystem').value = prompt.system_prompt;
+        document.getElementById('editPromptUser').value = prompt.user_prompt;
+        document.getElementById('editPromptTemp').value = prompt.temperature;
+        document.getElementById('editPromptTokens').value = prompt.max_tokens;
+        document.getElementById('editPromptImages').checked = prompt.generate_images;
+        
+        // 모달 열기
+        const modal = new bootstrap.Modal(document.getElementById('editAIPromptModal'));
+        modal.show();
+    } catch (error) {
+        console.error('프롬프트 로드 오류:', error);
+        alert('오류가 발생했습니다.');
     }
+}
+
+async function updatePrompt() {
+    const id = document.getElementById('editPromptId').value;
     
-    await deletePrompt(id);
-    
-    // 프롬프트 추가 모달 열기
-    showAddPromptModal();
+    try {
+        const formData = new FormData();
+        formData.append('keyword_classification', document.getElementById('editPromptClassification').value);
+        formData.append('system_prompt', document.getElementById('editPromptSystem').value);
+        formData.append('user_prompt', document.getElementById('editPromptUser').value);
+        formData.append('temperature', document.getElementById('editPromptTemp').value);
+        formData.append('max_tokens', document.getElementById('editPromptTokens').value);
+        formData.append('generate_images', document.getElementById('editPromptImages').checked);
+        
+        const response = await fetch(`/ai-automation/api/prompts/update/${id}`, {
+            method: 'POST',
+            body: formData
+        });
+        const data = await response.json();
+        
+        if (data.success) {
+            alert('프롬프트가 수정되었습니다.');
+            bootstrap.Modal.getInstance(document.getElementById('editAIPromptModal')).hide();
+            loadPrompts();
+        } else {
+            alert('오류: ' + data.error);
+        }
+    } catch (error) {
+        alert('수정 중 오류가 발생했습니다.');
+    }
 }
 
 async function deletePrompt(id) {
@@ -4372,6 +4422,94 @@ document.addEventListener('DOMContentLoaded', function() {
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">취소</button>
                 <button type="button" class="btn btn-primary" onclick="updateReferenceContent()">저장</button>
             </div>
+        </div>
+    </div>
+</div>
+
+<!-- AI 프롬프트 수정 모달 -->
+<div class="modal fade" id="editAIPromptModal" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-pencil"></i> AI 프롬프트 수정</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form onsubmit="event.preventDefault(); updatePrompt();">
+                <input type="hidden" id="editPromptId">
+                <div class="modal-body">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">상품 <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="editPromptProduct" readonly>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">키워드 분류 <span class="text-danger">*</span></label>
+                            <select class="form-select" id="editPromptClassification" required>
+                                <option value="alternative">대안성</option>
+                                <option value="informational">정보성</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">시스템 프롬프트 <span class="text-danger">*</span></label>
+                        <textarea class="form-control" id="editPromptSystem" rows="4" required></textarea>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <label class="form-label mb-0">사용자 프롬프트 <span class="text-danger">*</span></label>
+                            <div class="btn-group btn-group-sm">
+                                <select class="form-select form-select-sm" id="editPromptVarSelect" style="width: 180px;">
+                                    <option value="">변수 선택</option>
+                                    <option value="product_name">1. 우리제품명</option>
+                                    <option value="core_value">2. 제품 핵심</option>
+                                    <option value="sub_core_value">3. 서브 핵심</option>
+                                    <option value="size_weight">4. 사이즈&무게</option>
+                                    <option value="difference">5. 타사 차별점</option>
+                                    <option value="famous_brands">6. 유명 브랜드</option>
+                                    <option value="market_problem">7. 시장 문제점</option>
+                                    <option value="our_price">8. 우리 가격</option>
+                                    <option value="market_avg_price">9. 시장 평균가</option>
+                                    <option value="target_age">10. 연령대</option>
+                                    <option value="target_gender">11. 성별</option>
+                                    <option value="additional_info">12. 특이사항</option>
+                                    <option value="marketing_link">마케팅 링크</option>
+                                </select>
+                                <button type="button" class="btn btn-primary btn-sm" onclick="insertVariableFromSelect('editPromptUser', 'editPromptVarSelect')">
+                                    <i class="bi bi-plus-circle"></i> 추가
+                                </button>
+                                <button type="button" class="btn btn-success btn-sm" onclick="insertImageGenerationPrompt('editPromptUser')">
+                                    <i class="bi bi-image"></i> 이미지 생성
+                                </button>
+                            </div>
+                        </div>
+                        <textarea class="form-control" id="editPromptUser" rows="10" required></textarea>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">Temperature</label>
+                            <input type="number" class="form-control" id="editPromptTemp" step="0.1" min="0" max="1" required>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">Max Tokens</label>
+                            <input type="number" class="form-control" id="editPromptTokens" min="100" max="4000" required>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">이미지 생성</label>
+                            <div class="form-check mt-2">
+                                <input class="form-check-input" type="checkbox" id="editPromptImages">
+                                <label class="form-check-label">3장 자동 생성</label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">취소</button>
+                    <button type="submit" class="btn btn-primary">저장</button>
+                </div>
+            </form>
         </div>
     </div>
 </div>
