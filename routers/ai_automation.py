@@ -1980,7 +1980,7 @@ async def test_generate_content(
         client = anthropic.Anthropic(api_key=api_key)
         
         response = client.messages.create(
-            model="claude-3-5-sonnet-20241022",  # Claude 3.5 Sonnet (안정적)
+            model="claude-opus-4-5",  # Claude Opus 4.5 (최강 성능!)
             max_tokens=prompt.max_tokens,
             temperature=prompt.temperature,
             system=prompt.system_prompt,
