@@ -1601,7 +1601,7 @@ async def api_add_prompt_template(
 @router.get("/api/prompts")
 async def get_prompts_for_product(
     request: Request,
-    product: Optional[int] = Query(None),
+    product: Optional[str] = Query(None),  # str로 받아서 처리
     db: Session = Depends(get_db)
 ):
     """상품별 프롬프트 목록 조회 (JSON)"""
@@ -1614,8 +1614,13 @@ async def get_prompts_for_product(
             joinedload(AIPrompt.ai_product)
         )
         
-        if product:
-            query = query.filter(AIPrompt.ai_product_id == product)
+        # product가 있고 빈 문자열이 아닌 경우에만 필터
+        if product and product.strip():
+            try:
+                product_id = int(product)
+                query = query.filter(AIPrompt.ai_product_id == product_id)
+            except ValueError:
+                pass  # 숫자가 아니면 무시
         
         prompts = query.all()
         

@@ -2346,7 +2346,14 @@ async function loadPrompts() {
     const typeFilter = document.getElementById('promptTypeFilter')?.value || 'all';
     
     try {
-        const response = await fetch(`/ai-automation/api/prompts?product=${productFilter}&type=${typeFilter}`);
+        // 빈 문자열이면 파라미터 제외
+        let url = '/ai-automation/api/prompts?';
+        const params = [];
+        if (productFilter) params.push(`product=${productFilter}`);
+        if (typeFilter && typeFilter !== 'all') params.push(`type=${typeFilter}`);
+        url += params.join('&');
+        
+        const response = await fetch(url);
         const data = await response.json();
         
         if (data.success) {
