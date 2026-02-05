@@ -2717,6 +2717,119 @@ async function deleteConnection(id) {
     }
 }
 
+// ============================================
+// 신규발행 글 URL 관리
+// ============================================
+
+async function manageDraftPosts(linkId, cafeName, accountName) {
+    document.getElementById('draftLinkId').value = linkId;
+    document.getElementById('draftCafeName').textContent = cafeName;
+    document.getElementById('draftAccountName').textContent = accountName;
+    
+    const modal = new bootstrap.Modal(document.getElementById('manageDraftPostsModal'));
+    modal.show();
+    
+    await loadDraftPosts(linkId);
+}
+
+async function loadDraftPosts(linkId) {
+    try {
+        const response = await fetch(`/ai-automation/api/draft-posts/list/${linkId}`);
+        const data = await response.json();
+        
+        if (data.success) {
+            const container = document.getElementById('draftPostsList');
+            
+            if (data.draft_posts.length === 0) {
+                container.innerHTML = '<p class="text-center text-muted">등록된 URL이 없습니다.</p>';
+                return;
+            }
+            
+            container.innerHTML = data.draft_posts.map((dp, idx) => `
+                <div class="card mb-2">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div>
+                                <strong>URL ${idx + 1}</strong>
+                                <span class="badge ${dp.status === 'available' ? 'bg-success' : 'bg-secondary'} ms-2">
+                                    ${dp.status === 'available' ? '사용 가능' : '사용됨'}
+                                </span>
+                                <br>
+                                <a href="${dp.draft_url}" target="_blank" class="small">
+                                    ${dp.draft_url}
+                                </a>
+                                ${dp.used_at ? `<br><small class="text-muted">사용일: ${new Date(dp.used_at).toLocaleString('ko-KR')}</small>` : ''}
+                            </div>
+                            <button class="btn btn-sm btn-danger" onclick="deleteDraftPost(${dp.id})">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+    } catch (error) {
+        console.error('URL 목록 로드 오류:', error);
+    }
+}
+
+async function addDraftPost() {
+    const linkId = document.getElementById('draftLinkId').value;
+    const url = document.getElementById('draftPostUrl').value.trim();
+    
+    if (!url) {
+        alert('URL을 입력해주세요.');
+        return;
+    }
+    
+    try {
+        const formData = new FormData();
+        formData.append('link_id', linkId);
+        formData.append('draft_url', url);
+        
+        const response = await fetch('/ai-automation/api/draft-posts/add', {
+            method: 'POST',
+            body: formData
+        });
+        const data = await response.json();
+        
+        if (data.success) {
+            alert('URL이 추가되었습니다.');
+            document.getElementById('draftPostUrl').value = '';
+            await loadDraftPosts(linkId);
+            await loadConnections();  // 연동 목록도 새로고침 (개수 업데이트)
+        } else {
+            alert('오류: ' + data.error);
+        }
+    } catch (error) {
+        alert('URL 추가 중 오류가 발생했습니다.');
+    }
+}
+
+async function deleteDraftPost(id) {
+    if (!confirm('이 URL을 삭제하시겠습니까?')) {
+        return;
+    }
+    
+    const linkId = document.getElementById('draftLinkId').value;
+    
+    try {
+        const response = await fetch(`/ai-automation/api/draft-posts/delete/${id}`, {
+            method: 'POST'
+        });
+        const data = await response.json();
+        
+        if (data.success) {
+            await loadDraftPosts(linkId);
+            await loadConnections();  // 연동 목록도 새로고침 (개수 업데이트)
+        } else {
+            alert('삭제 중 오류가 발생했습니다.');
+        }
+    } catch (error) {
+        alert('삭제 중 오류가 발생했습니다.');
+    }
+}
+
 // 연동 관리 로드
 async function loadConnections() {
     try {
@@ -2769,9 +2882,14 @@ async function loadConnections() {
                                     <td><span class="badge bg-primary">${c.draft_post_count}개</span></td>
                                     <td><span class="badge bg-info">${c.used_post_count}개</span></td>
                                     <td>
-                                        <button class="btn btn-sm btn-danger" onclick="deleteConnection(${c.id})">
-                                            <i class="bi bi-trash"></i> 삭제
-                                        </button>
+                                        <div class="btn-group btn-group-sm">
+                                            <button class="btn btn-info" onclick="manageDraftPosts(${c.id}, '${c.cafe_name}', '${c.account_name}')" title="URL 관리">
+                                                <i class="bi bi-link-45deg"></i> URL
+                                            </button>
+                                            <button class="btn btn-danger" onclick="deleteConnection(${c.id})" title="연동 삭제">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                        </div>
                                     </td>
                                 </tr>
                             `).join('')}
@@ -4672,6 +4790,72 @@ document.addEventListener('DOMContentLoaded', function() {
                     <button type="submit" class="btn btn-primary">저장</button>
                 </div>
             </form>
+        </div>
+    </div>
+</div>
+
+<!-- URL 관리 모달 -->
+<div class="modal fade" id="manageDraftPostsModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-link-45deg"></i> 신규발행 글 URL 관리</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="draftLinkId">
+                
+                <div class="mb-3">
+                    <h6><i class="bi bi-info-circle"></i> 연동 정보</h6>
+                    <div class="alert alert-light">
+                        <strong>카페:</strong> <span id="draftCafeName"></span><br>
+                        <strong>계정:</strong> <span id="draftAccountName"></span>
+                    </div>
+                </div>
+                
+                <div class="alert alert-info">
+                    <i class="bi bi-lightbulb"></i>
+                    <strong>안내:</strong><br>
+                    1. 네이버 카페에서 가입인사글 2개 작성<br>
+                    2. 작성한 글의 URL을 여기에 등록<br>
+                    3. AI가 나중에 "수정 발행"으로 내용 교체
+                </div>
+                
+                <!-- URL 추가 폼 -->
+                <div class="card mb-3">
+                    <div class="card-header bg-primary text-white">
+                        <h6 class="mb-0"><i class="bi bi-plus-circle"></i> URL 추가</h6>
+                    </div>
+                    <div class="card-body">
+                        <form onsubmit="event.preventDefault(); addDraftPost();">
+                            <div class="mb-3">
+                                <label class="form-label">글 URL <span class="text-danger">*</span></label>
+                                <input type="url" class="form-control" id="draftPostUrl" 
+                                       placeholder="https://cafe.naver.com/카페명/123456" required>
+                                <small class="text-muted">가입인사글의 전체 URL을 입력하세요.</small>
+                            </div>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-plus-circle"></i> URL 추가
+                            </button>
+                        </form>
+                    </div>
+                </div>
+                
+                <!-- URL 목록 -->
+                <div class="card">
+                    <div class="card-header">
+                        <h6 class="mb-0"><i class="bi bi-list-ul"></i> 등록된 URL 목록</h6>
+                    </div>
+                    <div class="card-body">
+                        <div id="draftPostsList">
+                            <p class="text-center text-muted">로딩 중...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">닫기</button>
+            </div>
         </div>
     </div>
 </div>

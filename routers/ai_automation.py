@@ -1794,6 +1794,129 @@ async def delete_connection(
         return JSONResponse({'success': False, 'error': str(e)}, status_code=500)
 
 
+@router.get("/api/draft-posts/list/{link_id}")
+async def get_draft_posts(
+    link_id: int,
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    """신규발행 글 URL 목록 조회 (JSON)"""
+    current_user = get_current_user(request, db)
+    if not current_user:
+        return JSONResponse({"success": False, "error": "로그인이 필요합니다"}, status_code=401)
+    
+    try:
+        from database import DraftPost
+        
+        draft_posts = db.query(DraftPost).filter(
+            DraftPost.link_id == link_id
+        ).order_by(DraftPost.created_at.desc()).all()
+        
+        posts_data = [{
+            'id': dp.id,
+            'draft_url': dp.draft_url,
+            'article_id': dp.article_id,
+            'status': dp.status,
+            'modified_url': dp.modified_url,
+            'used_at': dp.used_at.isoformat() if dp.used_at else None,
+            'created_at': dp.created_at.isoformat() if dp.created_at else None
+        } for dp in draft_posts]
+        
+        return JSONResponse({'success': True, 'draft_posts': posts_data})
+    except ImportError:
+        return JSONResponse({'success': True, 'draft_posts': []})
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return JSONResponse({'success': False, 'error': str(e)}, status_code=500)
+
+
+@router.post("/api/draft-posts/add")
+async def add_draft_post(
+    request: Request,
+    link_id: int = Form(...),
+    draft_url: str = Form(...),
+    db: Session = Depends(get_db)
+):
+    """신규발행 글 URL 추가 (JSON)"""
+    current_user = get_current_user(request, db)
+    if not current_user:
+        return JSONResponse({"success": False, "error": "로그인이 필요합니다"}, status_code=401)
+    
+    try:
+        from database import DraftPost, CafeAccountLink
+        
+        # URL에서 article_id 추출 (마지막 숫자 부분)
+        article_id = draft_url.split('/')[-1] if '/' in draft_url else draft_url
+        
+        # 중복 확인
+        existing = db.query(DraftPost).filter(
+            DraftPost.draft_url == draft_url
+        ).first()
+        
+        if existing:
+            return JSONResponse({'success': False, 'error': '이미 등록된 URL입니다'}, status_code=400)
+        
+        # URL 추가
+        draft_post = DraftPost(
+            link_id=link_id,
+            draft_url=draft_url,
+            article_id=article_id,
+            status='available'
+        )
+        
+        db.add(draft_post)
+        
+        # 연동의 draft_post_count 증가
+        link = db.query(CafeAccountLink).filter(CafeAccountLink.id == link_id).first()
+        if link:
+            link.draft_post_count += 1
+        
+        db.commit()
+        
+        return JSONResponse({'success': True})
+    except ImportError:
+        return JSONResponse({'success': False, 'error': 'DraftPost 테이블이 없습니다'}, status_code=500)
+    except Exception as e:
+        db.rollback()
+        import traceback
+        traceback.print_exc()
+        return JSONResponse({'success': False, 'error': str(e)}, status_code=500)
+
+
+@router.post("/api/draft-posts/delete/{draft_id}")
+async def delete_draft_post(
+    draft_id: int,
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    """신규발행 글 URL 삭제 (JSON)"""
+    current_user = get_current_user(request, db)
+    if not current_user:
+        return JSONResponse({"success": False, "error": "로그인이 필요합니다"}, status_code=401)
+    
+    try:
+        from database import DraftPost, CafeAccountLink
+        
+        draft_post = db.query(DraftPost).filter(DraftPost.id == draft_id).first()
+        
+        if draft_post:
+            link_id = draft_post.link_id
+            db.delete(draft_post)
+            
+            # 연동의 draft_post_count 감소
+            link = db.query(CafeAccountLink).filter(CafeAccountLink.id == link_id).first()
+            if link and link.draft_post_count > 0:
+                link.draft_post_count -= 1
+            
+            db.commit()
+        
+        return JSONResponse({'success': True})
+    except Exception as e:
+        db.rollback()
+        return JSONResponse({'success': False, 'error': str(e)}, status_code=500)
+
+
 @router.get("/api/schedules")
 async def get_ai_schedules(
     request: Request,
