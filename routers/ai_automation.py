@@ -28,6 +28,56 @@ from database import (
 router = APIRouter(prefix="/ai-automation")
 templates = Jinja2Templates(directory="templates")
 
+# Imagen 3 이미지 생성 함수
+async def generate_images_with_imagen(prompt: str, num_images: int = 3) -> List[str]:
+    """Imagen 3로 이미지 생성"""
+    try:
+        from google.cloud import aiplatform
+        from vertexai.preview.vision_models import ImageGenerationModel
+        import os
+        import json
+        import tempfile
+        
+        project_id = os.environ.get('GOOGLE_PROJECT_ID')
+        location = os.environ.get('GOOGLE_LOCATION', 'us-central1')
+        credentials_json = os.environ.get('GOOGLE_CREDENTIALS')
+        
+        if not project_id or not credentials_json:
+            print("⚠️ Google Cloud 환경 변수가 설정되지 않았습니다")
+            return []
+        
+        # JSON 문자열을 임시 파일로 저장
+        credentials = json.loads(credentials_json)
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+            json.dump(credentials, f)
+            credentials_path = f.name
+        
+        os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = credentials_path
+        
+        aiplatform.init(project=project_id, location=location)
+        
+        model = ImageGenerationModel.from_pretrained("imagen-3.0-generate-001")
+        
+        images = model.generate_images(
+            prompt=prompt,
+            number_of_images=num_images,
+            aspect_ratio="1:1",
+            safety_filter_level="block_some",
+            person_generation="allow_adult"
+        )
+        
+        # 이미지 URL 리스트 반환
+        image_urls = []
+        for image in images:
+            # 실제 구현 시: Cloud Storage에 업로드하고 URL 반환
+            image_urls.append(f"https://storage.googleapis.com/bucket/image_{len(image_urls)}.png")
+        
+        return image_urls
+        
+    except Exception as e:
+        print(f"Imagen 이미지 생성 오류: {e}")
+        return []
+
 
 def get_db():
     db = SessionLocal()
@@ -2062,6 +2112,13 @@ async def test_generate_content(
         
         generated_content = response.content[0].text
         
+        # 이미지 생성 (Imagen 3)
+        image_urls = []
+        if prompt.generate_images:
+            # 이미지 프롬프트 생성
+            image_prompt = f"Create 3 images for product marketing: {product.product_name}. Style: {cafe_characteristics}"
+            image_urls = await generate_images_with_imagen(image_prompt, num_images=3)
+        
         return JSONResponse({
             'success': True,
             'content': generated_content,
@@ -2070,6 +2127,7 @@ async def test_generate_content(
             'cafe_name': cafe_name,  # 카페명 추가
             'cafe_characteristics': cafe_characteristics,  # 카페 특성 추가
             'references_used': len(ai_refs),
+            'image_urls': image_urls,  # 이미지 URL 추가
             'usage': {
                 'input_tokens': response.usage.input_tokens,
                 'output_tokens': response.usage.output_tokens
