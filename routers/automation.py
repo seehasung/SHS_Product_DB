@@ -1005,6 +1005,7 @@ async def list_cafes(db: Session = Depends(get_db)):
             'id': cafe.id,
             'name': cafe.name,
             'url': cafe.url,
+            'characteristics': cafe.characteristics if hasattr(cafe, 'characteristics') else None,
             'status': cafe.status,
             'created_at': cafe.created_at.strftime('%Y-%m-%d') if cafe.created_at else None
         } for cafe in cafes]
