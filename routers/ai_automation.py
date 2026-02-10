@@ -2009,8 +2009,14 @@ async def test_generate_content(
             '{marketing_link}': product.marketing_link
         }
         
+        # 사용자 프롬프트 변수 치환
         for var, value in replacements.items():
             user_prompt = user_prompt.replace(var, str(value))
+        
+        # 시스템 프롬프트도 변수 치환
+        system_prompt = prompt.system_prompt
+        for var, value in replacements.items():
+            system_prompt = system_prompt.replace(var, str(value))
         
         # 레퍼런스 추가
         if reference_text:
@@ -2030,8 +2036,8 @@ async def test_generate_content(
 
 위 카페에 맞춰 자연스럽게 작성해주세요."""
         
-        # 시스템 프롬프트는 원본 그대로
-        enhanced_system_prompt = prompt.system_prompt
+        # 치환된 시스템 프롬프트 사용
+        enhanced_system_prompt = system_prompt
         
         # Claude API 호출
         import os
