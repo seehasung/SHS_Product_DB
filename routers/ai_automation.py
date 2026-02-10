@@ -2196,26 +2196,14 @@ async def publish_test(
         if draft_url_id:
             draft_post = db.query(DraftPost).filter(DraftPost.id == draft_url_id).first()
         
-        # 3. 임시 스케줄 생성 (AI용)
+        # 3. 프롬프트 정보
         prompt = db.query(AIPrompt).get(prompt_id)
         
-        temp_schedule = AIMarketingSchedule(
-            ai_product_id=prompt.ai_product_id,
-            prompt_id=prompt_id,
-            start_date=date.today(),
-            end_date=date.today(),
-            daily_post_count=1,
-            expected_total_posts=1,
-            status='in_progress'
-        )
-        db.add(temp_schedule)
-        db.flush()
-        
-        # 4. 본문 Task 생성
+        # 4. 본문 Task 생성 (스케줄 없이)
         post_task = AutomationTask(
             task_type='post',
             mode='ai',
-            schedule_id=temp_schedule.id,
+            schedule_id=None,  # 스케줄 없이 독립 실행
             scheduled_time=datetime.now(),
             title=f"{keyword}",
             content=test_data['content'],
@@ -2277,7 +2265,7 @@ async def publish_test(
                     comment_task = AutomationTask(
                         task_type='comment',
                         mode='ai',
-                        schedule_id=temp_schedule.id,
+                        schedule_id=None,  # 스케줄 없이
                         scheduled_time=datetime.now() + timedelta(minutes=idx*2),
                         content=comment.strip(),
                         parent_task_id=post_task.id,
