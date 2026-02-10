@@ -1153,6 +1153,7 @@ async def update_account(
 async def add_cafe(
     cafe_name: str = Form(...),
     cafe_url: str = Form(...),
+    characteristics: Optional[str] = Form(None),
     db: Session = Depends(get_db)
 ):
     """카페 추가"""
@@ -1167,12 +1168,38 @@ async def add_cafe(
     cafe = AutomationCafe(
         name=cafe_name,
         url=cafe_url,
-        status='active'
+        status='active',
+        characteristics=characteristics
     )
     db.add(cafe)
     db.commit()
     
     return JSONResponse({'success': True, 'message': '카페가 등록되었습니다'})
+
+
+@router.post("/api/cafes/update/{cafe_id}")
+async def update_cafe(
+    cafe_id: int,
+    cafe_name: str = Form(...),
+    cafe_url: str = Form(...),
+    characteristics: Optional[str] = Form(None),
+    status: str = Form('active'),
+    db: Session = Depends(get_db)
+):
+    """카페 수정"""
+    cafe = db.query(AutomationCafe).filter(AutomationCafe.id == cafe_id).first()
+    
+    if not cafe:
+        return JSONResponse({'success': False, 'message': '카페를 찾을 수 없습니다'}, status_code=404)
+    
+    cafe.name = cafe_name
+    cafe.url = cafe_url
+    cafe.characteristics = characteristics
+    cafe.status = status
+    
+    db.commit()
+    
+    return JSONResponse({'success': True, 'message': '카페가 수정되었습니다'})
 
 
 @router.post("/api/prompts/add")

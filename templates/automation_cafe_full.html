@@ -394,6 +394,7 @@
                             <tr>
                                 <th>카페명</th>
                                 <th>URL</th>
+                                <th style="width: 25%;">특성</th>
                                 <th>상태</th>
                                 <th>등록일</th>
                                 {% if is_admin %}<th>관리</th>{% endif %}
@@ -401,7 +402,7 @@
                         </thead>
                         <tbody id="cafesTableBody">
                             <tr>
-                                <td colspan="5" class="text-center text-muted">
+                                <td colspan="6" class="text-center text-muted">
                                     <i class="bi bi-hourglass-split"></i> 데이터 로딩 중...
                                 </td>
                             </tr>
@@ -791,18 +792,66 @@
             <form onsubmit="addCafe(event)">
                 <div class="modal-body">
                     <div class="mb-3">
-                        <label class="form-label">카페명</label>
+                        <label class="form-label">카페명 <span class="text-danger">*</span></label>
                         <input type="text" class="form-control" name="cafe_name" required>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label">카페 URL</label>
+                        <label class="form-label">카페 URL <span class="text-danger">*</span></label>
                         <input type="url" class="form-control" name="cafe_url" 
                                placeholder="https://cafe.naver.com/example" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">카페 특성</label>
+                        <textarea class="form-control" name="characteristics" rows="3"
+                                  placeholder="예: 주부 중심, 친근한 말투, 육아/생활 팁 선호"></textarea>
+                        <small class="text-muted">AI가 이 특성에 맞춰 글을 작성합니다.</small>
                     </div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">취소</button>
                     <button type="submit" class="btn btn-primary">등록</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- 카페 수정 모달 -->
+<div class="modal fade" id="editCafeModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-pencil"></i> 카페 수정</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form onsubmit="event.preventDefault(); updateCafe();">
+                <input type="hidden" id="editCafeId">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">카페명 <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="editCafeName" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">카페 URL <span class="text-danger">*</span></label>
+                        <input type="url" class="form-control" id="editCafeUrl" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">카페 특성</label>
+                        <textarea class="form-control" id="editCafeCharacteristics" rows="3"
+                                  placeholder="예: 주부 중심, 친근한 말투, 육아/생활 팁 선호"></textarea>
+                        <small class="text-muted">AI가 이 특성에 맞춰 글을 작성합니다.</small>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">상태</label>
+                        <select class="form-select" id="editCafeStatus">
+                            <option value="active">활성</option>
+                            <option value="inactive">비활성</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">취소</button>
+                    <button type="submit" class="btn btn-primary">저장</button>
                 </div>
             </form>
         </div>
@@ -1362,7 +1411,7 @@ function displayCafes(cafes) {
     if (cafes.length === 0) {
         tbody.innerHTML = `
             <tr>
-                <td colspan="5" class="text-center text-muted">
+                <td colspan="6" class="text-center text-muted">
                     등록된 카페가 없습니다
                 </td>
             </tr>
@@ -1373,14 +1422,20 @@ function displayCafes(cafes) {
     const html = cafes.map(cafe => `
         <tr>
             <td><strong>${cafe.name}</strong></td>
-            <td><a href="${cafe.url}" target="_blank">${cafe.url}</a></td>
+            <td><a href="${cafe.url}" target="_blank" class="small">${cafe.url.substring(0, 40)}...</a></td>
+            <td><small class="text-muted">${cafe.characteristics || '-'}</small></td>
             <td><span class="status-badge ${cafe.status}">${cafe.status}</span></td>
             <td>${cafe.created_at}</td>
             ${window.is_admin ? `
             <td>
-                <button class="btn btn-sm btn-danger" onclick="deleteCafe(${cafe.id})">
-                    <i class="bi bi-trash"></i>
-                </button>
+                <div class="btn-group btn-group-sm">
+                    <button class="btn btn-warning" onclick="editCafe(${cafe.id})" title="수정">
+                        <i class="bi bi-pencil"></i>
+                    </button>
+                    <button class="btn btn-danger" onclick="deleteCafe(${cafe.id})" title="삭제">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                </div>
             </td>
             ` : ''}
         </tr>
@@ -1649,6 +1704,69 @@ async function deleteAccount(id) {
         }
     } catch (error) {
         alert('❌ 삭제 중 오류가 발생했습니다');
+    }
+}
+
+async function editCafe(id) {
+    try {
+        // 카페 정보 가져오기
+        const response = await fetch('/automation/api/cafes/list');
+        const data = await response.json();
+        
+        if (data.success) {
+            const cafe = data.cafes.find(c => c.id === id);
+            
+            if (!cafe) {
+                alert('카페 정보를 찾을 수 없습니다.');
+                return;
+            }
+            
+            // 폼 채우기
+            document.getElementById('editCafeId').value = id;
+            document.getElementById('editCafeName').value = cafe.name;
+            document.getElementById('editCafeUrl').value = cafe.url;
+            document.getElementById('editCafeCharacteristics').value = cafe.characteristics || '';
+            document.getElementById('editCafeStatus').value = cafe.status;
+            
+            // 모달 열기
+            const modal = new bootstrap.Modal(document.getElementById('editCafeModal'));
+            modal.show();
+        }
+    } catch (error) {
+        console.error('카페 정보 로드 오류:', error);
+        alert('오류가 발생했습니다.');
+    }
+}
+
+async function updateCafe() {
+    const id = document.getElementById('editCafeId').value;
+    const name = document.getElementById('editCafeName').value;
+    const url = document.getElementById('editCafeUrl').value;
+    const characteristics = document.getElementById('editCafeCharacteristics').value;
+    const status = document.getElementById('editCafeStatus').value;
+    
+    try {
+        const formData = new FormData();
+        formData.append('cafe_name', name);
+        formData.append('cafe_url', url);
+        formData.append('characteristics', characteristics);
+        formData.append('status', status);
+        
+        const response = await fetch(`/automation/api/cafes/update/${id}`, {
+            method: 'POST',
+            body: formData
+        });
+        const data = await response.json();
+        
+        if (data.success) {
+            alert('카페가 수정되었습니다.');
+            bootstrap.Modal.getInstance(document.getElementById('editCafeModal')).hide();
+            loadCafes();
+        } else {
+            alert('오류: ' + data.message);
+        }
+    } catch (error) {
+        alert('수정 중 오류가 발생했습니다.');
     }
 }
 
