@@ -42,3 +42,4 @@ webdriver-manager==4.0.1
 undetected-chromedriver>=3.5.4
 pyperclip>=1.8.2
 anthropic>=0.18.0
+google-cloud-aiplatform>=1.40.0
