@@ -192,3 +192,4 @@ test_parse_generated.py
 generated_*.txt
 post_result.txt
 
+*.json
