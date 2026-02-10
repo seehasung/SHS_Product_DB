@@ -2179,7 +2179,7 @@ async def publish_test(
         return JSONResponse({"success": False, "error": "로그인이 필요합니다"}, status_code=401)
     
     try:
-        from database import AutomationTask, AutomationSchedule, DraftPost
+        from database import AutomationTask, DraftPost
         import anthropic
         import os
         import re
@@ -2196,16 +2196,17 @@ async def publish_test(
         if draft_url_id:
             draft_post = db.query(DraftPost).filter(DraftPost.id == draft_url_id).first()
         
-        # 3. 임시 스케줄 생성
+        # 3. 임시 스케줄 생성 (AI용)
         prompt = db.query(AIPrompt).get(prompt_id)
         
-        temp_schedule = AutomationSchedule(
-            mode='ai',
-            scheduled_date=date.today(),
-            marketing_product_id=prompt.ai_product_id,
-            keyword_text=keyword,
+        temp_schedule = AIMarketingSchedule(
+            ai_product_id=prompt.ai_product_id,
             prompt_id=prompt_id,
-            status='processing'
+            start_date=date.today(),
+            end_date=date.today(),
+            daily_post_count=1,
+            expected_total_posts=1,
+            status='in_progress'
         )
         db.add(temp_schedule)
         db.flush()
