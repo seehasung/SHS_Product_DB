@@ -1012,6 +1012,17 @@ async def delete_prompt_json(
         return JSONResponse({"success": False, "error": "로그인이 필요합니다"}, status_code=401)
     
     try:
+        # 해당 프롬프트를 사용하는 스케줄 확인
+        schedules = db.query(AIMarketingSchedule).filter(
+            AIMarketingSchedule.prompt_id == prompt_id
+        ).count()
+        
+        if schedules > 0:
+            return JSONResponse({
+                "success": False, 
+                "error": f"이 프롬프트를 사용하는 스케줄이 {schedules}개 있습니다. 스케줄을 먼저 삭제해주세요."
+            }, status_code=400)
+        
         prompt = db.query(AIPrompt).filter(AIPrompt.id == prompt_id).first()
         
         if prompt:
@@ -1021,6 +1032,8 @@ async def delete_prompt_json(
         return JSONResponse({"success": True})
     except Exception as e:
         db.rollback()
+        import traceback
+        traceback.print_exc()
         return JSONResponse({"success": False, "error": str(e)}, status_code=500)
 
 
