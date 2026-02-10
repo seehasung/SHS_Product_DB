@@ -1000,6 +1000,30 @@ async def delete_prompt(prompt_id: int, db: Session = Depends(get_db)):
     return JSONResponse({"success": True})
 
 
+@router.post("/api/prompts/delete/{prompt_id}")
+async def delete_prompt_json(
+    prompt_id: int,
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    """프롬프트 삭제 (JSON)"""
+    current_user = get_current_user(request, db)
+    if not current_user:
+        return JSONResponse({"success": False, "error": "로그인이 필요합니다"}, status_code=401)
+    
+    try:
+        prompt = db.query(AIPrompt).filter(AIPrompt.id == prompt_id).first()
+        
+        if prompt:
+            db.delete(prompt)
+            db.commit()
+        
+        return JSONResponse({"success": True})
+    except Exception as e:
+        db.rollback()
+        return JSONResponse({"success": False, "error": str(e)}, status_code=500)
+
+
 # ============================================
 # 6. 스케줄 관리
 # ============================================
@@ -1942,9 +1966,11 @@ async def test_generate_content(
                     for comment in ref.comments[:5]:  # 최대 5개
                         reference_text += f"- 계정{comment.account_sequence}: {comment.text}\n"
         
-        # 변수 치환
+        # 변수 치환 (테스트 시에는 사용자가 선택한 키워드 사용)
         user_prompt = prompt.user_prompt
         replacements = {
+            '{타겟_키워드}': keyword,  # 테스트 시: 사용자 선택 키워드
+            '{keyword}': keyword,  # 기존 호환성
             '{product_name}': product.product_name,
             '{core_value}': product.core_value,
             '{sub_core_value}': product.sub_core_value,
@@ -1957,8 +1983,7 @@ async def test_generate_content(
             '{target_age}': product.target_age,
             '{target_gender}': product.target_gender,
             '{additional_info}': product.additional_info or '',
-            '{marketing_link}': product.marketing_link,
-            '{keyword}': keyword
+            '{marketing_link}': product.marketing_link
         }
         
         for var, value in replacements.items():

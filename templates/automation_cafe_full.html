@@ -1885,7 +1885,8 @@ async function editPrompt(id) {
                                         </div>
                                         <div class="col-md-6 mb-3">
                                             <label class="form-label">Max Tokens</label>
-                                            <input type="number" class="form-control" name="max_tokens" value="${prompt.max_tokens}" min="100" max="4000" required>
+                                            <input type="number" class="form-control" name="max_tokens" value="${prompt.max_tokens}" min="100" max="64000" required>
+                                            <small class="text-muted">최대 64,000 (Claude Opus 4.5 한도)</small>
                                         </div>
                                     </div>
                                     <div class="alert alert-info">
@@ -4577,6 +4578,7 @@ document.addEventListener('DOMContentLoaded', function() {
                             <div class="input-group input-group-sm" style="width: auto;">
                                 <select class="form-select" id="addTemplateVariableSelect" style="width: 200px;">
                                     <option value="">변수 선택</option>
+                                    <option value="타겟_키워드">🎯 타겟 키워드 (랜덤)</option>
                                     <option value="product_name">1. 우리제품명</option>
                                     <option value="core_value">2. 우리 제품의 핵심</option>
                                     <option value="sub_core_value">3. 서브 핵심</option>
@@ -4640,6 +4642,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         <div class="input-group input-group-sm" style="width: auto;">
                             <select class="form-select" id="editTemplateVariableSelect" style="width: 200px;">
                                 <option value="">변수 선택</option>
+                                <option value="타겟_키워드">🎯 타겟 키워드 (랜덤)</option>
                                 <option value="product_name">1. 우리제품명</option>
                                 <option value="core_value">2. 우리 제품의 핵심</option>
                                 <option value="sub_core_value">3. 서브 핵심</option>
@@ -4718,6 +4721,7 @@ document.addEventListener('DOMContentLoaded', function() {
                             <div class="btn-group btn-group-sm">
                                 <select class="form-select form-select-sm" id="promptVariableSelect" style="width: 180px;">
                                     <option value="">변수 선택</option>
+                                    <option value="타겟_키워드">🎯 타겟 키워드</option>
                                     <option value="product_name">1. 우리제품명</option>
                                     <option value="core_value">2. 제품 핵심</option>
                                     <option value="sub_core_value">3. 서브 핵심</option>
@@ -4751,7 +4755,8 @@ document.addEventListener('DOMContentLoaded', function() {
                         </div>
                         <div class="col-md-4 mb-3">
                             <label class="form-label">Max Tokens</label>
-                            <input type="number" class="form-control" name="max_tokens" value="2000" min="100" max="4000" required>
+                            <input type="number" class="form-control" name="max_tokens" value="2000" min="100" max="64000" required>
+                            <small class="text-muted">최대 64,000</small>
                         </div>
                         <div class="col-md-4 mb-3">
                             <label class="form-label">이미지 생성</label>
@@ -5090,7 +5095,8 @@ document.addEventListener('DOMContentLoaded', function() {
                         </div>
                         <div class="col-md-4 mb-3">
                             <label class="form-label">Max Tokens</label>
-                            <input type="number" class="form-control" id="editPromptTokens" min="100" max="4000" required>
+                            <input type="number" class="form-control" id="editPromptTokens" min="100" max="64000" required>
+                            <small class="text-muted">최대 64,000</small>
                         </div>
                         <div class="col-md-4 mb-3">
                             <label class="form-label">이미지 생성</label>
