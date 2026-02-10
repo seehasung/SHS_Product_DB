@@ -2993,6 +2993,11 @@ async function deleteConnection(id) {
 // Claude API 테스트
 // ============================================
 
+// 글 발행 테스트 (AI 테스트와 동일)
+function showPublishTestModal() {
+    showTestGenerationModal();
+}
+
 async function showTestGenerationModal() {
     // 상품 목록 로드
     const response = await fetch('/ai-automation/api/products');
