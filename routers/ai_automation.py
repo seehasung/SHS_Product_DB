@@ -1945,10 +1945,14 @@ async def test_generate_content(
         
         product = prompt.ai_product
         
-        # 카페 특성 가져오기
+        # 카페 특성 가져오기 (컬럼이 없을 수도 있으므로 안전하게 처리)
         cafe = db.query(AutomationCafe).filter(AutomationCafe.id == cafe_id).first()
         cafe_name = cafe.name if cafe else "알 수 없음"
-        cafe_characteristics = cafe.characteristics if cafe and cafe.characteristics else "일반적인 톤, 자연스러운 대화체"
+        
+        try:
+            cafe_characteristics = cafe.characteristics if cafe and hasattr(cafe, 'characteristics') and cafe.characteristics else "일반적인 톤, 자연스러운 대화체"
+        except (AttributeError, Exception):
+            cafe_characteristics = "일반적인 톤, 자연스러운 대화체"
         
         # 레퍼런스 가져오기 (같은 분류)
         ai_refs = db.query(AIProductReference).options(
