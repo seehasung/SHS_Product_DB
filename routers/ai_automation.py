@@ -2200,9 +2200,12 @@ async def publish_test(
             priority=10
         )
         
-        # 수정 발행 URL 정보 추가 (메모로)
-        if draft_post:
-            post_task.error_message = f"MODIFY_URL:{draft_post.draft_url}"
+        # 수정 발행 URL + 이미지 정보 추가 (메모로)
+        task_metadata = {
+            'draft_url': draft_post.draft_url if draft_post else None,
+            'image_urls': test_data.get('image_urls', [])
+        }
+        post_task.error_message = json.dumps(task_metadata, ensure_ascii=False)
         
         db.add(post_task)
         db.flush()
