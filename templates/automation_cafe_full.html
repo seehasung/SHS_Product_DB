@@ -3103,6 +3103,16 @@ async function publishTestContent() {
         formData.append('keyword', keyword);
         formData.append('cafe_id', cafeId);
         
+        // URL 선택 (선택사항)
+        const draftUrlId = document.getElementById('draftUrlSelect')?.value;
+        if (draftUrlId) {
+            formData.append('draft_url_id', draftUrlId);
+        }
+        
+        // 댓글 개수
+        const commentCount = document.getElementById('commentCount')?.value || 3;
+        formData.append('comment_count', commentCount);
+        
         const response = await fetch('/ai-automation/api/publish-test', {
             method: 'POST',
             body: formData
