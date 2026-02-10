@@ -2993,9 +2993,166 @@ async function deleteConnection(id) {
 // Claude API 테스트
 // ============================================
 
-// 글 발행 테스트 (AI 테스트와 동일)
-function showPublishTestModal() {
-    showTestGenerationModal();
+// 글 발행 테스트 (실제 발행)
+async function showPublishTestModal() {
+    await showTestGenerationModal();
+    
+    // 발행 모드로 전환
+    setTimeout(() => {
+        document.getElementById('testModalTitle').innerHTML = '<i class="bi bi-lightning"></i> 글 발행 테스트 (실제 카페 발행)';
+        document.getElementById('testModalGuide').textContent = 'URL을 선택하면 해당 카페에 수정 발행됩니다.';
+        document.getElementById('publishModeSection').style.display = 'block';
+        document.getElementById('testActionButton').onclick = publishTestContent;
+        document.getElementById('testActionButton').innerHTML = '<i class="bi bi-lightning"></i> 즉시 발행 + 댓글 작성';
+    }, 100);
+}
+
+// Draft URL 목록 로드
+async function loadDraftUrls() {
+    try {
+        // 모든 연동 가져오기
+        const response = await fetch('/ai-automation/api/connections');
+        const data = await response.json();
+        
+        if (data.success && data.connections.length > 0) {
+            const select = document.getElementById('draftUrlSelect');
+            select.innerHTML = '<option value="">URL을 선택하세요</option>';
+            
+            // 각 연동의 draft_posts 가져오기
+            for (const conn of data.connections) {
+                const draftsResp = await fetch(`/ai-automation/api/draft-posts/list/${conn.id}`);
+                const draftsData = await draftsResp.json();
+                
+                if (draftsData.success && draftsData.draft_posts.length > 0) {
+                    draftsData.draft_posts.forEach(dp => {
+                        if (dp.status === 'available') {
+                            const option = document.createElement('option');
+                            option.value = dp.id;
+                            option.textContent = `${conn.cafe_name} - ${conn.account_name} - ${dp.draft_url.substring(0, 50)}...`;
+                            option.dataset.cafeId = conn.cafe_id;
+                            option.dataset.accountId = conn.account_id;
+                            option.dataset.url = dp.draft_url;
+                            select.appendChild(option);
+                        }
+                    });
+                }
+            }
+            
+            alert(`사용 가능한 URL ${select.options.length - 1}개 로드 완료!`);
+        } else {
+            alert('등록된 연동이 없습니다. AI 연동 탭에서 먼저 연동을 추가하세요.');
+        }
+    } catch (error) {
+        console.error('URL 로드 오류:', error);
+        alert('URL 로드 중 오류가 발생했습니다.');
+    }
+}
+
+// URL 선택 시 카페/계정 자동 설정
+function updateFromDraftUrl() {
+    const select = document.getElementById('draftUrlSelect');
+    const option = select.options[select.selectedIndex];
+    
+    if (option && option.value) {
+        const cafeId = option.dataset.cafeId;
+        
+        // 카페 자동 선택
+        document.getElementById('testCafeSelect').value = cafeId;
+        showCafeCharacteristics();
+    }
+}
+
+// 글 발행 테스트 실행
+async function publishTestContent() {
+    const promptId = document.getElementById('testPromptSelect').value;
+    const keyword = document.getElementById('testKeywordSelect').value;
+    const cafeId = document.getElementById('testCafeSelect').value;
+    
+    if (!promptId || !keyword || !cafeId) {
+        alert('프롬프트, 키워드, 카페를 모두 선택해주세요.');
+        return;
+    }
+    
+    if (!confirm('실제로 카페에 글을 발행하시겠습니까?\n\nWorker PC가 네이버 카페에 즉시 발행합니다.')) {
+        return;
+    }
+    
+    // 입력 모달 닫기
+    bootstrap.Modal.getInstance(document.getElementById('testGenerationModal')).hide();
+    
+    // 결과 모달 열기 (로딩)
+    const resultModal = new bootstrap.Modal(document.getElementById('testResultModal'));
+    resultModal.show();
+    
+    document.getElementById('testResultContent').innerHTML = `
+        <div class="text-center py-5">
+            <div class="spinner-border text-success" role="status"></div>
+            <h5 class="mt-3">🚀 글 발행 진행 중...</h5>
+            <p class="text-muted">
+                1. AI 글 생성 중...<br>
+                2. AutomationTask 생성 중...<br>
+                3. Worker PC에 전송 중...<br>
+                4. 카페 발행 대기 중...
+            </p>
+        </div>
+    `;
+    
+    try {
+        const formData = new FormData();
+        formData.append('prompt_id', promptId);
+        formData.append('keyword', keyword);
+        formData.append('cafe_id', cafeId);
+        
+        const response = await fetch('/ai-automation/api/publish-test', {
+            method: 'POST',
+            body: formData
+        });
+        const data = await response.json();
+        
+        if (data.success) {
+            document.getElementById('testResultContent').innerHTML = `
+                <div class="alert alert-success">
+                    <h5><i class="bi bi-check-circle"></i> 발행 Task 생성 완료!</h5>
+                    <p class="mb-0">
+                        <strong>Task ID:</strong> ${data.task_id}<br>
+                        <strong>카페:</strong> ${data.cafe_name}<br>
+                        <strong>키워드:</strong> ${data.keyword}
+                    </p>
+                </div>
+                
+                <div class="alert alert-info">
+                    <i class="bi bi-info-circle"></i>
+                    <strong>Worker PC가 곧 발행합니다!</strong><br>
+                    대시보드에서 진행 상황을 확인하세요.
+                </div>
+                
+                <div class="card">
+                    <div class="card-header bg-primary text-white">
+                        <h6 class="mb-0"><i class="bi bi-file-text"></i> 생성된 글</h6>
+                    </div>
+                    <div class="card-body">
+                        <div style="white-space: pre-wrap; line-height: 1.8;">
+                            ${data.content}
+                        </div>
+                    </div>
+                </div>
+            `;
+        } else {
+            document.getElementById('testResultContent').innerHTML = `
+                <div class="alert alert-danger">
+                    <h5><i class="bi bi-x-circle"></i> 발행 실패</h5>
+                    <p>${data.error}</p>
+                </div>
+            `;
+        }
+    } catch (error) {
+        document.getElementById('testResultContent').innerHTML = `
+            <div class="alert alert-danger">
+                <h5><i class="bi bi-x-circle"></i> 오류 발생</h5>
+                <p>${error.message}</p>
+            </div>
+        `;
+    }
 }
 
 async function showTestGenerationModal() {
@@ -5551,13 +5708,32 @@ document.addEventListener('DOMContentLoaded', function() {
     <div class="modal-dialog modal-lg">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title"><i class="bi bi-magic"></i> AI 글 생성 테스트</h5>
+                <h5 class="modal-title" id="testModalTitle"><i class="bi bi-magic"></i> AI 글 생성 테스트</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
                 <div class="alert alert-info">
                     <i class="bi bi-lightbulb"></i>
-                    <strong>안내:</strong> 상품을 선택하면 해당 템플릿과 프롬프트가 표시됩니다.
+                    <strong>안내:</strong> <span id="testModalGuide">상품을 선택하면 해당 템플릿과 프롬프트가 표시됩니다.</span>
+                </div>
+                
+                <!-- 발행 모드 선택 (발행 테스트 시만 표시) -->
+                <div id="publishModeSection" style="display: none;">
+                    <div class="mb-3">
+                        <label class="form-label">0. 신규발행 URL 선택 <span class="text-danger">*</span></label>
+                        <select class="form-select" id="draftUrlSelect" onchange="updateFromDraftUrl()" required>
+                            <option value="">먼저 로드하세요...</option>
+                        </select>
+                        <button type="button" class="btn btn-sm btn-primary mt-2" onclick="loadDraftUrls()">
+                            <i class="bi bi-arrow-clockwise"></i> URL 목록 로드
+                        </button>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">댓글 개수</label>
+                        <input type="number" class="form-control" id="commentCount" value="3" min="1" max="10">
+                        <small class="text-muted">작성자 댓글 1개 + 다른 계정 댓글 (랜덤)</small>
+                    </div>
                 </div>
                 
                 <div class="mb-3">
@@ -5605,7 +5781,7 @@ document.addEventListener('DOMContentLoaded', function() {
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">취소</button>
-                <button type="button" class="btn btn-success" onclick="generateTestContent()">
+                <button type="button" class="btn btn-success" id="testActionButton" onclick="generateTestContent()">
                     <i class="bi bi-magic"></i> AI 생성 시작
                 </button>
             </div>

@@ -2140,6 +2140,151 @@ async def test_generate_content(
         return JSONResponse({'success': False, 'error': str(e)}, status_code=500)
 
 
+@router.post("/api/publish-test")
+async def publish_test(
+    request: Request,
+    prompt_id: int = Form(...),
+    keyword: str = Form(...),
+    cafe_id: int = Form(...),
+    draft_url_id: Optional[int] = Form(None),
+    comment_count: int = Form(3),
+    db: Session = Depends(get_db)
+):
+    """글 발행 테스트 - 실제 카페에 즉시 발행 + 댓글"""
+    current_user = get_current_user(request, db)
+    if not current_user:
+        return JSONResponse({"success": False, "error": "로그인이 필요합니다"}, status_code=401)
+    
+    try:
+        from database import AutomationTask, AutomationSchedule, DraftPost
+        import anthropic
+        import os
+        import re
+        
+        # 1. AI로 글 생성
+        test_result = await test_generate_content(request, prompt_id, keyword, cafe_id, db)
+        test_data = json.loads(test_result.body) if hasattr(test_result, 'body') else test_result
+        
+        if not test_data.get('success'):
+            return JSONResponse(test_data)
+        
+        # 2. URL 정보 가져오기 (수정 발행용)
+        draft_post = None
+        if draft_url_id:
+            draft_post = db.query(DraftPost).filter(DraftPost.id == draft_url_id).first()
+        
+        # 3. 임시 스케줄 생성
+        prompt = db.query(AIPrompt).get(prompt_id)
+        
+        temp_schedule = AutomationSchedule(
+            mode='ai',
+            scheduled_date=date.today(),
+            marketing_product_id=prompt.ai_product_id,
+            keyword_text=keyword,
+            prompt_id=prompt_id,
+            status='processing'
+        )
+        db.add(temp_schedule)
+        db.flush()
+        
+        # 4. 본문 Task 생성
+        post_task = AutomationTask(
+            task_type='post',
+            mode='ai',
+            schedule_id=temp_schedule.id,
+            scheduled_time=datetime.now(),
+            title=f"{keyword}",
+            content=test_data['content'],
+            cafe_id=cafe_id,
+            status='pending',
+            priority=10
+        )
+        
+        # 수정 발행 URL 정보 추가 (메모로)
+        if draft_post:
+            post_task.error_message = f"MODIFY_URL:{draft_post.draft_url}"
+        
+        db.add(post_task)
+        db.flush()
+        
+        # 5. 댓글 생성 (Claude로)
+        comment_tasks = []
+        if comment_count > 0:
+            # 댓글 생성 프롬프트
+            comment_prompt = f"""
+작성한 글:
+{test_data['content'][:200]}...
+
+위 글에 대한 자연스러운 댓글 {comment_count}개를 생성해주세요.
+
+출력 형식:
+1. [댓글1]
+2. [댓글2]
+...
+
+요구사항:
+- 짧고 자연스럽게 (20-50자)
+- 공감/질문/감사 등 다양한 톤
+- 이모티콘 가끔 사용
+"""
+            
+                # Claude로 댓글 생성
+            import os
+            api_key = os.environ.get('ANTHROPIC_API_KEY')
+            if api_key:
+                client = anthropic.Anthropic(api_key=api_key)
+                response = client.messages.create(
+                    model="claude-opus-4-5",
+                    max_tokens=500,
+                    messages=[{"role": "user", "content": comment_prompt}]
+                )
+                
+                comments_text = response.content[0].text
+                
+                # 댓글 파싱
+                import re
+                comments = re.findall(r'\d+\.\s*(.+)', comments_text)
+                
+                # 댓글 Task 생성
+                for idx, comment in enumerate(comments[:comment_count]):
+                    comment_task = AutomationTask(
+                        task_type='comment',
+                        mode='ai',
+                        schedule_id=temp_schedule.id,
+                        scheduled_time=datetime.now() + timedelta(minutes=idx*2),
+                        content=comment.strip(),
+                        parent_task_id=post_task.id,
+                        order_sequence=idx,
+                        cafe_id=cafe_id,
+                        status='pending',
+                        priority=10
+                    )
+                    db.add(comment_task)
+                    comment_tasks.append(comment_task)
+        
+        db.commit()
+        
+        # 6. Worker PC에 전송
+        from routers.automation import auto_assign_tasks
+        await auto_assign_tasks(db)
+        
+        return JSONResponse({
+            'success': True,
+            'message': f'글 + 댓글 {len(comment_tasks)}개 Task 생성 완료!',
+            'task_id': post_task.id,
+            'content': test_data['content'],
+            'comments': len(comment_tasks),
+            'cafe_name': test_data.get('cafe_name'),
+            'image_urls': test_data.get('image_urls', [])
+        })
+        
+    except Exception as e:
+        db.rollback()
+        import traceback
+        traceback.print_exc()
+        return JSONResponse({'success': False, 'error': str(e)}, status_code=500)
+
+
 @router.post("/api/draft-posts/delete/{draft_id}")
 async def delete_draft_post(
     draft_id: int,
