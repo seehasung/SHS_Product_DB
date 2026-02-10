@@ -660,6 +660,24 @@
                     <strong>주의:</strong> AI 자동화 전용 연동입니다. 휴먼 모드 계정/카페와는 별개로 관리됩니다.
                 </div>
                 
+                <!-- 필터 -->
+                <div class="mb-3">
+                    <div class="row">
+                        <div class="col-md-4">
+                            <label class="form-label">카페 필터</label>
+                            <select class="form-select" id="connectionCafeFilter" onchange="loadConnections()">
+                                <option value="">전체 카페</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">계정 필터</label>
+                            <select class="form-select" id="connectionAccountFilter" onchange="loadConnections()">
+                                <option value="">전체 계정</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                
                 <div id="connectionsList">
                     <!-- JavaScript로 로드 -->
                 </div>
@@ -3336,8 +3354,56 @@ async function deleteDraftPost(id) {
     }
 }
 
+// 연동 필터 로드
+async function loadConnectionFilters() {
+    try {
+        // 카페 목록
+        const cafesResp = await fetch('/automation/api/cafes/list');
+        const cafesData = await cafesResp.json();
+        
+        if (cafesData.success) {
+            const select = document.getElementById('connectionCafeFilter');
+            select.innerHTML = '<option value="">전체 카페</option>';
+            
+            cafesData.cafes.forEach(cafe => {
+                const option = document.createElement('option');
+                option.value = cafe.id;
+                option.textContent = cafe.name;
+                select.appendChild(option);
+            });
+        }
+        
+        // 계정 목록
+        const accountsResp = await fetch('/automation/api/accounts/list');
+        const accountsData = await accountsResp.json();
+        
+        if (accountsData.success) {
+            const select = document.getElementById('connectionAccountFilter');
+            select.innerHTML = '<option value="">전체 계정</option>';
+            
+            accountsData.accounts.forEach(acc => {
+                const option = document.createElement('option');
+                option.value = acc.id;
+                option.textContent = acc.account_id;
+                select.appendChild(option);
+            });
+        }
+    } catch (error) {
+        console.error('필터 로드 오류:', error);
+    }
+}
+
 // 연동 관리 로드
 async function loadConnections() {
+    // 필터 로드 (처음 한 번만)
+    if (!document.getElementById('connectionCafeFilter').options.length > 1) {
+        await loadConnectionFilters();
+    }
+    
+    // 필터 값 가져오기
+    const cafeFilter = document.getElementById('connectionCafeFilter')?.value || '';
+    const accountFilter = document.getElementById('connectionAccountFilter')?.value || '';
+    
     try {
         const response = await fetch('/ai-automation/api/connections');
         const data = await response.json();
@@ -3346,15 +3412,26 @@ async function loadConnections() {
             const container = document.getElementById('connectionsList');
             container.innerHTML = '';
             
-            if (data.connections.length === 0) {
+            // 필터 적용
+            let filtered = data.connections;
+            if (cafeFilter) {
+                filtered = filtered.filter(c => c.cafe_id == cafeFilter);
+            }
+            if (accountFilter) {
+                filtered = filtered.filter(c => c.account_id == accountFilter);
+            }
+            
+            if (filtered.length === 0) {
                 container.innerHTML = `
                     <div class="empty-state">
                         <i class="bi bi-link-45deg"></i>
-                        <p>연동된 카페-계정이 없습니다.<br>연동 추가 버튼을 눌러주세요.</p>
+                        <p>해당 조건의 연동이 없습니다.</p>
                     </div>
                 `;
                 return;
             }
+            
+            data.connections = filtered;  // 필터링된 데이터 사용
             
             const table = `
                 <div class="table-responsive">

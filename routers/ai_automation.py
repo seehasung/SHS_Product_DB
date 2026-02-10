@@ -1742,6 +1742,8 @@ async def get_cafe_connections(
         
         connections_data = [{
             'id': c.id,
+            'cafe_id': c.cafe_id,
+            'account_id': c.account_id,
             'cafe_name': c.cafe.name if c.cafe else '',
             'account_name': c.account.account_id if c.account else '',
             'status': c.status,
