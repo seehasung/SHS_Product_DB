@@ -4873,8 +4873,22 @@ document.addEventListener('DOMContentLoaded', function() {
                     </div>
                     
                     <div class="mb-3">
-                        <label class="form-label">시스템 프롬프트 <span class="text-danger">*</span></label>
-                        <textarea class="form-control" name="system_prompt" rows="4" required 
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <label class="form-label mb-0">시스템 프롬프트 <span class="text-danger">*</span></label>
+                            <div class="btn-group btn-group-sm">
+                                <select class="form-select form-select-sm" id="systemPromptVarSelect" style="width: 180px;">
+                                    <option value="">변수 선택</option>
+                                    <option value="타겟_키워드">🎯 타겟 키워드</option>
+                                    <option value="product_name">1. 우리제품명</option>
+                                    <option value="core_value">2. 제품 핵심</option>
+                                    <option value="marketing_link">마케팅 링크</option>
+                                </select>
+                                <button type="button" class="btn btn-primary btn-sm" onclick="insertVariableFromSelect('systemPromptArea', 'systemPromptVarSelect')">
+                                    <i class="bi bi-plus-circle"></i> 추가
+                                </button>
+                            </div>
+                        </div>
+                        <textarea class="form-control" id="systemPromptArea" name="system_prompt" rows="4" required 
                                   placeholder="AI의 역할과 행동 방식을 정의합니다."></textarea>
                     </div>
                     
@@ -5222,7 +5236,21 @@ document.addEventListener('DOMContentLoaded', function() {
                     </div>
                     
                     <div class="mb-3">
-                        <label class="form-label">시스템 프롬프트 <span class="text-danger">*</span></label>
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <label class="form-label mb-0">시스템 프롬프트 <span class="text-danger">*</span></label>
+                            <div class="btn-group btn-group-sm">
+                                <select class="form-select form-select-sm" id="editSystemPromptVarSelect" style="width: 180px;">
+                                    <option value="">변수 선택</option>
+                                    <option value="타겟_키워드">🎯 타겟 키워드</option>
+                                    <option value="product_name">1. 우리제품명</option>
+                                    <option value="core_value">2. 제품 핵심</option>
+                                    <option value="marketing_link">마케팅 링크</option>
+                                </select>
+                                <button type="button" class="btn btn-primary btn-sm" onclick="insertVariableFromSelect('editPromptSystem', 'editSystemPromptVarSelect')">
+                                    <i class="bi bi-plus-circle"></i> 추가
+                                </button>
+                            </div>
+                        </div>
                         <textarea class="form-control" id="editPromptSystem" rows="4" required></textarea>
                     </div>
                     
@@ -5232,6 +5260,7 @@ document.addEventListener('DOMContentLoaded', function() {
                             <div class="btn-group btn-group-sm">
                                 <select class="form-select form-select-sm" id="editPromptVarSelect" style="width: 180px;">
                                     <option value="">변수 선택</option>
+                                    <option value="타겟_키워드">🎯 타겟 키워드</option>
                                     <option value="product_name">1. 우리제품명</option>
                                     <option value="core_value">2. 제품 핵심</option>
                                     <option value="sub_core_value">3. 서브 핵심</option>
