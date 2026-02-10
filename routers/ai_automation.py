@@ -2008,13 +2008,17 @@ async def test_generate_content(
         cafe_name = cafe.name if cafe else "알 수 없음"
         cafe_characteristics = cafe.characteristics if cafe and cafe.characteristics else "일반적인 톤, 자연스러운 대화체"
         
-        # 시스템 프롬프트에 카페 특성 자동 추가
-        enhanced_system_prompt = f"""{prompt.system_prompt}
+        # 카페 컨텍스트 추가 (테스트에서는 항상, 사용자 프롬프트에!)
+        user_prompt += f"""
 
-[발행될 카페의 특성]
-{cafe_characteristics}
+[발행될 카페 정보]
+- 카페명: {cafe_name}
+- 카페 특성: {cafe_characteristics}
 
-위 카페 특성을 반영하여 해당 카페에 어울리는 톤과 스타일로 작성해주세요."""
+위 카페에 맞춰 자연스럽게 작성해주세요."""
+        
+        # 시스템 프롬프트는 원본 그대로
+        enhanced_system_prompt = prompt.system_prompt
         
         # Claude API 호출
         import os

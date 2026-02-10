@@ -1428,6 +1428,9 @@ class AIPrompt(Base):
     # 이미지 생성 여부
     generate_images = Column(Boolean, default=False)
     
+    # 카페 특성 반영 여부
+    apply_cafe_context = Column(Boolean, default=False)
+    
     created_at = Column(DateTime, default=get_kst_now)
     updated_at = Column(DateTime, default=get_kst_now, onupdate=get_kst_now)
     

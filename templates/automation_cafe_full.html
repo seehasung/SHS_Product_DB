@@ -4222,6 +4222,7 @@ async function editPrompt(id) {
         document.getElementById('editPromptTemp').value = prompt.temperature;
         document.getElementById('editPromptTokens').value = prompt.max_tokens;
         document.getElementById('editPromptImages').checked = prompt.generate_images;
+        document.getElementById('editPromptCafeContext').checked = prompt.apply_cafe_context || false;
         
         // 모달 열기
         const modal = new bootstrap.Modal(document.getElementById('editAIPromptModal'));
@@ -4250,6 +4251,7 @@ async function updatePrompt() {
         formData.append('temperature', document.getElementById('editPromptTemp').value);
         formData.append('max_tokens', document.getElementById('editPromptTokens').value);
         formData.append('generate_images', document.getElementById('editPromptImages').checked);
+        formData.append('apply_cafe_context', document.getElementById('editPromptCafeContext').checked);
         
         const response = await fetch(`/ai-automation/api/prompts/update/${id}`, {
             method: 'POST',
@@ -4927,6 +4929,12 @@ document.addEventListener('DOMContentLoaded', function() {
                                     이미지 3장 자동 생성
                                 </label>
                             </div>
+                            <div class="form-check mt-2">
+                                <input class="form-check-input" type="checkbox" name="apply_cafe_context" id="applyCafeContext">
+                                <label class="form-check-label" for="applyCafeContext">
+                                    카페 특성 반영
+                                </label>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -5260,10 +5268,14 @@ document.addEventListener('DOMContentLoaded', function() {
                             <small class="text-muted">최대 64,000</small>
                         </div>
                         <div class="col-md-4 mb-3">
-                            <label class="form-label">이미지 생성</label>
+                            <label class="form-label">옵션</label>
                             <div class="form-check mt-2">
                                 <input class="form-check-input" type="checkbox" id="editPromptImages">
-                                <label class="form-check-label">3장 자동 생성</label>
+                                <label class="form-check-label">이미지 3장 생성</label>
+                            </div>
+                            <div class="form-check mt-2">
+                                <input class="form-check-input" type="checkbox" id="editPromptCafeContext">
+                                <label class="form-check-label">카페 특성 반영</label>
                             </div>
                         </div>
                     </div>
