@@ -56,7 +56,8 @@ async def generate_images_with_imagen(prompt: str, num_images: int = 3) -> List[
         
         aiplatform.init(project=project_id, location=location)
         
-        model = ImageGenerationModel.from_pretrained("imagen-3.0-generate-001")
+        # Imagen 2 사용 (할당량 더 높음)
+        model = ImageGenerationModel.from_pretrained("imagegeneration@006")
         
         images = model.generate_images(
             prompt=prompt,
