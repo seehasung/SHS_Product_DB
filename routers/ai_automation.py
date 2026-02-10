@@ -1917,6 +1917,7 @@ async def test_generate_content(
     request: Request,
     prompt_id: int = Form(...),
     keyword: str = Form(...),
+    cafe_id: int = Form(...),  # 카페 선택 추가
     db: Session = Depends(get_db)
 ):
     """Claude API 테스트 - 실제 글 생성"""
@@ -1943,6 +1944,11 @@ async def test_generate_content(
             return JSONResponse({'success': False, 'error': '프롬프트를 찾을 수 없습니다'}, status_code=404)
         
         product = prompt.ai_product
+        
+        # 카페 특성 가져오기
+        cafe = db.query(AutomationCafe).filter(AutomationCafe.id == cafe_id).first()
+        cafe_name = cafe.name if cafe else "알 수 없음"
+        cafe_characteristics = cafe.characteristics if cafe and cafe.characteristics else "일반적인 톤, 자연스러운 대화체"
         
         # 레퍼런스 가져오기 (같은 분류)
         ai_refs = db.query(AIProductReference).options(
@@ -1993,6 +1999,19 @@ async def test_generate_content(
         if reference_text:
             user_prompt += f"\n\n참고할 예시 글들:{reference_text}\n\n위 예시들의 톤과 스타일을 참고하여 자연스럽고 진정성 있는 글을 작성해주세요."
         
+        # 카페 특성 가져오기
+        cafe = db.query(AutomationCafe).filter(AutomationCafe.id == cafe_id).first()
+        cafe_name = cafe.name if cafe else "알 수 없음"
+        cafe_characteristics = cafe.characteristics if cafe and cafe.characteristics else "일반적인 톤, 자연스러운 대화체"
+        
+        # 시스템 프롬프트에 카페 특성 자동 추가
+        enhanced_system_prompt = f"""{prompt.system_prompt}
+
+[발행될 카페의 특성]
+{cafe_characteristics}
+
+위 카페 특성을 반영하여 해당 카페에 어울리는 톤과 스타일로 작성해주세요."""
+        
         # Claude API 호출
         import os
         api_key = os.environ.get('ANTHROPIC_API_KEY')
@@ -2008,7 +2027,7 @@ async def test_generate_content(
             model="claude-opus-4-5",  # Claude Opus 4.5 (최강 성능!)
             max_tokens=prompt.max_tokens,
             temperature=prompt.temperature,
-            system=prompt.system_prompt,
+            system=enhanced_system_prompt,  # 카페 특성 포함!
             messages=[{"role": "user", "content": user_prompt}]
         )
         
@@ -2019,6 +2038,8 @@ async def test_generate_content(
             'content': generated_content,
             'keyword': keyword,
             'prompt_name': f"{product.product_name} - {prompt.keyword_classification}",
+            'cafe_name': cafe_name,  # 카페명 추가
+            'cafe_characteristics': cafe_characteristics,  # 카페 특성 추가
             'references_used': len(ai_refs),
             'usage': {
                 'input_tokens': response.usage.input_tokens,

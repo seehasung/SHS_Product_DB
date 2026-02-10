@@ -2869,8 +2869,39 @@ async function showTestGenerationModal() {
         });
     }
     
+    // 카페 목록 로드
+    const cafesResp = await fetch('/automation/api/cafes/list');
+    const cafesData = await cafesResp.json();
+    
+    if (cafesData.success) {
+        const select = document.getElementById('testCafeSelect');
+        select.innerHTML = '<option value="">카페를 선택하세요</option>';
+        
+        cafesData.cafes.forEach(cafe => {
+            const option = document.createElement('option');
+            option.value = cafe.id;
+            option.textContent = cafe.name;
+            option.dataset.characteristics = cafe.characteristics || '일반적인 톤';
+            select.appendChild(option);
+        });
+    }
+    
     const modal = new bootstrap.Modal(document.getElementById('testGenerationModal'));
     modal.show();
+}
+
+// 카페 특성 미리보기
+function showCafeCharacteristics() {
+    const select = document.getElementById('testCafeSelect');
+    const selectedOption = select.options[select.selectedIndex];
+    
+    if (selectedOption && selectedOption.value) {
+        const characteristics = selectedOption.dataset.characteristics;
+        document.getElementById('cafeCharacteristicsText').textContent = characteristics;
+        document.getElementById('cafeCharacteristicsPreview').style.display = 'block';
+    } else {
+        document.getElementById('cafeCharacteristicsPreview').style.display = 'none';
+    }
 }
 
 async function updateTestTemplates() {
@@ -2961,9 +2992,10 @@ async function updateTestKeywords() {
 async function generateTestContent() {
     const promptId = document.getElementById('testPromptSelect').value;
     const keyword = document.getElementById('testKeywordSelect').value;
+    const cafeId = document.getElementById('testCafeSelect').value;
     
-    if (!promptId || !keyword) {
-        alert('프롬프트와 키워드를 선택해주세요.');
+    if (!promptId || !keyword || !cafeId) {
+        alert('프롬프트, 키워드, 카페를 모두 선택해주세요.');
         return;
     }
     
@@ -2978,6 +3010,7 @@ async function generateTestContent() {
         const formData = new FormData();
         formData.append('prompt_id', promptId);
         formData.append('keyword', keyword);
+        formData.append('cafe_id', cafeId);  // 카페 추가
         
         const response = await fetch('/ai-automation/api/test-generate', {
             method: 'POST',
@@ -2986,16 +3019,26 @@ async function generateTestContent() {
         const data = await response.json();
         
         if (data.success) {
-            // 결과 표시
+            // 결과 표시 (카페 정보 포함)
             document.getElementById('testResultContent').innerHTML = `
                 <div class="alert alert-success">
                     <h5><i class="bi bi-check-circle"></i> AI 생성 완료!</h5>
-                    <p class="mb-0">
-                        <strong>키워드:</strong> ${data.keyword}<br>
-                        <strong>프롬프트:</strong> ${data.prompt_name}<br>
-                        <strong>참고 레퍼런스:</strong> ${data.references_used}개<br>
-                        <strong>사용 토큰:</strong> 입력 ${data.usage.input_tokens} / 출력 ${data.usage.output_tokens}
-                    </p>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <p class="mb-0">
+                                <strong>상품:</strong> ${data.prompt_name.split(' - ')[0]}<br>
+                                <strong>키워드:</strong> ${data.keyword}<br>
+                                <strong>참고 레퍼런스:</strong> ${data.references_used}개
+                            </p>
+                        </div>
+                        <div class="col-md-6">
+                            <p class="mb-0">
+                                <strong>카페:</strong> ${data.cafe_name}<br>
+                                <strong>카페 특성:</strong> ${data.cafe_characteristics}<br>
+                                <strong>토큰:</strong> 입력 ${data.usage.input_tokens} / 출력 ${data.usage.output_tokens}
+                            </p>
+                        </div>
+                    </div>
                 </div>
                 
                 <div class="card">
@@ -5280,6 +5323,19 @@ document.addEventListener('DOMContentLoaded', function() {
                         <option value="">먼저 프롬프트를 선택하세요</option>
                     </select>
                     <small class="text-muted">프롬프트의 분류에 맞는 키워드만 표시됩니다.</small>
+                </div>
+                
+                <div class="mb-3">
+                    <label class="form-label">5. 카페 선택 <span class="text-danger">*</span></label>
+                    <select class="form-select" id="testCafeSelect" onchange="showCafeCharacteristics()" required>
+                        <option value="">카페를 선택하세요</option>
+                    </select>
+                </div>
+                
+                <!-- 카페 특성 미리보기 -->
+                <div id="cafeCharacteristicsPreview" class="alert alert-light" style="display: none;">
+                    <h6><i class="bi bi-cup-hot"></i> 카페 특성</h6>
+                    <p id="cafeCharacteristicsText" class="mb-0"></p>
                 </div>
             </div>
             <div class="modal-footer">
