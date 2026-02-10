@@ -1022,6 +1022,7 @@ class AutomationCafe(Base):
     url = Column(String(500), unique=True, nullable=False, index=True)
     cafe_id = Column(String(100), nullable=True)
     status = Column(String(20), default='active')
+    characteristics = Column(Text, nullable=True)  # 카페 특성 (AI가 톤 맞추기용)
     
     created_at = Column(DateTime, default=get_kst_now)
     updated_at = Column(DateTime, default=get_kst_now, onupdate=get_kst_now)
