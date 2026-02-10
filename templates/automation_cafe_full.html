@@ -3396,13 +3396,14 @@ async function loadConnectionFilters() {
 // 연동 관리 로드
 async function loadConnections() {
     // 필터 로드 (처음 한 번만)
-    if (!document.getElementById('connectionCafeFilter').options.length > 1) {
+    const cafeFilter = document.getElementById('connectionCafeFilter');
+    if (cafeFilter && cafeFilter.options.length <= 1) {
         await loadConnectionFilters();
     }
     
     // 필터 값 가져오기
-    const cafeFilter = document.getElementById('connectionCafeFilter')?.value || '';
-    const accountFilter = document.getElementById('connectionAccountFilter')?.value || '';
+    const cafeFilterValue = document.getElementById('connectionCafeFilter')?.value || '';
+    const accountFilterValue = document.getElementById('connectionAccountFilter')?.value || '';
     
     try {
         const response = await fetch('/ai-automation/api/connections');
@@ -3414,11 +3415,11 @@ async function loadConnections() {
             
             // 필터 적용
             let filtered = data.connections;
-            if (cafeFilter) {
-                filtered = filtered.filter(c => c.cafe_id == cafeFilter);
+            if (cafeFilterValue) {
+                filtered = filtered.filter(c => c.cafe_id == cafeFilterValue);
             }
-            if (accountFilter) {
-                filtered = filtered.filter(c => c.account_id == accountFilter);
+            if (accountFilterValue) {
+                filtered = filtered.filter(c => c.account_id == accountFilterValue);
             }
             
             if (filtered.length === 0) {
