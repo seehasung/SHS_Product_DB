@@ -2115,9 +2115,32 @@ async def test_generate_content(
         # 이미지 생성 (Imagen 3)
         image_urls = []
         if prompt.generate_images:
-            # 이미지 프롬프트 생성
-            image_prompt = f"Create 3 images for product marketing: {product.product_name}. Style: {cafe_characteristics}"
-            image_urls = await generate_images_with_imagen(image_prompt, num_images=3)
+            # 상세한 이미지 프롬프트 생성
+            image_prompts = [
+                # 이미지 1: 제품 파손/불량
+                f"""Photo-realistic image of {product.product_name} showing damage, defects, or quality issues.
+Korean product photography style.
+Negative context: broken, defective, poor quality.
+Natural lighting, product close-up.""",
+                
+                # 이미지 2: 고통스러워하는 사람
+                f"""Photo-realistic image of a Korean person struggling or frustrated.
+Context: experiencing problems related to {product.product_name}.
+Natural indoor lighting, candid photography style.
+Emotional expression: stressed, tired, uncomfortable.""",
+                
+                # 이미지 3: 제품 사용하는 모습
+                f"""Photo-realistic image of a Korean person happily using {product.product_name}.
+Positive, lifestyle photography.
+Natural lighting, genuine smile.
+Context: daily life, satisfied customer, problem solved."""
+            ]
+            
+            # 각 이미지 생성 (Imagen 3)
+            for idx, img_prompt in enumerate(image_prompts):
+                urls = await generate_images_with_imagen(img_prompt, num_images=1)
+                if urls:
+                    image_urls.extend(urls)
         
         return JSONResponse({
             'success': True,
