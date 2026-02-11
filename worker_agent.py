@@ -362,12 +362,20 @@ class NaverCafeWorker:
         
     def modify_post(self, draft_url: str, title: str, content: str) -> Optional[str]:
         """기존 글 수정 발행"""
-        print(f"🔄 글 수정 발행 시작...")
+        print(f"\n{'='*60}")
+        print(f"🔄 글 수정 발행 시작")
+        print(f"{'='*60}")
+        print(f"URL: {draft_url}")
+        print(f"제목: {title}")
+        print(f"본문: {content[:100]}...")
+        print(f"{'='*60}\n")
         
         try:
             # 기존 글 URL 접속
+            print("📡 URL 접속 중...")
             self.driver.get(draft_url)
             self.random_delay(3, 5)
+            print("✅ URL 접속 완료")
             
             # iframe 전환
             try:
@@ -407,40 +415,115 @@ class NaverCafeWorker:
             # iframe 재전환 (수정 페이지)
             self.driver.switch_to.default_content()
             
-            # 제목 수정
-            try:
-                title_input = self.driver.find_element(By.ID, 'subject')
-                title_input.clear()
-                self.random_delay(0.5, 1)
-                self.human_type(title_input, title)
-            except:
-                print("⚠️ 제목 수정 실패")
+            # 제목 수정 (test_full_post_flow 방식)
+            print("✍️ 제목 입력 시도...")
+            print(f"   제목: {title}")
+            title_selectors = [
+                'textarea.textarea_input',  # test_full_post_flow 방식
+                '#subject',
+                'input[name="subject"]',
+                '.input-title'
+            ]
             
-            # 내용 수정 (iframe)
+            for selector in title_selectors:
+                try:
+                    print(f"   시도: {selector}")
+                    title_elem = self.driver.find_element(By.CSS_SELECTOR, selector)
+                    title_elem.click()
+                    self.random_delay(0.5, 1)
+                    title_elem.send_keys(Keys.CONTROL + 'a', Keys.DELETE)
+                    self.random_delay(0.5, 1)
+                    self.human_type(title_elem, title)
+                    print("✅ 제목 수정 완료")
+                    break
+                except Exception as e:
+                    print(f"   실패: {e}")
+                    continue
+            
+            # 본문 수정 (test_full_post_flow 방식)
+            print("📝 본문 입력 시도...")
+            print(f"   본문 길이: {len(content)}자")
+            
+            content_success = False
+            
+            # 방법 1: p.se-text-paragraph 직접 클릭
             try:
-                iframe = self.driver.find_element(By.CSS_SELECTOR, 'iframe[id*="se2_iframe"]')
-                self.driver.switch_to.frame(iframe)
+                print("   방법 1: paragraph 클릭")
+                paragraph = self.driver.find_element(By.CSS_SELECTOR, "p.se-text-paragraph")
+                self.driver.execute_script("arguments[0].scrollIntoView(true);", paragraph)
+                self.random_delay(0.5, 1)
                 
-                content_div = self.driver.find_element(By.CSS_SELECTOR, 'div.se2_inputarea, body')
-                content_div.clear()
-                content_div.click()
-                self.random_delay(1, 2)
+                paragraph.click()
+                self.random_delay(0.5, 1)
                 
-                # 내용 입력
-                sentences = content.split('. ')
-                for sentence in sentences:
-                    if sentence.strip():
-                        self.human_type(content_div, sentence.strip() + '. ')
-                        self.random_delay(0.5, 1.5)
+                active = self.driver.switch_to.active_element
+                active.send_keys(Keys.CONTROL, 'a')
+                self.random_delay(0.2, 0.3)
+                active.send_keys(Keys.DELETE)
+                self.random_delay(0.5, 1)
+                active.send_keys(content)
+                self.random_delay(0.5, 1)
                 
-                self.driver.switch_to.default_content()
+                content_success = True
+                print("✅ 본문 입력 완료 (직접 타이핑)")
+                
             except Exception as e:
-                print(f"⚠️ 내용 수정 중 에러: {e}")
+                print(f"   실패: {e}")
+            
+            # 방법 2: JavaScript 강제 입력
+            if not content_success:
+                try:
+                    print("   방법 2: JavaScript 강제")
+                    script = """
+                        var content = arguments[0];
+                        var paragraph = document.querySelector('p.se-text-paragraph');
+                        
+                        if (paragraph) {
+                            var textNode = document.querySelector('span.__se-node');
+                            if (!textNode) {
+                                textNode = document.createElement('span');
+                                textNode.className = 'se-ff-system se-fs15 __se-node';
+                                paragraph.appendChild(textNode);
+                            }
+                            
+                            textNode.textContent = content;
+                            paragraph.classList.remove('se-is-empty');
+                            
+                            return true;
+                        }
+                        return false;
+                    """
+                    
+                    result = self.driver.execute_script(script, content)
+                    if result:
+                        content_success = True
+                        print("✅ 본문 입력 완료 (JavaScript)")
+                        
+                except Exception as e:
+                    print(f"   실패: {e}")
             
             self.random_delay(2, 3)
             
-            # 등록 버튼
-            submit_btn = self.driver.find_element(By.CSS_SELECTOR, 'a.btn-submit, button.btn-submit')
+            # 등록 버튼 (다양한 selector)
+            submit_selectors = [
+                'a.btn-submit',
+                'button.btn-submit',
+                'a[class*="submit"]',
+                'button[class*="submit"]',
+                '#btn-submit'
+            ]
+            
+            submit_btn = None
+            for selector in submit_selectors:
+                try:
+                    submit_btn = self.driver.find_element(By.CSS_SELECTOR, selector)
+                    break
+                except:
+                    continue
+            
+            if not submit_btn:
+                print("⚠️ 등록 버튼을 찾을 수 없습니다")
+                return None
             submit_btn.click()
             self.random_delay(3, 4)
             
