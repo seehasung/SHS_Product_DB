@@ -169,8 +169,9 @@ class NaverCafeWorker:
             self.websocket = await websockets.connect(
                 ws_url,
                 ssl=ssl_context,
-                ping_interval=20,
-                ping_timeout=10
+                ping_interval=30,  # 30초로 늘림
+                ping_timeout=30,   # 30초로 늘림
+                close_timeout=10
             )
             print(f"✅ PC #{self.pc_number} 서버 연결 성공: {ws_url}")
         except Exception as e:
