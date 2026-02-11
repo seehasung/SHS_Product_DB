@@ -470,35 +470,46 @@ class NaverCafeWorker:
             except Exception as e:
                 print(f"   실패: {e}")
             
-            # 방법 2: JavaScript 강제 입력
+            # 방법 2: article 방식 (test_cafe_step_by_step.py)
             if not content_success:
                 try:
-                    print("   방법 2: JavaScript 강제")
-                    script = """
-                        var content = arguments[0];
-                        var paragraph = document.querySelector('p.se-text-paragraph');
-                        
-                        if (paragraph) {
-                            var textNode = document.querySelector('span.__se-node');
-                            if (!textNode) {
-                                textNode = document.createElement('span');
-                                textNode.className = 'se-ff-system se-fs15 __se-node';
-                                paragraph.appendChild(textNode);
-                            }
-                            
-                            textNode.textContent = content;
-                            paragraph.classList.remove('se-is-empty');
-                            
-                            return true;
-                        }
-                        return false;
-                    """
+                    print("   방법 2: article 찾기")
+                    article = self.driver.find_element(By.CSS_SELECTOR, 'article.se-components-wrap')
                     
-                    result = self.driver.execute_script(script, content)
-                    if result:
-                        content_success = True
-                        print("✅ 본문 입력 완료 (JavaScript)")
-                        
+                    # 기존 p 태그 모두 삭제
+                    self.driver.execute_script("""
+                        const article = arguments[0];
+                        const paragraphs = article.querySelectorAll('p.se-text-paragraph');
+                        paragraphs.forEach(p => p.remove());
+                    """, article)
+                    self.random_delay(0.5, 1)
+                    print("   기존 내용 삭제")
+                    
+                    # 새 내용 추가 (줄 단위)
+                    lines = content.split('\n')
+                    for i, line in enumerate(lines):
+                        if line.strip():
+                            self.driver.execute_script("""
+                                const article = arguments[0];
+                                const text = arguments[1];
+                                
+                                const p = document.createElement('p');
+                                p.className = 'se-text-paragraph se-text-paragraph-align-left';
+                                p.style.lineHeight = '1.6';
+                                
+                                const span = document.createElement('span');
+                                span.className = 'se-ff-system se-fs15 __se-node';
+                                span.style.color = 'rgb(0, 0, 0)';
+                                span.textContent = text;
+                                
+                                p.appendChild(span);
+                                article.querySelector('.se-module-text').appendChild(p);
+                            """, article, line)
+                            print(f"   → 줄 {i+1}/{len(lines)} 추가")
+                    
+                    content_success = True
+                    print("✅ 본문 입력 완료 (article 방식)")
+                    
                 except Exception as e:
                     print(f"   실패: {e}")
             
