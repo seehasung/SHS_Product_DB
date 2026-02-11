@@ -3009,19 +3009,51 @@ function resetTestModal() {
     }
 }
 
-// 글 발행 테스트 (실제 발행)
+// 글 발행 테스트 (강제 설정)
 async function showPublishTestModal() {
-    resetTestModal();  // 먼저 리셋
-    await showTestGenerationModal();
+    // 먼저 모달 열기
+    const modal = document.getElementById('testGenerationModal');
+    const modalInstance = bootstrap.Modal.getOrCreateInstance(modal);
+    modalInstance.show();
     
-    // 발행 모드로 전환
-    setTimeout(() => {
-        document.getElementById('testModalTitle').innerHTML = '<i class="bi bi-lightning"></i> 글 발행 테스트 (실제 카페 발행)';
-        document.getElementById('testModalGuide').textContent = 'URL을 선택하면 해당 카페에 수정 발행됩니다.';
-        document.getElementById('publishModeSection').style.display = 'block';
-        document.getElementById('testActionButton').onclick = publishTestContent;
-        document.getElementById('testActionButton').innerHTML = '<i class="bi bi-lightning"></i> 즉시 발행 + 댓글 작성';
-    }, 100);
+    // 모달이 완전히 열린 후 설정
+    await new Promise(resolve => setTimeout(resolve, 300));
+    
+    // 강제로 발행 모드 설정
+    document.getElementById('testModalTitle').innerHTML = '<i class="bi bi-lightning"></i> 글 발행 테스트';
+    document.getElementById('testModalGuide').textContent = 'URL 선택 후 발행';
+    document.getElementById('publishModeSection').style.display = 'block';
+    document.getElementById('testActionButton').onclick = publishTestContent;
+    document.getElementById('testActionButton').innerHTML = '<i class="bi bi-lightning"></i> 즉시 발행';
+    
+    // 상품/카페 목록 로드
+    const productsResp = await fetch('/ai-automation/api/products');
+    const productsData = await productsResp.json();
+    
+    if (productsData.success) {
+        const select = document.getElementById('testProductSelect');
+        select.innerHTML = '<option value="">상품 선택</option>';
+        productsData.products.forEach(p => {
+            const option = document.createElement('option');
+            option.value = p.id;
+            option.textContent = p.product_name;
+            select.appendChild(option);
+        });
+    }
+    
+    const cafesResp = await fetch('/automation/api/cafes/list');
+    const cafesData = await cafesResp.json();
+    
+    if (cafesData.success) {
+        const select = document.getElementById('testCafeSelect');
+        select.innerHTML = '<option value="">카페 선택</option>';
+        cafesData.cafes.forEach(cafe => {
+            const option = document.createElement('option');
+            option.value = cafe.id;
+            option.textContent = cafe.name;
+            select.appendChild(option);
+        });
+    }
 }
 
 // Draft URL 목록 로드
