@@ -101,10 +101,11 @@ class NaverCafeWorker:
                 return False
             
             # 백업 생성
+            from pathlib import Path  # 함수 안에서 import
+            import shutil
+            
             current_file = Path(__file__)
             backup_file = current_file.with_suffix('.py.backup')
-            
-            import shutil
             shutil.copy(current_file, backup_file)
             print(f"✅ 백업 생성: {backup_file.name}")
             
@@ -226,19 +227,19 @@ class NaverCafeWorker:
         self.driver = webdriver.Chrome(options=options)
         
         # WebDriver 속성 숨기기
-            try:
-        self.driver.execute_cdp_cmd('Page.addScriptToEvaluateOnNewDocument', {
-            'source': '''
-                Object.defineProperty(navigator, 'webdriver', {
-                    get: () => undefined
-                });
-                Object.defineProperty(navigator, 'plugins', {
-                    get: () => [1, 2, 3, 4, 5]
-                });
-            '''
-        })
-            except:
-                pass
+        try:
+            self.driver.execute_cdp_cmd('Page.addScriptToEvaluateOnNewDocument', {
+                'source': '''
+                    Object.defineProperty(navigator, 'webdriver', {
+                        get: () => undefined
+                    });
+                    Object.defineProperty(navigator, 'plugins', {
+                        get: () => [1, 2, 3, 4, 5]
+                    });
+                '''
+            })
+        except:
+            pass
         
         # 창 크기 설정
         self.driver.set_window_size(1400, 900)
@@ -531,7 +532,7 @@ class NaverCafeWorker:
                     EC.presence_of_element_located((By.ID, 'cafe_main'))
                 )
                 self.driver.switch_to.frame(iframe)
-            self.random_delay(2, 3)
+                self.random_delay(2, 3)
                 print("  ✅ iframe 전환 완료")
             except:
                 print("  ⚠️ iframe 전환 실패 (일반 페이지로 진행)")
