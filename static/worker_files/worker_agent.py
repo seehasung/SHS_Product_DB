@@ -218,7 +218,7 @@ class NaverCafeWorker:
         options.add_argument('--disable-gpu')
         options.add_argument('--no-sandbox')
         options.add_argument('--disable-dev-shm-usage')
-            options.add_argument('--log-level=3')
+        options.add_argument('--log-level=3')
         options.add_argument('--silent')
         options.add_argument('--disable-logging')
         
@@ -350,6 +350,100 @@ class NaverCafeWorker:
             traceback.print_exc()
             return False
         
+    def modify_post(self, draft_url: str, title: str, content: str) -> Optional[str]:
+        """기존 글 수정 발행"""
+        print(f"🔄 글 수정 발행 시작...")
+        
+        try:
+            # 기존 글 URL 접속
+            self.driver.get(draft_url)
+            self.random_delay(3, 5)
+            
+            # iframe 전환
+            try:
+                iframe = self.driver.find_element(By.ID, 'cafe_main')
+                self.driver.switch_to.frame(iframe)
+            except:
+                pass
+            
+            # 수정 버튼 찾기
+            edit_selectors = [
+                'a.btn-modify',
+                'a.button-modify',
+                'a[class*="modify"]',
+                'a:contains("수정")'
+            ]
+            
+            edit_btn = None
+            for selector in edit_selectors:
+                try:
+                    edit_btn = self.driver.find_element(By.CSS_SELECTOR, selector)
+                    break
+                except:
+                    continue
+            
+            if not edit_btn:
+                # 링크 텍스트로 찾기
+                try:
+                    edit_btn = self.driver.find_element(By.LINK_TEXT, '수정')
+                except:
+                    print("❌ 수정 버튼을 찾을 수 없습니다")
+                    return None
+            
+            edit_btn.click()
+            self.random_delay(2, 3)
+            print("✅ 수정 화면 진입")
+            
+            # iframe 재전환 (수정 페이지)
+            self.driver.switch_to.default_content()
+            
+            # 제목 수정
+            try:
+                title_input = self.driver.find_element(By.ID, 'subject')
+                title_input.clear()
+                self.random_delay(0.5, 1)
+                self.human_type(title_input, title)
+            except:
+                print("⚠️ 제목 수정 실패")
+            
+            # 내용 수정 (iframe)
+            try:
+                iframe = self.driver.find_element(By.CSS_SELECTOR, 'iframe[id*="se2_iframe"]')
+                self.driver.switch_to.frame(iframe)
+                
+                content_div = self.driver.find_element(By.CSS_SELECTOR, 'div.se2_inputarea, body')
+                content_div.clear()
+                content_div.click()
+                self.random_delay(1, 2)
+                
+                # 내용 입력
+                sentences = content.split('. ')
+                for sentence in sentences:
+                    if sentence.strip():
+                        self.human_type(content_div, sentence.strip() + '. ')
+                        self.random_delay(0.5, 1.5)
+                
+                self.driver.switch_to.default_content()
+            except Exception as e:
+                print(f"⚠️ 내용 수정 중 에러: {e}")
+            
+            self.random_delay(2, 3)
+            
+            # 등록 버튼
+            submit_btn = self.driver.find_element(By.CSS_SELECTOR, 'a.btn-submit, button.btn-submit')
+            submit_btn.click()
+            self.random_delay(3, 4)
+            
+            post_url = self.driver.current_url
+            print(f"✅ 수정 발행 완료: {post_url}")
+            return post_url
+            
+        except Exception as e:
+            print(f"❌ 수정 발행 오류: {e}")
+            import traceback
+            traceback.print_exc()
+            return None
+    
     def write_post(self, cafe_url: str, title: str, content: str) -> Optional[str]:
         """카페 글 작성 (봇 감지 우회)"""
         print(f"📝 글 작성 시작: {title[:30]}...")
@@ -627,12 +721,19 @@ class NaverCafeWorker:
             print(f"{'='*60}")
             
             if task_type == 'post':
-                # 글 작성
-                post_url = self.write_post(
-                    task['cafe_url'],
-                    task['title'],
-                    task['content']
-                )
+                # draft_url이 있으면 수정 발행, 없으면 새 글
+                draft_url = task.get('draft_url')
+                
+                if draft_url:
+                    print(f"🔄 수정 발행: {draft_url[:50]}...")
+                    post_url = self.modify_post(draft_url, task['title'], task['content'])
+                else:
+                    print(f"📝 새 글 작성: {task['cafe_url']}")
+                    post_url = self.write_post(
+                        task['cafe_url'],
+                        task['title'],
+                        task['content']
+                    )
                 
                 if post_url:
                     # 서버에 완료 알림
@@ -642,7 +743,7 @@ class NaverCafeWorker:
                         'post_url': post_url
                     }))
                 else:
-                    raise Exception("글 작성 실패")
+                    raise Exception("글 작성/수정 실패")
                 
             elif task_type in ['comment', 'reply']:
                 # 댓글 작성
@@ -769,10 +870,10 @@ class NaverCafeWorker:
         
         print(f"""
 ╔════════════════════════════════════════════════════════╗
-║     네이버 카페 자동화 Worker Agent v{self.VERSION}              ║
+║     네이버 카페 자동화 Worker Agent v{self.VERSION}       ║
 ║                                                        ║
-║     PC 번호: {self.pc_number:02d}                                    ║
-║     서버: {self.server_url:40s} ║
+║     PC 번호: {self.pc_number:02d}                       ║
+║     서버: {self.server_url:40s}                         ║
 ╚════════════════════════════════════════════════════════╝
         """)
         
