@@ -698,8 +698,13 @@ class NaverCafeWorker:
                 
                 try:
                     data = json.loads(message)
-                except json.JSONDecodeError:
-                    print(f"⚠️ JSON 파싱 실패: {message[:50]}")
+                    print(f"📨 메시지 받음: type={data.get('type')}")  # 디버그 로그
+                except json.JSONDecodeError as e:
+                    print(f"⚠️ JSON 파싱 실패: {message[:100]}")
+                    print(f"   에러: {e}")
+                    continue
+                except Exception as e:
+                    print(f"❌ 메시지 처리 에러: {e}")
                     continue
                 
                 if data.get('type') == 'new_task':
@@ -707,6 +712,7 @@ class NaverCafeWorker:
                     
                     if not task or 'id' not in task:
                         print("⚠️ 유효하지 않은 작업 데이터")
+                        print(f"   데이터: {data}")
                         continue
                     
                     print(f"\n📥 새 작업 수신: Task #{task['id']}")
