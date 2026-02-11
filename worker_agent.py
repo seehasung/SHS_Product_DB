@@ -338,29 +338,21 @@ class NaverCafeWorker:
                 return True
             else:
                 print(f"❌ {account_id} 로그인 실패 (캡챠 또는 오류)")
-                print(f"⏸️  수동 로그인 모드로 전환합니다...")
+                print(f"\n{'='*60}")
+                print(f"⏸️  수동 로그인 모드")
+                print(f"{'='*60}")
+                print(f"계정: {account_id}")
+                print(f"")
+                print(f"브라우저에서 수동으로 로그인해주세요.")
+                print(f"로그인 완료 후 아무 키나 누르세요...")
+                print(f"{'='*60}")
                 
-                # 메시지 박스 표시
-                try:
-                    import tkinter as tk
-                    from tkinter import messagebox
-                    
-                    root = tk.Tk()
-                    root.withdraw()
-                    
-                    messagebox.showinfo(
-                        "🔐 수동 로그인 필요",
-                        f"계정: {account_id}\n\n캡챠가 발생했습니다.\n브라우저에서 수동으로 로그인 후\n확인 버튼을 클릭하세요."
-                    )
-                    
-                    root.destroy()
-                    time.sleep(5)
-                    
-                    print("✅ 수동 로그인 완료")
-                    self.current_account = account_id
-                    return True
-                except:
-                    return False
+                # 사용자 입력 대기
+                input("▶ 로그인 완료 후 Enter 키를 누르세요: ")
+                
+                print("✅ 수동 로그인 완료로 간주합니다")
+                self.current_account = account_id
+                return True
                 
         except Exception as e:
             print(f"❌ 로그인 오류: {e}")
