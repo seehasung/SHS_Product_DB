@@ -18,12 +18,25 @@ warnings.filterwarnings('ignore')
 logging.getLogger('selenium').setLevel(logging.ERROR)
 logging.getLogger('urllib3').setLevel(logging.ERROR)
 
+# SSL 경고 무시
+import urllib3
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.common.action_chains import ActionChains
+
+# ⭐ undetected-chromedriver (캡챠 우회)
+try:
+    import undetected_chromedriver as uc
+    UNDETECTED_AVAILABLE = True
+except ImportError:
+    UNDETECTED_AVAILABLE = False
+    print("⚠️ undetected_chromedriver가 없습니다. 일반 ChromeDriver 사용")
+    print("   설치: pip install undetected-chromedriver")
 import time
 import random
 import requests
@@ -37,7 +50,7 @@ from datetime import datetime
 class NaverCafeWorker:
     """네이버 카페 자동 작성 Worker"""
     
-    VERSION = "1.0.0"  # 현재 버전
+    VERSION = "1.0.1"  # 현재 버전
     
     def __init__(self, pc_number: int, server_url: str = "scorp274.com"):
         self.pc_number = pc_number
@@ -52,12 +65,12 @@ class NaverCafeWorker:
         try:
             print("🔍 업데이트 확인 중...")
             
-            # 서버에서 최신 버전 정보 가져오기
-            version_url = f"https://{self.server_url}/static/worker_version.json"
-            response = requests.get(version_url, timeout=10)
+            # 서버에서 최신 버전 정보 가져오기 (API 사용)
+            version_url = f"https://{self.server_url}/automation/api/worker/version"
+            response = requests.get(version_url, timeout=10, verify=False)
             
             if response.status_code != 200:
-                print("⚠️  버전 정보를 가져올 수 없습니다")
+                print("⚠️  버전 정보를 가져올 수 없습니다 (건너뛰기)")
                 return False
             
             server_version_info = response.json()
@@ -79,8 +92,8 @@ class NaverCafeWorker:
             # 자동 다운로드
             print(f"\n⬇️  업데이트 다운로드 중...")
             
-            download_url = f"https://{self.server_url}{server_version_info['download_url']}"
-            response = requests.get(download_url, timeout=30)
+            download_url = f"https://{self.server_url}/automation/api/worker/download"
+            response = requests.get(download_url, timeout=30, verify=False)
             
             if response.status_code != 200:
                 print("❌ 다운로드 실패")
@@ -108,7 +121,7 @@ class NaverCafeWorker:
             return True
             
         except Exception as e:
-            print(f"❌ 업데이트 확인 오류: {e}")
+            print(f"⚠️  업데이트 확인 실패 (무시하고 계속): {str(e)[:50]}")
             return False
     
     def get_local_ip(self) -> str:
@@ -156,8 +169,9 @@ class NaverCafeWorker:
             self.websocket = await websockets.connect(
                 ws_url,
                 ssl=ssl_context,
-                ping_interval=20,
-                ping_timeout=10
+                ping_interval=None,  # ping 비활성화 (heartbeat 사용)
+                ping_timeout=None,
+                close_timeout=10
             )
             print(f"✅ PC #{self.pc_number} 서버 연결 성공: {ws_url}")
         except Exception as e:
@@ -169,6 +183,25 @@ class NaverCafeWorker:
     def init_selenium(self):
         """Selenium 초기화 (봇 감지 우회 설정)"""
         print("🚀 Selenium 브라우저 초기화 중...")
+        
+        if UNDETECTED_AVAILABLE:
+            # ⭐ undetected-chromedriver 사용 (캡챠 우회!)
+            print("  ✅ undetected-chromedriver 사용 (고급 봇 감지 우회)")
+            
+            options = uc.ChromeOptions()
+            
+            # 기본 설정
+            options.add_argument('--disable-gpu')
+            options.add_argument('--no-sandbox')
+            options.add_argument('--disable-dev-shm-usage')
+            options.add_argument('--log-level=3')
+            
+            # 브라우저 생성
+            self.driver = uc.Chrome(options=options, version_main=None)
+            
+        else:
+            # 일반 ChromeDriver (기존 방식)
+            print("  ⚠️ 일반 ChromeDriver 사용")
         
         options = webdriver.ChromeOptions()
         
@@ -184,17 +217,15 @@ class NaverCafeWorker:
         options.add_argument('--disable-gpu')
         options.add_argument('--no-sandbox')
         options.add_argument('--disable-dev-shm-usage')
-        
-        # 경고 메시지 숨기기
-        options.add_argument('--log-level=3')  # ERROR만 표시
+            options.add_argument('--log-level=3')
         options.add_argument('--silent')
         options.add_argument('--disable-logging')
-        options.add_experimental_option('excludeSwitches', ['enable-logging'])
         
         # 브라우저 생성
         self.driver = webdriver.Chrome(options=options)
         
         # WebDriver 속성 숨기기
+            try:
         self.driver.execute_cdp_cmd('Page.addScriptToEvaluateOnNewDocument', {
             'source': '''
                 Object.defineProperty(navigator, 'webdriver', {
@@ -205,6 +236,8 @@ class NaverCafeWorker:
                 });
             '''
         })
+            except:
+                pass
         
         # 창 크기 설정
         self.driver.set_window_size(1400, 900)
@@ -241,42 +274,79 @@ class NaverCafeWorker:
             self.random_delay(0.05, 0.15)  # 글자당 0.05~0.15초
             
     def login_naver(self, account_id: str, account_pw: str):
-        """네이버 로그인 (봇 감지 우회)"""
+        """네이버 로그인 (캡챠 우회 버전)"""
         print(f"🔐 네이버 로그인 시도: {account_id}")
         
         try:
+            import pyperclip
+            from selenium.webdriver.common.keys import Keys
+            
+            # ⭐ 1. 네이버 메인 먼저 접속
+            self.driver.get('https://www.naver.com')
+            self.random_delay(2, 3)
+            
+            # ⭐ 2. 로그인 페이지로 이동
             self.driver.get('https://nid.naver.com/nidlogin.login')
             self.random_delay(2, 3)
             
-            # ID 입력 (한 글자씩)
+            # ⭐ 3. ID 입력 (pyperclip + Ctrl+V)
             id_input = WebDriverWait(self.driver, 10).until(
                 EC.presence_of_element_located((By.ID, 'id'))
             )
-            self.human_type(id_input, account_id)
+            id_input.click()
             self.random_delay(0.5, 1)
             
-            # PW 입력 (한 글자씩)
+            pyperclip.copy(account_id)
+            id_input.send_keys(Keys.CONTROL, 'v')
+            self.random_delay(0.5, 1)
+            
+            # ⭐ 4. PW 입력 (pyperclip + Ctrl+V)
             pw_input = self.driver.find_element(By.ID, 'pw')
-            self.human_type(pw_input, account_pw)
+            pw_input.click()
             self.random_delay(0.5, 1)
             
-            # 로그인 버튼 클릭
-            login_btn = self.driver.find_element(By.CSS_SELECTOR, '.btn_login')
+            pyperclip.copy(account_pw)
+            pw_input.send_keys(Keys.CONTROL, 'v')
+            self.random_delay(0.5, 1)
+            
+            # ⭐ 5. 로그인 버튼 클릭 (정확한 ID 사용)
+            self.random_delay(1, 2)
+            login_btn = self.driver.find_element(By.ID, 'log.login')
             login_btn.click()
             
-            self.random_delay(3, 4)
+            self.random_delay(3, 5)
             
-            # 로그인 성공 확인
+            # ⭐ 6. 로그인 성공 확인
+            current_url = self.driver.current_url
+            
+            # 네이버 메인으로 이동해서 확인
+            if 'nid.naver.com' not in current_url:
+                self.driver.get('https://www.naver.com')
+                self.random_delay(2, 3)
+            
+            # 로그아웃 버튼으로 로그인 확인
+            try:
+                logout_btn = self.driver.find_element(By.XPATH, '//*[@id="account"]/div[1]/div/button')
+                if logout_btn:
+                    self.current_account = account_id
+                    print(f"✅ {account_id} 로그인 성공 (로그아웃 버튼 확인)")
+                    return True
+            except:
+                pass
+            
+            # 대체 확인 방법
             if 'nid.naver.com' not in self.driver.current_url:
                 self.current_account = account_id
                 print(f"✅ {account_id} 로그인 성공")
                 return True
             else:
-                print(f"❌ {account_id} 로그인 실패")
+                print(f"❌ {account_id} 로그인 실패 (캡챠 또는 오류)")
                 return False
                 
         except Exception as e:
             print(f"❌ 로그인 오류: {e}")
+            import traceback
+            traceback.print_exc()
             return False
         
     def write_post(self, cafe_url: str, title: str, content: str) -> Optional[str]:
@@ -350,28 +420,101 @@ class NaverCafeWorker:
             traceback.print_exc()
             return None
         
-    def write_comment(self, post_url: str, content: str) -> bool:
-        """댓글 작성 (봇 감지 우회)"""
-        print(f"💬 댓글 작성 시작: {content[:30]}...")
+    def write_comment(self, post_url: str, content: str, is_reply: bool = False, parent_comment_id: Optional[str] = None) -> bool:
+        """댓글/대댓글 작성 (봇 감지 우회)"""
+        comment_type = "대댓글" if is_reply else "댓글"
+        print(f"💬 {comment_type} 작성 시작: {content[:30]}...")
         
         try:
             # 글 페이지로 이동
             self.driver.get(post_url)
-            self.random_delay(2, 3)
+            self.random_delay(3, 5)
             
-            # 댓글 입력창 찾기 (여러 가지 선택자 시도)
+            # iframe 전환 (네이버 카페)
+            try:
+                iframe = WebDriverWait(self.driver, 10).until(
+                    EC.presence_of_element_located((By.ID, 'cafe_main'))
+                )
+                self.driver.switch_to.frame(iframe)
+            self.random_delay(2, 3)
+                print("  ✅ iframe 전환 완료")
+            except:
+                print("  ⚠️ iframe 전환 실패 (일반 페이지로 진행)")
+            
+            # 대댓글인 경우: 부모 댓글 찾아서 답글 버튼 클릭
+            if is_reply and parent_comment_id:
+                print(f"  🔍 부모 댓글 찾기 (ID: {parent_comment_id})...")
+                
+                # ⭐ 네이버 카페 실제 구조: <li id="510247118">
+                # 숫자로 시작하는 ID는 속성 선택자 사용!
+                parent_selectors = [
+                    f"[id='{parent_comment_id}']",  # ⭐ 속성 선택자 (가장 확실)
+                    f"li[id='{parent_comment_id}']",
+                    f"div[id='{parent_comment_id}']"
+                ]
+                
+                parent_found = False
+                for selector in parent_selectors:
+                    try:
+                        parent_elem = self.driver.find_element(By.CSS_SELECTOR, selector)
+                        parent_found = True
+                        print(f"  ✅ 부모 댓글 발견: {selector}")
+                        
+                        # ⭐ 답글쓰기 버튼 찾기 (실제 구조)
+                        reply_btn_selectors = [
+                            "a.comment_info_button",  # ⭐ 실제 class!
+                            "a[role='button']:contains('답글')",
+                            ".comment_info_button",
+                            "a.comment_reply",
+                            "button.comment_reply"
+                        ]
+                        
+                        reply_clicked = False
+                        for btn_selector in reply_btn_selectors:
+                            try:
+                                # 여러 버튼이 있을 수 있으므로 모두 찾기
+                                buttons = parent_elem.find_elements(By.CSS_SELECTOR, "a.comment_info_button")
+                                for btn in buttons:
+                                    if "답글" in btn.text:
+                                        btn.click()
+                                        self.random_delay(1, 2)
+                                        print(f"  ✅ 답글쓰기 버튼 클릭")
+                                        reply_clicked = True
+                                        break
+                                if reply_clicked:
+                                    break
+                            except:
+                                continue
+                        
+                        if not reply_clicked:
+                            print("  ⚠️ 답글쓰기 버튼을 찾을 수 없습니다")
+                        
+                        break
+                    except:
+                        continue
+                
+                if not parent_found:
+                    print("  ⚠️ 부모 댓글을 찾을 수 없습니다")
+            
+            # ⭐ 댓글 입력창 찾기 (실제 네이버 카페 구조)
             comment_selectors = [
+                'textarea.comment_inbox_text',  # ⭐ 실제 class!
+                'textarea[placeholder*="댓글"]',
+                'textarea.comment_inbox',
+                'textarea.comment_text_input',
                 'textarea[id*="comment"]',
                 'textarea.comment-box',
                 'div[contenteditable="true"]',
-                'textarea[placeholder*="댓글"]',
                 'textarea.textarea'
             ]
             
             comment_input = None
             for selector in comment_selectors:
                 try:
-                    comment_input = self.driver.find_element(By.CSS_SELECTOR, selector)
+                    comment_input = WebDriverWait(self.driver, 5).until(
+                        EC.presence_of_element_located((By.CSS_SELECTOR, selector))
+                    )
+                    print(f"  ✅ 입력창 발견: {selector}")
                     break
                 except:
                     continue
@@ -384,22 +527,30 @@ class NaverCafeWorker:
             comment_input.click()
             self.random_delay(0.5, 1)
             
-            # 댓글 내용 입력 (한 글자씩)
-            self.human_type(comment_input, content)
+            # ⭐ 댓글 내용 입력 (pyperclip - 이모지 지원)
+            import pyperclip
+            pyperclip.copy(content)
+            comment_input.send_keys(Keys.CONTROL, 'v')
             self.random_delay(1, 2)
+            print(f"  ✅ 내용 입력 완료")
             
-            # 등록 버튼 찾기 및 클릭
+            # ⭐ 등록 버튼 찾기 (실제 네이버 카페 구조)
             submit_selectors = [
-                'button[class*="comment-submit"]',
-                'a[class*="comment-submit"]',
-                'button.btn-submit',
-                'a.btn-submit'
+                'a.btn_register',  # ⭐ 실제 class!
+                'a.button.btn_register',
+                'button.btn_register',
+                'a[role="button"]:contains("등록")',
+                'button.comment_submit',
+                'a.comment_submit',
+                'button[class*="submit"]',
+                'a[class*="submit"]'
             ]
             
             submit_btn = None
             for selector in submit_selectors:
                 try:
                     submit_btn = self.driver.find_element(By.CSS_SELECTOR, selector)
+                    print(f"  ✅ 등록 버튼 발견: {selector}")
                     break
                 except:
                     continue
@@ -407,14 +558,52 @@ class NaverCafeWorker:
             if submit_btn:
                 submit_btn.click()
                 self.random_delay(2, 3)
-                print(f"✅ 댓글 작성 완료")
-                return True
+                print(f"✅ {comment_type} 등록 버튼 클릭")
+                
+                # ⭐ 댓글 작성 후 ID 추출 (새 댓글인 경우만)
+                comment_id = None
+                if not is_reply:
+                    try:
+                        # 페이지 새로고침 없이 최신 댓글 찾기
+                        self.random_delay(3, 4)  # 댓글이 DOM에 추가될 때까지 대기
+                        
+                        # ⭐ 네이버 카페 실제 구조: <li id="510247118" class="CommentItem">
+                        comment_id_selectors = [
+                            "ul.comment_list > li.CommentItem:last-of-type",  # ⭐ 실제 구조!
+                            "ul.comment_list > li:last-of-type",
+                            ".comment_list > li:last-child",
+                            "li.CommentItem:last-of-type",
+                            "div[id^='cmt_']:last-of-type",
+                            "li[id^='cmt_']:last-of-type"
+                        ]
+                        
+                        for selector in comment_id_selectors:
+                            try:
+                                latest_comment = self.driver.find_element(By.CSS_SELECTOR, selector)
+                                element_id = latest_comment.get_attribute('id')
+                                
+                                if element_id:
+                                    # ⭐ 네이버 카페는 숫자만 (예: 510247118)
+                                    comment_id = element_id.replace('cmt_', '')  # 혹시 cmt_가 있으면 제거
+                                    print(f"  📌 작성된 댓글 ID: {comment_id} (선택자: {selector})")
+                                    break
+                            except:
+                                continue
+                        
+                        if not comment_id:
+                            print("  ⚠️ 댓글 ID를 자동으로 찾을 수 없습니다")
+                            print("  💡 수동으로 확인 필요: F12 → Elements → 최신 댓글의 id 속성")
+                    except Exception as e:
+                        print(f"  ⚠️ 댓글 ID 추출 오류: {e}")
+                
+                print(f"✅ {comment_type} 작성 완료")
+                return comment_id if not is_reply else True
             else:
                 print("❌ 댓글 등록 버튼을 찾을 수 없습니다")
                 return False
                 
         except Exception as e:
-            print(f"❌ 댓글 작성 오류: {e}")
+            print(f"❌ {comment_type} 작성 오류: {e}")
             import traceback
             traceback.print_exc()
             return False
@@ -456,16 +645,29 @@ class NaverCafeWorker:
                 
             elif task_type in ['comment', 'reply']:
                 # 댓글 작성
-                success = self.write_comment(
+                is_reply = (task_type == 'reply')
+                parent_comment_id = task.get('parent_comment_id')
+                
+                result = self.write_comment(
                     task['post_url'],
-                    task['content']
+                    task['content'],
+                    is_reply=is_reply,
+                    parent_comment_id=parent_comment_id
                 )
                 
-                if success:
-                    await self.websocket.send(json.dumps({
+                if result:
+                    # 새 댓글인 경우 댓글 ID를 받음
+                    message = {
                         'type': 'task_completed',
                         'task_id': task_id
-                    }))
+                    }
+                    
+                    # 댓글 ID가 있으면 추가
+                    if isinstance(result, str) and not is_reply:
+                        message['cafe_comment_id'] = result
+                        print(f"  📤 댓글 ID 전송: {result}")
+                    
+                    await self.websocket.send(json.dumps(message))
                 else:
                     raise Exception("댓글 작성 실패")
             
@@ -484,33 +686,78 @@ class NaverCafeWorker:
         """서버로부터 작업 수신"""
         while self.is_running:
             try:
-                message = await self.websocket.recv()
-                data = json.loads(message)
+                message = await asyncio.wait_for(
+                    self.websocket.recv(),
+                    timeout=30.0  # 30초 타임아웃
+                )
                 
-                if data['type'] == 'new_task':
-                    task = data['task']
+                # ping/pong 처리
+                if message == 'ping':
+                    await self.websocket.send('pong')
+                    continue
+                
+                try:
+                    data = json.loads(message)
+                    print(f"📨 메시지 받음: type={data.get('type')}")  # 디버그 로그
+                except json.JSONDecodeError as e:
+                    print(f"⚠️ JSON 파싱 실패: {message[:100]}")
+                    print(f"   에러: {e}")
+                    continue
+                except Exception as e:
+                    print(f"❌ 메시지 처리 에러: {e}")
+                    continue
+                
+                if data.get('type') == 'new_task':
+                    task = data.get('task', {})
+                    
+                    if not task or 'id' not in task:
+                        print("⚠️ 유효하지 않은 작업 데이터")
+                        print(f"   데이터: {data}")
+                        continue
                     
                     print(f"\n📥 새 작업 수신: Task #{task['id']}")
                     
                     # 계정 로그인 확인
-                    if task['account_id'] != self.current_account:
+                    if task.get('account_id') and task['account_id'] != self.current_account:
                         print(f"🔄 계정 전환: {task['account_id']}")
-                        self.login_naver(
-                            task['account_id'],
-                            task['account_pw']
-                        )
+                        if task.get('account_pw'):
+                            self.login_naver(
+                                task['account_id'],
+                                task['account_pw']
+                            )
                     
                     # 작업 처리
                     await self.process_task(task)
                     
-                elif data['type'] == 'shutdown':
+                elif data.get('type') == 'start_comment':
+                    # 댓글 시작 신호 (순차 실행)
+                    task_id = data.get('task_id')
+                    group = data.get('group')
+                    sequence = data.get('sequence')
+                    
+                    print(f"\n🚀 댓글 시작 신호: 그룹 {group}-{sequence} (Task #{task_id})")
+                    
+                    # 서버에서 Task 정보 가져오기 (API 호출)
+                    # 여기서는 바로 처리하지 않고 new_task로 재전송받음
+                    
+                elif data.get('type') == 'shutdown':
                     print("⏹️ 종료 명령 수신")
                     self.is_running = False
+                    break
+                    
+            except asyncio.TimeoutError:
+                # 타임아웃은 정상 (계속 대기)
+                continue
                     
             except websockets.exceptions.ConnectionClosed:
                 print("❌ WebSocket 연결이 끊어졌습니다. 재연결 중...")
                 await asyncio.sleep(3)
-                await self.connect_to_server()
+                try:
+                    await self.connect_to_server()
+                except:
+                    print("❌ 재연결 실패, 5초 후 재시도...")
+                    await asyncio.sleep(5)
+                    
             except Exception as e:
                 print(f"❌ 메시지 처리 오류: {e}")
                 await asyncio.sleep(1)
