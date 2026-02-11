@@ -83,6 +83,12 @@ async def worker_websocket(websocket: WebSocket, pc_number: int, db: Session = D
                 pc.last_heartbeat = get_kst_now()  # KST 시간으로 저장
                 db.commit()
                 
+                # Heartbeat 응답 전송 (중요!)
+                await websocket.send_json({
+                    'type': 'heartbeat_ack',
+                    'timestamp': get_kst_now().isoformat()
+                })
+                
             elif message['type'] == 'task_started':
                 # 작업 시작
                 task = db.query(AutomationTask).get(message['task_id'])
