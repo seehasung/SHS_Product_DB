@@ -2216,8 +2216,17 @@ async def publish_test(
         
         # 2. URL 정보 가져오기 (수정 발행용)
         draft_post = None
+        assigned_account_id = None
+        
         if draft_url_id:
-            draft_post = db.query(DraftPost).filter(DraftPost.id == draft_url_id).first()
+            draft_post = db.query(DraftPost).options(
+                joinedload(DraftPost.link)
+            ).filter(DraftPost.id == draft_url_id).first()
+            
+            # 해당 연동의 계정 사용!
+            if draft_post and draft_post.link:
+                assigned_account_id = draft_post.link.account_id
+                cafe_id = draft_post.link.cafe_id
         
         # 3. 프롬프트 정보
         prompt = db.query(AIPrompt).get(prompt_id)
@@ -2234,6 +2243,7 @@ async def publish_test(
             title=post_title,  # AI 생성 제목 또는 키워드
             content=test_data['content'],
             cafe_id=cafe_id,
+            assigned_account_id=assigned_account_id,  # URL의 계정 사용!
             status='pending',
             priority=10
         )
