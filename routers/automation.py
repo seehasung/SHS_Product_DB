@@ -313,6 +313,11 @@ async def send_task_to_worker(pc_number: int, task: AutomationTask, db: Session)
         # 계정 정보
         account = db.query(AutomationAccount).get(task.assigned_account_id) if task.assigned_account_id else None
         
+        # draft_url 추출 (error_message에서)
+        draft_url = None
+        if task.error_message and 'MODIFY_URL:' in task.error_message:
+            draft_url = task.error_message.split('MODIFY_URL:')[1].strip()
+        
         # Task 데이터
         task_data = {
             'type': 'new_task',
@@ -323,6 +328,7 @@ async def send_task_to_worker(pc_number: int, task: AutomationTask, db: Session)
                 'content': task.content,
                 'cafe_url': cafe.url if cafe else None,
                 'post_url': task.parent_task.post_url if task.parent_task_id else None,
+                'draft_url': draft_url,  # 수정 발행 URL 추가!
                 'account_id': account.account_id if account else None,
                 'account_pw': account.account_pw if account else None
             }
