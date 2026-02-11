@@ -280,7 +280,6 @@ class NaverCafeWorker:
         print(f"🔐 네이버 로그인 시도: {account_id}")
         
         try:
-            import pyperclip
             from selenium.webdriver.common.keys import Keys
             
             # ⭐ 1. 네이버 메인 먼저 접속
@@ -291,24 +290,20 @@ class NaverCafeWorker:
             self.driver.get('https://nid.naver.com/nidlogin.login')
             self.random_delay(2, 3)
             
-            # ⭐ 3. ID 입력 (pyperclip + Ctrl+V)
+            # ⭐ 3. ID 입력 (직접 입력)
             id_input = WebDriverWait(self.driver, 10).until(
                 EC.presence_of_element_located((By.ID, 'id'))
             )
             id_input.click()
             self.random_delay(0.5, 1)
-            
-            pyperclip.copy(account_id)
-            id_input.send_keys(Keys.CONTROL, 'v')
+            self.human_type(id_input, account_id)
             self.random_delay(0.5, 1)
             
-            # ⭐ 4. PW 입력 (pyperclip + Ctrl+V)
+            # ⭐ 4. PW 입력 (직접 입력)
             pw_input = self.driver.find_element(By.ID, 'pw')
             pw_input.click()
             self.random_delay(0.5, 1)
-            
-            pyperclip.copy(account_pw)
-            pw_input.send_keys(Keys.CONTROL, 'v')
+            self.human_type(pw_input, account_pw)
             self.random_delay(0.5, 1)
             
             # ⭐ 5. 로그인 버튼 클릭 (정확한 ID 사용)
@@ -623,10 +618,8 @@ class NaverCafeWorker:
             comment_input.click()
             self.random_delay(0.5, 1)
             
-            # ⭐ 댓글 내용 입력 (pyperclip - 이모지 지원)
-            import pyperclip
-            pyperclip.copy(content)
-            comment_input.send_keys(Keys.CONTROL, 'v')
+            # ⭐ 댓글 내용 입력
+            self.human_type(comment_input, content)
             self.random_delay(1, 2)
             print(f"  ✅ 내용 입력 완료")
             
