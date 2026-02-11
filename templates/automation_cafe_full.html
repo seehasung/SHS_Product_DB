@@ -3183,19 +3183,21 @@ async function publishTestContent() {
 }
 
 async function showTestGenerationModal() {
-    // 글 생성 모드로 리셋
-    const title = document.getElementById('testModalTitle');
-    const guide = document.getElementById('testModalGuide');
-    const section = document.getElementById('publishModeSection');
-    const btn = document.getElementById('testActionButton');
-    
-    if (title) title.innerHTML = '<i class="bi bi-magic"></i> AI 글 생성 테스트';
-    if (guide) guide.textContent = '상품을 선택하면 해당 템플릿과 프롬프트가 표시됩니다.';
-    if (section) section.style.display = 'none';
-    if (btn) {
-        btn.onclick = generateTestContent;
-        btn.innerHTML = '<i class="bi bi-magic"></i> AI 생성 시작';
-    }
+    // 글 생성 모드로 설정 (안전)
+    setTimeout(() => {
+        const title = document.getElementById('testModalTitle');
+        const guide = document.getElementById('testModalGuide');
+        const section = document.getElementById('publishModeSection');
+        const btn = document.getElementById('testActionButton');
+        
+        if (title) title.innerHTML = '<i class="bi bi-magic"></i> AI 글 생성 테스트';
+        if (guide) guide.textContent = '상품을 선택하면 해당 템플릿과 프롬프트가 표시됩니다.';
+        if (section) section.style.display = 'none';
+        if (btn) {
+            btn.onclick = generateTestContent;
+            btn.innerHTML = '<i class="bi bi-magic"></i> AI 생성 시작';
+        }
+    }, 50);
     // 상품 목록 로드
     const response = await fetch('/ai-automation/api/products');
     const data = await response.json();
