@@ -2248,12 +2248,11 @@ async def publish_test(
             priority=10
         )
         
-        # 수정 발행 URL + 이미지 정보 추가 (메모로)
-        task_metadata = {
-            'draft_url': draft_post.draft_url if draft_post else None,
-            'image_urls': test_data.get('image_urls', [])
-        }
-        post_task.error_message = json.dumps(task_metadata, ensure_ascii=False)
+        # 수정 발행 URL 추가 (간단하게)
+        if draft_post:
+            post_task.error_message = f"MODIFY_URL:{draft_post.draft_url}"
+        else:
+            post_task.error_message = None
         
         db.add(post_task)
         db.flush()
@@ -2369,9 +2368,28 @@ async def publish_test(
         
         db.commit()
         
-        # 6. Worker PC에 전송
-        from routers.automation import auto_assign_tasks
-        await auto_assign_tasks(db)
+        # 6. Worker PC에 직접 전송 (계정 유지)
+        from routers.automation import send_task_to_worker, worker_connections
+        
+        # 본문 Task 전송
+        if assigned_account_id:
+            # 해당 계정을 가진 PC 찾기
+            from database import AutomationAccount
+            account = db.query(AutomationAccount).filter(
+                AutomationAccount.id == assigned_account_id
+            ).first()
+            
+            if account and account.assigned_pc_id:
+                pc_number = account.assigned_pc.pc_number if account.assigned_pc else None
+                if pc_number and pc_number in worker_connections:
+                    await send_task_to_worker(pc_number, post_task, db)
+                    print(f"✅ Task #{post_task.id} 직접 전송 → PC #{pc_number} (계정: {account.account_id})")
+        
+        # 댓글 Task는 auto_assign
+        for comment_task in comment_tasks:
+            # 랜덤 PC에 할당 (댓글은 다른 계정)
+            from routers.automation import auto_assign_tasks
+            await auto_assign_tasks(db)
         
         return JSONResponse({
             'success': True,
