@@ -2110,7 +2110,29 @@ async def test_generate_content(
             messages=[{"role": "user", "content": user_prompt}]
         )
         
-        generated_content = response.content[0].text
+        generated_content_raw = response.content[0].text
+        
+        # 생성된 텍스트를 제목/본문으로 분리
+        def split_title_and_body(text):
+            """제목과 본문 자동 분리"""
+            lines = text.strip().split('\n')
+            
+            # 첫 줄이 # 으로 시작하면 제목
+            if lines[0].startswith('#'):
+                title = lines[0].replace('#', '').strip()
+                body = '\n'.join(lines[1:]).strip()
+                return title, body
+            
+            # 첫 줄이 짧으면 (<50자) 제목으로 간주
+            if len(lines[0]) < 50:
+                title = lines[0].strip()
+                body = '\n'.join(lines[1:]).strip()
+                return title, body
+            
+            # 전체를 본문으로
+            return "", text
+        
+        title, generated_content = split_title_and_body(generated_content_raw)
         
         # 이미지 생성 (Imagen 3)
         image_urls = []
@@ -2144,6 +2166,7 @@ Context: daily life, satisfied customer, problem solved."""
         
         return JSONResponse({
             'success': True,
+            'title': title,  # 생성된 제목
             'content': generated_content,
             'keyword': keyword,
             'prompt_name': f"{product.product_name} - {prompt.keyword_classification}",
@@ -2200,12 +2223,15 @@ async def publish_test(
         prompt = db.query(AIPrompt).get(prompt_id)
         
         # 4. 본문 Task 생성 (스케줄 없이)
+        # 제목 추출 (AI가 생성한 제목 또는 키워드)
+        post_title = test_data.get('title') or keyword
+        
         post_task = AutomationTask(
             task_type='post',
             mode='ai',
             schedule_id=None,  # 스케줄 없이 독립 실행
             scheduled_time=datetime.now(),
-            title=f"{keyword}",
+            title=post_title,  # AI 생성 제목 또는 키워드
             content=test_data['content'],
             cafe_id=cafe_id,
             status='pending',
@@ -2256,26 +2282,80 @@ async def publish_test(
                 
                 comments_text = response.content[0].text
                 
-                # 댓글 파싱
-                import re
-                comments = re.findall(r'\d+\.\s*(.+)', comments_text)
+                # 댓글 구조 파싱 (복잡한 구조 지원)
+                def parse_comment_structure(text):
+                    """댓글 + 대댓글 파싱"""
+                    lines = text.strip().split('\n')
+                    result = []
+                    
+                    for line in lines:
+                        if not line.strip() or line.startswith('---') or line.startswith('#'):
+                            continue
+                        
+                        # 대댓글 레벨 확인
+                        level = 0
+                        original_line = line
+                        while line.startswith('>'):
+                            level += 1
+                            line = line[1:].strip()
+                        
+                        # 계정명 추출: **계정:** 형식
+                        if '**' in line and ':**' in line:
+                            try:
+                                # **계정1:** 댓글 내용
+                                parts = line.split('**')
+                                if len(parts) >= 3:
+                                    account_part = parts[1]
+                                    if ':' in account_part:
+                                        account = account_part.split(':')[0].strip()
+                                        content = '**'.join(parts[2:]).strip()
+                                        
+                                        result.append({
+                                            'level': level,
+                                            'account': account,
+                                            'content': content
+                                        })
+                            except:
+                                continue
+                    
+                    return result
                 
-                # 댓글 Task 생성
-                for idx, comment in enumerate(comments[:comment_count]):
+                parsed_comments = parse_comment_structure(comments_text)
+                
+                # Task 생성
+                task_map = {}  # level별 마지막 Task ID 저장
+                task_map[0] = post_task.id  # 본문 Task
+                
+                for idx, comment_obj in enumerate(parsed_comments):
+                    # 레벨에 따라 부모 Task 결정
+                    if comment_obj['level'] == 0:
+                        # 최상위 댓글 → 본문에 댓글
+                        parent_id = post_task.id
+                        task_type = 'comment'
+                    else:
+                        # 대댓글 → 이전 레벨 댓글에 대댓글
+                        parent_level = comment_obj['level'] - 1
+                        parent_id = task_map.get(parent_level, post_task.id)
+                        task_type = 'reply'
+                    
                     comment_task = AutomationTask(
-                        task_type='comment',
+                        task_type=task_type,
                         mode='ai',
-                        schedule_id=None,  # 스케줄 없이
+                        schedule_id=None,
                         scheduled_time=datetime.now() + timedelta(minutes=idx*2),
-                        content=comment.strip(),
-                        parent_task_id=post_task.id,
+                        content=comment_obj['content'],
+                        parent_task_id=parent_id,
                         order_sequence=idx,
                         cafe_id=cafe_id,
                         status='pending',
                         priority=10
                     )
                     db.add(comment_task)
+                    db.flush()
                     comment_tasks.append(comment_task)
+                    
+                    # 이 레벨의 마지막 Task로 저장
+                    task_map[comment_obj['level']] = comment_task.id
         
         db.commit()
         
