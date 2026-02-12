@@ -3130,22 +3130,26 @@ function resetTestModal() {
 
 // 글 발행 테스트 (강제 설정)
 async function showPublishTestModal() {
-    // 먼저 모달 열기
-    const modal = document.getElementById('testGenerationModal');
-    const modalInstance = bootstrap.Modal.getOrCreateInstance(modal);
-    modalInstance.show();
+    console.log('🚀 글 발행 테스트 모달 열기');
     
-    // 모달이 완전히 열린 후 설정
-    await new Promise(resolve => setTimeout(resolve, 300));
+    // 1. 먼저 모달 내용 완전 초기화 (모달 열기 전!)
+    const title = document.getElementById('testModalTitle');
+    const guide = document.getElementById('testModalGuide');
+    const publishSection = document.getElementById('publishModeSection');
+    const actionBtn = document.getElementById('testActionButton');
     
-    // 강제로 발행 모드 설정
-    document.getElementById('testModalTitle').innerHTML = '<i class="bi bi-lightning"></i> 글 발행 테스트';
-    document.getElementById('testModalGuide').textContent = 'URL 선택 후 발행';
-    document.getElementById('publishModeSection').style.display = 'block';
-    document.getElementById('testActionButton').onclick = publishTestContent;
-    document.getElementById('testActionButton').innerHTML = '<i class="bi bi-lightning"></i> 즉시 발행';
+    // 발행 모드로 강제 설정
+    if (title) title.innerHTML = '<i class="bi bi-lightning"></i> 글 발행 테스트';
+    if (guide) guide.textContent = 'URL 선택 후 발행';
+    if (publishSection) publishSection.style.display = 'block';
+    if (actionBtn) {
+        actionBtn.onclick = publishTestContent;
+        actionBtn.innerHTML = '<i class="bi bi-lightning"></i> 즉시 발행';
+    }
     
-    // 상품/카페 목록 로드
+    console.log('✅ 발행 모드 설정 완료');
+    
+    // 2. 상품/카페 목록 로드
     const productsResp = await fetch('/ai-automation/api/products');
     const productsData = await productsResp.json();
     
@@ -3173,6 +3177,13 @@ async function showPublishTestModal() {
             select.appendChild(option);
         });
     }
+    
+    // 3. 모달 열기 (설정 완료 후!)
+    const modal = document.getElementById('testGenerationModal');
+    const modalInstance = bootstrap.Modal.getOrCreateInstance(modal);
+    modalInstance.show();
+    
+    console.log('✅ 모달 열기 완료');
 }
 
 // Draft URL 목록 로드
@@ -3334,22 +3345,26 @@ async function publishTestContent() {
 }
 
 async function showTestGenerationModal() {
-    // 글 생성 모드로 설정 (안전)
-    setTimeout(() => {
-        const title = document.getElementById('testModalTitle');
-        const guide = document.getElementById('testModalGuide');
-        const section = document.getElementById('publishModeSection');
-        const btn = document.getElementById('testActionButton');
-        
-        if (title) title.innerHTML = '<i class="bi bi-magic"></i> AI 글 생성 테스트';
-        if (guide) guide.textContent = '상품을 선택하면 해당 템플릿과 프롬프트가 표시됩니다.';
-        if (section) section.style.display = 'none';
-        if (btn) {
-            btn.onclick = generateTestContent;
-            btn.innerHTML = '<i class="bi bi-magic"></i> AI 생성 시작';
-        }
-    }, 50);
-    // 상품 목록 로드
+    console.log('🎨 AI 글 생성 테스트 모달 열기');
+    
+    // 1. 먼저 모달 내용 완전 초기화 (모달 열기 전!)
+    const title = document.getElementById('testModalTitle');
+    const guide = document.getElementById('testModalGuide');
+    const publishSection = document.getElementById('publishModeSection');
+    const actionBtn = document.getElementById('testActionButton');
+    
+    // 생성 모드로 강제 설정
+    if (title) title.innerHTML = '<i class="bi bi-magic"></i> AI 글 생성 테스트';
+    if (guide) guide.textContent = '상품을 선택하면 해당 템플릿과 프롬프트가 표시됩니다.';
+    if (publishSection) publishSection.style.display = 'none';  // 발행 섹션 숨김!
+    if (actionBtn) {
+        actionBtn.onclick = generateTestContent;
+        actionBtn.innerHTML = '<i class="bi bi-magic"></i> AI 생성 시작';
+    }
+    
+    console.log('✅ 생성 모드 설정 완료');
+    
+    // 2. 상품 목록 로드
     const response = await fetch('/ai-automation/api/products');
     const data = await response.json();
     
@@ -3382,8 +3397,11 @@ async function showTestGenerationModal() {
         });
     }
     
+    // 3. 모달 열기 (설정 완료 후!)
     const modal = new bootstrap.Modal(document.getElementById('testGenerationModal'));
     modal.show();
+    
+    console.log('✅ 모달 열기 완료');
 }
 
 // 카페 특성 미리보기
@@ -5033,6 +5051,62 @@ document.addEventListener('DOMContentLoaded', function() {
             } catch (error) {
                 console.error('상품 목록 로드 오류:', error);
             }
+        });
+    }
+    
+    // ========================================
+    // 🔄 AI 글 생성/발행 테스트 모달 초기화
+    // ========================================
+    const testResultModal = document.getElementById('testResultModal');
+    if (testResultModal) {
+        // 결과 모달이 닫힐 때 내용 초기화
+        testResultModal.addEventListener('hidden.bs.modal', function() {
+            console.log('🧹 결과 모달 초기화');
+            const resultContent = document.getElementById('testResultContent');
+            if (resultContent) {
+                resultContent.innerHTML = `
+                    <div class="text-center py-5">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">생성 중...</span>
+                        </div>
+                        <p class="mt-3">AI가 글을 생성하고 있습니다...</p>
+                    </div>
+                `;
+            }
+        });
+    }
+    
+    const testGenerationModal = document.getElementById('testGenerationModal');
+    if (testGenerationModal) {
+        // 입력 모달이 닫힐 때 폼 초기화
+        testGenerationModal.addEventListener('hidden.bs.modal', function() {
+            console.log('🧹 입력 모달 초기화');
+            
+            // 선택값 초기화
+            const productSelect = document.getElementById('testProductSelect');
+            const promptSelect = document.getElementById('testPromptSelect');
+            const keywordSelect = document.getElementById('testKeywordSelect');
+            const cafeSelect = document.getElementById('testCafeSelect');
+            const draftUrlSelect = document.getElementById('draftUrlSelect');
+            
+            if (productSelect) productSelect.value = '';
+            if (promptSelect) {
+                promptSelect.innerHTML = '<option value="">먼저 상품을 선택하세요</option>';
+                promptSelect.value = '';
+            }
+            if (keywordSelect) {
+                keywordSelect.innerHTML = '<option value="">먼저 상품을 선택하세요</option>';
+                keywordSelect.value = '';
+            }
+            if (cafeSelect) cafeSelect.value = '';
+            if (draftUrlSelect) {
+                draftUrlSelect.innerHTML = '<option value="">먼저 로드하세요...</option>';
+                draftUrlSelect.value = '';
+            }
+            
+            // 특성 표시 초기화
+            const charDiv = document.getElementById('selectedCafeCharacteristics');
+            if (charDiv) charDiv.textContent = '-';
         });
     }
 });
