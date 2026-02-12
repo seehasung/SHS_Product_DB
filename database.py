@@ -1067,6 +1067,21 @@ class WorkerVersion(Base):
     created_by = Column(String(100), nullable=True)  # 배포자
 
 
+class AIGeneratedPost(Base):
+    """AI 신규발행 글 메타데이터"""
+    __tablename__ = "ai_generated_posts"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    cafe_name = Column(String(200), nullable=False)  # 카페명
+    author_account = Column(String(100), nullable=False)  # 작성자 계정명
+    product_name = Column(String(200), nullable=False)  # 상품명
+    title = Column(String(500), nullable=False)  # 글 제목
+    post_url = Column(String(1000), nullable=False, unique=True)  # 글 URL
+    status = Column(String(20), default='active', index=True)  # active, inactive, deleted
+    created_at = Column(DateTime, default=get_kst_now, index=True)  # 발행일
+    updated_at = Column(DateTime, default=get_kst_now, onupdate=get_kst_now)
+
+
 class AutomationSchedule(Base):
     """자동화 스케줄 (휴먼/AI 모드)"""
     __tablename__ = "automation_schedules"

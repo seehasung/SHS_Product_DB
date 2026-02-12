@@ -445,7 +445,7 @@ class NaverCafeWorker:
             return False
         
     def modify_post(self, draft_url: str, title: str, content: str) -> Optional[str]:
-        """기존 글 수정 발행"""
+        """기존 글 수정 발행 (새 탭에서 작업)"""
         print(f"\n{'='*60}")
         print(f"🔄 글 수정 발행 시작")
         print(f"{'='*60}")
@@ -454,7 +454,16 @@ class NaverCafeWorker:
         print(f"본문: {content[:100]}...")
         print(f"{'='*60}\n")
         
+        # 현재 탭 저장 (네이버 홈 탭)
+        original_window = self.driver.current_window_handle
+        
         try:
+            # ⭐ 새 탭 열기
+            print("📑 새 탭 열기...")
+            self.driver.execute_script("window.open('');")
+            self.driver.switch_to.window(self.driver.window_handles[-1])
+            print("✅ 새 탭으로 전환 완료")
+            
             # ⭐ 카페 정보 조회 및 게시판 변경
             cafe_info = self.get_cafe_info_from_url(draft_url)
             target_board = None
@@ -731,12 +740,28 @@ class NaverCafeWorker:
             print(f"{'='*60}")
             print(f"URL: {post_url}")
             print(f"{'='*60}\n")
+            
+            # ⭐ 작업 완료 후 탭 닫기
+            print("📑 작업 탭 닫기...")
+            self.driver.close()
+            self.driver.switch_to.window(original_window)
+            print("✅ 네이버 홈 탭으로 복귀 완료")
+            
             return post_url
             
         except Exception as e:
             print(f"❌ 수정 발행 오류: {e}")
             import traceback
             traceback.print_exc()
+            
+            # ⭐ 오류 발생 시에도 탭 닫기
+            try:
+                self.driver.close()
+                self.driver.switch_to.window(original_window)
+                print("✅ 오류 후 네이버 홈 탭으로 복귀")
+            except:
+                pass
+            
             return None
     
     def write_post(self, cafe_url: str, title: str, content: str) -> Optional[str]:
@@ -811,11 +836,20 @@ class NaverCafeWorker:
             return None
         
     def write_comment(self, post_url: str, content: str, is_reply: bool = False, parent_comment_id: Optional[str] = None) -> bool:
-        """댓글/대댓글 작성 (봇 감지 우회)"""
+        """댓글/대댓글 작성 (새 탭에서 작업)"""
         comment_type = "대댓글" if is_reply else "댓글"
         print(f"💬 {comment_type} 작성 시작: {content[:30]}...")
         
+        # 현재 탭 저장 (네이버 홈 탭)
+        original_window = self.driver.current_window_handle
+        
         try:
+            # ⭐ 새 탭 열기
+            print("📑 새 탭 열기...")
+            self.driver.execute_script("window.open('');")
+            self.driver.switch_to.window(self.driver.window_handles[-1])
+            print("✅ 새 탭으로 전환 완료")
+            
             # 글 페이지로 이동
             self.driver.get(post_url)
             self.random_delay(3, 5)
@@ -985,15 +1019,40 @@ class NaverCafeWorker:
                         print(f"  ⚠️ 댓글 ID 추출 오류: {e}")
                 
                 print(f"✅ {comment_type} 작성 완료")
+                
+                # ⭐ 작업 완료 후 탭 닫기
+                print("📑 작업 탭 닫기...")
+                self.driver.close()
+                self.driver.switch_to.window(original_window)
+                print("✅ 네이버 홈 탭으로 복귀 완료")
+                
                 return comment_id if not is_reply else True
             else:
                 print("❌ 댓글 등록 버튼을 찾을 수 없습니다")
+                
+                # ⭐ 실패 시에도 탭 닫기
+                try:
+                    self.driver.close()
+                    self.driver.switch_to.window(original_window)
+                    print("✅ 실패 후 네이버 홈 탭으로 복귀")
+                except:
+                    pass
+                
                 return False
                 
         except Exception as e:
             print(f"❌ {comment_type} 작성 오류: {e}")
             import traceback
             traceback.print_exc()
+            
+            # ⭐ 오류 발생 시에도 탭 닫기
+            try:
+                self.driver.close()
+                self.driver.switch_to.window(original_window)
+                print("✅ 오류 후 네이버 홈 탭으로 복귀")
+            except:
+                pass
+            
             return False
         
     async def process_task(self, task: Dict):
