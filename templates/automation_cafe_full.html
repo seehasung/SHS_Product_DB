@@ -194,6 +194,9 @@
                 <li><a class="nav-link" data-bs-toggle="tab" href="#schedules">
                     <i class="bi bi-calendar-week"></i> 스케줄 (휴먼)
                 </a></li>
+                <li><a class="nav-link" data-bs-toggle="tab" href="#worker-version">
+                    <i class="bi bi-code-square"></i> Worker 버전
+                </a></li>
             </ul>
         </li>
     </ul>
@@ -394,7 +397,8 @@
                             <tr>
                                 <th>카페명</th>
                                 <th>URL</th>
-                                <th style="width: 25%;">특성</th>
+                                <th>게시판명</th>
+                                <th style="width: 20%;">특성</th>
                                 <th>상태</th>
                                 <th>등록일</th>
                                 {% if is_admin %}<th>관리</th>{% endif %}
@@ -402,7 +406,7 @@
                         </thead>
                         <tbody id="cafesTableBody">
                             <tr>
-                                <td colspan="6" class="text-center text-muted">
+                                <td colspan="7" class="text-center text-muted">
                                     <i class="bi bi-hourglass-split"></i> 데이터 로딩 중...
                                 </td>
                             </tr>
@@ -484,6 +488,59 @@
                             <tr>
                                 <td colspan="8" class="text-center text-muted">
                                     <i class="bi bi-hourglass-split"></i> 데이터 로딩 중...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Worker 버전 관리 탭 -->
+        <div class="tab-pane fade" id="worker-version">
+            <div class="content-card">
+                <div class="card-header-custom">
+                    <h4><i class="bi bi-code-square"></i> Worker 버전 관리</h4>
+                    {% if is_admin %}
+                    <button class="btn btn-primary" onclick="showDeployModal()">
+                        <i class="bi bi-rocket"></i> 새 버전 배포
+                    </button>
+                    {% endif %}
+                </div>
+                
+                <div class="row mb-4">
+                    <div class="col-md-6">
+                        <div class="alert alert-info">
+                            <h5><i class="bi bi-info-circle"></i> 현재 버전</h5>
+                            <h3 id="currentVersion">로딩 중...</h3>
+                            <div id="currentChangelog" class="mt-2"></div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="alert alert-success">
+                            <h5><i class="bi bi-clock-history"></i> 버전 정보</h5>
+                            <p class="mb-1">✅ Worker PC가 자동으로 업데이트됩니다</p>
+                            <p class="mb-0">✅ 백업 파일 자동 생성</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <h5 class="mb-3"><i class="bi bi-list-ul"></i> 버전 히스토리</h5>
+                <div class="table-responsive">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>버전</th>
+                                <th>상태</th>
+                                <th style="width: 40%;">변경사항</th>
+                                <th>배포자</th>
+                                <th>배포일</th>
+                            </tr>
+                        </thead>
+                        <tbody id="versionHistoryBody">
+                            <tr>
+                                <td colspan="5" class="text-center text-muted">
+                                    <i class="bi bi-hourglass-split"></i> 로딩 중...
                                 </td>
                             </tr>
                         </tbody>
@@ -829,6 +886,12 @@
                                   placeholder="예: 주부 중심, 친근한 말투, 육아/생활 팁 선호"></textarea>
                         <small class="text-muted">AI가 이 특성에 맞춰 글을 작성합니다.</small>
                     </div>
+                    <div class="mb-3">
+                        <label class="form-label">변경할 게시판명</label>
+                        <input type="text" class="form-control" name="target_board" 
+                               placeholder="예: 정보공유, 자유게시판">
+                        <small class="text-muted">Worker가 자동으로 이 게시판으로 변경합니다.</small>
+                    </div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">취소</button>
@@ -863,6 +926,12 @@
                         <textarea class="form-control" id="editCafeCharacteristics" rows="3"
                                   placeholder="예: 주부 중심, 친근한 말투, 육아/생활 팁 선호"></textarea>
                         <small class="text-muted">AI가 이 특성에 맞춰 글을 작성합니다.</small>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">변경할 게시판명</label>
+                        <input type="text" class="form-control" id="editCafeTargetBoard" 
+                               placeholder="예: 정보공유, 자유게시판">
+                        <small class="text-muted">Worker가 자동으로 이 게시판으로 변경합니다.</small>
                     </div>
                     <div class="mb-3">
                         <label class="form-label">상태</label>
@@ -951,6 +1020,48 @@
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">취소</button>
                     <button type="submit" class="btn btn-primary">
                         <i class="bi bi-calendar-check"></i> 스케줄 생성
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Worker 버전 배포 모달 -->
+<div class="modal fade" id="deployWorkerModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-rocket"></i> Worker 새 버전 배포</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form onsubmit="deployWorkerVersion(event)">
+                <div class="modal-body">
+                    <div class="alert alert-warning">
+                        <i class="bi bi-exclamation-triangle"></i> 
+                        <strong>주의:</strong> 모든 Worker PC가 자동으로 업데이트됩니다!
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">버전 타입 <span class="text-danger">*</span></label>
+                        <select class="form-select" name="version_type" required>
+                            <option value="patch">패치 (1.0.2 → 1.0.3) - 버그 수정</option>
+                            <option value="minor">마이너 (1.0.3 → 1.1.0) - 기능 추가</option>
+                            <option value="major">메이저 (1.1.0 → 2.0.0) - 대규모 변경</option>
+                        </select>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">변경사항 <span class="text-danger">*</span></label>
+                        <textarea class="form-control" name="changelog" rows="5" 
+                                  placeholder="- 댓글 작성 기능 추가&#10;- 한 글자씩 타이핑 기능&#10;- 탭 관리 개선" required></textarea>
+                        <small class="text-muted">줄바꿈으로 구분하세요</small>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">취소</button>
+                    <button type="submit" class="btn btn-danger">
+                        <i class="bi bi-rocket"></i> 배포 시작
                     </button>
                 </div>
             </form>
@@ -1434,7 +1545,7 @@ function displayCafes(cafes) {
     if (cafes.length === 0) {
         tbody.innerHTML = `
             <tr>
-                <td colspan="6" class="text-center text-muted">
+                <td colspan="7" class="text-center text-muted">
                     등록된 카페가 없습니다
                 </td>
             </tr>
@@ -1446,6 +1557,7 @@ function displayCafes(cafes) {
         <tr>
             <td><strong>${cafe.name}</strong></td>
             <td><a href="${cafe.url}" target="_blank" class="small">${cafe.url.substring(0, 40)}...</a></td>
+            <td><span class="badge bg-info">${cafe.target_board || '미설정'}</span></td>
             <td><small class="text-muted">${cafe.characteristics || '-'}</small></td>
             <td><span class="status-badge ${cafe.status}">${cafe.status}</span></td>
             <td>${cafe.created_at}</td>
@@ -1749,6 +1861,7 @@ async function editCafe(id) {
             document.getElementById('editCafeName').value = cafe.name;
             document.getElementById('editCafeUrl').value = cafe.url;
             document.getElementById('editCafeCharacteristics').value = cafe.characteristics || '';
+            document.getElementById('editCafeTargetBoard').value = cafe.target_board || '';
             document.getElementById('editCafeStatus').value = cafe.status;
             
             // 모달 열기
@@ -1766,6 +1879,7 @@ async function updateCafe() {
     const name = document.getElementById('editCafeName').value;
     const url = document.getElementById('editCafeUrl').value;
     const characteristics = document.getElementById('editCafeCharacteristics').value;
+    const targetBoard = document.getElementById('editCafeTargetBoard').value;
     const status = document.getElementById('editCafeStatus').value;
     
     try {
@@ -1773,6 +1887,7 @@ async function updateCafe() {
         formData.append('cafe_name', name);
         formData.append('cafe_url', url);
         formData.append('characteristics', characteristics);
+        formData.append('target_board', targetBoard);
         formData.append('status', status);
         
         const response = await fetch(`/automation/api/cafes/update/${id}`, {
@@ -2485,6 +2600,10 @@ document.addEventListener('DOMContentLoaded', function() {
                     break;
                 case 'schedules':
                     loadHumanSchedules();
+                    break;
+                case 'worker-version':
+                    loadWorkerVersion();
+                    loadWorkerVersionHistory();
                     break;
                 // AI 탭들
                 case 'ai-product-setup':
@@ -4918,6 +5037,118 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 
+// ============================================
+// Worker 버전 관리
+// ============================================
+
+async function loadWorkerVersion() {
+    try {
+        const response = await fetch('/automation/api/worker/version');
+        const data = await response.json();
+        
+        // 현재 버전 표시
+        document.getElementById('currentVersion').textContent = `v${data.version}`;
+        
+        const changelogDiv = document.getElementById('currentChangelog');
+        if (data.changelog && data.changelog.length > 0) {
+            changelogDiv.innerHTML = data.changelog.map(item => 
+                `<div class="small">✅ ${item}</div>`
+            ).join('');
+        } else {
+            changelogDiv.innerHTML = '<div class="small text-muted">변경사항 없음</div>';
+        }
+        
+    } catch (error) {
+        console.error('버전 로드 오류:', error);
+        document.getElementById('currentVersion').textContent = '로드 실패';
+    }
+}
+
+async function loadWorkerVersionHistory() {
+    try {
+        const response = await fetch('/automation/api/worker/version/history');
+        const data = await response.json();
+        
+        if (!data.success) {
+            throw new Error(data.error);
+        }
+        
+        const tbody = document.getElementById('versionHistoryBody');
+        
+        if (data.versions.length === 0) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="5" class="text-center text-muted">버전 히스토리가 없습니다</td>
+                </tr>
+            `;
+            return;
+        }
+        
+        tbody.innerHTML = data.versions.map(v => `
+            <tr>
+                <td><strong>v${v.version}</strong></td>
+                <td>
+                    ${v.is_active ? 
+                        '<span class="badge bg-success">최신</span>' : 
+                        '<span class="badge bg-secondary">이전</span>'
+                    }
+                </td>
+                <td><small>${v.changelog || '-'}</small></td>
+                <td>${v.created_by || '-'}</td>
+                <td>${v.created_at || '-'}</td>
+            </tr>
+        `).join('');
+        
+    } catch (error) {
+        console.error('버전 히스토리 로드 오류:', error);
+    }
+}
+
+function showDeployModal() {
+    const modal = new bootstrap.Modal(document.getElementById('deployWorkerModal'));
+    modal.show();
+}
+
+async function deployWorkerVersion(event) {
+    event.preventDefault();
+    
+    if (!confirm('정말로 새 버전을 배포하시겠습니까?\n모든 Worker PC가 자동으로 재시작됩니다!')) {
+        return;
+    }
+    
+    const form = event.target;
+    const formData = new FormData(form);
+    
+    try {
+        const response = await fetch('/automation/api/worker/version/update', {
+            method: 'POST',
+            body: formData
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            alert(`✅ ${result.message}\n\n모든 Worker PC가 자동으로 업데이트됩니다.`);
+            
+            // 모달 닫기
+            const modal = bootstrap.Modal.getInstance(document.getElementById('deployWorkerModal'));
+            modal.hide();
+            
+            // 폼 초기화
+            form.reset();
+            
+            // 버전 정보 새로고침
+            await loadWorkerVersion();
+            await loadWorkerVersionHistory();
+        } else {
+            alert('❌ ' + result.message);
+        }
+    } catch (error) {
+        console.error('배포 오류:', error);
+        alert('❌ 배포 중 오류가 발생했습니다');
+    }
+}
+
 </script>
 
 <!-- ============================================ -->
@@ -5936,6 +6167,48 @@ document.addEventListener('DOMContentLoaded', function() {
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">취소</button>
                     <button type="submit" class="btn btn-primary">생성</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Worker 버전 배포 모달 -->
+<div class="modal fade" id="deployWorkerModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-rocket"></i> Worker 새 버전 배포</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form onsubmit="deployWorkerVersion(event)">
+                <div class="modal-body">
+                    <div class="alert alert-warning">
+                        <i class="bi bi-exclamation-triangle"></i> 
+                        <strong>주의:</strong> 모든 Worker PC가 자동으로 업데이트됩니다!
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">버전 타입 <span class="text-danger">*</span></label>
+                        <select class="form-select" name="version_type" required>
+                            <option value="patch">패치 (1.0.2 → 1.0.3) - 버그 수정</option>
+                            <option value="minor">마이너 (1.0.3 → 1.1.0) - 기능 추가</option>
+                            <option value="major">메이저 (1.1.0 → 2.0.0) - 대규모 변경</option>
+                        </select>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">변경사항 <span class="text-danger">*</span></label>
+                        <textarea class="form-control" name="changelog" rows="5" 
+                                  placeholder="- 댓글 작성 기능 추가&#10;- 한 글자씩 타이핑 기능&#10;- 탭 관리 개선" required></textarea>
+                        <small class="text-muted">줄바꿈으로 구분하세요</small>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">취소</button>
+                    <button type="submit" class="btn btn-danger">
+                        <i class="bi bi-rocket"></i> 배포 시작
+                    </button>
                 </div>
             </form>
         </div>

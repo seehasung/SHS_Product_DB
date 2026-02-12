@@ -1023,6 +1023,7 @@ class AutomationCafe(Base):
     cafe_id = Column(String(100), nullable=True)
     status = Column(String(20), default='active')
     characteristics = Column(Text, nullable=True)  # 카페 특성 (AI가 톤 맞추기용)
+    target_board = Column(String(255), nullable=True)  # ⭐ 변경할 게시판명
     
     created_at = Column(DateTime, default=get_kst_now)
     updated_at = Column(DateTime, default=get_kst_now, onupdate=get_kst_now)
@@ -1052,6 +1053,18 @@ class AutomationPrompt(Base):
     
     # 관계
     schedules = relationship("AutomationSchedule", back_populates="prompt")
+
+
+class WorkerVersion(Base):
+    """Worker Agent 버전 관리"""
+    __tablename__ = "worker_versions"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    version = Column(String(20), nullable=False, unique=True)  # "1.0.3"
+    changelog = Column(Text, nullable=True)  # 변경사항 (줄바꿈으로 구분)
+    is_active = Column(Boolean, default=True, index=True)  # 최신 버전 표시
+    created_at = Column(DateTime, default=get_kst_now)
+    created_by = Column(String(100), nullable=True)  # 배포자
 
 
 class AutomationSchedule(Base):

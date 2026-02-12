@@ -25,7 +25,7 @@ from database import (
     AutomationWorkerPC, AutomationAccount, AutomationCafe,
     AutomationPrompt, AutomationSchedule, AutomationTask,
     AutomationPost, AutomationComment, MarketingProduct, Product,
-    MarketingPost, User, CommentScript  # ⭐ 다시 추가!
+    MarketingPost, User, CommentScript, WorkerVersion  # ⭐ WorkerVersion 추가!
 )
 
 router = APIRouter(prefix="/automation", tags=["automation"])
@@ -1018,10 +1018,51 @@ async def list_cafes(db: Session = Depends(get_db)):
             'name': cafe.name,
             'url': cafe.url,
             'characteristics': cafe.characteristics if hasattr(cafe, 'characteristics') else None,
+            'target_board': cafe.target_board if hasattr(cafe, 'target_board') else None,
             'status': cafe.status,
             'created_at': cafe.created_at.strftime('%Y-%m-%d') if cafe.created_at else None
         } for cafe in cafes]
     })
+
+
+@router.get("/api/cafes/by-url")
+async def get_cafe_by_url(
+    url: str,
+    db: Session = Depends(get_db)
+):
+    """URL로 카페 정보 조회 (Worker용)"""
+    try:
+        # URL에서 카페 도메인 추출
+        from urllib.parse import urlparse
+        parsed = urlparse(url)
+        cafe_domain = f"{parsed.scheme}://{parsed.netloc}"
+        
+        # cafe_domain으로 카페 찾기
+        cafe = db.query(AutomationCafe).filter(
+            AutomationCafe.url.like(f"{cafe_domain}%")
+        ).first()
+        
+        if not cafe:
+            return JSONResponse({
+                'success': False,
+                'message': '등록되지 않은 카페입니다'
+            }, status_code=404)
+        
+        return JSONResponse({
+            'success': True,
+            'cafe': {
+                'id': cafe.id,
+                'name': cafe.name,
+                'url': cafe.url,
+                'target_board': cafe.target_board,
+                'characteristics': cafe.characteristics
+            }
+        })
+    except Exception as e:
+        return JSONResponse({
+            'success': False,
+            'error': str(e)
+        }, status_code=500)
 
 
 @router.get("/api/prompts/list")
@@ -1167,6 +1208,7 @@ async def add_cafe(
     cafe_name: str = Form(...),
     cafe_url: str = Form(...),
     characteristics: Optional[str] = Form(None),
+    target_board: Optional[str] = Form(None),
     db: Session = Depends(get_db)
 ):
     """카페 추가"""
@@ -1182,7 +1224,8 @@ async def add_cafe(
         name=cafe_name,
         url=cafe_url,
         status='active',
-        characteristics=characteristics
+        characteristics=characteristics,
+        target_board=target_board
     )
     db.add(cafe)
     db.commit()
@@ -1196,6 +1239,7 @@ async def update_cafe(
     cafe_name: str = Form(...),
     cafe_url: str = Form(...),
     characteristics: Optional[str] = Form(None),
+    target_board: Optional[str] = Form(None),
     status: str = Form('active'),
     db: Session = Depends(get_db)
 ):
@@ -1208,6 +1252,7 @@ async def update_cafe(
     cafe.name = cafe_name
     cafe.url = cafe_url
     cafe.characteristics = characteristics
+    cafe.target_board = target_board
     cafe.status = status
     
     db.commit()
@@ -2642,3 +2687,147 @@ async def test_generation(request: Request, db: Session = Depends(get_db)):
         traceback.print_exc()
         return JSONResponse({'success': False, 'error': str(e)}, status_code=500)
 
+
+# ============================================
+# Worker Agent 버전 관리 API
+# ============================================
+
+@router.get("/api/worker/version")
+async def get_worker_version(db: Session = Depends(get_db)):
+    """Worker 최신 버전 정보"""
+    try:
+        latest = db.query(WorkerVersion).filter(
+            WorkerVersion.is_active == True
+        ).first()
+        
+        if not latest:
+            return {
+                "version": "1.0.0",
+                "changelog": []
+            }
+        
+        changelog = latest.changelog.split('\n') if latest.changelog else []
+        
+        return {
+            "version": latest.version,
+            "changelog": [line for line in changelog if line.strip()]
+        }
+    except Exception as e:
+        return {
+            "version": "1.0.0",
+            "changelog": []
+        }
+
+
+@router.get("/api/worker/download")
+async def download_worker():
+    """Worker 파일 다운로드"""
+    try:
+        from fastapi.responses import FileResponse
+        import os
+        
+        file_path = "worker_agent.py"
+        
+        if not os.path.exists(file_path):
+            return JSONResponse(
+                {'success': False, 'error': 'Worker 파일을 찾을 수 없습니다'},
+                status_code=404
+            )
+        
+        return FileResponse(
+            path=file_path,
+            media_type='text/plain',
+            filename='worker_agent.py'
+        )
+    except Exception as e:
+        return JSONResponse(
+            {'success': False, 'error': str(e)},
+            status_code=500
+        )
+
+
+@router.post("/api/worker/version/update")
+async def update_worker_version(
+    version_type: str = Form(...),  # "major", "minor", "patch"
+    changelog: str = Form(...),
+    db: Session = Depends(get_db)
+):
+    """새 버전 생성 (관리자용)"""
+    try:
+        # 현재 최신 버전 가져오기
+        current = db.query(WorkerVersion).filter(
+            WorkerVersion.is_active == True
+        ).first()
+        
+        if current:
+            # 현재 버전 비활성화
+            current.is_active = False
+            
+            # 버전 번호 자동 증가
+            parts = current.version.split('.')
+            major, minor, patch = int(parts[0]), int(parts[1]), int(parts[2])
+            
+            if version_type == "major":
+                major += 1
+                minor = 0
+                patch = 0
+            elif version_type == "minor":
+                minor += 1
+                patch = 0
+            else:  # patch
+                patch += 1
+            
+            new_version = f"{major}.{minor}.{patch}"
+        else:
+            new_version = "1.0.0"
+        
+        # 새 버전 생성
+        new_version_record = WorkerVersion(
+            version=new_version,
+            changelog=changelog,
+            is_active=True,
+            created_by="admin"
+        )
+        
+        db.add(new_version_record)
+        db.commit()
+        
+        return JSONResponse({
+            'success': True,
+            'version': new_version,
+            'message': f'Worker 버전이 {new_version}으로 업데이트되었습니다'
+        })
+        
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return JSONResponse(
+            {'success': False, 'error': str(e)},
+            status_code=500
+        )
+
+
+@router.get("/api/worker/version/history")
+async def get_worker_version_history(db: Session = Depends(get_db)):
+    """Worker 버전 히스토리"""
+    try:
+        versions = db.query(WorkerVersion).order_by(
+            WorkerVersion.created_at.desc()
+        ).limit(10).all()
+        
+        return JSONResponse({
+            'success': True,
+            'versions': [{
+                'id': v.id,
+                'version': v.version,
+                'changelog': v.changelog,
+                'is_active': v.is_active,
+                'created_at': v.created_at.strftime('%Y-%m-%d %H:%M:%S') if v.created_at else None,
+                'created_by': v.created_by
+            } for v in versions]
+        })
+    except Exception as e:
+        return JSONResponse(
+            {'success': False, 'error': str(e)},
+            status_code=500
+        )

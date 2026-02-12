@@ -61,6 +61,90 @@ class NaverCafeWorker:
         self.current_account = None
         self.is_running = False
         
+    def get_cafe_info_from_url(self, post_url: str) -> Optional[Dict]:
+        """URL에서 카페 정보 조회"""
+        try:
+            from urllib.parse import urlparse
+            
+            # URL 파싱
+            parsed = urlparse(post_url)
+            cafe_domain = f"{parsed.scheme}://{parsed.netloc}"
+            
+            print(f"🔍 카페 정보 조회 중... (도메인: {cafe_domain})")
+            
+            # 서버에 카페 정보 요청
+            api_url = f"https://{self.server_url}/automation/api/cafes/by-url"
+            response = requests.get(
+                api_url,
+                params={'url': post_url},
+                timeout=10,
+                verify=False
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                if data.get('success'):
+                    cafe_info = data.get('cafe')
+                    print(f"✅ 카페 정보 조회 성공")
+                    print(f"   카페명: {cafe_info.get('name')}")
+                    print(f"   게시판명: {cafe_info.get('target_board') or '미설정'}")
+                    return cafe_info
+            
+            print(f"⚠️  등록되지 않은 카페입니다")
+            return None
+            
+        except Exception as e:
+            print(f"❌ 카페 정보 조회 실패: {e}")
+            return None
+    
+    def change_board_category(self, target_board: str) -> bool:
+        """게시판 카테고리 변경"""
+        try:
+            print(f"📋 게시판 변경 시도: '{target_board}'")
+            
+            # 게시판 선택 버튼/드롭다운 찾기
+            category_selectors = [
+                'select[name="menuid"]',
+                'select.select-menu',
+                'select#menuid',
+                '.board-select select'
+            ]
+            
+            for selector in category_selectors:
+                try:
+                    print(f"   시도: {selector}")
+                    category_elem = self.driver.find_element(By.CSS_SELECTOR, selector)
+                    
+                    # 드롭다운에서 target_board와 일치하는 옵션 찾기
+                    from selenium.webdriver.support.ui import Select
+                    select = Select(category_elem)
+                    
+                    # 옵션 목록 확인
+                    options = select.options
+                    print(f"   사용 가능한 게시판: {[opt.text for opt in options]}")
+                    
+                    # target_board 이름으로 찾기
+                    for option in options:
+                        if target_board in option.text or option.text in target_board:
+                            select.select_by_visible_text(option.text)
+                            print(f"✅ 게시판 변경 완료: {option.text}")
+                            self.random_delay(0.5, 1)
+                            return True
+                    
+                    print(f"   ⚠️  '{target_board}' 게시판을 찾을 수 없습니다")
+                    return False
+                    
+                except Exception as e:
+                    print(f"   실패: {e}")
+                    continue
+            
+            print("❌ 게시판 선택 요소를 찾을 수 없습니다")
+            return False
+            
+        except Exception as e:
+            print(f"❌ 게시판 변경 실패: {e}")
+            return False
+        
     def check_for_updates(self) -> bool:
         """서버에서 업데이트 확인 및 자동 다운로드"""
         try:
@@ -371,6 +455,13 @@ class NaverCafeWorker:
         print(f"{'='*60}\n")
         
         try:
+            # ⭐ 카페 정보 조회 및 게시판 변경
+            cafe_info = self.get_cafe_info_from_url(draft_url)
+            target_board = None
+            if cafe_info and cafe_info.get('target_board'):
+                target_board = cafe_info.get('target_board')
+                print(f"📋 자동 게시판 변경 예정: {target_board}")
+            
             # 기존 글 URL 접속
             print("📡 URL 접속 중...")
             self.driver.get(draft_url)
@@ -412,8 +503,22 @@ class NaverCafeWorker:
             self.random_delay(2, 3)
             print("✅ 수정 화면 진입")
             
+            # 페이지 로드 대기
+            self.random_delay(3, 5)
+            
             # iframe 재전환 (수정 페이지)
             self.driver.switch_to.default_content()
+            
+            # iframe 확인
+            print("🔍 iframe 확인...")
+            iframes = self.driver.find_elements(By.TAG_NAME, 'iframe')
+            print(f"   iframe 개수: {len(iframes)}")
+            
+            # ⭐ 게시판 변경 (target_board가 있는 경우)
+            if target_board:
+                print(f"\n📋 게시판 자동 변경 시작...")
+                self.change_board_category(target_board)
+                self.random_delay(1, 2)
             
             # 제목 수정 (test_full_post_flow 방식)
             print("✍️ 제목 입력 시도...")
@@ -446,9 +551,9 @@ class NaverCafeWorker:
             
             content_success = False
             
-            # 방법 1: p.se-text-paragraph 직접 클릭
+            # 방법 1: p.se-text-paragraph 직접 클릭 후 타이핑 (test_full_post_flow 검증된 방식)
             try:
-                print("   방법 1: paragraph 클릭")
+                print("   직접 타이핑 방식으로 본문 입력...")
                 paragraph = self.driver.find_element(By.CSS_SELECTOR, "p.se-text-paragraph")
                 self.driver.execute_script("arguments[0].scrollIntoView(true);", paragraph)
                 self.random_delay(0.5, 1)
@@ -457,89 +562,175 @@ class NaverCafeWorker:
                 self.random_delay(0.5, 1)
                 
                 active = self.driver.switch_to.active_element
-                active.send_keys(Keys.CONTROL, 'a')
+                
+                # 기존 내용 전체 삭제
+                print("      → 기존 내용 삭제 중...")
+                active.send_keys(Keys.CONTROL, 'a')  # 전체 선택
                 self.random_delay(0.2, 0.3)
-                active.send_keys(Keys.DELETE)
+                active.send_keys(Keys.DELETE)  # 삭제
                 self.random_delay(0.5, 1)
+                
+                # 새 내용 입력
+                print("      → 새 내용 입력 중...")
                 active.send_keys(content)
                 self.random_delay(0.5, 1)
                 
-                content_success = True
-                print("✅ 본문 입력 완료 (직접 타이핑)")
+                # 입력 확인
+                check_script = """
+                    var span = document.querySelector('span.__se-node');
+                    if (span && span.textContent.length > 0) {
+                        return true;
+                    }
+                    return false;
+                """
+                if self.driver.execute_script(check_script):
+                    content_success = True
+                    print("✅ 본문 입력 완료")
+                else:
+                    print("   ⚠️ 입력 확인 실패")
                 
             except Exception as e:
-                print(f"   실패: {e}")
+                print(f"   ❌ 본문 입력 실패: {e}")
             
-            # 방법 2: article 방식 (test_cafe_step_by_step.py)
+            # 최종 확인
             if not content_success:
-                try:
-                    print("   방법 2: article 찾기")
-                    article = self.driver.find_element(By.CSS_SELECTOR, 'article.se-components-wrap')
-                    
-                    # 기존 p 태그 모두 삭제
-                    self.driver.execute_script("""
-                        const article = arguments[0];
-                        const paragraphs = article.querySelectorAll('p.se-text-paragraph');
-                        paragraphs.forEach(p => p.remove());
-                    """, article)
-                    self.random_delay(0.5, 1)
-                    print("   기존 내용 삭제")
-                    
-                    # 새 내용 추가 (줄 단위)
-                    lines = content.split('\n')
-                    for i, line in enumerate(lines):
-                        if line.strip():
-                            self.driver.execute_script("""
-                                const article = arguments[0];
-                                const text = arguments[1];
-                                
-                                const p = document.createElement('p');
-                                p.className = 'se-text-paragraph se-text-paragraph-align-left';
-                                p.style.lineHeight = '1.6';
-                                
-                                const span = document.createElement('span');
-                                span.className = 'se-ff-system se-fs15 __se-node';
-                                span.style.color = 'rgb(0, 0, 0)';
-                                span.textContent = text;
-                                
-                                p.appendChild(span);
-                                article.querySelector('.se-module-text').appendChild(p);
-                            """, article, line)
-                            print(f"   → 줄 {i+1}/{len(lines)} 추가")
-                    
-                    content_success = True
-                    print("✅ 본문 입력 완료 (article 방식)")
-                    
-                except Exception as e:
-                    print(f"   실패: {e}")
+                print("❌ 본문 입력 실패")
+                print("   수동으로 본문을 입력해주세요!")
             
             self.random_delay(2, 3)
             
-            # 등록 버튼 (다양한 selector)
+            # ⭐ 댓글 허용 체크박스 확인 및 설정
+            print("\n💬 댓글 허용 설정 확인 중...")
+            try:
+                # 댓글 허용 체크박스 찾기
+                comment_checkbox_selectors = [
+                    'input[type="checkbox"][name*="comment"]',
+                    'input[type="checkbox"][id*="comment"]',
+                    'input[type="checkbox"].comment-allow',
+                    '#commentOpen',
+                    'input[name="commentOpen"]'
+                ]
+                
+                comment_checkbox = None
+                for selector in comment_checkbox_selectors:
+                    try:
+                        comment_checkbox = self.driver.find_element(By.CSS_SELECTOR, selector)
+                        print(f"   ✅ 댓글 체크박스 발견: {selector}")
+                        break
+                    except:
+                        continue
+                
+                if comment_checkbox:
+                    # 현재 체크 상태 확인
+                    is_checked = comment_checkbox.is_selected()
+                    print(f"   현재 상태: {'체크됨' if is_checked else '체크 안됨'}")
+                    
+                    # 체크되어 있지 않으면 체크하기
+                    if not is_checked:
+                        comment_checkbox.click()
+                        self.random_delay(0.5, 1)
+                        print("   ✅ 댓글 허용 체크 완료")
+                    else:
+                        print("   ℹ️  이미 체크되어 있음 (건너뛰기)")
+                else:
+                    print("   ⚠️  댓글 체크박스를 찾을 수 없습니다 (기본값 사용)")
+                    
+            except Exception as e:
+                print(f"   ⚠️  댓글 설정 오류: {e} (계속 진행)")
+            
+            self.random_delay(1, 2)
+            
+            # ⭐ 등록 버튼 자동 클릭 (다중 방법 시도)
+            print("\n📤 등록 버튼 자동 클릭 시도...")
             submit_selectors = [
-                'a.btn-submit',
-                'button.btn-submit',
-                'a[class*="submit"]',
-                'button[class*="submit"]',
-                '#btn-submit'
+                ('xpath', '//*[@id="app"]/div/div/section/div/div[1]/div/a'),  # 사용자 제공 XPath
+                ('css', 'a.btn-submit'),
+                ('css', 'button.btn-submit'),
+                ('css', 'a[class*="submit"]'),
+                ('css', 'button[class*="submit"]'),
+                ('css', '#btn-submit'),
+                ('css', '.btn-register'),
+                ('css', 'a.btn_register')
             ]
             
             submit_btn = None
-            for selector in submit_selectors:
+            used_selector = None
+            clicked = False
+            
+            # 1단계: 버튼 찾기
+            for selector_type, selector in submit_selectors:
                 try:
-                    submit_btn = self.driver.find_element(By.CSS_SELECTOR, selector)
+                    if selector_type == 'xpath':
+                        submit_btn = self.driver.find_element(By.XPATH, selector)
+                    else:
+                        submit_btn = self.driver.find_element(By.CSS_SELECTOR, selector)
+                    
+                    used_selector = f"{selector_type}: {selector}"
+                    print(f"   ✅ 등록 버튼 발견: {used_selector}")
                     break
                 except:
                     continue
             
-            if not submit_btn:
-                print("⚠️ 등록 버튼을 찾을 수 없습니다")
-                return None
-            submit_btn.click()
-            self.random_delay(3, 4)
+            if submit_btn:
+                # 2단계: 스크롤하여 버튼이 보이도록
+                try:
+                    self.driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", submit_btn)
+                    self.random_delay(0.5, 1)
+                except:
+                    pass
+                
+                # 3단계: 클릭 시도 (여러 방법)
+                click_methods = [
+                    ("일반 클릭", lambda: submit_btn.click()),
+                    ("JavaScript 클릭", lambda: self.driver.execute_script("arguments[0].click();", submit_btn)),
+                    ("ActionChains 클릭", lambda: ActionChains(self.driver).move_to_element(submit_btn).click().perform())
+                ]
+                
+                for method_name, click_func in click_methods:
+                    try:
+                        print(f"   🖱️  {method_name} 시도...")
+                        click_func()
+                        self.random_delay(2, 3)
+                        
+                        # 클릭 성공 확인 (URL 변경 또는 페이지 변화 확인)
+                        current_url = self.driver.current_url
+                        if 'ArticleWrite' not in current_url or 'ArticleModify' not in current_url:
+                            clicked = True
+                            print(f"   ✅ {method_name} 성공!")
+                            break
+                        else:
+                            print(f"   ⚠️  {method_name} 후에도 페이지 변화 없음")
+                            
+                    except Exception as e:
+                        print(f"   ⚠️  {method_name} 실패: {e}")
+                        continue
+                
+                if clicked:
+                    print("✅ 등록 버튼 자동 클릭 완료")
+                    self.random_delay(2, 3)  # 페이지 로딩 대기
+                else:
+                    print("⚠️  모든 클릭 방법 실패, 최종 시도...")
+                    # 최종 시도: 강제 JavaScript 실행
+                    try:
+                        self.driver.execute_script("""
+                            var btn = arguments[0];
+                            btn.click();
+                            if (btn.onclick) btn.onclick();
+                            if (btn.href) window.location.href = btn.href;
+                        """, submit_btn)
+                        self.random_delay(3, 4)
+                        print("✅ JavaScript 강제 클릭 완료")
+                    except Exception as e:
+                        print(f"❌ 최종 클릭도 실패: {e}")
+            else:
+                print("❌ 등록 버튼을 찾을 수 없습니다")
             
             post_url = self.driver.current_url
-            print(f"✅ 수정 발행 완료: {post_url}")
+            print(f"\n{'='*60}")
+            print(f"✅ 수정 발행 완료")
+            print(f"{'='*60}")
+            print(f"URL: {post_url}")
+            print(f"{'='*60}\n")
             return post_url
             
         except Exception as e:
