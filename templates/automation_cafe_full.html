@@ -5118,36 +5118,63 @@ document.addEventListener('DOMContentLoaded', function() {
 async function loadWorkerVersion() {
     try {
         const response = await fetch('/automation/api/worker/version');
+        
+        if (!response.ok) {
+            throw new Error(`서버 오류: ${response.status}`);
+        }
+        
         const data = await response.json();
         
+        console.log('✅ Worker 버전 로드:', data);
+        
         // 현재 버전 표시
-        document.getElementById('currentVersion').textContent = `v${data.version}`;
+        const versionEl = document.getElementById('currentVersion');
+        if (versionEl) {
+            versionEl.textContent = `v${data.version}`;
+        }
         
         const changelogDiv = document.getElementById('currentChangelog');
-        if (data.changelog && data.changelog.length > 0) {
-            changelogDiv.innerHTML = data.changelog.map(item => 
-                `<div class="small">✅ ${item}</div>`
-            ).join('');
-        } else {
-            changelogDiv.innerHTML = '<div class="small text-muted">변경사항 없음</div>';
+        if (changelogDiv) {
+            if (data.changelog && data.changelog.length > 0) {
+                changelogDiv.innerHTML = data.changelog.map(item => 
+                    `<div class="small">✅ ${item}</div>`
+                ).join('');
+            } else {
+                changelogDiv.innerHTML = '<div class="small text-muted">변경사항 없음</div>';
+            }
         }
         
     } catch (error) {
         console.error('버전 로드 오류:', error);
-        document.getElementById('currentVersion').textContent = '로드 실패';
+        const versionEl = document.getElementById('currentVersion');
+        if (versionEl) {
+            versionEl.textContent = '로드 실패';
+        }
     }
 }
 
 async function loadWorkerVersionHistory() {
     try {
         const response = await fetch('/automation/api/worker/version/history');
+        
+        if (!response.ok) {
+            throw new Error(`서버 오류: ${response.status}`);
+        }
+        
         const data = await response.json();
         
+        console.log('✅ Worker 히스토리 로드:', data);
+        
         if (!data.success) {
-            throw new Error(data.error);
+            throw new Error(data.error || '데이터 로드 실패');
         }
         
         const tbody = document.getElementById('versionHistoryBody');
+        
+        if (!tbody) {
+            console.error('versionHistoryBody 요소를 찾을 수 없습니다');
+            return;
+        }
         
         if (data.versions.length === 0) {
             tbody.innerHTML = `
@@ -5175,6 +5202,16 @@ async function loadWorkerVersionHistory() {
         
     } catch (error) {
         console.error('버전 히스토리 로드 오류:', error);
+        const tbody = document.getElementById('versionHistoryBody');
+        if (tbody) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="5" class="text-center text-danger">
+                        ❌ 로드 실패: ${error.message}
+                    </td>
+                </tr>
+            `;
+        }
     }
 }
 
@@ -5199,6 +5236,10 @@ async function deployWorkerVersion(event) {
             body: formData
         });
         
+        if (!response.ok) {
+            throw new Error(`서버 오류: ${response.status}`);
+        }
+        
         const result = await response.json();
         
         if (result.success) {
@@ -5206,7 +5247,9 @@ async function deployWorkerVersion(event) {
             
             // 모달 닫기
             const modal = bootstrap.Modal.getInstance(document.getElementById('deployWorkerModal'));
-            modal.hide();
+            if (modal) {
+                modal.hide();
+            }
             
             // 폼 초기화
             form.reset();
@@ -5215,11 +5258,11 @@ async function deployWorkerVersion(event) {
             await loadWorkerVersion();
             await loadWorkerVersionHistory();
         } else {
-            alert('❌ ' + result.message);
+            alert('❌ ' + (result.error || result.message || '배포 실패'));
         }
     } catch (error) {
         console.error('배포 오류:', error);
-        alert('❌ 배포 중 오류가 발생했습니다');
+        alert('❌ 배포 중 오류가 발생했습니다: ' + error.message);
     }
 }
 
