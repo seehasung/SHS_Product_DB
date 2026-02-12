@@ -2834,68 +2834,8 @@ async def get_worker_version_history(db: Session = Depends(get_db)):
 
 
 # ============================================
-# AI 신규발행 글 메타데이터 API
+# AI 신규발행 글 API (기존 AIGeneratedPost 사용)
 # ============================================
-
-@router.post("/api/ai-posts/save")
-async def save_ai_generated_post(
-    cafe_name: str = Form(...),
-    author_account: str = Form(...),
-    product_name: str = Form(...),
-    title: str = Form(...),
-    post_url: str = Form(...),
-    db: Session = Depends(get_db)
-):
-    """AI 신규발행 글 메타데이터 저장"""
-    try:
-        # 중복 체크 (같은 URL이면 업데이트)
-        existing = db.query(AIGeneratedPost).filter(
-            AIGeneratedPost.post_url == post_url
-        ).first()
-        
-        if existing:
-            # 업데이트
-            existing.cafe_name = cafe_name
-            existing.author_account = author_account
-            existing.product_name = product_name
-            existing.title = title
-            existing.status = 'active'
-            existing.updated_at = get_kst_now()
-            db.commit()
-            
-            return JSONResponse({
-                'success': True,
-                'message': '글 정보가 업데이트되었습니다',
-                'post_id': existing.id
-            })
-        else:
-            # 새로 생성
-            new_post = AIGeneratedPost(
-                cafe_name=cafe_name,
-                author_account=author_account,
-                product_name=product_name,
-                title=title,
-                post_url=post_url,
-                status='active'
-            )
-            db.add(new_post)
-            db.commit()
-            db.refresh(new_post)
-            
-            return JSONResponse({
-                'success': True,
-                'message': 'AI 신규발행 글이 저장되었습니다',
-                'post_id': new_post.id
-            })
-            
-    except Exception as e:
-        import traceback
-        traceback.print_exc()
-        return JSONResponse(
-            {'success': False, 'error': str(e)},
-            status_code=500
-        )
-
 
 @router.get("/api/ai-posts/list")
 async def list_ai_generated_posts(
@@ -2917,10 +2857,7 @@ async def list_ai_generated_posts(
         if search:
             search_pattern = f'%{search}%'
             query = query.filter(
-                (AIGeneratedPost.title.like(search_pattern)) |
-                (AIGeneratedPost.cafe_name.like(search_pattern)) |
-                (AIGeneratedPost.product_name.like(search_pattern)) |
-                (AIGeneratedPost.author_account.like(search_pattern))
+                AIGeneratedPost.post_title.like(search_pattern)
             )
         
         # 총 개수
@@ -2935,13 +2872,11 @@ async def list_ai_generated_posts(
             'success': True,
             'posts': [{
                 'id': p.id,
-                'cafe_name': p.cafe_name,
-                'author_account': p.author_account,
-                'product_name': p.product_name,
-                'title': p.title,
-                'post_url': p.post_url,
+                'title': p.post_title,
+                'url': p.post_url,
                 'status': p.status,
-                'created_at': p.created_at.strftime('%Y-%m-%d %H:%M:%S') if p.created_at else None
+                'created_at': p.created_at.strftime('%Y-%m-%d %H:%M:%S') if p.created_at else None,
+                'published_at': p.published_at.strftime('%Y-%m-%d %H:%M:%S') if p.published_at else None
             } for p in posts],
             'total': total,
             'page': page,
@@ -2975,7 +2910,6 @@ async def update_ai_post_status(
             )
         
         post.status = status
-        post.updated_at = get_kst_now()
         db.commit()
         
         return JSONResponse({
