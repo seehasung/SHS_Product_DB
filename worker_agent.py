@@ -51,7 +51,7 @@ from pathlib import Path
 class NaverCafeWorker:
     """네이버 카페 자동 작성 Worker"""
     
-    VERSION = "1.0.2"  # 현재 버전
+    VERSION = "1.0."  # 현재 버전
     
     def __init__(self, pc_number: int, server_url: str = "scorp274.com"):
         self.pc_number = pc_number
@@ -61,6 +61,33 @@ class NaverCafeWorker:
         self.current_account = None
         self.is_running = False
         
+    def get_my_account_from_server(self) -> Optional[Dict]:
+        """서버에서 내 PC에 할당된 계정 정보 가져오기"""
+        try:
+            api_url = f"https://{self.server_url}/automation/api/pcs/{self.pc_number}/account"
+            response = requests.get(
+                api_url,
+                timeout=10,
+                verify=False
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                if data.get('success'):
+                    account_info = data.get('account')
+                    print(f"✅ 계정 정보 조회 성공: {account_info['account_id']}")
+                    return account_info
+                else:
+                    print(f"⚠️  {data.get('error', '계정 정보를 찾을 수 없습니다')}")
+                    return None
+            else:
+                print(f"⚠️  서버 응답 오류 (HTTP {response.status_code})")
+                return None
+                
+        except Exception as e:
+            print(f"❌ 계정 정보 조회 실패: {e}")
+            return None
+    
     def get_cafe_info_from_url(self, post_url: str) -> Optional[Dict]:
         """URL에서 카페 정보 조회"""
         try:
@@ -1238,6 +1265,33 @@ class NaverCafeWorker:
         
         # Selenium 초기화
         self.init_selenium()
+        
+        # 🔐 자동 로그인
+        print("\n" + "="*60)
+        print("🔐 네이버 자동 로그인 시작")
+        print("="*60)
+        
+        account_info = self.get_my_account_from_server()
+        if account_info:
+            account_id = account_info['account_id']
+            account_pw = account_info['account_pw']
+            
+            print(f"📋 할당된 계정: {account_id}")
+            print(f"🚀 로그인 시도 중...")
+            
+            login_success = self.login_naver(account_id, account_pw)
+            
+            if login_success:
+                print(f"✅ {account_id} 로그인 완료!")
+                print(f"🏠 네이버 홈 탭 유지 (이 탭은 닫지 마세요)")
+                self.current_account = account_id
+            else:
+                print(f"❌ 로그인 실패 - 수동으로 로그인이 필요합니다")
+        else:
+            print(f"⚠️  PC #{self.pc_number}에 할당된 계정이 없습니다")
+            print(f"    https://{self.server_url}/automation/cafe 에서 계정을 할당해주세요")
+        
+        print("="*60 + "\n")
         
         # 서버 연결
         await self.connect_to_server()

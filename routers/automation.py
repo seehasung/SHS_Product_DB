@@ -972,6 +972,55 @@ async def list_pcs(db: Session = Depends(get_db)):
     })
 
 
+@router.get("/api/pcs/{pc_number}/account")
+async def get_pc_account(pc_number: int, db: Session = Depends(get_db)):
+    """PC에 할당된 계정 정보 조회"""
+    try:
+        # PC 정보 조회
+        pc = db.query(AutomationWorkerPC).filter(
+            AutomationWorkerPC.pc_number == pc_number
+        ).first()
+        
+        if not pc:
+            return JSONResponse({
+                'success': False,
+                'error': f'PC #{pc_number}를 찾을 수 없습니다'
+            }, status_code=404)
+        
+        # 해당 PC에 할당된 계정 조회
+        account = db.query(AutomationAccount).filter(
+            AutomationAccount.assigned_pc_id == pc.id
+        ).first()
+        
+        if not account:
+            return JSONResponse({
+                'success': False,
+                'error': f'PC #{pc_number}에 할당된 계정이 없습니다'
+            }, status_code=404)
+        
+        return JSONResponse({
+            'success': True,
+            'account': {
+                'id': account.id,
+                'account_id': account.account_id,
+                'account_pw': account.account_pw,
+                'status': account.status
+            },
+            'pc': {
+                'id': pc.id,
+                'pc_number': pc.pc_number,
+                'pc_name': pc.pc_name
+            }
+        })
+        
+    except Exception as e:
+        print(f"❌ 계정 조회 오류: {e}")
+        return JSONResponse({
+            'success': False,
+            'error': str(e)
+        }, status_code=500)
+
+
 @router.get("/api/accounts/list")
 async def list_accounts(db: Session = Depends(get_db)):
     """계정 목록 조회"""
