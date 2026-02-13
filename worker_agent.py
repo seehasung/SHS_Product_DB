@@ -51,7 +51,7 @@ from pathlib import Path
 class NaverCafeWorker:
     """네이버 카페 자동 작성 Worker"""
     
-    VERSION = "1.0."  # 현재 버전
+    VERSION = "1.0.2" # 현재 버전
     
     def __init__(self, pc_number: int, server_url: str = "scorp274.com"):
         self.pc_number = pc_number
@@ -504,82 +504,75 @@ class NaverCafeWorker:
             self.random_delay(3, 5)
             print("✅ URL 접속 완료")
             
-            # iframe 전환
+            # iframe 전환 (신규발행 글 보기 페이지)
             try:
-                iframe = self.driver.find_element(By.ID, 'cafe_main')
+                iframe = WebDriverWait(self.driver, 10).until(
+                    EC.presence_of_element_located((By.ID, 'cafe_main'))
+                )
                 self.driver.switch_to.frame(iframe)
-            except:
-                pass
+                self.random_delay(2, 3)
+                print("✅ iframe 전환 완료")
+            except Exception as e:
+                print(f"⚠️  iframe 전환 실패: {e}")
             
-            # 수정 버튼 찾기
-            edit_selectors = [
-                'a.btn-modify',
-                'a.button-modify',
-                'a[class*="modify"]',
-                'a:contains("수정")'
-            ]
+            # 수정 버튼 찾기 (XPath 사용 - test_content_save 방식)
+            print("🔍 수정 버튼 찾기...")
+            try:
+                edit_btn = WebDriverWait(self.driver, 10).until(
+                    EC.element_to_be_clickable((By.XPATH, '//a[.//span[text()="수정"]]'))
+                )
+                edit_btn.click()
+                self.random_delay(5, 7)
+                print("✅ 수정 버튼 클릭 완료")
+            except Exception as e:
+                print(f"❌ 수정 버튼 클릭 실패: {e}")
+                return None
             
-            edit_btn = None
-            for selector in edit_selectors:
-                try:
-                    edit_btn = self.driver.find_element(By.CSS_SELECTOR, selector)
-                    break
-                except:
-                    continue
+            # ⭐ 새 탭으로 자동 전환 (수정 페이지는 새 탭에서 열림!)
+            if len(self.driver.window_handles) > 2:  # 네이버 홈 + 카페 글 + 수정 페이지
+                self.driver.switch_to.window(self.driver.window_handles[-1])
+                self.random_delay(3, 5)
+                print("✅ 수정 페이지 탭으로 전환 완료")
             
-            if not edit_btn:
-                # 링크 텍스트로 찾기
-                try:
-                    edit_btn = self.driver.find_element(By.LINK_TEXT, '수정')
-                except:
-                    print("❌ 수정 버튼을 찾을 수 없습니다")
-                    return None
-            
-            edit_btn.click()
-            self.random_delay(2, 3)
-            print("✅ 수정 화면 진입")
-            
-            # 페이지 로드 대기
-            self.random_delay(3, 5)
-            
-            # iframe 재전환 (수정 페이지)
-            self.driver.switch_to.default_content()
-            
-            # iframe 확인
-            print("🔍 iframe 확인...")
-            iframes = self.driver.find_elements(By.TAG_NAME, 'iframe')
-            print(f"   iframe 개수: {len(iframes)}")
+            print("✅ 수정 화면 진입 완료")
+            print("✅ 수정 화면 진입 완료")
             
             # ⭐ 게시판 변경 (target_board가 있는 경우)
             if target_board:
-                print(f"\n📋 게시판 자동 변경 시작...")
-                self.change_board_category(target_board)
-                self.random_delay(1, 2)
-            
-            # 제목 수정 (test_full_post_flow 방식)
-            print("✍️ 제목 입력 시도...")
-            print(f"   제목: {title}")
-            title_selectors = [
-                'textarea.textarea_input',  # test_full_post_flow 방식
-                '#subject',
-                'input[name="subject"]',
-                '.input-title'
-            ]
-            
-            for selector in title_selectors:
+                print(f"\n📋 게시판 자동 변경 시작: {target_board}")
                 try:
-                    print(f"   시도: {selector}")
-                    title_elem = self.driver.find_element(By.CSS_SELECTOR, selector)
-                    title_elem.click()
-                    self.random_delay(0.5, 1)
-                    title_elem.send_keys(Keys.CONTROL + 'a', Keys.DELETE)
-                    self.random_delay(0.5, 1)
-                    self.human_type(title_elem, title)
-                    print("✅ 제목 수정 완료")
-                    break
+                    # 카테고리 드롭다운 클릭
+                    category_btn = self.driver.find_element(By.CSS_SELECTOR, 'div.FormSelectBox button')
+                    category_btn.click()
+                    self.random_delay(1, 2)
+                    
+                    # 옵션 목록에서 선택
+                    options = self.driver.find_elements(By.CSS_SELECTOR, 'ul.option_list li.item button')
+                    for opt in options:
+                        opt_text = opt.find_element(By.CSS_SELECTOR, 'span.option_text').text
+                        if target_board in opt_text:
+                            opt.click()
+                            self.random_delay(0.5, 1)
+                            print(f"   ✅ '{opt_text}' 선택 완료")
+                            break
                 except Exception as e:
-                    print(f"   실패: {e}")
-                    continue
+                    print(f"   ⚠️  게시판 변경 실패: {e} (계속 진행)")
+            
+            # 제목 수정
+            print(f"\n✍️ 제목 입력: {title}")
+            try:
+                title_elem = self.driver.find_element(By.CSS_SELECTOR, 'textarea.textarea_input')
+                title_elem.click()
+                self.random_delay(0.5, 1)
+                title_elem.send_keys(Keys.CONTROL + 'a', Keys.DELETE)
+                self.random_delay(0.5, 1)
+                
+                # ⭐ 사람처럼 한 글자씩 타이핑
+                print("   → 사람처럼 타이핑 중...")
+                self.human_type(title_elem, title)
+                print("   ✅ 제목 입력 완료")
+            except Exception as e:
+                print(f"   ⚠️  제목 입력 실패: {e}")
             
             # 본문 수정 (test_full_post_flow 방식)
             print("📝 본문 입력 시도...")
@@ -606,9 +599,9 @@ class NaverCafeWorker:
                 active.send_keys(Keys.DELETE)  # 삭제
                 self.random_delay(0.5, 1)
                 
-                # 새 내용 입력
-                print("      → 새 내용 입력 중...")
-                active.send_keys(content)
+                # ⭐ 새 내용 입력 (사람처럼 한 글자씩)
+                print("      → 사람처럼 타이핑 중...")
+                self.human_type(active, content)
                 self.random_delay(0.5, 1)
                 
                 # 입력 확인
@@ -768,9 +761,17 @@ class NaverCafeWorker:
             print(f"URL: {post_url}")
             print(f"{'='*60}\n")
             
-            # ⭐ 작업 완료 후 탭 닫기
-            print("📑 작업 탭 닫기...")
-            self.driver.close()
+            # ⭐ 작업 완료 후 열린 탭들 모두 닫기 (수정 페이지 + 카페 글 보기 탭)
+            print("📑 작업 탭들 닫기...")
+            current_handles = self.driver.window_handles
+            
+            # 네이버 홈 탭 외의 모든 탭 닫기
+            for handle in current_handles:
+                if handle != original_window:
+                    self.driver.switch_to.window(handle)
+                    self.driver.close()
+            
+            # 네이버 홈 탭으로 복귀
             self.driver.switch_to.window(original_window)
             print("✅ 네이버 홈 탭으로 복귀 완료")
             
@@ -781,9 +782,14 @@ class NaverCafeWorker:
             import traceback
             traceback.print_exc()
             
-            # ⭐ 오류 발생 시에도 탭 닫기
+            # ⭐ 오류 발생 시에도 열린 탭들 모두 닫기
             try:
-                self.driver.close()
+                current_handles = self.driver.window_handles
+                for handle in current_handles:
+                    if handle != original_window:
+                        self.driver.switch_to.window(handle)
+                        self.driver.close()
+                
                 self.driver.switch_to.window(original_window)
                 print("✅ 오류 후 네이버 홈 탭으로 복귀")
             except:

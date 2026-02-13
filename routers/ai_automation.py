@@ -2112,24 +2112,55 @@ async def test_generate_content(
         
         generated_content_raw = response.content[0].text
         
-        # 생성된 텍스트를 제목/본문으로 분리
+        # 생성된 텍스트를 제목/본문/댓글로 분리
         def split_title_and_body(text):
-            """제목과 본문 자동 분리"""
+            """제목과 본문 자동 분리 (댓글 제거)"""
+            # --- 구분자로 먼저 분리
+            if '---' in text:
+                parts = text.split('---')
+                
+                # 제목 (첫 부분)
+                title_part = parts[0].strip()
+                if title_part.startswith('#'):
+                    title = title_part.replace('#', '').strip()
+                else:
+                    title = title_part.strip()
+                
+                # 본문 (중간 부분)
+                if len(parts) > 1:
+                    body_part = parts[1]
+                    
+                    # "# 본문"이 있으면 그 다음만
+                    if '# 본문' in body_part:
+                        body_part = body_part.split('# 본문', 1)[1]
+                    
+                    # "# 댓글"이 있으면 그 전까지만
+                    if '# 댓글' in body_part:
+                        body_part = body_part.split('# 댓글', 1)[0]
+                    
+                    # "---" 또는 "**댓글**"이 있으면 그 전까지만
+                    if '**댓글**' in body_part:
+                        body_part = body_part.split('**댓글**', 1)[0]
+                    
+                    body = body_part.strip()
+                else:
+                    body = ""
+                
+                return title, body
+            
+            # --- 없으면 기존 방식
             lines = text.strip().split('\n')
             
-            # 첫 줄이 # 으로 시작하면 제목
             if lines[0].startswith('#'):
                 title = lines[0].replace('#', '').strip()
                 body = '\n'.join(lines[1:]).strip()
+                
+                # 댓글 부분 제거
+                if '# 댓글' in body:
+                    body = body.split('# 댓글')[0].strip()
+                
                 return title, body
             
-            # 첫 줄이 짧으면 (<50자) 제목으로 간주
-            if len(lines[0]) < 50:
-                title = lines[0].strip()
-                body = '\n'.join(lines[1:]).strip()
-                return title, body
-            
-            # 전체를 본문으로
             return "", text
         
         title, generated_content = split_title_and_body(generated_content_raw)
