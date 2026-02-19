@@ -51,7 +51,7 @@ from pathlib import Path
 class NaverCafeWorker:
     """네이버 카페 자동 작성 Worker"""
     
-    VERSION = "1.0.3" # 현재 버전
+    VERSION = "1.0.2" # 현재 버전
     
     def __init__(self, pc_number: int, server_url: str = "scorp274.com"):
         self.pc_number = pc_number
@@ -188,12 +188,21 @@ class NaverCafeWorker:
             server_version_info = response.json()
             server_version = server_version_info['version']
             
-            # 버전 비교
-            if server_version == self.VERSION:
+            # 버전을 숫자로 변환하여 비교
+            def version_to_tuple(ver):
+                return tuple(map(int, ver.replace('v', '').split('.')))
+            
+            current_ver = version_to_tuple(self.VERSION)
+            server_ver = version_to_tuple(server_version)
+            
+            if server_ver == current_ver:
                 print(f"✅ 최신 버전입니다 (v{self.VERSION})")
                 return False
+            elif server_ver < current_ver:
+                print(f"ℹ️  개발 버전 사용 중 (v{self.VERSION} > v{server_version})")
+                return False
             
-            # 새 버전 발견
+            # 새 버전 발견 (server_ver > current_ver)
             print(f"\n🎉 새 버전 발견!")
             print(f"   현재: v{self.VERSION}")
             print(f"   최신: v{server_version}")
