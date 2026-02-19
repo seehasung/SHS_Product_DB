@@ -69,6 +69,19 @@ async def worker_websocket(websocket: WebSocket, pc_number: int, db: Session = D
         )
         db.add(pc)
         db.commit()
+        
+        # 🔄 재연결 시 대기 중인 Task 재전송
+        pending_task = db.query(AutomationTask).filter(
+            AutomationTask.status == 'pending',
+            AutomationTask.assigned_pc_id == None
+        ).order_by(
+            AutomationTask.priority.desc(),
+            AutomationTask.scheduled_time.asc()
+        ).first()
+        
+        if pending_task:
+            print(f"🔄 재연결 감지! Pending Task #{pending_task.id} 재전송 시도...")
+            await assign_next_task(pc_number, db, websocket)
     
     try:
         while True:
