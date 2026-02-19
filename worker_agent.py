@@ -51,7 +51,7 @@ from pathlib import Path
 class NaverCafeWorker:
     """네이버 카페 자동 작성 Worker"""
     
-    VERSION = "1.0.3" # 현재 버전
+    VERSION = "1.0.4" # 현재 버전
     
     def __init__(self, pc_number: int, server_url: str = "scorp274.com"):
         self.pc_number = pc_number
@@ -758,7 +758,21 @@ class NaverCafeWorker:
                 
                 if clicked:
                     print("✅ 등록 버튼 자동 클릭 완료")
-                    self.random_delay(2, 3)  # 페이지 로딩 대기
+                    
+                    # ⭐ 리다이렉트 대기 (실제 글 URL로 변경될 때까지)
+                    print("⏳ 글 등록 후 리다이렉트 대기 중...")
+                    import time
+                    for i in range(15):  # 최대 15초
+                        time.sleep(1)
+                        current = self.driver.current_url
+                        
+                        # /modify가 없고 /articles/가 있으면 실제 글 URL
+                        if '/modify' not in current and ('/articles/' in current or '/ArticleRead' in current):
+                            print(f"   ✅ 실제 글 URL 확인: {current[:80]}...")
+                            break
+                    else:
+                        print("   ⚠️  타임아웃, 현재 URL 사용")
+                        
                 else:
                     print("⚠️  모든 클릭 방법 실패, 최종 시도...")
                     # 최종 시도: 강제 JavaScript 실행
@@ -769,7 +783,19 @@ class NaverCafeWorker:
                             if (btn.onclick) btn.onclick();
                             if (btn.href) window.location.href = btn.href;
                         """, submit_btn)
-                        self.random_delay(3, 4)
+                        
+                        # ⭐ 리다이렉트 대기
+                        print("⏳ 글 등록 후 리다이렉트 대기 중...")
+                        import time
+                        for i in range(15):
+                            time.sleep(1)
+                            current = self.driver.current_url
+                            if '/modify' not in current and ('/articles/' in current or '/ArticleRead' in current):
+                                print(f"   ✅ 실제 글 URL 확인: {current[:80]}...")
+                                break
+                        else:
+                            print("   ⚠️  타임아웃, 현재 URL 사용")
+                            
                         print("✅ JavaScript 강제 클릭 완료")
                     except Exception as e:
                         print(f"❌ 최종 클릭도 실패: {e}")
