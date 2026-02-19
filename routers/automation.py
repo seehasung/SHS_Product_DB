@@ -145,7 +145,10 @@ async def worker_websocket(websocket: WebSocket, pc_number: int, db: Session = D
                     task.status = 'completed'
                     task.completed_at = get_kst_now()
                     task.post_url = message.get('post_url')
-                    print(f"✅ Task #{task.id} 완료 보고 받음 (타입: {task.task_type}, post_url: {task.post_url})")
+                    
+                    # ⭐ 즉시 커밋 (재연결 시 중복 실행 방지!)
+                    db.commit()
+                    print(f"✅ Task #{task.id} 완료 처리 완료 (타입: {task.task_type}, post_url: {task.post_url})")
                     
                     # 작성된 글/댓글 저장
                     if task.task_type == 'post':
@@ -276,6 +279,12 @@ async def worker_websocket(websocket: WebSocket, pc_number: int, db: Session = D
             pc.status = 'offline'
             pc.current_task_id = None
             db.commit()
+    finally:
+        # ⭐ DB 세션 정리 (연결 풀 고갈 방지!)
+        try:
+            db.close()
+        except:
+            pass
 
 
 async def auto_assign_tasks(db: Session):
