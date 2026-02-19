@@ -2339,6 +2339,7 @@ async def publish_test(
         
         # 5. 댓글 생성 (Claude로)
         comment_tasks = []
+        print(f"\n💬 댓글 생성 시작 (요청: {comment_count}개)")
         if comment_count > 0:
             # 댓글 생성 프롬프트
             comment_prompt = f"""
@@ -2410,12 +2411,15 @@ async def publish_test(
                     return result
                 
                 parsed_comments = parse_comment_structure(comments_text)
+                print(f"   파싱된 댓글 수: {len(parsed_comments)}")
                 
                 # Task 생성
                 task_map = {}  # level별 마지막 Task ID 저장
                 task_map[0] = post_task.id  # 본문 Task
                 
+                print(f"\n📝 댓글 Task 생성 시작...")
                 for idx, comment_obj in enumerate(parsed_comments):
+                    print(f"   댓글 {idx+1}: {comment_obj['account']} - {comment_obj['content'][:30]}...")
                     # 레벨에 따라 부모 Task 결정
                     if comment_obj['level'] == 0:
                         # 최상위 댓글 → 본문에 댓글
@@ -2445,7 +2449,9 @@ async def publish_test(
                     
                     # 이 레벨의 마지막 Task로 저장
                     task_map[comment_obj['level']] = comment_task.id
+                    print(f"      ✅ Task #{comment_task.id} 생성 (타입: {task_type})")
         
+        print(f"✅ 댓글 Task 생성 완료: 총 {len(comment_tasks)}개")
         db.commit()
         
         # 6. Worker PC에 직접 전송 (계정 유지)
