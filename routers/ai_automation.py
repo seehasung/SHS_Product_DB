@@ -2333,7 +2333,7 @@ async def publish_test(
             # 댓글 생성 프롬프트
             comment_prompt = f"""
 작성한 글:
-{test_data['content'][:200]}...
+{test_data.get('body', '')[:200]}...
 
 위 글에 대한 자연스러운 댓글 {comment_count}개를 생성해주세요.
 

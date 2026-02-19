@@ -3346,9 +3346,7 @@ async function publishTestContent() {
                         <h6 class="mb-0"><i class="bi bi-chat-dots"></i> AI 생성 댓글 (참고용)</h6>
                     </div>
                     <div class="card-body">
-                        <div style="white-space: pre-wrap; line-height: 1.8;">
-                            ${data.ai_comments}
-                        </div>
+                        ${renderComments(data.ai_comments)}
                     </div>
                 </div>
                 ` : ''}
@@ -3369,6 +3367,51 @@ async function publishTestContent() {
             </div>
         `;
     }
+}
+
+// 댓글 렌더링 함수 (계정 뱃지, 박스, 대댓글 들여쓰기)
+function renderComments(text) {
+    if (!text) return '<p class="text-muted">댓글이 없습니다.</p>';
+    
+    const lines = text.split('\n');
+    let html = '';
+    
+    for (let line of lines) {
+        if (!line.trim()) continue;
+        
+        // **계정X:** 형식 파싱 (대댓글: > **계정X:** ...)
+        const match = line.match(/^(>*)\s*\*\*(.+?):\*\*\s*(.+)/);
+        
+        if (match) {
+            const depth = match[1].length;  // > 개수 (0 = 댓글, 1+ = 대댓글)
+            const account = match[2].trim();  // 계정1, 계정2, 작성자 등
+            const content = match[3].trim();  // 댓글 내용
+            
+            // 뱃지 색상 결정
+            let badgeClass = 'bg-danger';  // 기본: 빨간색
+            if (account === '작성자') {
+                badgeClass = 'bg-info';  // 작성자: 하늘색
+            } else if (account.includes('계정')) {
+                badgeClass = 'bg-danger';  // 계정: 빨간색
+            }
+            
+            // 들여쓰기 (대댓글)
+            const marginLeft = depth * 40;
+            
+            html += `
+                <div style="margin-left: ${marginLeft}px; margin-bottom: 12px; padding: 12px; border: 1px solid #dee2e6; border-radius: 8px; background-color: ${depth > 0 ? '#f8f9fa' : '#ffffff'};">
+                    <div style="margin-bottom: 8px;">
+                        <span class="badge ${badgeClass}">${account}</span>
+                    </div>
+                    <div style="line-height: 1.6; color: #333;">
+                        ${content}
+                    </div>
+                </div>
+            `;
+        }
+    }
+    
+    return html || '<p class="text-muted">댓글이 없습니다.</p>';
 }
 
 async function showTestGenerationModal() {
@@ -3613,9 +3656,7 @@ async function generateTestContent() {
                         <h6 class="mb-0"><i class="bi bi-chat-dots"></i> 댓글</h6>
                     </div>
                     <div class="card-body">
-                        <div style="white-space: pre-wrap; line-height: 1.8; font-size: 1.05rem;">
-                            ${data.comments}
-                        </div>
+                        ${renderComments(data.comments)}
                     </div>
                 </div>
                 ` : ''}
