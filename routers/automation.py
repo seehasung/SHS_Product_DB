@@ -214,9 +214,8 @@ async def worker_websocket(websocket: WebSocket, pc_number: int, db: Session = D
                     pc.current_task_id = None
                     db.commit()
                     
-                    # 다음 작업 할당 (댓글이 아닌 경우만)
-                    if task.task_type not in ['comment', 'reply']:
-                        await assign_next_task(pc_number, db, websocket)
+                    # 다음 작업 할당 (모든 Task 완료 후 다음 Task 찾기)
+                    await assign_next_task(pc_number, db, websocket)
                     
             elif message['type'] == 'task_failed':
                 # 작업 실패

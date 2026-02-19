@@ -2102,6 +2102,22 @@ async def test_generate_content(
         
         client = anthropic.Anthropic(api_key=api_key)
         
+        # 🔍 프롬프트 로깅 (디버깅용)
+        print("\n" + "="*80)
+        print("🔍 Claude API 호출 - 프롬프트 확인")
+        print("="*80)
+        print(f"\n[Model]: claude-opus-4-5")
+        print(f"[Temperature]: {prompt.temperature}")
+        print(f"[Max Tokens]: {prompt.max_tokens}")
+        print(f"[키워드]: {keyword}")
+        print(f"[카페]: {cafe_name}")
+        print("\n[System Prompt]")
+        print(enhanced_system_prompt)
+        print("\n" + "-"*80)
+        print("\n[User Prompt]")
+        print(user_prompt)
+        print("\n" + "="*80 + "\n")
+        
         response = client.messages.create(
             model="claude-opus-4-5",  # Claude Opus 4.5 (최강 성능!)
             max_tokens=prompt.max_tokens,
@@ -2382,7 +2398,7 @@ async def publish_test(
                         task_type=task_type,
                         mode='ai',
                         schedule_id=None,
-                        scheduled_time=datetime.now() + timedelta(minutes=idx*2),
+                        scheduled_time=datetime.now(),  # 즉시 실행 (순차는 parent_task_id로 제어)
                         content=comment_obj['content'],
                         parent_task_id=parent_id,
                         order_sequence=idx,
@@ -2416,11 +2432,7 @@ async def publish_test(
                     await send_task_to_worker(pc_number, post_task, db)
                     print(f"✅ Task #{post_task.id} 직접 전송 → PC #{pc_number} (계정: {account.account_id})")
         
-        # 댓글 Task는 auto_assign
-        for comment_task in comment_tasks:
-            # 랜덤 PC에 할당 (댓글은 다른 계정)
-            from routers.automation import auto_assign_tasks
-            await auto_assign_tasks(db)
+        # 댓글 Task는 본문 Task 완료 후 자동 할당됨 (task_completed → assign_next_task)
         
         return JSONResponse({
             'success': True,
