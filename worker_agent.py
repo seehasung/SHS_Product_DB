@@ -51,7 +51,7 @@ from pathlib import Path
 class NaverCafeWorker:
     """네이버 카페 자동 작성 Worker"""
     
-    VERSION = "1.0.4" # 현재 버전
+    VERSION = "1.0.5" # 현재 버전
     
     def __init__(self, pc_number: int, server_url: str = "scorp274.com"):
         self.pc_number = pc_number
@@ -1169,12 +1169,31 @@ class NaverCafeWorker:
                     )
                 
                 if post_url:
-                    # 서버에 완료 알림
-                    await self.websocket.send(json.dumps({
-                        'type': 'task_completed',
-                        'task_id': task_id,
-                        'post_url': post_url
-                    }))
+                    # 서버에 완료 알림 (HTTP POST로 확실하게!)
+                    try:
+                        import requests
+                        response = requests.post(
+                            f"https://{self.server_url}/automation/api/tasks/{task_id}/complete",
+                            data={'post_url': post_url},
+                            timeout=10,
+                            verify=False
+                        )
+                        if response.status_code == 200:
+                            print(f"   ✅ 완료 보고 성공 (HTTP)")
+                        else:
+                            print(f"   ⚠️  완료 보고 실패: HTTP {response.status_code}")
+                    except Exception as e:
+                        print(f"   ⚠️  완료 보고 오류: {e}")
+                        
+                    # WebSocket으로도 전송 (백업)
+                    try:
+                        await self.websocket.send(json.dumps({
+                            'type': 'task_completed',
+                            'task_id': task_id,
+                            'post_url': post_url
+                        }))
+                    except:
+                        pass
                 else:
                     raise Exception("글 작성/수정 실패")
                 

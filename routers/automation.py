@@ -1004,18 +1004,57 @@ async def create_tasks_from_post(
 # Worker 업데이트 API
 # ============================================
 
+@router.post("/api/tasks/{task_id}/complete")
+async def complete_task(
+    task_id: int,
+    post_url: str = Form(None),
+    db: Session = Depends(get_db)
+):
+    """Task 완료 보고 (HTTP API)"""
+    try:
+        task = db.query(AutomationTask).get(task_id)
+        if not task:
+            return JSONResponse({'success': False, 'error': 'Task not found'}, status_code=404)
+        
+        task.status = 'completed'
+        task.completed_at = get_kst_now()
+        if post_url:
+            task.post_url = post_url
+        
+        db.commit()
+        print(f"✅ Task #{task_id} 완료 (HTTP, post_url: {task.post_url})")
+        
+        # 다음 Task 전송
+        if task.task_type == 'post' and task.parent_task_id is None:
+            # 본문 완료: 첫 댓글 전송
+            first_comment = db.query(AutomationTask).filter(
+                AutomationTask.parent_task_id == task_id,
+                AutomationTask.status.in_(['pending', 'assigned'])
+            ).order_by(
+                AutomationTask.order_sequence.asc()
+            ).first()
+            
+            if first_comment and first_comment.assigned_pc_id and first_comment.assigned_pc_id in worker_connections:
+                print(f"   📨 첫 댓글 Task #{first_comment.id} → PC #{first_comment.assigned_pc_id} 전송...")
+                await send_task_to_worker(first_comment.assigned_pc_id, first_comment, db)
+        
+        return JSONResponse({'success': True})
+    except Exception as e:
+        return JSONResponse({'success': False, 'error': str(e)}, status_code=500)
+
+
 @router.get("/api/worker/version")
 async def get_worker_version():
     """Worker 버전 정보 제공"""
     return JSONResponse({
-        "version": "1.0.4",
+        "version": "1.0.5",
         "release_date": "2026-02-19",
         "download_url": "/automation/api/worker/download",
         "changelog": [
-            "완료 보고 후 대기 시간 추가 (연결 안정성)",
-            "댓글 허용 체크박스 개선 (label 클릭)",
+            "등록 후 리다이렉트 대기 (실제 글 URL 추출)",
+            "순차 댓글 실행",
             "post_url 전송 보장",
-            "중복 Task 실행 방지"
+            "DB 세션 정리"
         ],
         "required_packages": {
             "selenium": "4.15.2",
