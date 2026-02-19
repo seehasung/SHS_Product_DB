@@ -145,6 +145,7 @@ async def worker_websocket(websocket: WebSocket, pc_number: int, db: Session = D
                     task.status = 'completed'
                     task.completed_at = get_kst_now()
                     task.post_url = message.get('post_url')
+                    print(f"✅ Task #{task.id} 완료 보고 받음 (타입: {task.task_type}, post_url: {task.post_url})")
                     
                     # 작성된 글/댓글 저장
                     if task.task_type == 'post':

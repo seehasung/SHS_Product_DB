@@ -2317,6 +2317,14 @@ async def publish_test(
         # 제목 추출 (AI가 생성한 제목 또는 키워드)
         post_title = test_data.get('title') or keyword
         
+        # 계정의 PC 찾기
+        assigned_pc_id = None
+        if assigned_account_id:
+            from database import AutomationAccount
+            account = db.query(AutomationAccount).get(assigned_account_id)
+            if account:
+                assigned_pc_id = account.assigned_pc_id
+        
         post_task = AutomationTask(
             task_type='post',
             mode='ai',
@@ -2325,7 +2333,8 @@ async def publish_test(
             title=post_title,  # AI 생성 제목 또는 키워드
             content=test_data['body'],  # 본문만
             cafe_id=cafe_id,
-            assigned_account_id=assigned_account_id,  # URL의 계정 사용!
+            assigned_pc_id=assigned_pc_id,  # PC 할당!
+            assigned_account_id=assigned_account_id,  # 계정 할당!
             status='pending',
             priority=10
         )
