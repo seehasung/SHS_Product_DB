@@ -257,8 +257,24 @@ async def worker_websocket(websocket: WebSocket, pc_number: int, db: Session = D
                     pc.current_task_id = None
                     db.commit()
                     
-                    # 다음 작업 할당 (모든 Task 완료 후 다음 Task 찾기)
+                    # 다음 작업 할당
                     print(f"\n🔄 Task #{task.id} 완료 → 다음 Task 찾는 중...")
+                    
+                    # 본문 Task 완료 시: 모든 댓글 Task를 각 PC로 전송!
+                    if task.task_type == 'post':
+                        comment_tasks = db.query(AutomationTask).filter(
+                            AutomationTask.parent_task_id == task.id,
+                            AutomationTask.status.in_(['pending', 'assigned'])
+                        ).all()
+                        
+                        if comment_tasks:
+                            print(f"   📨 댓글 Task {len(comment_tasks)}개 발견 → 각 PC로 전송...")
+                            for comment_task in comment_tasks:
+                                if comment_task.assigned_pc_id and comment_task.assigned_pc_id in worker_connections:
+                                    await send_task_to_worker(comment_task.assigned_pc_id, comment_task, db)
+                                    print(f"      → Task #{comment_task.id} 전송 완료 (PC #{comment_task.assigned_pc_id})")
+                    
+                    # 이 PC의 다음 Task 찾기
                     await assign_next_task(pc_number, db, websocket)
                     
             elif message['type'] == 'task_failed':
