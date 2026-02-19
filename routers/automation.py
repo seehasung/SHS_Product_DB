@@ -357,6 +357,14 @@ async def send_task_to_worker(pc_number: int, task: AutomationTask, db: Session)
         if task.error_message and 'MODIFY_URL:' in task.error_message:
             draft_url = task.error_message.split('MODIFY_URL:')[1].strip()
         
+        # 부모 Task의 post_url 가져오기 (댓글/대댓글용)
+        post_url = None
+        if task.parent_task_id:
+            parent_task = db.query(AutomationTask).get(task.parent_task_id)
+            if parent_task:
+                post_url = parent_task.post_url
+                print(f"   부모 Task #{parent_task.id} post_url: {post_url}")
+        
         # Task 데이터
         task_data = {
             'type': 'new_task',
@@ -366,7 +374,7 @@ async def send_task_to_worker(pc_number: int, task: AutomationTask, db: Session)
                 'title': task.title,
                 'content': task.content,
                 'cafe_url': cafe.url if cafe else None,
-                'post_url': task.parent_task.post_url if task.parent_task_id else None,
+                'post_url': post_url,  # 명시적으로 로드한 post_url
                 'draft_url': draft_url,  # 수정 발행 URL 추가!
                 'account_id': account.account_id if account else None,
                 'account_pw': account.account_pw if account else None
@@ -416,6 +424,14 @@ async def assign_next_task(pc_number: int, db: Session, websocket: WebSocket):
         # 카페 정보
         cafe = db.query(AutomationCafe).get(pending_task.cafe_id)
         
+        # 부모 Task의 post_url 가져오기 (댓글/대댓글용)
+        post_url = None
+        if pending_task.parent_task_id:
+            parent_task = db.query(AutomationTask).get(pending_task.parent_task_id)
+            if parent_task:
+                post_url = parent_task.post_url
+                print(f"   부모 Task #{parent_task.id} post_url: {post_url}")
+        
         # 작업 할당
         pending_task.assigned_pc_id = pc.id
         pending_task.assigned_account_id = available_account.id
@@ -431,14 +447,14 @@ async def assign_next_task(pc_number: int, db: Session, websocket: WebSocket):
                 'title': pending_task.title,
                 'content': pending_task.content,
                 'cafe_url': cafe.url if cafe else None,
-                'post_url': pending_task.parent_task.post_url if pending_task.parent_task_id else None,
+                'post_url': post_url,  # 명시적으로 로드한 post_url
                 'account_id': available_account.account_id,
                 'account_pw': available_account.account_pw
             }
         }
         
         await websocket.send_json(task_data)
-        print(f"📤 작업 할당: Task #{pending_task.id} → PC #{pc_number}")
+        print(f"📤 작업 할당: Task #{pending_task.id} → PC #{pc_number} (post_url: {post_url})")
 
 
 # ============================================

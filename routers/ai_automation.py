@@ -2390,6 +2390,27 @@ async def publish_test(
                 parsed_comments = parse_comment_structure(comments_text)
                 print(f"   파싱된 댓글 수: {len(parsed_comments)}")
                 
+                # PC/계정 순차 할당 준비
+                from database import AutomationWorkerPC, AutomationAccount
+                
+                # 1. 작성자 PC 확인
+                author_pc_id = post_task.assigned_pc_id
+                print(f"\n📋 계정 할당 준비:")
+                print(f"   작성자 PC: #{author_pc_id}")
+                
+                # 2. 사용 가능한 PC 목록 (작성자 제외, 번호 순)
+                available_pcs = db.query(AutomationWorkerPC).filter(
+                    AutomationWorkerPC.id != author_pc_id,
+                    AutomationWorkerPC.status == 'online'
+                ).order_by(
+                    AutomationWorkerPC.pc_number.asc()
+                ).all()
+                
+                print(f"   사용 가능한 PC: {', '.join([f'#{pc.pc_number}' for pc in available_pcs])} (총 {len(available_pcs)}대)")
+                
+                if not available_pcs:
+                    print("   ⚠️  사용 가능한 PC가 없습니다!")
+                
                 # Task 생성
                 task_map = {}  # level별 마지막 Task ID 저장
                 task_map[0] = post_task.id  # 본문 Task
@@ -2397,6 +2418,7 @@ async def publish_test(
                 print(f"\n📝 댓글 Task 생성 시작...")
                 for idx, comment_obj in enumerate(parsed_comments):
                     print(f"   댓글 {idx+1}: {comment_obj['account']} - {comment_obj['content'][:30]}...")
+                    
                     # 레벨에 따라 부모 Task 결정
                     if comment_obj['level'] == 0:
                         # 최상위 댓글 → 본문에 댓글
@@ -2408,6 +2430,25 @@ async def publish_test(
                         parent_id = task_map.get(parent_level, post_task.id)
                         task_type = 'reply'
                     
+                    # PC/계정 순차 할당 (작성자 제외, 순환)
+                    target_pc_id = None
+                    target_account_id = None
+                    
+                    if available_pcs:
+                        pc_index = idx % len(available_pcs)
+                        target_pc = available_pcs[pc_index]
+                        
+                        # 해당 PC의 계정 찾기
+                        target_account = db.query(AutomationAccount).filter(
+                            AutomationAccount.assigned_pc_id == target_pc.id,
+                            AutomationAccount.status == 'active'
+                        ).first()
+                        
+                        if target_account:
+                            target_pc_id = target_pc.id
+                            target_account_id = target_account.id
+                            print(f"      → PC #{target_pc.pc_number} (계정: {target_account.account_id}) 할당")
+                    
                     comment_task = AutomationTask(
                         task_type=task_type,
                         mode='ai',
@@ -2417,6 +2458,8 @@ async def publish_test(
                         parent_task_id=parent_id,
                         order_sequence=idx,
                         cafe_id=cafe_id,
+                        assigned_pc_id=target_pc_id,  # 미리 할당!
+                        assigned_account_id=target_account_id,  # 미리 할당!
                         status='pending',
                         priority=10
                     )
