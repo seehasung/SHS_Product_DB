@@ -2137,46 +2137,67 @@ async def test_generate_content(
         
         # 생성된 텍스트를 제목/본문/댓글로 분리
         def split_content(text):
-            """제목, 본문, 댓글을 각각 분리"""
+            """제목, 본문, 댓글을 각각 분리 (Claude 출력 형식 대응)"""
             title = ""
             body = ""
             comments = ""
             
-            # 1. 제목 추출
-            lines = text.strip().split('\n')
-            if lines:
-                # 첫 줄이 # 제목 형식
-                if lines[0].startswith('#'):
-                    title = lines[0].replace('#', '').strip()
-                    remaining = '\n'.join(lines[1:])
+            # 1. --- 구분자로 섹션 분리
+            sections = text.split('---')
+            
+            if len(sections) >= 3:
+                # 형식: # 제목\n내용\n---\n# 본문\n내용\n---\n# 댓글\n내용
+                title_section = sections[0].strip()
+                body_section = sections[1].strip()
+                comments_section = sections[2].strip()
+                
+                # 제목 추출 (# 제목 헤더 제거)
+                if title_section.startswith('# 제목'):
+                    title = title_section.replace('# 제목', '', 1).strip()
                 else:
-                    # 첫 줄 그대로 제목
-                    title = lines[0].strip()
-                    remaining = '\n'.join(lines[1:])
+                    # 첫 줄만 제목
+                    lines = title_section.split('\n')
+                    if lines[0].startswith('#'):
+                        title = lines[0].replace('#', '').strip()
+                    else:
+                        title = lines[0].strip()
+                
+                # 본문 추출 (# 본문 헤더 제거)
+                if body_section.startswith('# 본문'):
+                    body = body_section.replace('# 본문', '', 1).strip()
+                else:
+                    body = body_section.strip()
+                
+                # 댓글 추출 (# 댓글 헤더 제거)
+                if comments_section.startswith('# 댓글'):
+                    comments = comments_section.replace('# 댓글', '', 1).strip()
+                else:
+                    comments = comments_section.strip()
+                
+            elif len(sections) == 2:
+                # 제목 + 본문만 (댓글 없음)
+                title_section = sections[0].strip()
+                body_section = sections[1].strip()
+                
+                if title_section.startswith('# 제목'):
+                    title = title_section.replace('# 제목', '', 1).strip()
+                else:
+                    lines = title_section.split('\n')
+                    title = lines[0].replace('#', '').strip() if lines[0].startswith('#') else lines[0].strip()
+                
+                if body_section.startswith('# 본문'):
+                    body = body_section.replace('# 본문', '', 1).strip()
+                else:
+                    body = body_section.strip()
+                
             else:
-                remaining = text
-            
-            # 2. 본문과 댓글 분리
-            # "# 본문" 헤더 제거
-            if '# 본문' in remaining:
-                remaining = remaining.split('# 본문', 1)[1]
-            
-            # "댓글" 섹션 찾기
-            comment_markers = ['# 댓글', '댓글:', '댓글\n', '\n댓글\n']
-            comment_split_index = -1
-            
-            for marker in comment_markers:
-                if marker in remaining:
-                    parts = remaining.split(marker, 1)
-                    body = parts[0].strip()
-                    comments = parts[1].strip() if len(parts) > 1 else ""
-                    comment_split_index = 0
-                    break
-            
-            # 댓글 섹션이 없으면 전체가 본문
-            if comment_split_index == -1:
-                body = remaining.strip()
-                comments = ""
+                # --- 없는 경우: 전체를 본문으로
+                lines = text.strip().split('\n')
+                if lines and lines[0].startswith('#'):
+                    title = lines[0].replace('#', '').strip()
+                    body = '\n'.join(lines[1:]).strip()
+                else:
+                    body = text.strip()
             
             return title, body, comments
         
