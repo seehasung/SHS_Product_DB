@@ -71,6 +71,8 @@ async def worker_websocket(websocket: WebSocket, pc_number: int, db: Session = D
         db.commit()
         
         # 🔄 재연결 시 대기 중인 Task 재전송
+        print(f"\n🔄 Worker PC #{pc_number} 재연결 → Task 확인 중...")
+        
         # 1. 미할당 Task 찾기
         pending_task = db.query(AutomationTask).filter(
             AutomationTask.status == 'pending',
@@ -79,6 +81,7 @@ async def worker_websocket(websocket: WebSocket, pc_number: int, db: Session = D
             AutomationTask.priority.desc(),
             AutomationTask.scheduled_time.asc()
         ).first()
+        print(f"   미할당 Task: {'#' + str(pending_task.id) if pending_task else '없음'}")
         
         # 2. 이 PC에 할당된 Task 중 아직 시작 안 한 것 찾기
         assigned_task = db.query(AutomationTask).filter(
@@ -88,6 +91,14 @@ async def worker_websocket(websocket: WebSocket, pc_number: int, db: Session = D
             AutomationTask.priority.desc(),
             AutomationTask.scheduled_time.asc()
         ).first()
+        print(f"   할당된 Task (PC #{pc_number}): {'#' + str(assigned_task.id) if assigned_task else '없음'}")
+        
+        # 3. 모든 pending/assigned Task 확인 (디버깅)
+        all_pending = db.query(AutomationTask).filter(
+            AutomationTask.status.in_(['pending', 'assigned'])
+        ).all()
+        if all_pending:
+            print(f"   전체 대기 Task: {', '.join([f'#{t.id}(PC:{t.assigned_pc_id}, 상태:{t.status})' for t in all_pending])}")
         
         if pending_task:
             print(f"🔄 재연결 감지! Pending Task #{pending_task.id} 재전송 시도...")
@@ -95,6 +106,8 @@ async def worker_websocket(websocket: WebSocket, pc_number: int, db: Session = D
         elif assigned_task:
             print(f"🔄 재연결 감지! 할당된 Task #{assigned_task.id} 재전송...")
             await send_task_to_worker(pc_number, assigned_task, db)
+        else:
+            print(f"   ℹ️  재전송할 Task 없음")
     
     try:
         while True:
