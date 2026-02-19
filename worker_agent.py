@@ -1210,18 +1210,32 @@ class NaverCafeWorker:
                 )
                 
                 if result:
-                    # 새 댓글인 경우 댓글 ID를 받음
-                    message = {
-                        'type': 'task_completed',
-                        'task_id': task_id
-                    }
+                    # 서버에 완료 알림 (HTTP POST로 확실하게!)
+                    try:
+                        import requests
+                        response = requests.post(
+                            f"https://{self.server_url}/automation/api/tasks/{task_id}/complete",
+                            timeout=10,
+                            verify=False
+                        )
+                        if response.status_code == 200:
+                            print(f"   ✅ 댓글 완료 보고 성공 (HTTP)")
+                        else:
+                            print(f"   ⚠️  댓글 완료 보고 실패: HTTP {response.status_code}")
+                    except Exception as e:
+                        print(f"   ⚠️  댓글 완료 보고 오류: {e}")
                     
-                    # 댓글 ID가 있으면 추가
-                    if isinstance(result, str) and not is_reply:
-                        message['cafe_comment_id'] = result
-                        print(f"  📤 댓글 ID 전송: {result}")
-                    
-                    await self.websocket.send(json.dumps(message))
+                    # WebSocket으로도 전송 (백업)
+                    try:
+                        message = {
+                            'type': 'task_completed',
+                            'task_id': task_id
+                        }
+                        if isinstance(result, str) and not is_reply:
+                            message['cafe_comment_id'] = result
+                        await self.websocket.send(json.dumps(message))
+                    except:
+                        pass
                 else:
                     raise Exception("댓글 작성 실패")
             

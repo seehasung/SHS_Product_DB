@@ -1038,6 +1038,25 @@ async def complete_task(
                 print(f"   📨 첫 댓글 Task #{first_comment.id} → PC #{first_comment.assigned_pc_id} 전송...")
                 await send_task_to_worker(first_comment.assigned_pc_id, first_comment, db)
         
+        elif task.task_type in ['comment', 'reply']:
+            # 댓글/대댓글 완료: 같은 본문의 다음 댓글 전송
+            root_task = db.query(AutomationTask).get(task.parent_task_id)
+            while root_task and root_task.task_type != 'post':
+                root_task = db.query(AutomationTask).get(root_task.parent_task_id) if root_task.parent_task_id else None
+            
+            if root_task:
+                next_comment = db.query(AutomationTask).filter(
+                    AutomationTask.parent_task_id == root_task.id,
+                    AutomationTask.status.in_(['pending', 'assigned']),
+                    AutomationTask.order_sequence > task.order_sequence
+                ).order_by(
+                    AutomationTask.order_sequence.asc()
+                ).first()
+                
+                if next_comment and next_comment.assigned_pc_id and next_comment.assigned_pc_id in worker_connections:
+                    print(f"   📨 다음 댓글 Task #{next_comment.id} → PC #{next_comment.assigned_pc_id} 전송...")
+                    await send_task_to_worker(next_comment.assigned_pc_id, next_comment, db)
+        
         return JSONResponse({'success': True})
     except Exception as e:
         return JSONResponse({'success': False, 'error': str(e)}, status_code=500)
