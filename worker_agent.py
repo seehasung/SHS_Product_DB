@@ -51,7 +51,7 @@ from pathlib import Path
 class NaverCafeWorker:
     """네이버 카페 자동 작성 Worker"""
     
-    VERSION = "1.0.2" # 현재 버전
+    VERSION = "1.0.3" # 현재 버전
     
     def __init__(self, pc_number: int, server_url: str = "scorp274.com"):
         self.pc_number = pc_number
@@ -667,9 +667,20 @@ class NaverCafeWorker:
                     
                     # 체크되어 있지 않으면 체크하기
                     if not is_checked:
-                        comment_checkbox.click()
-                        self.random_delay(0.5, 1)
-                        print("   ✅ 댓글 허용 체크 완료")
+                        try:
+                            # 방법 1: label 클릭 시도
+                            label = self.driver.find_element(By.CSS_SELECTOR, 'label[for="coment"]')
+                            label.click()
+                            self.random_delay(0.5, 1)
+                            print("   ✅ 댓글 허용 체크 완료 (label 클릭)")
+                        except:
+                            try:
+                                # 방법 2: JavaScript로 직접 체크
+                                self.driver.execute_script("arguments[0].checked = true;", comment_checkbox)
+                                self.random_delay(0.5, 1)
+                                print("   ✅ 댓글 허용 체크 완료 (JS)")
+                            except Exception as e:
+                                print(f"   ⚠️  댓글 체크 실패: {e}")
                     else:
                         print("   ℹ️  이미 체크되어 있음 (건너뛰기)")
                 else:
