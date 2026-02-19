@@ -633,6 +633,8 @@ class NaverCafeWorker:
             try:
                 # 댓글 허용 체크박스 찾기
                 comment_checkbox_selectors = [
+                    '#coment',  # 네이버 카페 표준 (오타: coment)
+                    'input[id="coment"]',
                     'input[type="checkbox"][name*="comment"]',
                     'input[type="checkbox"][id*="comment"]',
                     'input[type="checkbox"].comment-allow',

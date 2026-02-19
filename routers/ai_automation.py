@@ -2168,6 +2168,10 @@ async def test_generate_content(
                 else:
                     body = body_section.strip()
                 
+                # **본문** 마크다운 텍스트 제거
+                if body.startswith('**본문**'):
+                    body = body.replace('**본문**', '', 1).strip()
+                
                 # 댓글 추출 (# 댓글 헤더 제거)
                 if comments_section.startswith('# 댓글'):
                     comments = comments_section.replace('# 댓글', '', 1).strip()

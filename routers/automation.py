@@ -215,6 +215,7 @@ async def worker_websocket(websocket: WebSocket, pc_number: int, db: Session = D
                     db.commit()
                     
                     # 다음 작업 할당 (모든 Task 완료 후 다음 Task 찾기)
+                    print(f"\n🔄 Task #{task.id} 완료 → 다음 Task 찾는 중...")
                     await assign_next_task(pc_number, db, websocket)
                     
             elif message['type'] == 'task_failed':
@@ -348,6 +349,7 @@ async def assign_next_task(pc_number: int, db: Session, websocket: WebSocket):
     ).first()
     
     if not pc:
+        print(f"❌ PC #{pc_number} 정보 없음")
         return
     
     # 대기 중인 작업 찾기 (우선순위 높은 순, 예정 시간 빠른 순)
@@ -358,6 +360,8 @@ async def assign_next_task(pc_number: int, db: Session, websocket: WebSocket):
         AutomationTask.priority.desc(),
         AutomationTask.scheduled_time.asc()
     ).first()
+    
+    print(f"📋 Pending Task 검색 결과: {'Task #' + str(pending_task.id) if pending_task else '없음'}")
     
     if pending_task:
         # 계정 할당 (PC에 할당된 계정 중 사용 가능한 것)

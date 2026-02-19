@@ -3387,12 +3387,34 @@ function renderComments(text) {
             const account = match[2].trim();  // 계정1, 계정2, 작성자 등
             const content = match[3].trim();  // 댓글 내용
             
-            // 뱃지 색상 결정
-            let badgeClass = 'bg-danger';  // 기본: 빨간색
+            // 뱃지 색상 결정 (빨주노초파남보핑크)
+            let badgeStyle = '';
             if (account === '작성자') {
-                badgeClass = 'bg-info';  // 작성자: 하늘색
+                badgeStyle = 'background-color: #17a2b8; color: white;';  // 작성자: 하늘색
             } else if (account.includes('계정')) {
-                badgeClass = 'bg-danger';  // 계정: 빨간색
+                // 계정 번호 추출
+                const accountNum = account.match(/\d+/);
+                if (accountNum) {
+                    // 색상 배열 (빨주노초파남보핑크)
+                    const colors = [
+                        '#dc3545',  // 1. 빨강
+                        '#fd7e14',  // 2. 주황
+                        '#ffc107',  // 3. 노랑
+                        '#28a745',  // 4. 초록
+                        '#007bff',  // 5. 파랑
+                        '#6610f2',  // 6. 남색
+                        '#6f42c1',  // 7. 보라
+                        '#e83e8c'   // 8. 핑크
+                    ];
+                    
+                    const colorIndex = (parseInt(accountNum[0]) - 1) % colors.length;
+                    const textColor = (colorIndex === 2) ? '#333' : 'white';  // 노랑은 검은 글씨
+                    badgeStyle = `background-color: ${colors[colorIndex]}; color: ${textColor};`;
+                } else {
+                    badgeStyle = 'background-color: #dc3545; color: white;';  // 기본: 빨강
+                }
+            } else {
+                badgeStyle = 'background-color: #6c757d; color: white;';  // 기타: 회색
             }
             
             // 들여쓰기 (대댓글)
@@ -3401,7 +3423,7 @@ function renderComments(text) {
             html += `
                 <div style="margin-left: ${marginLeft}px; margin-bottom: 12px; padding: 12px; border: 1px solid #dee2e6; border-radius: 8px; background-color: ${depth > 0 ? '#f8f9fa' : '#ffffff'};">
                     <div style="margin-bottom: 8px;">
-                        <span class="badge ${badgeClass}">${account}</span>
+                        <span class="badge" style="${badgeStyle}">${account}</span>
                     </div>
                     <div style="line-height: 1.6; color: #333;">
                         ${content}
