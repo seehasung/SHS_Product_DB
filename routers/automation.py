@@ -927,8 +927,8 @@ async def create_tasks_from_post(
 async def get_worker_version():
     """Worker 버전 정보 제공"""
     return JSONResponse({
-        "version": "1.0.3",
-        "release_date": "2026-02-11",
+        "version": "1.0.4",
+        "release_date": "2026-02-19",
         "download_url": "/automation/api/worker/download",
         "changelog": [
             "draft_url 지원 (수정 발행)",
