@@ -2167,6 +2167,8 @@ async def test_generate_content(
                 # 본문 추출 (헤더 제거)
                 if body_section.startswith('# 본문'):
                     body = body_section.replace('# 본문', '', 1).strip()
+                elif body_section.startswith('## 본문'):
+                    body = body_section.replace('## 본문', '', 1).strip()
                 elif body_section.startswith('**본문:**'):
                     body = body_section.replace('**본문:**', '', 1).strip()
                 elif body_section.startswith('**본문**'):
@@ -2337,40 +2339,15 @@ async def publish_test(
         db.add(post_task)
         db.flush()
         
-        # 5. 댓글 생성 (Claude로)
+        # 5. 댓글 Task 생성 (이미 생성된 댓글 사용!)
         comment_tasks = []
-        print(f"\n💬 댓글 생성 시작 (요청: {comment_count}개)")
-        if comment_count > 0:
-            # 댓글 생성 프롬프트
-            comment_prompt = f"""
-작성한 글:
-{test_data.get('body', '')[:200]}...
-
-위 글에 대한 자연스러운 댓글 {comment_count}개를 생성해주세요.
-
-출력 형식:
-1. [댓글1]
-2. [댓글2]
-...
-
-요구사항:
-- 짧고 자연스럽게 (20-50자)
-- 공감/질문/감사 등 다양한 톤
-- 이모티콘 가끔 사용
-"""
-            
-                # Claude로 댓글 생성
-            import os
-            api_key = os.environ.get('ANTHROPIC_API_KEY')
-            if api_key:
-                client = anthropic.Anthropic(api_key=api_key)
-                response = client.messages.create(
-                    model="claude-opus-4-5",
-                    max_tokens=500,
-                    messages=[{"role": "user", "content": comment_prompt}]
-                )
-                
-                comments_text = response.content[0].text
+        print(f"\n💬 댓글 Task 생성 시작...")
+        
+        # AI가 이미 생성한 댓글 사용
+        comments_text = test_data.get('comments', '')
+        print(f"   AI 생성 댓글:\n{comments_text[:500]}...")
+        
+        if comments_text:
                 
                 # 댓글 구조 파싱 (복잡한 구조 지원)
                 def parse_comment_structure(text):
