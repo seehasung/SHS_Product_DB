@@ -957,14 +957,14 @@ async def create_tasks_from_post(
 async def get_worker_version():
     """Worker 버전 정보 제공"""
     return JSONResponse({
-        "version": "1.0.3",
+        "version": "1.0.4",
         "release_date": "2026-02-19",
         "download_url": "/automation/api/worker/download",
         "changelog": [
-            "draft_url 지원 (수정 발행)",
-            "WebSocket ping 비활성화",
-            "상세 로그 추가",
-            "연결 안정성 개선"
+            "완료 보고 후 대기 시간 추가 (연결 안정성)",
+            "댓글 허용 체크박스 개선 (label 클릭)",
+            "post_url 전송 보장",
+            "중복 Task 실행 방지"
         ],
         "required_packages": {
             "selenium": "4.15.2",

@@ -51,7 +51,7 @@ from pathlib import Path
 class NaverCafeWorker:
     """네이버 카페 자동 작성 Worker"""
     
-    VERSION = "1.0.3" # 현재 버전
+    VERSION = "1.0.4" # 현재 버전
     
     def __init__(self, pc_number: int, server_url: str = "scorp274.com"):
         self.pc_number = pc_number
@@ -1149,6 +1149,11 @@ class NaverCafeWorker:
                         'task_id': task_id,
                         'post_url': post_url
                     }))
+                    print(f"   📤 완료 보고 전송: post_url={post_url[:50]}...")
+                    
+                    # ⭐ 완료 보고 전송 후 대기 (서버 처리 시간 확보)
+                    await asyncio.sleep(3)
+                    print(f"   ✅ 완료 보고 확인 완료 (3초 대기)")
                 else:
                     raise Exception("글 작성/수정 실패")
                 
@@ -1177,6 +1182,10 @@ class NaverCafeWorker:
                         print(f"  📤 댓글 ID 전송: {result}")
                     
                     await self.websocket.send(json.dumps(message))
+                    
+                    # ⭐ 완료 보고 전송 후 대기 (서버 처리 시간 확보)
+                    await asyncio.sleep(2)
+                    print(f"   ✅ 완료 보고 확인 완료 (2초 대기)")
                 else:
                     raise Exception("댓글 작성 실패")
             
