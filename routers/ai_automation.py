@@ -2151,9 +2151,11 @@ async def test_generate_content(
                 body_section = sections[1].strip()
                 comments_section = sections[2].strip()
                 
-                # 제목 추출 (# 제목 헤더 제거)
+                # 제목 추출 (헤더 제거)
                 if title_section.startswith('# 제목'):
                     title = title_section.replace('# 제목', '', 1).strip()
+                elif title_section.startswith('**제목:**'):
+                    title = title_section.replace('**제목:**', '', 1).strip()
                 else:
                     # 첫 줄만 제목
                     lines = title_section.split('\n')
@@ -2162,19 +2164,23 @@ async def test_generate_content(
                     else:
                         title = lines[0].strip()
                 
-                # 본문 추출 (# 본문 헤더 제거)
+                # 본문 추출 (헤더 제거)
                 if body_section.startswith('# 본문'):
                     body = body_section.replace('# 본문', '', 1).strip()
+                elif body_section.startswith('**본문:**'):
+                    body = body_section.replace('**본문:**', '', 1).strip()
+                elif body_section.startswith('**본문**'):
+                    body = body_section.replace('**본문**', '', 1).strip()
                 else:
                     body = body_section.strip()
                 
-                # **본문** 마크다운 텍스트 제거
-                if body.startswith('**본문**'):
-                    body = body.replace('**본문**', '', 1).strip()
-                
-                # 댓글 추출 (# 댓글 헤더 제거)
+                # 댓글 추출 (헤더 제거)
                 if comments_section.startswith('# 댓글'):
                     comments = comments_section.replace('# 댓글', '', 1).strip()
+                elif comments_section.startswith('**댓글:**'):
+                    comments = comments_section.replace('**댓글:**', '', 1).strip()
+                elif comments_section.startswith('**댓글**'):
+                    comments = comments_section.replace('**댓글**', '', 1).strip()
                 else:
                     comments = comments_section.strip()
                 
