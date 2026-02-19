@@ -2128,58 +2128,59 @@ async def test_generate_content(
         
         generated_content_raw = response.content[0].text
         
-        # 생성된 텍스트를 제목/본문/댓글로 분리
-        def split_title_and_body(text):
-            """제목과 본문 자동 분리 (댓글 제거)"""
-            # --- 구분자로 먼저 분리
-            if '---' in text:
-                parts = text.split('---')
-                
-                # 제목 (첫 부분)
-                title_part = parts[0].strip()
-                if title_part.startswith('#'):
-                    title = title_part.replace('#', '').strip()
-                else:
-                    title = title_part.strip()
-                
-                # 본문 (중간 부분)
-                if len(parts) > 1:
-                    body_part = parts[1]
-                    
-                    # "# 본문"이 있으면 그 다음만
-                    if '# 본문' in body_part:
-                        body_part = body_part.split('# 본문', 1)[1]
-                    
-                    # "# 댓글"이 있으면 그 전까지만
-                    if '# 댓글' in body_part:
-                        body_part = body_part.split('# 댓글', 1)[0]
-                    
-                    # "---" 또는 "**댓글**"이 있으면 그 전까지만
-                    if '**댓글**' in body_part:
-                        body_part = body_part.split('**댓글**', 1)[0]
-                    
-                    body = body_part.strip()
-                else:
-                    body = ""
-                
-                return title, body
-            
-            # --- 없으면 기존 방식
-            lines = text.strip().split('\n')
-            
-            if lines[0].startswith('#'):
-                title = lines[0].replace('#', '').strip()
-                body = '\n'.join(lines[1:]).strip()
-                
-                # 댓글 부분 제거
-                if '# 댓글' in body:
-                    body = body.split('# 댓글')[0].strip()
-                
-                return title, body
-            
-            return "", text
+        # 🔍 생성된 원본 결과 로깅
+        print("\n" + "="*80)
+        print("📝 Claude 생성 결과 (RAW)")
+        print("="*80)
+        print(generated_content_raw)
+        print("\n" + "="*80 + "\n")
         
-        title, generated_content = split_title_and_body(generated_content_raw)
+        # 생성된 텍스트를 제목/본문/댓글로 분리
+        def split_content(text):
+            """제목, 본문, 댓글을 각각 분리"""
+            title = ""
+            body = ""
+            comments = ""
+            
+            # 1. 제목 추출
+            lines = text.strip().split('\n')
+            if lines:
+                # 첫 줄이 # 제목 형식
+                if lines[0].startswith('#'):
+                    title = lines[0].replace('#', '').strip()
+                    remaining = '\n'.join(lines[1:])
+                else:
+                    # 첫 줄 그대로 제목
+                    title = lines[0].strip()
+                    remaining = '\n'.join(lines[1:])
+            else:
+                remaining = text
+            
+            # 2. 본문과 댓글 분리
+            # "# 본문" 헤더 제거
+            if '# 본문' in remaining:
+                remaining = remaining.split('# 본문', 1)[1]
+            
+            # "댓글" 섹션 찾기
+            comment_markers = ['# 댓글', '댓글:', '댓글\n', '\n댓글\n']
+            comment_split_index = -1
+            
+            for marker in comment_markers:
+                if marker in remaining:
+                    parts = remaining.split(marker, 1)
+                    body = parts[0].strip()
+                    comments = parts[1].strip() if len(parts) > 1 else ""
+                    comment_split_index = 0
+                    break
+            
+            # 댓글 섹션이 없으면 전체가 본문
+            if comment_split_index == -1:
+                body = remaining.strip()
+                comments = ""
+            
+            return title, body, comments
+        
+        title, body, comments = split_content(generated_content_raw)
         
         # 이미지 생성 (Imagen 3)
         image_urls = []
@@ -2214,7 +2215,8 @@ Context: daily life, satisfied customer, problem solved."""
         return JSONResponse({
             'success': True,
             'title': title,  # 생성된 제목
-            'content': generated_content,
+            'body': body,  # 본문
+            'comments': comments,  # 댓글
             'keyword': keyword,
             'prompt_name': f"{product.product_name} - {prompt.keyword_classification}",
             'cafe_name': cafe_name,  # 카페명 추가
@@ -2288,7 +2290,7 @@ async def publish_test(
             schedule_id=None,  # 스케줄 없이 독립 실행
             scheduled_time=datetime.now(),
             title=post_title,  # AI 생성 제목 또는 키워드
-            content=test_data['content'],
+            content=test_data['body'],  # 본문만
             cafe_id=cafe_id,
             assigned_account_id=assigned_account_id,  # URL의 계정 사용!
             status='pending',
@@ -2438,8 +2440,10 @@ async def publish_test(
             'success': True,
             'message': f'글 + 댓글 {len(comment_tasks)}개 Task 생성 완료!',
             'task_id': post_task.id,
-            'content': test_data['content'],
-            'comments': len(comment_tasks),
+            'title': test_data.get('title'),
+            'body': test_data.get('body'),
+            'ai_comments': test_data.get('comments'),  # AI가 생성한 댓글 (참고용)
+            'task_comments': len(comment_tasks),  # Task로 생성된 댓글 수
             'cafe_name': test_data.get('cafe_name'),
             'image_urls': test_data.get('image_urls', [])
         })

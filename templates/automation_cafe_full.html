@@ -3315,16 +3315,43 @@ async function publishTestContent() {
                     대시보드에서 진행 상황을 확인하세요.
                 </div>
                 
-                <div class="card">
-                    <div class="card-header bg-primary text-white">
-                        <h6 class="mb-0"><i class="bi bi-file-text"></i> 생성된 글</h6>
+                <!-- 제목 -->
+                <div class="card mb-3">
+                    <div class="card-header bg-dark text-white">
+                        <h6 class="mb-0"><i class="bi bi-card-heading"></i> 제목</h6>
                     </div>
                     <div class="card-body">
-                        <div style="white-space: pre-wrap; line-height: 1.8;">
-                            ${data.content}
+                        <div style="font-size: 1.2rem; font-weight: 600;">
+                            ${data.title || '(제목 없음)'}
                         </div>
                     </div>
                 </div>
+                
+                <!-- 본문 -->
+                <div class="card mb-3">
+                    <div class="card-header bg-primary text-white">
+                        <h6 class="mb-0"><i class="bi bi-file-text"></i> 본문</h6>
+                    </div>
+                    <div class="card-body">
+                        <div style="white-space: pre-wrap; line-height: 1.8;">
+                            ${data.body || '(본문 없음)'}
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- AI 생성 댓글 (참고용) -->
+                ${data.ai_comments ? `
+                <div class="card mb-3">
+                    <div class="card-header bg-info text-white">
+                        <h6 class="mb-0"><i class="bi bi-chat-dots"></i> AI 생성 댓글 (참고용)</h6>
+                    </div>
+                    <div class="card-body">
+                        <div style="white-space: pre-wrap; line-height: 1.8;">
+                            ${data.ai_comments}
+                        </div>
+                    </div>
+                </div>
+                ` : ''}
             `;
         } else {
             document.getElementById('testResultContent').innerHTML = `
@@ -3555,16 +3582,43 @@ async function generateTestContent() {
                     </div>
                 </div>
                 
-                <div class="card">
-                    <div class="card-header bg-primary text-white">
-                        <h6 class="mb-0"><i class="bi bi-file-text"></i> 생성된 글</h6>
+                <!-- 제목 -->
+                <div class="card mb-3">
+                    <div class="card-header bg-dark text-white">
+                        <h6 class="mb-0"><i class="bi bi-card-heading"></i> 제목</h6>
                     </div>
                     <div class="card-body">
-                        <div style="white-space: pre-wrap; line-height: 1.8; font-size: 1.05rem;">
-                            ${data.content}
+                        <div style="font-size: 1.2rem; font-weight: 600;">
+                            ${data.title || '(제목 없음)'}
                         </div>
                     </div>
                 </div>
+                
+                <!-- 본문 -->
+                <div class="card mb-3">
+                    <div class="card-header bg-primary text-white">
+                        <h6 class="mb-0"><i class="bi bi-file-text"></i> 본문</h6>
+                    </div>
+                    <div class="card-body">
+                        <div style="white-space: pre-wrap; line-height: 1.8; font-size: 1.05rem;">
+                            ${data.body || '(본문 없음)'}
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 댓글 -->
+                ${data.comments ? `
+                <div class="card mb-3">
+                    <div class="card-header bg-info text-white">
+                        <h6 class="mb-0"><i class="bi bi-chat-dots"></i> 댓글</h6>
+                    </div>
+                    <div class="card-body">
+                        <div style="white-space: pre-wrap; line-height: 1.8; font-size: 1.05rem;">
+                            ${data.comments}
+                        </div>
+                    </div>
+                </div>
+                ` : ''}
                 
                 ${data.image_urls && data.image_urls.length > 0 ? `
                 <div class="card mt-3">
