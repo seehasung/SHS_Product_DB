@@ -6242,11 +6242,7 @@ async function deployWorkerVersion(event) {
                         </button>
                     </div>
                     
-                    <div class="mb-3">
-                        <label class="form-label">댓글 개수</label>
-                        <input type="number" class="form-control" id="commentCount" value="3" min="1" max="10">
-                        <small class="text-muted">작성자 댓글 1개 + 다른 계정 댓글 (랜덤)</small>
-                    </div>
+                    <!-- 댓글 개수는 카페 계정 수에서 자동 결정! -->
                 </div>
                 
                 <div class="mb-3">
@@ -6279,18 +6275,7 @@ async function deployWorkerVersion(event) {
                     <small class="text-muted">프롬프트의 분류에 맞는 키워드만 표시됩니다.</small>
                 </div>
                 
-                <div class="mb-3">
-                    <label class="form-label">5. 카페 선택 <span class="text-danger">*</span></label>
-                    <select class="form-select" id="testCafeSelect" onchange="showCafeCharacteristics()" required>
-                        <option value="">카페를 선택하세요</option>
-                    </select>
-                </div>
-                
-                <!-- 카페 특성 미리보기 -->
-                <div id="cafeCharacteristicsPreview" class="alert alert-light" style="display: none;">
-                    <h6><i class="bi bi-cup-hot"></i> 카페 특성</h6>
-                    <p id="cafeCharacteristicsText" class="mb-0"></p>
-                </div>
+                <!-- 카페는 초안 URL에서 자동 추출! -->
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">취소</button>
