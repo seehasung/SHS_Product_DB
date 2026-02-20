@@ -1067,7 +1067,7 @@ async def complete_task(
                     print(f"   📨 첫 댓글 Task #{first_comment.id} → PC #{first_comment.assigned_pc_id} 전송...")
                     await send_task_to_worker(first_comment.assigned_pc_id, first_comment, db)
             
-            elif task.task_type in ['comment', 'reply']:
+    elif task.task_type in ['comment', 'reply']:
                 # 댓글/대댓글 완료: 같은 본문의 다음 댓글 전송
                 root_task = db.query(AutomationTask).get(task.parent_task_id)
                 while root_task and root_task.task_type != 'post':
