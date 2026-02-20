@@ -1043,31 +1043,31 @@ async def complete_task(
     # 다음 Task 전송
     task = db.query(AutomationTask).get(task_id)  # 다시 조회
     if task and task.task_type == 'post' and task.parent_task_id is None:
-                # 본문 완료: 첫 댓글 전송
-                first_comment = db.query(AutomationTask).filter(
-                    AutomationTask.parent_task_id == task_id,
-                    AutomationTask.status.in_(['pending', 'assigned'])
-                ).order_by(
-                    AutomationTask.order_sequence.asc()
-                ).first()
-                
-                if first_comment and first_comment.assigned_pc_id:
-                    # PC 연결될 때까지 대기 (최대 1분 30초)
-                    if first_comment.assigned_pc_id not in worker_connections:
-                        print(f"   ⏳ PC #{first_comment.assigned_pc_id} 연결 대기 중... (최대 90초)")
-                        for i in range(90):  # 90초
-                            await asyncio.sleep(1)
-                            if first_comment.assigned_pc_id in worker_connections:
-                                print(f"   ✅ PC #{first_comment.assigned_pc_id} 연결됨! (대기 시간: {i+1}초)")
-                                break
-                        else:
-                            print(f"   ⚠️  타임아웃 (30초): PC #{first_comment.assigned_pc_id} 연결 안 됨")
-                            return JSONResponse({'success': True, 'message': 'timeout'})
-                    
-                    print(f"   📨 첫 댓글 Task #{first_comment.id} → PC #{first_comment.assigned_pc_id} 전송...")
-                    await send_task_to_worker(first_comment.assigned_pc_id, first_comment, db)
+        # 본문 완료: 첫 댓글 전송
+        first_comment = db.query(AutomationTask).filter(
+            AutomationTask.parent_task_id == task_id,
+            AutomationTask.status.in_(['pending', 'assigned'])
+        ).order_by(
+            AutomationTask.order_sequence.asc()
+        ).first()
+        
+        if first_comment and first_comment.assigned_pc_id:
+            # PC 연결될 때까지 대기 (최대 90초)
+            if first_comment.assigned_pc_id not in worker_connections:
+                print(f"   ⏳ PC #{first_comment.assigned_pc_id} 연결 대기 중... (최대 90초)")
+                for i in range(90):
+                    await asyncio.sleep(1)
+                    if first_comment.assigned_pc_id in worker_connections:
+                        print(f"   ✅ PC #{first_comment.assigned_pc_id} 연결됨! ({i+1}초)")
+                        break
+                else:
+                    print(f"   ⚠️  타임아웃: PC #{first_comment.assigned_pc_id} 연결 안 됨")
+                    return JSONResponse({'success': True, 'message': 'timeout'})
             
-    elif task.task_type in ['comment', 'reply']:
+            print(f"   📨 첫 댓글 Task #{first_comment.id} → PC #{first_comment.assigned_pc_id} 전송...")
+            await send_task_to_worker(first_comment.assigned_pc_id, first_comment, db)
+    
+    elif task and task.task_type in ['comment', 'reply']:
                 # 댓글/대댓글 완료: 같은 본문의 다음 댓글 전송
                 root_task = db.query(AutomationTask).get(task.parent_task_id)
                 while root_task and root_task.task_type != 'post':
