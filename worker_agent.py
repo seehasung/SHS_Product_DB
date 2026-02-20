@@ -1193,9 +1193,9 @@ class NaverCafeWorker:
                                 print(f"   ⚠️  완료 보고 실패: HTTP {response.status_code} (시도: {attempt+1})")
                         except Exception as e:
                             print(f"   ⚠️  완료 보고 오류: {e} (시도: {attempt+1})")
-                            if attempt < 2:  # 마지막 시도 아니면
+                            if attempt < 2:
                                 print(f"   🔄 재시도 중...")
-                                await asyncio.sleep(5)  # 5초 대기 후 재시도
+                                await asyncio.sleep(5)
                         
                     # WebSocket으로도 전송 (백업)
                     try:
@@ -1230,7 +1230,7 @@ class NaverCafeWorker:
                 if result:
                     # 서버에 완료 알림 (HTTP POST로 확실하게! - 재시도 3회)
                     import requests
-                    for attempt in range(3):
+                    for attempt in range(3):  # 재시도 3회
                         try:
                             # cafe_comment_id도 전송!
                             data = {}
@@ -1241,7 +1241,7 @@ class NaverCafeWorker:
                             response = requests.post(
                                 f"https://{self.server_url}/automation/api/tasks/{task_id}/complete",
                                 data=data,
-                                timeout=30,  # 30초로 증가!
+                                timeout=15,  # 15초
                                 verify=False
                             )
                             if response.status_code == 200:

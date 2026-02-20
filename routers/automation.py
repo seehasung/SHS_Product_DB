@@ -1028,15 +1028,21 @@ async def complete_task(
             
             db.commit()
             print(f"✅ Task #{task_id} 완료 (HTTP, sequence:{task.order_sequence}, post_url: {task.post_url})")
-            
-            # 랜덤 대기 (10-30초)
-            import random
-            wait_time = random.randint(10, 30)
-            print(f"⏳ 다음 작업 대기 중... ({wait_time}초)")
-            await asyncio.sleep(wait_time)
-            
-            # 다음 Task 전송
-            if task.task_type == 'post' and task.parent_task_id is None:
+        
+        except Exception as e:
+            return JSONResponse({'success': False, 'error': str(e)}, status_code=500)
+    
+    # ⭐ 락 해제 후 대기 및 전송 (다른 요청 차단 안 함!)
+    
+    # 랜덤 대기 (2-5초)
+    import random
+    wait_time = random.randint(2, 5)
+    print(f"⏳ 다음 작업 대기 중... ({wait_time}초)")
+    await asyncio.sleep(wait_time)
+    
+    # 다음 Task 전송
+    task = db.query(AutomationTask).get(task_id)  # 다시 조회
+    if task and task.task_type == 'post' and task.parent_task_id is None:
                 # 본문 완료: 첫 댓글 전송
                 first_comment = db.query(AutomationTask).filter(
                     AutomationTask.parent_task_id == task_id,
@@ -1046,16 +1052,16 @@ async def complete_task(
                 ).first()
                 
                 if first_comment and first_comment.assigned_pc_id:
-                    # PC 연결될 때까지 대기 (최대 3분)
+                    # PC 연결될 때까지 대기 (최대 1분 30초)
                     if first_comment.assigned_pc_id not in worker_connections:
-                        print(f"   ⏳ PC #{first_comment.assigned_pc_id} 연결 대기 중... (최대 3분)")
-                        for i in range(180):  # 3분
+                        print(f"   ⏳ PC #{first_comment.assigned_pc_id} 연결 대기 중... (최대 90초)")
+                        for i in range(90):  # 90초
                             await asyncio.sleep(1)
                             if first_comment.assigned_pc_id in worker_connections:
                                 print(f"   ✅ PC #{first_comment.assigned_pc_id} 연결됨! (대기 시간: {i+1}초)")
                                 break
                         else:
-                            print(f"   ⚠️  타임아웃 (3분): PC #{first_comment.assigned_pc_id} 연결 안 됨")
+                            print(f"   ⚠️  타임아웃 (30초): PC #{first_comment.assigned_pc_id} 연결 안 됨")
                             return JSONResponse({'success': True, 'message': 'timeout'})
                     
                     print(f"   📨 첫 댓글 Task #{first_comment.id} → PC #{first_comment.assigned_pc_id} 전송...")
@@ -1094,24 +1100,22 @@ async def complete_task(
                             break
                     
                     if next_comment and next_comment.assigned_pc_id:
-                        # PC 연결될 때까지 대기 (최대 3분)
+                        # PC 연결될 때까지 대기 (최대 30초)
                         if next_comment.assigned_pc_id not in worker_connections:
-                            print(f"   ⏳ PC #{next_comment.assigned_pc_id} 연결 대기 중... (최대 3분)")
-                            for i in range(180):  # 3분
+                            print(f"   ⏳ PC #{next_comment.assigned_pc_id} 연결 대기 중... (최대 30초)")
+                            for i in range(90):  # 1분 30초
                                 await asyncio.sleep(1)
                                 if next_comment.assigned_pc_id in worker_connections:
                                     print(f"   ✅ PC #{next_comment.assigned_pc_id} 연결됨! (대기 시간: {i+1}초)")
                                     break
                             else:
-                                print(f"   ⚠️  타임아웃 (3분): PC #{next_comment.assigned_pc_id} 연결 안 됨")
+                                print(f"   ⚠️  타임아웃 (30초): PC #{next_comment.assigned_pc_id} 연결 안 됨")
                                 return JSONResponse({'success': True, 'message': 'timeout'})
                         
                         print(f"   📨 다음 댓글 Task #{next_comment.id} (순서:{next_comment.order_sequence}, 타입:{next_comment.task_type}) → PC #{next_comment.assigned_pc_id} 전송...")
                         await send_task_to_worker(next_comment.assigned_pc_id, next_comment, db)
-            
-            return JSONResponse({'success': True})
-        except Exception as e:
-            return JSONResponse({'success': False, 'error': str(e)}, status_code=500)
+    
+    return JSONResponse({'success': True})
 
 
 @router.get("/api/worker/version")
