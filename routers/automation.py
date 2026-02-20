@@ -11,6 +11,9 @@ from typing import Optional, Dict, List
 import json
 import asyncio
 
+# ⭐ 전역 락 (순차 실행 보장!)
+task_completion_lock = asyncio.Lock()
+
 # Claude API (선택적 import)
 try:
     import anthropic
@@ -986,39 +989,50 @@ async def complete_task(
     post_url: str = Form(None),
     db: Session = Depends(get_db)
 ):
-    """Task 완료 보고 (HTTP API)"""
-    try:
-        task = db.query(AutomationTask).get(task_id)
-        if not task:
-            return JSONResponse({'success': False, 'error': 'Task not found'}, status_code=404)
-        
-        task.status = 'completed'
-        task.completed_at = get_kst_now()
-        if post_url:
-            task.post_url = post_url
-        
-        db.commit()
-        print(f"✅ Task #{task_id} 완료 (HTTP, post_url: {task.post_url})")
-        
-        # ⏳ 진행 중인 다른 Task가 완료될 때까지 대기
-        print(f"⏳ 다른 작업 완료 대기 중...")
-        import asyncio
-        import random
-        
-        for i in range(60):  # 최대 60초 대기
-            in_progress = db.query(AutomationTask).filter(
-                AutomationTask.status == 'in_progress'
-            ).count()
+    """Task 완료 보고 (HTTP API) - 순차 실행 보장!"""
+    # ⭐ 전역 락 획득 (한 번에 하나씩만 처리!)
+    async with task_completion_lock:
+        try:
+            task = db.query(AutomationTask).get(task_id)
+            if not task:
+                return JSONResponse({'success': False, 'error': 'Task not found'}, status_code=404)
             
-            if in_progress == 0:
-                break
+            # 이전 sequence Task들이 모두 완료되었는지 확인
+            if task.order_sequence is not None and task.order_sequence > 0:
+                # 같은 본문의 이전 Task들 확인
+                root_task = db.query(AutomationTask).get(task.parent_task_id)
+                while root_task and root_task.task_type != 'post':
+                    root_task = db.query(AutomationTask).get(root_task.parent_task_id) if root_task.parent_task_id else None
+                
+                if root_task:
+                    prev_incomplete = db.query(AutomationTask).filter(
+                        AutomationTask.parent_task_id == root_task.id,
+                        AutomationTask.order_sequence < task.order_sequence,
+                        AutomationTask.status != 'completed'
+                    ).count()
+                    
+                    if prev_incomplete > 0:
+                        print(f"⚠️ Task #{task_id}: 이전 {prev_incomplete}개 Task 미완료, 완료만 처리하고 전송 보류")
+                        task.status = 'completed'
+                        task.completed_at = get_kst_now()
+                        if post_url:
+                            task.post_url = post_url
+                        db.commit()
+                        return JSONResponse({'success': True, 'message': 'pending'})
             
-            await asyncio.sleep(1)
-        
-        # 추가 랜덤 대기 (10-30초)
-        wait_time = random.randint(10, 30)
-        print(f"⏳ 추가 대기 중... ({wait_time}초)")
-        await asyncio.sleep(wait_time)
+            task.status = 'completed'
+            task.completed_at = get_kst_now()
+            if post_url:
+                task.post_url = post_url
+            
+            db.commit()
+            print(f"✅ Task #{task_id} 완료 (HTTP, sequence:{task.order_sequence}, post_url: {task.post_url})")
+            
+            # 랜덤 대기 (10-30초)
+            import random
+            wait_time = random.randint(10, 30)
+            print(f"⏳ 다음 작업 대기 중... ({wait_time}초)")
+            await asyncio.sleep(wait_time)
         
         # 다음 Task 전송
         if task.task_type == 'post' and task.parent_task_id is None:
@@ -1081,14 +1095,14 @@ async def complete_task(
 async def get_worker_version():
     """Worker 버전 정보 제공"""
     return JSONResponse({
-        "version": "1.0.5",
+        "version": "1.0.6",
         "release_date": "2026-02-19",
         "download_url": "/automation/api/worker/download",
         "changelog": [
-            "등록 후 리다이렉트 대기 (실제 글 URL 추출)",
-            "순차 댓글 실행",
-            "post_url 전송 보장",
-            "DB 세션 정리"
+            "계정명 기반 PC 고정 할당",
+            "대댓글 ID 반환 (부모 추적)",
+            "카페 계정 수 자동 조정",
+            "순차 실행 + 랜덤 대기"
         ],
         "required_packages": {
             "selenium": "4.15.2",

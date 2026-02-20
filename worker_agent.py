@@ -51,7 +51,7 @@ from pathlib import Path
 class NaverCafeWorker:
     """네이버 카페 자동 작성 Worker"""
     
-    VERSION = "1.0.5" # 현재 버전
+    VERSION = "1.0.6" # 현재 버전
     
     def __init__(self, pc_number: int, server_url: str = "scorp274.com"):
         self.pc_number = pc_number
@@ -1107,7 +1107,8 @@ class NaverCafeWorker:
                 self.driver.switch_to.window(original_window)
                 print("✅ 네이버 홈 탭으로 복귀 완료")
                 
-                return comment_id if not is_reply else True
+                # 댓글/대댓글 모두 ID 반환 (다음 대댓글의 부모가 될 수 있음!)
+                return comment_id
             else:
                 print("❌ 댓글 등록 버튼을 찾을 수 없습니다")
                 
@@ -1231,7 +1232,8 @@ class NaverCafeWorker:
                             'type': 'task_completed',
                             'task_id': task_id
                         }
-                        if isinstance(result, str) and not is_reply:
+                        # 댓글/대댓글 모두 ID 저장 (다음 대댓글의 부모가 될 수 있음!)
+                        if isinstance(result, str):
                             message['cafe_comment_id'] = result
                         await self.websocket.send(json.dumps(message))
                     except:
