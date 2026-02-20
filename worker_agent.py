@@ -593,10 +593,13 @@ class NaverCafeWorker:
             try:
                 print("   직접 타이핑 방식으로 본문 입력...")
                 paragraph = self.driver.find_element(By.CSS_SELECTOR, "p.se-text-paragraph")
-                self.driver.execute_script("arguments[0].scrollIntoView(true);", paragraph)
-                self.random_delay(0.5, 1)
                 
-                paragraph.click()
+                # JavaScript로 직접 포커스 (클릭 차단 회피!)
+                self.driver.execute_script("""
+                    arguments[0].scrollIntoView({block: 'center'});
+                    arguments[0].focus();
+                    arguments[0].click();
+                """, paragraph)
                 self.random_delay(0.5, 1)
                 
                 active = self.driver.switch_to.active_element
@@ -1170,21 +1173,26 @@ class NaverCafeWorker:
                     )
                 
                 if post_url:
-                    # 서버에 완료 알림 (HTTP POST로 확실하게!)
-                    try:
-                        import requests
-                        response = requests.post(
-                            f"https://{self.server_url}/automation/api/tasks/{task_id}/complete",
-                            data={'post_url': post_url},
-                            timeout=10,
-                            verify=False
-                        )
-                        if response.status_code == 200:
-                            print(f"   ✅ 완료 보고 성공 (HTTP)")
-                        else:
-                            print(f"   ⚠️  완료 보고 실패: HTTP {response.status_code}")
-                    except Exception as e:
-                        print(f"   ⚠️  완료 보고 오류: {e}")
+                    # 서버에 완료 알림 (HTTP POST로 확실하게! - 재시도 3회)
+                    import requests
+                    for attempt in range(3):
+                        try:
+                            response = requests.post(
+                                f"https://{self.server_url}/automation/api/tasks/{task_id}/complete",
+                                data={'post_url': post_url},
+                                timeout=30,  # 30초로 증가!
+                                verify=False
+                            )
+                            if response.status_code == 200:
+                                print(f"   ✅ 완료 보고 성공 (HTTP, 시도: {attempt+1})")
+                                break
+                            else:
+                                print(f"   ⚠️  완료 보고 실패: HTTP {response.status_code} (시도: {attempt+1})")
+                        except Exception as e:
+                            print(f"   ⚠️  완료 보고 오류: {e} (시도: {attempt+1})")
+                            if attempt < 2:  # 마지막 시도 아니면
+                                print(f"   🔄 재시도 중...")
+                                await asyncio.sleep(5)  # 5초 대기 후 재시도
                         
                     # WebSocket으로도 전송 (백업)
                     try:
@@ -1217,20 +1225,32 @@ class NaverCafeWorker:
                 )
                 
                 if result:
-                    # 서버에 완료 알림 (HTTP POST로 확실하게!)
-                    try:
-                        import requests
-                        response = requests.post(
-                            f"https://{self.server_url}/automation/api/tasks/{task_id}/complete",
-                            timeout=10,
-                            verify=False
-                        )
-                        if response.status_code == 200:
-                            print(f"   ✅ 댓글 완료 보고 성공 (HTTP)")
-                        else:
-                            print(f"   ⚠️  댓글 완료 보고 실패: HTTP {response.status_code}")
-                    except Exception as e:
-                        print(f"   ⚠️  댓글 완료 보고 오류: {e}")
+                    # 서버에 완료 알림 (HTTP POST로 확실하게! - 재시도 3회)
+                    import requests
+                    for attempt in range(3):
+                        try:
+                            # cafe_comment_id도 전송!
+                            data = {}
+                            if isinstance(result, str):
+                                data['cafe_comment_id'] = result
+                                print(f"   📤 댓글 ID 전송: {result}")
+                            
+                            response = requests.post(
+                                f"https://{self.server_url}/automation/api/tasks/{task_id}/complete",
+                                data=data,
+                                timeout=30,  # 30초로 증가!
+                                verify=False
+                            )
+                            if response.status_code == 200:
+                                print(f"   ✅ 댓글 완료 보고 성공 (HTTP, 시도: {attempt+1})")
+                                break
+                            else:
+                                print(f"   ⚠️  댓글 완료 보고 실패: HTTP {response.status_code} (시도: {attempt+1})")
+                        except Exception as e:
+                            print(f"   ⚠️  댓글 완료 보고 오류: {e} (시도: {attempt+1})")
+                            if attempt < 2:
+                                print(f"   🔄 재시도 중...")
+                                await asyncio.sleep(5)
                     
                     # WebSocket으로도 전송 (백업)
                     try:

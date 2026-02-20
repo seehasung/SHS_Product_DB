@@ -981,6 +981,7 @@ async def create_tasks_from_post(
 async def complete_task(
     task_id: int,
     post_url: str = Form(None),
+    cafe_comment_id: str = Form(None),  # 추가!
     db: Session = Depends(get_db)
 ):
     """Task 완료 보고 (HTTP API) - 순차 실행 보장!"""
@@ -1011,6 +1012,9 @@ async def complete_task(
                         task.completed_at = get_kst_now()
                         if post_url:
                             task.post_url = post_url
+                        if cafe_comment_id:
+                            task.error_message = f"cafe_comment_id:{cafe_comment_id}"
+                            print(f"  📌 카페 댓글 ID 저장: {cafe_comment_id}")
                         db.commit()
                         return JSONResponse({'success': True, 'message': 'pending'})
             
@@ -1018,6 +1022,9 @@ async def complete_task(
             task.completed_at = get_kst_now()
             if post_url:
                 task.post_url = post_url
+            if cafe_comment_id:
+                task.error_message = f"cafe_comment_id:{cafe_comment_id}"
+                print(f"  📌 카페 댓글 ID 저장: {cafe_comment_id}")
             
             db.commit()
             print(f"✅ Task #{task_id} 완료 (HTTP, sequence:{task.order_sequence}, post_url: {task.post_url})")
