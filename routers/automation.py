@@ -103,14 +103,8 @@ async def worker_websocket(websocket: WebSocket, pc_number: int, db: Session = D
     if all_pending:
         print(f"   전체 대기 Task: {', '.join([f'#{t.id}(PC:{t.assigned_pc_id}, 상태:{t.status})' for t in all_pending])}")
     
-    if pending_task:
-        print(f"🔄 Pending Task #{pending_task.id} 재전송 시도...")
-        await assign_next_task(pc_number, db, websocket)
-    elif assigned_task:
-        print(f"🔄 할당된 Task #{assigned_task.id} 재전송...")
-        await send_task_to_worker(pc_number, assigned_task, db)
-    else:
-        print(f"   ℹ️  재전송할 Task 없음")
+    # ⚠️  재연결 시 Task 재전송하지 않음! HTTP API에서만 순차 전송!
+    print(f"   ℹ️  순차 실행 중: HTTP 완료 보고로만 다음 Task 전송됨")
     
     try:
         while True:

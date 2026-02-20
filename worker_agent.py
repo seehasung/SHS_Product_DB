@@ -1203,6 +1203,12 @@ class NaverCafeWorker:
                 is_reply = (task_type == 'reply')
                 parent_comment_id = task.get('parent_comment_id')
                 
+                print(f"📋 댓글 정보:")
+                print(f"   타입: {task_type}")
+                print(f"   is_reply: {is_reply}")
+                print(f"   parent_comment_id: {parent_comment_id}")
+                print(f"   post_url: {task['post_url'][:80] if task.get('post_url') else 'None'}...")
+                
                 result = self.write_comment(
                     task['post_url'],
                     task['content'],

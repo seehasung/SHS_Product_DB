@@ -2527,7 +2527,7 @@ async def publish_test(
                     
                     # idx별로 Task ID 저장 (부모 추적용)
                     task_map[idx] = comment_task.id
-                    print(f"      ✅ Task #{comment_task.id} 생성 (타입: {task_type}, 부모: #{parent_id})")
+                    print(f"      ✅ Task #{comment_task.id} 생성 (타입: {task_type}, 순서: {idx}, 부모: #{parent_id})")
         
         print(f"✅ 댓글 Task 생성 완료: 총 {len(comment_tasks)}개")
         db.commit()
