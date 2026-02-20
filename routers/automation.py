@@ -411,10 +411,28 @@ async def send_task_to_worker(pc_number: int, task: AutomationTask, db: Session)
         
         # 부모 Task의 post_url 가져오기 (댓글/대댓글용)
         post_url = None
+        parent_comment_id = None
+        
         if task.parent_task_id:
             parent_task = db.query(AutomationTask).get(task.parent_task_id)
             if parent_task:
-                post_url = parent_task.post_url
+                # post_url 가져오기
+                if parent_task.task_type == 'post':
+                    post_url = parent_task.post_url
+                else:
+                    # 부모가 댓글이면 그 댓글의 post_url 사용
+                    root_task = parent_task
+                    while root_task and root_task.task_type != 'post':
+                        root_task = db.query(AutomationTask).get(root_task.parent_task_id) if root_task.parent_task_id else None
+                    if root_task:
+                        post_url = root_task.post_url
+                
+                # 대댓글이면 부모 댓글의 cafe_comment_id 가져오기
+                if task.task_type == 'reply' and parent_task.task_type in ['comment', 'reply']:
+                    if parent_task.error_message and 'cafe_comment_id:' in parent_task.error_message:
+                        parent_comment_id = parent_task.error_message.split('cafe_comment_id:')[1].strip()
+                        print(f"   부모 댓글 ID: {parent_comment_id}")
+                
                 print(f"   부모 Task #{parent_task.id} post_url: {post_url}")
         
         # Task 데이터
@@ -428,6 +446,7 @@ async def send_task_to_worker(pc_number: int, task: AutomationTask, db: Session)
                 'cafe_url': cafe.url if cafe else None,
                 'post_url': post_url,  # 명시적으로 로드한 post_url
                 'draft_url': draft_url,  # 수정 발행 URL 추가!
+                'parent_comment_id': parent_comment_id,  # 부모 댓글 ID (대댓글용)
                 'account_id': account.account_id if account else None,
                 'account_pw': account.account_pw if account else None
             }
