@@ -258,51 +258,7 @@ async def worker_websocket(websocket: WebSocket, pc_number: int, db: Session = D
                     pc.current_task_id = None
                     db.commit()
                     
-                    # 다음 작업 할당
-                    print(f"\n🔄 Task #{task.id} 완료 → 다음 Task 찾는 중...")
-                    
-                    # 본문 Task 완료 시: 첫 번째 댓글만 전송 (순차 실행!)
-                    if task.task_type == 'post':
-                        first_comment = db.query(AutomationTask).filter(
-                            AutomationTask.parent_task_id == task.id,
-                            AutomationTask.status.in_(['pending', 'assigned'])
-                        ).order_by(
-                            AutomationTask.order_sequence.asc()
-                        ).first()
-                        
-                        if first_comment:
-                            if first_comment.assigned_pc_id and first_comment.assigned_pc_id in worker_connections:
-                                print(f"   📨 첫 댓글 Task #{first_comment.id} → PC #{first_comment.assigned_pc_id} 전송...")
-                                await send_task_to_worker(first_comment.assigned_pc_id, first_comment, db)
-                            else:
-                                print(f"   ⚠️  첫 댓글 PC #{first_comment.assigned_pc_id} 연결 안 됨")
-                    
-                    # 댓글/대댓글 완료 시: 같은 본문의 다음 댓글 전송 (순차!)
-                    elif task.task_type in ['comment', 'reply']:
-                        # 부모 본문 Task 찾기
-                        root_task = task.parent_task
-                        while root_task and root_task.task_type != 'post':
-                            root_task = root_task.parent_task
-                        
-                        if root_task:
-                            # 같은 본문의 다음 댓글 찾기
-                            next_comment = db.query(AutomationTask).filter(
-                                AutomationTask.parent_task_id == root_task.id,
-                                AutomationTask.status.in_(['pending', 'assigned']),
-                                AutomationTask.order_sequence > task.order_sequence
-                            ).order_by(
-                                AutomationTask.order_sequence.asc()
-                            ).first()
-                            
-                            if next_comment:
-                                if next_comment.assigned_pc_id and next_comment.assigned_pc_id in worker_connections:
-                                    print(f"   📨 다음 댓글 Task #{next_comment.id} → PC #{next_comment.assigned_pc_id} 전송...")
-                                    await send_task_to_worker(next_comment.assigned_pc_id, next_comment, db)
-                                else:
-                                    print(f"   ⚠️  다음 댓글 PC #{next_comment.assigned_pc_id} 연결 안 됨")
-                    
-                    # 이 PC의 다음 Task 찾기
-                    await assign_next_task(pc_number, db, websocket)
+                    # ⚠️  WebSocket 완료는 백업용! HTTP API에서만 다음 Task 전송!
                     
             elif message['type'] == 'task_failed':
                 # 작업 실패
@@ -1043,6 +999,13 @@ async def complete_task(
         
         db.commit()
         print(f"✅ Task #{task_id} 완료 (HTTP, post_url: {task.post_url})")
+        
+        # ⏳ 랜덤 대기 (10-30초)
+        import random
+        import asyncio
+        wait_time = random.randint(10, 30)
+        print(f"⏳ 다음 작업 대기 중... ({wait_time}초)")
+        await asyncio.sleep(wait_time)
         
         # 다음 Task 전송
         if task.task_type == 'post' and task.parent_task_id is None:
