@@ -1000,11 +1000,24 @@ async def complete_task(
         db.commit()
         print(f"✅ Task #{task_id} 완료 (HTTP, post_url: {task.post_url})")
         
-        # ⏳ 랜덤 대기 (10-30초)
-        import random
+        # ⏳ 진행 중인 다른 Task가 완료될 때까지 대기
+        print(f"⏳ 다른 작업 완료 대기 중...")
         import asyncio
+        import random
+        
+        for i in range(60):  # 최대 60초 대기
+            in_progress = db.query(AutomationTask).filter(
+                AutomationTask.status == 'in_progress'
+            ).count()
+            
+            if in_progress == 0:
+                break
+            
+            await asyncio.sleep(1)
+        
+        # 추가 랜덤 대기 (10-30초)
         wait_time = random.randint(10, 30)
-        print(f"⏳ 다음 작업 대기 중... ({wait_time}초)")
+        print(f"⏳ 추가 대기 중... ({wait_time}초)")
         await asyncio.sleep(wait_time)
         
         # 다음 Task 전송

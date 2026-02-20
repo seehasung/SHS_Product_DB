@@ -2079,14 +2079,41 @@ async def test_generate_content(
         cafe_name = cafe.name if cafe else "알 수 없음"
         cafe_characteristics = cafe.characteristics if cafe and cafe.characteristics else "일반적인 톤, 자연스러운 대화체"
         
-        # 카페 컨텍스트 추가 (테스트에서는 항상, 사용자 프롬프트에!)
-        user_prompt += f"""
+        # 카페 컨텍스트 추가 (프롬프트 설정에 따라!)
+        
+        # 카페 연동 계정 수 조회
+        from database import CafeAccountLink
+        cafe_links = db.query(CafeAccountLink).filter(
+            CafeAccountLink.cafe_id == cafe_id
+        ).count()
+        
+        comment_account_count = max(1, cafe_links - 1)  # 작성자 제외, 최소 1명
+        
+        # 프롬프트 설정: 카페 특성 반영 여부 확인
+        if prompt.apply_cafe_context:
+            user_prompt += f"""
 
 [발행될 카페 정보]
 - 카페명: {cafe_name}
 - 카페 특성: {cafe_characteristics}
 
-위 카페에 맞춰 자연스럽게 작성해주세요."""
+위 카페의 특성에 맞춰 자연스럽게 작성해주세요.
+"""
+        
+        # 댓글 작성 지침 (항상 추가)
+        user_prompt += f"""
+
+[댓글 작성 지침 - 중요!]
+- 이 카페에 가입된 계정은 총 {cafe_links}개입니다 (작성자 포함).
+- 댓글 작성자는 정확히 {comment_account_count}명만 사용하세요.
+- 작성자명: '계정1'부터 '계정{comment_account_count}'까지
+- 대댓글에는 '작성자' 또는 기존 계정명을 재사용하세요.
+- 같은 댓글에 여러 대댓글을 달 수 있습니다.
+- 예시:
+  **계정1:** 댓글
+  > **작성자:** 대댓글
+  > **계정1:** 대댓글
+  **계정2:** 댓글"""
         
         # 치환된 시스템 프롬프트 사용
         enhanced_system_prompt = system_prompt
@@ -2273,8 +2300,8 @@ async def publish_test(
     request: Request,
     prompt_id: int = Form(...),
     keyword: str = Form(...),
-    cafe_id: int = Form(...),
-    draft_url_id: Optional[int] = Form(None),
+    draft_url_id: int = Form(...),  # 필수!
+    cafe_id: Optional[int] = Form(None),  # 선택 (자동 추출)
     comment_count: int = Form(3),
     db: Session = Depends(get_db)
 ):
@@ -2289,26 +2316,26 @@ async def publish_test(
         import os
         import re
         
-        # 1. AI로 글 생성
+        # 1. URL 정보 가져오기 (수정 발행용) - 먼저!
+        draft_post = db.query(DraftPost).options(
+            joinedload(DraftPost.link)
+        ).filter(DraftPost.id == draft_url_id).first()
+        
+        if not draft_post or not draft_post.link:
+            return JSONResponse({"success": False, "error": "초안 URL을 찾을 수 없습니다"}, status_code=404)
+        
+        # 카페 자동 추출!
+        cafe_id = draft_post.link.cafe_id
+        assigned_account_id = draft_post.link.account_id
+        
+        print(f"📋 초안 URL에서 자동 추출: 카페 ID={cafe_id}, 계정 ID={assigned_account_id}")
+        
+        # 2. AI로 글 생성 (자동 추출된 cafe_id 사용!)
         test_result = await test_generate_content(request, prompt_id, keyword, cafe_id, db)
         test_data = json.loads(test_result.body) if hasattr(test_result, 'body') else test_result
         
         if not test_data.get('success'):
             return JSONResponse(test_data)
-        
-        # 2. URL 정보 가져오기 (수정 발행용)
-        draft_post = None
-        assigned_account_id = None
-        
-        if draft_url_id:
-            draft_post = db.query(DraftPost).options(
-                joinedload(DraftPost.link)
-            ).filter(DraftPost.id == draft_url_id).first()
-            
-            # 해당 연동의 계정 사용!
-            if draft_post and draft_post.link:
-                assigned_account_id = draft_post.link.account_id
-                cafe_id = draft_post.link.cafe_id
         
         # 3. 프롬프트 정보
         prompt = db.query(AIPrompt).get(prompt_id)
@@ -2421,8 +2448,7 @@ async def publish_test(
                     print("   ⚠️  사용 가능한 PC가 없습니다!")
                 
                 # Task 생성
-                task_map = {}  # level별 마지막 Task ID 저장
-                task_map[0] = post_task.id  # 본문 Task
+                task_map = {}  # idx별 Task ID 저장
                 
                 print(f"\n📝 댓글 Task 생성 시작...")
                 for idx, comment_obj in enumerate(parsed_comments):
@@ -2434,29 +2460,52 @@ async def publish_test(
                         parent_id = post_task.id
                         task_type = 'comment'
                     else:
-                        # 대댓글 → 이전 레벨 댓글에 대댓글
-                        parent_level = comment_obj['level'] - 1
-                        parent_id = task_map.get(parent_level, post_task.id)
+                        # 대댓글 → 바로 위 level 0 댓글 찾기 (여러 대댓글 지원!)
+                        parent_id = post_task.id  # 기본값
+                        for i in range(idx - 1, -1, -1):
+                            prev_comment = parsed_comments[i]
+                            if prev_comment['level'] == 0:
+                                # 가장 최근 level 0 댓글의 Task ID
+                                parent_id = task_map.get(i, post_task.id)
+                                print(f"      부모: {prev_comment['account']} (idx:{i})")
+                                break
+                        
                         task_type = 'reply'
                     
-                    # PC/계정 순차 할당 (작성자 제외, 순환)
+                    # PC/계정 할당 (AI 생성 계정명 기반!)
                     target_pc_id = None
                     target_account_id = None
+                    ai_account_name = comment_obj['account']  # '작성자', '계정1', '계정2' 등
                     
-                    if available_pcs:
-                        pc_index = idx % len(available_pcs)
-                        target_pc = available_pcs[pc_index]
-                        
-                        # 해당 PC의 계정 찾기
-                        target_account = db.query(AutomationAccount).filter(
-                            AutomationAccount.assigned_pc_id == target_pc.id,
-                            AutomationAccount.status == 'active'
-                        ).first()
-                        
-                        if target_account:
-                            target_pc_id = target_pc.id
-                            target_account_id = target_account.id
-                            print(f"      → PC #{target_pc.pc_number} (계정: {target_account.account_id}) 할당")
+                    if ai_account_name == '작성자':
+                        # 작성자는 본문 작성 PC 사용
+                        target_pc_id = author_pc_id
+                        if author_pc_id:
+                            target_account = db.query(AutomationAccount).get(assigned_account_id)
+                            if target_account:
+                                target_account_id = target_account.id
+                                print(f"      → 작성자: PC #{author_pc_id} (계정: {target_account.account_id}) 할당")
+                    
+                    elif ai_account_name.startswith('계정'):
+                        # 계정1, 계정2 등 → 숫자 추출
+                        import re
+                        match = re.search(r'\d+', ai_account_name)
+                        if match and available_pcs:
+                            account_num = int(match.group())
+                            # 계정1 → PC #2 (index 0), 계정2 → PC #3 (index 1), ...
+                            pc_index = (account_num - 1) % len(available_pcs)
+                            target_pc = available_pcs[pc_index]
+                            
+                            # 해당 PC의 계정 찾기
+                            target_account = db.query(AutomationAccount).filter(
+                                AutomationAccount.assigned_pc_id == target_pc.id,
+                                AutomationAccount.status == 'active'
+                            ).first()
+                            
+                            if target_account:
+                                target_pc_id = target_pc.id
+                                target_account_id = target_account.id
+                                print(f"      → {ai_account_name}: PC #{target_pc.pc_number} (계정: {target_account.account_id}) 할당")
                     
                     comment_task = AutomationTask(
                         task_type=task_type,
@@ -2476,9 +2525,9 @@ async def publish_test(
                     db.flush()
                     comment_tasks.append(comment_task)
                     
-                    # 이 레벨의 마지막 Task로 저장
-                    task_map[comment_obj['level']] = comment_task.id
-                    print(f"      ✅ Task #{comment_task.id} 생성 (타입: {task_type})")
+                    # idx별로 Task ID 저장 (부모 추적용)
+                    task_map[idx] = comment_task.id
+                    print(f"      ✅ Task #{comment_task.id} 생성 (타입: {task_type}, 부모: #{parent_id})")
         
         print(f"✅ 댓글 Task 생성 완료: 총 {len(comment_tasks)}개")
         db.commit()
