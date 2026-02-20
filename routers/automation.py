@@ -1045,7 +1045,19 @@ async def complete_task(
                     AutomationTask.order_sequence.asc()
                 ).first()
                 
-                if first_comment and first_comment.assigned_pc_id and first_comment.assigned_pc_id in worker_connections:
+                if first_comment and first_comment.assigned_pc_id:
+                    # PC 연결될 때까지 대기 (최대 3분)
+                    if first_comment.assigned_pc_id not in worker_connections:
+                        print(f"   ⏳ PC #{first_comment.assigned_pc_id} 연결 대기 중... (최대 3분)")
+                        for i in range(180):  # 3분
+                            await asyncio.sleep(1)
+                            if first_comment.assigned_pc_id in worker_connections:
+                                print(f"   ✅ PC #{first_comment.assigned_pc_id} 연결됨! (대기 시간: {i+1}초)")
+                                break
+                        else:
+                            print(f"   ⚠️  타임아웃 (3분): PC #{first_comment.assigned_pc_id} 연결 안 됨")
+                            return JSONResponse({'success': True, 'message': 'timeout'})
+                    
                     print(f"   📨 첫 댓글 Task #{first_comment.id} → PC #{first_comment.assigned_pc_id} 전송...")
                     await send_task_to_worker(first_comment.assigned_pc_id, first_comment, db)
             
@@ -1081,11 +1093,21 @@ async def complete_task(
                             next_comment = t
                             break
                     
-                    if next_comment and next_comment.assigned_pc_id and next_comment.assigned_pc_id in worker_connections:
+                    if next_comment and next_comment.assigned_pc_id:
+                        # PC 연결될 때까지 대기 (최대 3분)
+                        if next_comment.assigned_pc_id not in worker_connections:
+                            print(f"   ⏳ PC #{next_comment.assigned_pc_id} 연결 대기 중... (최대 3분)")
+                            for i in range(180):  # 3분
+                                await asyncio.sleep(1)
+                                if next_comment.assigned_pc_id in worker_connections:
+                                    print(f"   ✅ PC #{next_comment.assigned_pc_id} 연결됨! (대기 시간: {i+1}초)")
+                                    break
+                            else:
+                                print(f"   ⚠️  타임아웃 (3분): PC #{next_comment.assigned_pc_id} 연결 안 됨")
+                                return JSONResponse({'success': True, 'message': 'timeout'})
+                        
                         print(f"   📨 다음 댓글 Task #{next_comment.id} (순서:{next_comment.order_sequence}, 타입:{next_comment.task_type}) → PC #{next_comment.assigned_pc_id} 전송...")
                         await send_task_to_worker(next_comment.assigned_pc_id, next_comment, db)
-                    elif next_comment:
-                        print(f"   ⚠️  다음 댓글 Task #{next_comment.id} PC #{next_comment.assigned_pc_id} 연결 안 됨")
             
             return JSONResponse({'success': True})
         except Exception as e:
