@@ -579,30 +579,28 @@ class NaverCafeWorker:
                 # ⭐ 사람처럼 한 글자씩 타이핑
                 print("   → 사람처럼 타이핑 중...")
                 self.human_type(title_elem, title)
-                print("   ✅ 제목 입력 완료")
+                self.random_delay(0.5, 1)
+                
+                # Tab키로 본문으로 이동
+                title_elem.send_keys(Keys.TAB)
+                self.random_delay(1, 2)
+                print("   ✅ 제목 입력 완료, 본문으로 이동")
             except Exception as e:
                 print(f"   ⚠️  제목 입력 실패: {e}")
             
-            # 본문 수정 (test_full_post_flow 방식)
+            # 본문 수정
             print("📝 본문 입력 시도...")
             print(f"   본문 길이: {len(content)}자")
             
             content_success = False
             
-            # 방법 1: p.se-text-paragraph 직접 클릭 후 타이핑 (test_full_post_flow 검증된 방식)
+            # 직접 타이핑 방식 (Tab으로 이동한 상태)
             try:
                 print("   직접 타이핑 방식으로 본문 입력...")
-                paragraph = self.driver.find_element(By.CSS_SELECTOR, "p.se-text-paragraph")
                 
-                # JavaScript로 직접 포커스 (클릭 차단 회피!)
-                self.driver.execute_script("""
-                    arguments[0].scrollIntoView({block: 'center'});
-                    arguments[0].focus();
-                    arguments[0].click();
-                """, paragraph)
-                self.random_delay(0.5, 1)
-                
+                # Tab으로 이동한 active element 사용
                 active = self.driver.switch_to.active_element
+                self.random_delay(0.5, 1)
                 
                 # 기존 내용 전체 삭제
                 print("      → 기존 내용 삭제 중...")
@@ -1066,41 +1064,46 @@ class NaverCafeWorker:
                 self.random_delay(2, 3)
                 print(f"✅ {comment_type} 등록 버튼 클릭")
                 
-                # ⭐ 댓글 작성 후 ID 추출 (새 댓글인 경우만)
+                # ⭐ 댓글/대댓글 작성 후 ID 추출 (모두!)
                 comment_id = None
-                if not is_reply:
-                    try:
-                        # 페이지 새로고침 없이 최신 댓글 찾기
-                        self.random_delay(3, 4)  # 댓글이 DOM에 추가될 때까지 대기
-                        
-                        # ⭐ 네이버 카페 실제 구조: <li id="510247118" class="CommentItem">
-                        comment_id_selectors = [
-                            "ul.comment_list > li.CommentItem:last-of-type",  # ⭐ 실제 구조!
-                            "ul.comment_list > li:last-of-type",
-                            ".comment_list > li:last-child",
-                            "li.CommentItem:last-of-type",
-                            "div[id^='cmt_']:last-of-type",
-                            "li[id^='cmt_']:last-of-type"
-                        ]
-                        
-                        for selector in comment_id_selectors:
-                            try:
-                                latest_comment = self.driver.find_element(By.CSS_SELECTOR, selector)
-                                element_id = latest_comment.get_attribute('id')
-                                
-                                if element_id:
-                                    # ⭐ 네이버 카페는 숫자만 (예: 510247118)
-                                    comment_id = element_id.replace('cmt_', '')  # 혹시 cmt_가 있으면 제거
-                                    print(f"  📌 작성된 댓글 ID: {comment_id} (선택자: {selector})")
-                                    break
-                            except:
-                                continue
-                        
-                        if not comment_id:
-                            print("  ⚠️ 댓글 ID를 자동으로 찾을 수 없습니다")
-                            print("  💡 수동으로 확인 필요: F12 → Elements → 최신 댓글의 id 속성")
-                    except Exception as e:
-                        print(f"  ⚠️ 댓글 ID 추출 오류: {e}")
+                try:
+                    # 페이지 새로고침 없이 최신 댓글 찾기
+                    self.random_delay(3, 4)  # 댓글이 DOM에 추가될 때까지 대기
+                    
+                    # ⭐ 네이버 카페 실제 구조: <li id="510247118" class="CommentItem">
+                    comment_id_selectors = [
+                        "ul.comment_list > li.CommentItem:last-of-type",  # ⭐ 실제 구조!
+                        "ul.comment_list > li:last-of-type",
+                        ".comment_list > li:last-child",
+                        "li.CommentItem:last-of-type",
+                        "div[id^='cmt_']:last-of-type",
+                        "li[id^='cmt_']:last-of-type"
+                    ]
+                    
+                    for selector in comment_id_selectors:
+                        try:
+                            latest_comment = self.driver.find_element(By.CSS_SELECTOR, selector)
+                            element_id = latest_comment.get_attribute('id')
+                            
+                            if element_id:
+                                # ⭐ 네이버 카페는 숫자만 (예: 510247118)
+                                comment_id = element_id.replace('cmt_', '')  # 혹시 cmt_가 있으면 제거
+                                print(f"  📌 작성된 댓글 ID: {comment_id} (선택자: {selector})")
+                                break
+                        except:
+                            continue
+                    
+                    if not comment_id:
+                        print("  ⚠️ 댓글 ID를 자동으로 찾을 수 없습니다")
+                        print("  💡 수동으로 확인 필요: F12 → Elements → 최신 댓글의 id 속성")
+                        # 대댓글이면 True 반환 (ID 없어도 성공!)
+                        if is_reply:
+                            comment_id = "reply_success"
+                except Exception as e:
+                    print(f"  ⚠️ 댓글 ID 추출 오류: {e}")
+                    # 대댓글이면 True 반환
+                    if is_reply:
+                        comment_id = "reply_success"
                 
                 print(f"✅ {comment_type} 작성 완료")
                 
