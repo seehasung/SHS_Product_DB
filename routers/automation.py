@@ -1045,17 +1045,36 @@ async def complete_task(
                 root_task = db.query(AutomationTask).get(root_task.parent_task_id) if root_task.parent_task_id else None
             
             if root_task:
-                next_comment = db.query(AutomationTask).filter(
-                    AutomationTask.parent_task_id == root_task.id,
-                    AutomationTask.status.in_(['pending', 'assigned']),
-                    AutomationTask.order_sequence > task.order_sequence
-                ).order_by(
-                    AutomationTask.order_sequence.asc()
-                ).first()
+                # 같은 본문의 모든 댓글/대댓글 중 다음 것 찾기
+                # parent_task_id 조건 없이 order_sequence로만 판단!
+                all_comments = db.query(AutomationTask).filter(
+                    AutomationTask.task_type.in_(['comment', 'reply']),
+                    AutomationTask.status.in_(['pending', 'assigned', 'completed']),
+                    AutomationTask.cafe_id == root_task.cafe_id,
+                    AutomationTask.id >= root_task.id  # 본문 이후 Task들
+                ).all()
+                
+                # 이 본문과 관련된 댓글들만 필터링 (부모 추적)
+                related_tasks = []
+                for t in all_comments:
+                    temp = t
+                    while temp and temp.task_type != 'post':
+                        temp = db.query(AutomationTask).get(temp.parent_task_id) if temp.parent_task_id else None
+                    if temp and temp.id == root_task.id:
+                        related_tasks.append(t)
+                
+                # pending/assigned 중 다음 순서 것 찾기
+                next_comment = None
+                for t in sorted(related_tasks, key=lambda x: x.order_sequence):
+                    if t.order_sequence > task.order_sequence and t.status in ['pending', 'assigned']:
+                        next_comment = t
+                        break
                 
                 if next_comment and next_comment.assigned_pc_id and next_comment.assigned_pc_id in worker_connections:
-                    print(f"   📨 다음 댓글 Task #{next_comment.id} → PC #{next_comment.assigned_pc_id} 전송...")
+                    print(f"   📨 다음 댓글 Task #{next_comment.id} (순서:{next_comment.order_sequence}, 타입:{next_comment.task_type}) → PC #{next_comment.assigned_pc_id} 전송...")
                     await send_task_to_worker(next_comment.assigned_pc_id, next_comment, db)
+                elif next_comment:
+                    print(f"   ⚠️  다음 댓글 Task #{next_comment.id} PC #{next_comment.assigned_pc_id} 연결 안 됨")
         
         return JSONResponse({'success': True})
     except Exception as e:
