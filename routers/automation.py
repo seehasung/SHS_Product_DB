@@ -116,6 +116,7 @@ async def worker_websocket(websocket: WebSocket, pc_number: int, db: Session = D
             
             if message['type'] == 'heartbeat':
                 # Heartbeat 처리
+                pc.status = 'online'  # ⭐ Heartbeat 받으면 무조건 online!
                 pc.cpu_usage = message.get('cpu_usage')
                 pc.memory_usage = message.get('memory_usage')
                 pc.ip_address = message.get('ip_address', pc.ip_address)
