@@ -2487,18 +2487,15 @@ async def publish_test(
         from routers.automation import send_task_to_worker, worker_connections
         
         # 본문 Task 전송
-        if assigned_account_id:
-            # 해당 계정을 가진 PC 찾기
-            from database import AutomationAccount
-            account = db.query(AutomationAccount).filter(
-                AutomationAccount.id == assigned_account_id
-            ).first()
-            
-            if account and account.assigned_pc_id:
-                pc_number = account.assigned_pc.pc_number if account.assigned_pc else None
-                if pc_number and pc_number in worker_connections:
-                    await send_task_to_worker(pc_number, post_task, db)
-                    print(f"✅ Task #{post_task.id} 직접 전송 → PC #{pc_number} (계정: {account.account_id})")
+        print(f"\n📤 본문 Task 전송 준비...")
+        print(f"   assigned_account_id: {assigned_account_id}")
+        print(f"   assigned_pc_id: {assigned_pc_id}")
+        
+        if assigned_pc_id and assigned_pc_id in worker_connections:
+            await send_task_to_worker(assigned_pc_id, post_task, db)
+            print(f"✅ Task #{post_task.id} 직접 전송 → PC #{assigned_pc_id}")
+        else:
+            print(f"⚠️  본문 Task 전송 실패: PC #{assigned_pc_id} 연결 안 됨 (worker_connections: {list(worker_connections.keys())})")
         
         # 댓글 Task는 본문 Task 완료 후 자동 할당됨 (task_completed → assign_next_task)
         
