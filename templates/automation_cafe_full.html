@@ -3164,19 +3164,7 @@ async function showPublishTestModal() {
         });
     }
     
-    const cafesResp = await fetch('/automation/api/cafes/list');
-    const cafesData = await cafesResp.json();
-    
-    if (cafesData.success) {
-        const select = document.getElementById('testCafeSelect');
-        select.innerHTML = '<option value="">카페 선택</option>';
-        cafesData.cafes.forEach(cafe => {
-            const option = document.createElement('option');
-            option.value = cafe.id;
-            option.textContent = cafe.name;
-            select.appendChild(option);
-        });
-    }
+    // ℹ️  카페는 초안 URL에서 자동 추출됨!
     
     // 3. 모달 열기 (설정 완료 후!)
     const modal = document.getElementById('testGenerationModal');
@@ -3232,23 +3220,17 @@ function updateFromDraftUrl() {
     const select = document.getElementById('draftUrlSelect');
     const option = select.options[select.selectedIndex];
     
-    if (option && option.value) {
-        const cafeId = option.dataset.cafeId;
-        
-        // 카페 자동 선택
-        document.getElementById('testCafeSelect').value = cafeId;
-        showCafeCharacteristics();
-    }
+    // ℹ️  카페는 서버에서 자동 추출!
 }
 
 // 글 발행 테스트 실행
 async function publishTestContent() {
     const promptId = document.getElementById('testPromptSelect').value;
     const keyword = document.getElementById('testKeywordSelect').value;
-    const cafeId = document.getElementById('testCafeSelect').value;
+    const draftUrlId = document.getElementById('draftUrlSelect').value;
     
-    if (!promptId || !keyword || !cafeId) {
-        alert('프롬프트, 키워드, 카페를 모두 선택해주세요.');
+    if (!promptId || !keyword || !draftUrlId) {
+        alert('프롬프트, 키워드, 초안 URL을 모두 선택해주세요.');
         return;
     }
     
@@ -3280,17 +3262,9 @@ async function publishTestContent() {
         const formData = new FormData();
         formData.append('prompt_id', promptId);
         formData.append('keyword', keyword);
-        formData.append('cafe_id', cafeId);
+        formData.append('draft_url_id', draftUrlId);  // 필수! 여기서 cafe_id 자동 추출
         
-        // URL 선택 (선택사항)
-        const draftUrlId = document.getElementById('draftUrlSelect')?.value;
-        if (draftUrlId) {
-            formData.append('draft_url_id', draftUrlId);
-        }
-        
-        // 댓글 개수
-        const commentCount = document.getElementById('commentCount')?.value || 3;
-        formData.append('comment_count', commentCount);
+        // 카페 ID와 댓글 수는 서버에서 자동 결정!
         
         const response = await fetch('/ai-automation/api/publish-test', {
             method: 'POST',
