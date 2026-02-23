@@ -4,4 +4,4 @@
 alembic upgrade head
 
 # Uvicorn 서버 실행
-uvicorn main:app --host 0.0.0.0 --port 10000
+uvicorn main:app --host 0.0.0.0 --port 10000 --ws-ping-interval 300 --ws-ping-timeout 120

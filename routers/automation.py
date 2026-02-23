@@ -103,7 +103,8 @@ async def worker_websocket(websocket: WebSocket, pc_number: int, db: Session = D
     if all_pending:
         print(f"   전체 대기 Task: {', '.join([f'#{t.id}(PC:{t.assigned_pc_id}, 상태:{t.status})' for t in all_pending])}")
     
-    # ⚠️  재연결 시 Task 재전송하지 않음! HTTP API에서만 순차 전송!
+    # ⚠️  재연결 시 Task 자동 트리거 절대 금지! HTTP 완료 보고로만 다음 Task 전송!
+    # (댓글/대댓글 순서가 보장되어야 하므로 임의 트리거 불가)
     print(f"   ℹ️  순차 실행 중: HTTP 완료 보고로만 다음 Task 전송됨")
     
     try:
@@ -1043,6 +1044,8 @@ async def complete_task(
     
     # 다음 Task 전송
     task = db.query(AutomationTask).get(task_id)  # 다시 조회
+    print(f"🔍 다음 Task 탐색: task_id={task_id}, task_type={task.task_type if task else 'None'}, parent_task_id={task.parent_task_id if task else 'None'}")
+    
     if task and task.task_type == 'post' and task.parent_task_id is None:
         # 본문 완료: 첫 댓글 전송
         first_comment = db.query(AutomationTask).filter(
@@ -1051,6 +1054,15 @@ async def complete_task(
         ).order_by(
             AutomationTask.order_sequence.asc()
         ).first()
+        
+        # ⭐ 디버그: 첫 댓글 탐색 결과 출력
+        if first_comment:
+            print(f"   📋 첫 댓글 Task #{first_comment.id} 발견 (PC:{first_comment.assigned_pc_id}, 상태:{first_comment.status})")
+        else:
+            total_children = db.query(AutomationTask).filter(
+                AutomationTask.parent_task_id == task_id
+            ).count()
+            print(f"   ⚠️  첫 댓글 없음! (parent_task_id={task_id}인 자식 Task 총 {total_children}개)")
         
         if first_comment and first_comment.assigned_pc_id:
             # PC 연결될 때까지 대기 (최대 90초)
@@ -1067,6 +1079,8 @@ async def complete_task(
             
             print(f"   📨 첫 댓글 Task #{first_comment.id} → PC #{first_comment.assigned_pc_id} 전송...")
             await send_task_to_worker(first_comment.assigned_pc_id, first_comment, db)
+        elif first_comment and not first_comment.assigned_pc_id:
+            print(f"   ❌ 첫 댓글 Task #{first_comment.id}에 assigned_pc_id 없음!")
     
     elif task and task.task_type in ['comment', 'reply']:
         # 댓글/대댓글 완료: 같은 본문의 다음 댓글 전송
@@ -1122,14 +1136,14 @@ async def complete_task(
 async def get_worker_version():
     """Worker 버전 정보 제공"""
     return JSONResponse({
-        "version": "1.0.6",
-        "release_date": "2026-02-19",
+        "version": "1.0.8",
+        "release_date": "2026-01-25",
         "download_url": "/automation/api/worker/download",
         "changelog": [
-            "계정명 기반 PC 고정 할당",
-            "대댓글 ID 반환 (부모 추적)",
-            "카페 계정 수 자동 조정",
-            "순차 실행 + 랜덤 대기"
+            "Selenium을 스레드에서 실행 (연결 끊김 근본 해결)",
+            "Heartbeat 실패 시 자동 재연결",
+            "완료 신호 5분 재시도 + 큐 보관",
+            "게시판 자동 변경 기능 추가"
         ],
         "required_packages": {
             "selenium": "4.15.2",

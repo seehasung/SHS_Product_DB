@@ -51,7 +51,7 @@ from pathlib import Path
 class NaverCafeWorker:
     """네이버 카페 자동 작성 Worker"""
     
-    VERSION = "1.0.6" # 현재 버전
+    VERSION = "1.0.8" # 현재 버전
     
     def __init__(self, pc_number: int, server_url: str = "scorp274.com"):
         self.pc_number = pc_number
@@ -60,7 +60,83 @@ class NaverCafeWorker:
         self.websocket = None
         self.current_account = None
         self.is_running = False
+        self.pending_completions = []  # ⭐ 미전송 완료 신호 큐 (연결 끊겨도 유실 방지)
         
+    async def report_task_complete(self, task_id: int, post_url: str = None, cafe_comment_id: str = None):
+        """완료 신호 HTTP 전송 - 최대 5분간 재시도 (순서 보장 필수!)"""
+        import requests
+        data = {}
+        if post_url:
+            data['post_url'] = post_url
+        if cafe_comment_id:
+            data['cafe_comment_id'] = cafe_comment_id
+            print(f"   📤 댓글 ID 전송: {cafe_comment_id}")
+        
+        # ⭐ 최대 5분(300초) 동안 30초 간격으로 재시도 = 최대 10회
+        max_wait_seconds = 300
+        retry_interval = 30
+        max_attempts = max_wait_seconds // retry_interval  # 10회
+        
+        for attempt in range(max_attempts):
+            try:
+                response = requests.post(
+                    f"https://{self.server_url}/automation/api/tasks/{task_id}/complete",
+                    data=data,
+                    timeout=30,
+                    verify=False
+                )
+                if response.status_code == 200:
+                    print(f"   ✅ 완료 보고 성공 (HTTP, 시도: {attempt+1})")
+                    # 큐에서 제거 (재시도였다면)
+                    self.pending_completions = [c for c in self.pending_completions if c['task_id'] != task_id]
+                    return True
+                else:
+                    print(f"   ⚠️  완료 보고 실패: HTTP {response.status_code} (시도: {attempt+1}/{max_attempts})")
+            except Exception as e:
+                elapsed = (attempt + 1) * retry_interval
+                remaining = max_wait_seconds - elapsed
+                print(f"   ⚠️  완료 보고 오류: {e} (시도: {attempt+1}/{max_attempts}, 경과: {elapsed}초, 남은: {remaining}초)")
+            
+            if attempt < max_attempts - 1:
+                print(f"   🔄 {retry_interval}초 후 재시도...")
+                await asyncio.sleep(retry_interval)
+        
+        # ⭐ 5분 모두 실패 → 큐에 저장 (재연결 후 재전송)
+        print(f"   ❌ 5분 재시도 후도 완료 보고 실패 → 큐에 저장 (재연결 후 재시도)")
+        if not any(c['task_id'] == task_id for c in self.pending_completions):
+            self.pending_completions.append({'task_id': task_id, 'data': data})
+        return False
+
+    async def flush_pending_completions(self):
+        """재연결 후 미전송 완료 신호 일괄 재전송"""
+        if not self.pending_completions:
+            return
+        
+        print(f"\n🔄 미전송 완료 신호 재전송 시작: {len(self.pending_completions)}개")
+        import requests
+        success_ids = []
+        for item in list(self.pending_completions):
+            task_id = item['task_id']
+            data = item['data']
+            try:
+                response = requests.post(
+                    f"https://{self.server_url}/automation/api/tasks/{task_id}/complete",
+                    data=data,
+                    timeout=30,
+                    verify=False
+                )
+                if response.status_code == 200:
+                    print(f"   ✅ Task #{task_id} 완료 보고 재전송 성공")
+                    success_ids.append(task_id)
+                else:
+                    print(f"   ⚠️  Task #{task_id} 재전송 실패: HTTP {response.status_code}")
+            except Exception as e:
+                print(f"   ⚠️  Task #{task_id} 재전송 오류: {e}")
+        
+        self.pending_completions = [c for c in self.pending_completions if c['task_id'] not in success_ids]
+        if success_ids:
+            print(f"   ✅ {len(success_ids)}개 재전송 완료")
+
     def get_my_account_from_server(self) -> Optional[Dict]:
         """서버에서 내 PC에 할당된 계정 정보 가져오기"""
         try:
@@ -296,6 +372,10 @@ class NaverCafeWorker:
                 close_timeout=10
             )
             print(f"✅ PC #{self.pc_number} 서버 연결 성공: {ws_url}")
+            
+            # ⭐ 연결 성공 후 미전송 완료 신호 재전송
+            await self.flush_pending_completions()
+            
         except Exception as e:
             print(f"❌ 서버 연결 실패: {e}")
             print(f"   재연결 시도 중...")
@@ -381,13 +461,26 @@ class NaverCafeWorker:
                 }
                 await self.websocket.send(json.dumps(status))
                 await asyncio.sleep(10)
+            except websockets.exceptions.ConnectionClosed:
+                # ⭐ Heartbeat 실패 시 재연결 시도
+                print(f"❌ Heartbeat 전송 실패 (연결 끊김) → 재연결 시도...")
+                await asyncio.sleep(3)
+                try:
+                    await self.connect_to_server()
+                except:
+                    pass
+                await asyncio.sleep(5)
             except Exception as e:
                 print(f"❌ Heartbeat 전송 실패: {e}")
                 await asyncio.sleep(10)
             
     def random_delay(self, min_sec: float = 0.1, max_sec: float = 0.3):
-        """랜덤 지연 (봇 감지 방지)"""
+        """랜덤 지연 - 동기 버전 (Selenium 내부에서 사용)"""
         time.sleep(random.uniform(min_sec, max_sec))
+    
+    async def async_delay(self, min_sec: float = 0.1, max_sec: float = 0.3):
+        """랜덤 지연 - 비동기 버전 (이벤트 루프 살림, 긴 대기 시 사용)"""
+        await asyncio.sleep(random.uniform(min_sec, max_sec))
         
     def human_type(self, element, text: str):
         """사람처럼 한 글자씩 입력"""
@@ -1187,39 +1280,25 @@ class NaverCafeWorker:
                 # draft_url이 있으면 수정 발행, 없으면 새 글
                 draft_url = task.get('draft_url')
                 
+                # ⭐ run_in_executor: Selenium(동기)을 스레드에서 실행 → event loop 살림
+                loop = asyncio.get_event_loop()
                 if draft_url:
                     print(f"🔄 수정 발행: {draft_url[:50]}...")
-                    post_url = self.modify_post(draft_url, task['title'], task['content'], task.get('target_board'))
+                    post_url = await loop.run_in_executor(
+                        None,
+                        lambda: self.modify_post(draft_url, task['title'], task['content'], task.get('target_board'))
+                    )
                 else:
                     print(f"📝 새 글 작성: {task['cafe_url']}")
-                    post_url = self.write_post(
-                        task['cafe_url'],
-                        task['title'],
-                        task['content']
+                    post_url = await loop.run_in_executor(
+                        None,
+                        lambda: self.write_post(task['cafe_url'], task['title'], task['content'])
                     )
                 
                 if post_url:
-                    # 서버에 완료 알림 (HTTP POST로 확실하게! - 재시도 3회)
-                    import requests
-                    for attempt in range(3):
-                        try:
-                            response = requests.post(
-                                f"https://{self.server_url}/automation/api/tasks/{task_id}/complete",
-                                data={'post_url': post_url},
-                                timeout=30,  # 30초로 증가!
-                                verify=False
-                            )
-                            if response.status_code == 200:
-                                print(f"   ✅ 완료 보고 성공 (HTTP, 시도: {attempt+1})")
-                                break
-                            else:
-                                print(f"   ⚠️  완료 보고 실패: HTTP {response.status_code} (시도: {attempt+1})")
-                        except Exception as e:
-                            print(f"   ⚠️  완료 보고 오류: {e} (시도: {attempt+1})")
-                            if attempt < 2:
-                                print(f"   🔄 재시도 중...")
-                                await asyncio.sleep(5)
-                        
+                    # ⭐ 공통 완료 보고 함수 사용 (실패 시 큐에 저장)
+                    await self.report_task_complete(task_id, post_url=post_url)
+                    
                     # WebSocket으로도 전송 (백업)
                     try:
                         await self.websocket.send(json.dumps({
@@ -1243,40 +1322,24 @@ class NaverCafeWorker:
                 print(f"   parent_comment_id: {parent_comment_id}")
                 print(f"   post_url: {task['post_url'][:80] if task.get('post_url') else 'None'}...")
                 
-                result = self.write_comment(
-                    task['post_url'],
-                    task['content'],
-                    is_reply=is_reply,
-                    parent_comment_id=parent_comment_id
+                # ⭐ run_in_executor: Selenium(동기)을 스레드에서 실행 → event loop 살림
+                loop = asyncio.get_event_loop()
+                post_url_for_comment = task['post_url']
+                content_for_comment = task['content']
+                result = await loop.run_in_executor(
+                    None,
+                    lambda: self.write_comment(
+                        post_url_for_comment,
+                        content_for_comment,
+                        is_reply=is_reply,
+                        parent_comment_id=parent_comment_id
+                    )
                 )
                 
                 if result:
-                    # 서버에 완료 알림 (HTTP POST로 확실하게! - 재시도 3회)
-                    import requests
-                    for attempt in range(3):  # 재시도 3회
-                        try:
-                            # cafe_comment_id도 전송!
-                            data = {}
-                            if isinstance(result, str):
-                                data['cafe_comment_id'] = result
-                                print(f"   📤 댓글 ID 전송: {result}")
-                            
-                            response = requests.post(
-                                f"https://{self.server_url}/automation/api/tasks/{task_id}/complete",
-                                data=data,
-                                timeout=15,  # 15초
-                                verify=False
-                            )
-                            if response.status_code == 200:
-                                print(f"   ✅ 댓글 완료 보고 성공 (HTTP, 시도: {attempt+1})")
-                                break
-                            else:
-                                print(f"   ⚠️  댓글 완료 보고 실패: HTTP {response.status_code} (시도: {attempt+1})")
-                        except Exception as e:
-                            print(f"   ⚠️  댓글 완료 보고 오류: {e} (시도: {attempt+1})")
-                            if attempt < 2:
-                                print(f"   🔄 재시도 중...")
-                                await asyncio.sleep(5)
+                    # ⭐ 공통 완료 보고 함수 사용 (실패 시 큐에 저장)
+                    cafe_comment_id = result if isinstance(result, str) else None
+                    await self.report_task_complete(task_id, cafe_comment_id=cafe_comment_id)
                     
                     # WebSocket으로도 전송 (백업)
                     try:
@@ -1284,7 +1347,6 @@ class NaverCafeWorker:
                             'type': 'task_completed',
                             'task_id': task_id
                         }
-                        # 댓글/대댓글 모두 ID 저장 (다음 대댓글의 부모가 될 수 있음!)
                         if isinstance(result, str):
                             message['cafe_comment_id'] = result
                         await self.websocket.send(json.dumps(message))
