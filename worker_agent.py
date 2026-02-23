@@ -480,7 +480,7 @@ class NaverCafeWorker:
             traceback.print_exc()
             return False
         
-    def modify_post(self, draft_url: str, title: str, content: str) -> Optional[str]:
+    def modify_post(self, draft_url: str, title: str, content: str, target_board: str = None) -> Optional[str]:
         """기존 글 수정 발행 (새 탭에서 작업)"""
         print(f"\n{'='*60}")
         print(f"🔄 글 수정 발행 시작")
@@ -488,6 +488,7 @@ class NaverCafeWorker:
         print(f"URL: {draft_url}")
         print(f"제목: {title}")
         print(f"본문: {content[:100]}...")
+        print(f"게시판: {target_board or '변경 없음'}")
         print(f"{'='*60}\n")
         
         # 현재 탭 저장 (네이버 홈 탭)
@@ -500,12 +501,16 @@ class NaverCafeWorker:
             self.driver.switch_to.window(self.driver.window_handles[-1])
             print("✅ 새 탭으로 전환 완료")
             
-            # ⭐ 카페 정보 조회 및 게시판 변경
-            cafe_info = self.get_cafe_info_from_url(draft_url)
-            target_board = None
-            if cafe_info and cafe_info.get('target_board'):
-                target_board = cafe_info.get('target_board')
+            # ⭐ 게시판 변경 대상 결정 (파라미터 우선, 없으면 API 조회)
+            if not target_board:
+                cafe_info = self.get_cafe_info_from_url(draft_url)
+                if cafe_info and cafe_info.get('target_board'):
+                    target_board = cafe_info.get('target_board')
+            
+            if target_board:
                 print(f"📋 자동 게시판 변경 예정: {target_board}")
+            else:
+                print(f"📋 게시판 변경 없음 (target_board 미설정)")
             
             # 기존 글 URL 접속
             print("📡 URL 접속 중...")
@@ -548,22 +553,40 @@ class NaverCafeWorker:
             
             # ⭐ 게시판 변경 (target_board가 있는 경우)
             if target_board:
-                print(f"\n📋 게시판 자동 변경 시작: {target_board}")
+                print(f"\n📋 게시판 자동 변경 시작: '{target_board}'")
                 try:
-                    # 카테고리 드롭다운 클릭
-                    category_btn = self.driver.find_element(By.CSS_SELECTOR, 'div.FormSelectBox button')
+                    # 카테고리 드롭다운 버튼 대기 후 클릭
+                    category_btn = WebDriverWait(self.driver, 10).until(
+                        EC.element_to_be_clickable((By.CSS_SELECTOR, 'div.FormSelectBox button'))
+                    )
                     category_btn.click()
                     self.random_delay(1, 2)
                     
                     # 옵션 목록에서 선택
                     options = self.driver.find_elements(By.CSS_SELECTOR, 'ul.option_list li.item button')
+                    available_boards = []
+                    matched = False
                     for opt in options:
-                        opt_text = opt.find_element(By.CSS_SELECTOR, 'span.option_text').text
-                        if target_board in opt_text:
-                            opt.click()
+                        try:
+                            opt_text = opt.find_element(By.CSS_SELECTOR, 'span.option_text').text.strip()
+                        except:
+                            opt_text = opt.text.strip()
+                        available_boards.append(opt_text)
+                        # 양방향 포함 검색 (대소문자 무시)
+                        if target_board in opt_text or opt_text in target_board:
+                            self.driver.execute_script("arguments[0].click();", opt)
                             self.random_delay(0.5, 1)
-                            print(f"   ✅ '{opt_text}' 선택 완료")
+                            print(f"   ✅ 게시판 변경 완료: '{opt_text}'")
+                            matched = True
                             break
+                    
+                    if not matched:
+                        print(f"   ⚠️  '{target_board}' 게시판을 찾을 수 없습니다")
+                        print(f"   📋 사용 가능한 게시판: {available_boards}")
+                        # 드롭다운 닫기 (ESC)
+                        from selenium.webdriver.common.keys import Keys as K
+                        self.driver.find_element(By.CSS_SELECTOR, 'div.FormSelectBox button').send_keys(K.ESCAPE)
+                        
                 except Exception as e:
                     print(f"   ⚠️  게시판 변경 실패: {e} (계속 진행)")
             
@@ -1166,7 +1189,7 @@ class NaverCafeWorker:
                 
                 if draft_url:
                     print(f"🔄 수정 발행: {draft_url[:50]}...")
-                    post_url = self.modify_post(draft_url, task['title'], task['content'])
+                    post_url = self.modify_post(draft_url, task['title'], task['content'], task.get('target_board'))
                 else:
                     print(f"📝 새 글 작성: {task['cafe_url']}")
                     post_url = self.write_post(

@@ -402,7 +402,8 @@ async def send_task_to_worker(pc_number: int, task: AutomationTask, db: Session)
                 'draft_url': draft_url,  # 수정 발행 URL 추가!
                 'parent_comment_id': parent_comment_id,  # 부모 댓글 ID (대댓글용)
                 'account_id': account.account_id if account else None,
-                'account_pw': account.account_pw if account else None
+                'account_pw': account.account_pw if account else None,
+                'target_board': cafe.target_board if cafe else None  # ⭐ 게시판명 추가
             }
         }
         
