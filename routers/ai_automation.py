@@ -2461,6 +2461,7 @@ async def test_generate_content(
             'image_urls': image_urls,
             'product_image_urls': product_image_urls,
             'attract_image_urls': attract_image_urls,
+            'num_product_images': len(product_image_urls),
             'usage': {
                 'input_tokens': response.usage.input_tokens,
                 'output_tokens': response.usage.output_tokens
@@ -2721,17 +2722,31 @@ async def publish_test(
         
         # 6. Worker PC에 직접 전송 (계정 유지)
         from routers.automation import send_task_to_worker, worker_connections
+        import asyncio
         
-        # 본문 Task 전송
+        # 본문 Task 전송 (최대 90초 대기)
         print(f"\n📤 본문 Task 전송 준비...")
         print(f"   assigned_account_id: {assigned_account_id}")
         print(f"   assigned_pc_id: {assigned_pc_id}")
         
-        if assigned_pc_id and assigned_pc_id in worker_connections:
-            await send_task_to_worker(assigned_pc_id, post_task, db)
-            print(f"✅ Task #{post_task.id} 직접 전송 → PC #{assigned_pc_id}")
-        else:
-            print(f"⚠️  본문 Task 전송 실패: PC #{assigned_pc_id} 연결 안 됨 (worker_connections: {list(worker_connections.keys())})")
+        task_sent = False
+        if assigned_pc_id:
+            if assigned_pc_id in worker_connections:
+                await send_task_to_worker(assigned_pc_id, post_task, db)
+                print(f"✅ Task #{post_task.id} 직접 전송 → PC #{assigned_pc_id}")
+                task_sent = True
+            else:
+                print(f"   ⏳ PC #{assigned_pc_id} 연결 대기 중... (최대 90초)")
+                for i in range(90):
+                    await asyncio.sleep(1)
+                    if assigned_pc_id in worker_connections:
+                        print(f"   ✅ PC #{assigned_pc_id} 연결됨! ({i+1}초 후)")
+                        await send_task_to_worker(assigned_pc_id, post_task, db)
+                        print(f"✅ Task #{post_task.id} 전송 완료 → PC #{assigned_pc_id}")
+                        task_sent = True
+                        break
+                if not task_sent:
+                    print(f"⚠️  90초 대기 후에도 PC #{assigned_pc_id} 미연결 - Task #{post_task.id}는 DB에 저장됨 (Worker 연결 시 자동 처리)")
         
         # 댓글 Task는 본문 Task 완료 후 자동 할당됨 (task_completed → assign_next_task)
         
@@ -2741,10 +2756,13 @@ async def publish_test(
             'task_id': post_task.id,
             'title': test_data.get('title'),
             'body': test_data.get('body'),
-            'ai_comments': test_data.get('comments'),  # AI가 생성한 댓글 (참고용)
-            'task_comments': len(comment_tasks),  # Task로 생성된 댓글 수
+            'keyword': test_data.get('keyword', ''),
+            'ai_comments': test_data.get('comments'),
+            'task_comments': len(comment_tasks),
             'cafe_name': test_data.get('cafe_name'),
-            'image_urls': test_data.get('image_urls', [])
+            'image_urls': test_data.get('image_urls', []),
+            'num_product_images': test_data.get('num_product_images', 1),
+            'task_sent': task_sent
         })
         
     except Exception as e:

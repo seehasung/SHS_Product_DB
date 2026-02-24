@@ -3295,6 +3295,47 @@ async function publishTestContent() {
         const data = await response.json();
         
         if (data.success) {
+            // 이미지 HTML 생성
+            const imageUrls = data.image_urls || [];
+            let imagesHtml = '';
+            if (imageUrls.length > 0) {
+                const productImgs = imageUrls.filter((_, i) => i < (data.num_product_images || 1));
+                const attractImgs = imageUrls.filter((_, i) => i >= (data.num_product_images || 1));
+                
+                let imgItems = '';
+                productImgs.forEach(url => {
+                    imgItems += `<div class="col-4">
+                        <div class="position-relative">
+                            <span class="badge bg-primary position-absolute top-0 start-0 m-1" style="font-size:0.65rem;">🤖 제품</span>
+                            <a href="${url}" target="_blank">
+                                <img src="${url}" class="img-fluid rounded" style="width:100%;height:140px;object-fit:cover;" onerror="this.src='/static/no-image.png'">
+                            </a>
+                        </div>
+                    </div>`;
+                });
+                attractImgs.forEach(url => {
+                    imgItems += `<div class="col-4">
+                        <div class="position-relative">
+                            <span class="badge bg-warning text-dark position-absolute top-0 start-0 m-1" style="font-size:0.65rem;">🎯 어그로</span>
+                            <a href="${url}" target="_blank">
+                                <img src="${url}" class="img-fluid rounded" style="width:100%;height:140px;object-fit:cover;" onerror="this.src='/static/no-image.png'">
+                            </a>
+                        </div>
+                    </div>`;
+                });
+                
+                imagesHtml = `
+                <div class="card mb-3">
+                    <div class="card-header bg-warning text-dark">
+                        <h6 class="mb-0"><i class="bi bi-images"></i> 생성된 이미지 (${imageUrls.length}장)</h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="row g-2">${imgItems}</div>
+                        <small class="text-muted mt-2 d-block">이미지를 클릭하면 원본을 볼 수 있습니다.</small>
+                    </div>
+                </div>`;
+            }
+            
             document.getElementById('testResultContent').innerHTML = `
                 <div class="alert alert-success">
                     <h5><i class="bi bi-check-circle"></i> 발행 Task 생성 완료!</h5>
@@ -3305,11 +3346,17 @@ async function publishTestContent() {
                     </p>
                 </div>
                 
-                <div class="alert alert-info">
-                    <i class="bi bi-info-circle"></i>
-                    <strong>Worker PC가 곧 발행합니다!</strong><br>
-                    대시보드에서 진행 상황을 확인하세요.
-                </div>
+                ${data.task_sent ? `
+                <div class="alert alert-success border-0">
+                    <i class="bi bi-lightning-charge-fill"></i>
+                    <strong>Worker PC로 즉시 전송 완료!</strong><br>
+                    <small>지금 바로 카페에 글을 발행합니다.</small>
+                </div>` : `
+                <div class="alert alert-warning border-0">
+                    <i class="bi bi-hourglass-split"></i>
+                    <strong>Worker PC 대기 중...</strong><br>
+                    <small>현재 Worker PC가 오프라인 상태입니다. Worker PC가 연결되면 자동으로 발행됩니다.</small>
+                </div>`}
                 
                 <!-- 제목 -->
                 <div class="card mb-3">
@@ -3322,6 +3369,9 @@ async function publishTestContent() {
                         </div>
                     </div>
                 </div>
+                
+                <!-- 생성 이미지 -->
+                ${imagesHtml}
                 
                 <!-- 본문 -->
                 <div class="card mb-3">

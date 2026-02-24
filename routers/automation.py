@@ -103,9 +103,16 @@ async def worker_websocket(websocket: WebSocket, pc_number: int, db: Session = D
     if all_pending:
         print(f"   전체 대기 Task: {', '.join([f'#{t.id}(PC:{t.assigned_pc_id}, 상태:{t.status})' for t in all_pending])}")
     
-    # ⚠️  재연결 시 Task 자동 트리거 절대 금지! HTTP 완료 보고로만 다음 Task 전송!
-    # (댓글/대댓글 순서가 보장되어야 하므로 임의 트리거 불가)
-    print(f"   ℹ️  순차 실행 중: HTTP 완료 보고로만 다음 Task 전송됨")
+    # ⚠️  댓글/대댓글 Task: HTTP 완료 보고로만 다음 Task 전송! (순서 보장)
+    # ✅  post 타입 Task: 연결 즉시 전송 가능 (순서 무관)
+    if assigned_task and assigned_task.task_type == 'post':
+        print(f"   📤 Post Task #{assigned_task.id} 즉시 전송 (Worker 재연결 감지)")
+        try:
+            await send_task_to_worker(pc_number, assigned_task, db)
+        except Exception as _e:
+            print(f"   ❌ Post Task 즉시 전송 실패: {_e}")
+    else:
+        print(f"   ℹ️  순차 실행 중: HTTP 완료 보고로만 다음 Task 전송됨")
     
     try:
         while True:
