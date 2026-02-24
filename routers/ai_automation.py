@@ -1854,6 +1854,7 @@ async def get_cafe_connections(
             'cafe_id': c.cafe_id,
             'account_id': c.account_id,
             'cafe_name': c.cafe.name if c.cafe else '',
+            'cafe_characteristics': c.cafe.characteristics if c.cafe else '',
             'account_name': c.account.account_id if c.account else '',
             'status': c.status,
             'draft_post_count': c.draft_post_count,
@@ -1869,6 +1870,33 @@ async def get_cafe_connections(
         import traceback
         traceback.print_exc()
         return JSONResponse({'success': False, 'error': str(e)}, status_code=500)
+
+
+@router.get("/api/cafes/{cafe_id}")
+async def get_cafe_info(
+    cafe_id: int,
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    """특정 카페 정보 조회 (카페명, 특성)"""
+    current_user = get_current_user(request, db)
+    if not current_user:
+        return JSONResponse({"success": False, "error": "로그인이 필요합니다"}, status_code=401)
+    try:
+        from database import AutomationCafe
+        cafe = db.query(AutomationCafe).filter(AutomationCafe.id == cafe_id).first()
+        if not cafe:
+            return JSONResponse({"success": False, "error": "카페를 찾을 수 없습니다"}, status_code=404)
+        return JSONResponse({
+            "success": True,
+            "cafe": {
+                "id": cafe.id,
+                "cafe_name": cafe.name,
+                "characteristics": cafe.characteristics or ""
+            }
+        })
+    except Exception as e:
+        return JSONResponse({"success": False, "error": str(e)}, status_code=500)
 
 
 @router.post("/api/connections/add")
