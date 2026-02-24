@@ -897,6 +897,10 @@ async def add_prompt_json(
     temperature: float = Form(0.7),
     max_tokens: int = Form(2000),
     generate_images: bool = Form(False),
+    num_product_images: int = Form(1),
+    num_attract_images: int = Form(2),
+    product_image_style: str = Form(''),
+    attract_image_prompts: str = Form(''),
     db: Session = Depends(get_db)
 ):
     """프롬프트 추가 (JSON Response)"""
@@ -915,7 +919,11 @@ async def add_prompt_json(
             user_prompt=user_prompt,
             temperature=temperature,
             max_tokens=max_tokens,
-            generate_images=generate_images
+            generate_images=generate_images,
+            num_product_images=num_product_images,
+            num_attract_images=num_attract_images,
+            product_image_style=product_image_style or None,
+            attract_image_prompts=attract_image_prompts or None
         )
         
         db.add(new_prompt)
@@ -958,7 +966,12 @@ async def get_prompt_detail(
                 'user_prompt': prompt.user_prompt,
                 'temperature': prompt.temperature,
                 'max_tokens': prompt.max_tokens,
-                'generate_images': prompt.generate_images
+                'generate_images': prompt.generate_images,
+                'apply_cafe_context': prompt.apply_cafe_context,
+                'num_product_images': prompt.num_product_images or 1,
+                'num_attract_images': prompt.num_attract_images or 2,
+                'product_image_style': prompt.product_image_style or '',
+                'attract_image_prompts': prompt.attract_image_prompts or ''
             }
         })
     except Exception as e:
@@ -976,6 +989,11 @@ async def update_prompt_json(
     temperature: float = Form(...),
     max_tokens: int = Form(...),
     generate_images: bool = Form(False),
+    apply_cafe_context: bool = Form(False),
+    num_product_images: int = Form(1),
+    num_attract_images: int = Form(2),
+    product_image_style: str = Form(''),
+    attract_image_prompts: str = Form(''),
     db: Session = Depends(get_db)
 ):
     """프롬프트 수정 (JSON)"""
@@ -1000,6 +1018,11 @@ async def update_prompt_json(
         prompt.temperature = temperature
         prompt.max_tokens = max_tokens
         prompt.generate_images = generate_images
+        prompt.apply_cafe_context = apply_cafe_context
+        prompt.num_product_images = num_product_images
+        prompt.num_attract_images = num_attract_images
+        prompt.product_image_style = product_image_style or None
+        prompt.attract_image_prompts = attract_image_prompts or None
         
         db.commit()
         
@@ -2183,6 +2206,8 @@ async def test_generate_content(
                     title = title_section.replace('# 제목', '', 1).strip()
                 elif title_section.startswith('**제목:**'):
                     title = title_section.replace('**제목:**', '', 1).strip()
+                elif title_section.startswith('**제목**'):
+                    title = title_section.replace('**제목**', '', 1).strip()
                 else:
                     # 첫 줄만 제목
                     lines = title_section.split('\n')
@@ -2242,47 +2267,139 @@ async def test_generate_content(
         
         title, body, comments = split_content(generated_content_raw)
         
-        # 이미지 생성 (Imagen 3)
+        # ─────────────────────────────────────────
+        # 이미지 생성 (FLUX 1.1 Pro via fal.ai)
+        # ─────────────────────────────────────────
         image_urls = []
+        product_image_urls = []
+        attract_image_urls = []
+        
         if prompt.generate_images:
-            # 상세한 이미지 프롬프트 생성
-            image_prompts = [
-                # 이미지 1: 제품 파손/불량
-                f"""Photo-realistic image of {product.product_name} showing damage, defects, or quality issues.
-Korean product photography style.
-Negative context: broken, defective, poor quality.
-Natural lighting, product close-up.""",
+            try:
+                import fal_client
+                import random
                 
-                # 이미지 2: 고통스러워하는 사람
-                f"""Photo-realistic image of a Korean person struggling or frustrated.
-Context: experiencing problems related to {product.product_name}.
-Natural indoor lighting, candid photography style.
-Emotional expression: stressed, tired, uncomfortable.""",
-                
-                # 이미지 3: 제품 사용하는 모습
-                f"""Photo-realistic image of a Korean person happily using {product.product_name}.
-Positive, lifestyle photography.
-Natural lighting, genuine smile.
-Context: daily life, satisfied customer, problem solved."""
-            ]
+                fal_key = os.environ.get('FAL_KEY')
+                if not fal_key:
+                    print("⚠️  FAL_KEY 없음 - 이미지 생성 건너뜀")
+                else:
+                    os.environ['FAL_KEY'] = fal_key
+                    
+                    # 실사감을 높이는 공통 suffix
+                    REALISM_SUFFIX = ", slight lens distortion, minor motion blur, not perfectly composed, natural imperfections, no AI look"
+                    
+                    async def _generate_flux_image(img_prompt: str, portrait: bool = False) -> str | None:
+                        """
+                        FLUX 1.1 Pro 이미지 생성
+                        - portrait=True: 세로형 1024×1536 (SNS/모바일용)
+                        - portrait=False: 정방형 1024×1024 (기본)
+                        """
+                        try:
+                            full_prompt = img_prompt + REALISM_SUFFIX
+                            img_size = {"width": 1024, "height": 1536} if portrait else {"width": 1024, "height": 1024}
+                            print(f"🎨 FLUX 생성 중 ({img_size['width']}×{img_size['height']}): {img_prompt[:70]}...")
+                            result = await fal_client.run_async(
+                                "fal-ai/flux-pro/v1.1",
+                                arguments={
+                                    "prompt": full_prompt,
+                                    "image_size": img_size,
+                                    "num_inference_steps": 28,
+                                    "guidance_scale": 3.5,
+                                    "num_images": 1,
+                                    "safety_tolerance": "2",
+                                    "output_format": "jpeg",
+                                }
+                            )
+                            url = result['images'][0]['url']
+                            print(f"   ✅ 완료: {url[:60]}...")
+                            return url
+                        except Exception as e:
+                            print(f"   ❌ FLUX 이미지 생성 실패: {e}")
+                            return None
+                    
+                    # ── 제품 이미지 생성 ──
+                    num_product = prompt.num_product_images or 1
+                    if num_product > 0:
+                        style_hint = prompt.product_image_style or 'lifestyle, photorealistic, shot on Sony A7III, shallow depth of field'
+                        product_img_prompt = None
+                        try:
+                            claude_resp = client.messages.create(
+                                model="claude-opus-4-5",
+                                max_tokens=400,
+                                messages=[{
+                                    "role": "user",
+                                    "content": f"""다음 제품을 FLUX AI 이미지 생성기에 넣을 영어 프롬프트를 만들어줘.
+
+제품명: {product.product_name}
+제품 특징: {product.core_features or ''}
+타겟: {product.target_age or ''} {product.target_gender or ''}
+스타일 힌트: {style_hint}
+
+규칙:
+- 영어로만 작성
+- 실제 사진처럼 보이는 자연스러운 생활 장면
+- 제품이 실제로 사용되는 모습을 구체적으로 묘사
+- 카메라 기종, 렌즈, 조명 정보 포함 (예: shot on Sony A7III 50mm f1.8)
+- 200자 이내
+- 프롬프트 텍스트만 출력 (설명, 번호, 따옴표 없이)"""
+                                }]
+                            )
+                            product_img_prompt = claude_resp.content[0].text.strip()
+                            print(f"🤖 제품 이미지 프롬프트: {product_img_prompt[:100]}...")
+                        except Exception as e:
+                            print(f"⚠️  Claude 프롬프트 생성 실패: {e}")
+                            product_img_prompt = f"photorealistic lifestyle photo of {product.product_name}, natural lighting, shot on Sony A7III"
+                        
+                        for _ in range(num_product):
+                            url = await _generate_flux_image(product_img_prompt, portrait=False)
+                            if url:
+                                product_image_urls.append(url)
+                                image_urls.append(url)
+                        print(f"✅ 제품 이미지 {len(product_image_urls)}장 생성 완료")
+                    
+                    # ── 어그로 이미지 생성 ──
+                    num_attract = prompt.num_attract_images or 2
+                    if num_attract > 0:
+                        attract_prompts_raw = prompt.attract_image_prompts or ''
+                        attract_pool = [p.strip() for p in attract_prompts_raw.strip().split('\n') if p.strip()]
+                        
+                        # 풀이 없으면 검증된 기본 풀 사용
+                        if not attract_pool:
+                            attract_pool = [
+                                "Thick slices of Korean samgyeopsal pork belly sizzling on a charcoal grill at a Korean BBQ restaurant, close-up shot, glistening fat rendering, smoke rising, side dishes and ssamjang visible in the background, warm restaurant lighting, food photography, shot on Sony A7III 50mm f1.8, shallow depth of field, mouthwatering presentation",
+                                "A bubbling hot pot of Korean budae-jjigae army stew with ramyeon noodles, spam, sausages, tofu and melted cheese on top, served on a portable gas burner at a casual Korean restaurant table, steam rising, top-down angle, warm tungsten lighting, realistic food photo, shot on Samsung Galaxy S24 Ultra",
+                                "A plate of crispy golden Korean fried chicken with yangnyeom sauce on one side and plain fried on the other, two glasses of cold draft beer with condensation, sitting on a wooden table at a Korean pub, night time cozy atmosphere, warm ambient lighting, candid food photo taken with a mobile phone, realistic quality, slight grain",
+                                "A spread of Korean street food on a red plastic tray including tteokbokki, fried mandu dumplings, sundae blood sausage, and fish cake skewers, taken at a traditional Korean bunsik restaurant, bright fluorescent lighting, top-down mobile phone shot, messy authentic street food presentation, realistic snapshot, slight overexposure",
+                                "A slice of strawberry cream cake and an iced americano on a marble cafe table, natural window light streaming in from the left, Korean style minimalist cafe interior in the background, soft bokeh, shot on iPhone 15 Pro portrait mode, bright and airy mood, realistic Instagram-style photo",
+                            ]
+                        
+                        for _ in range(num_attract):
+                            attract_prompt = random.choice(attract_pool)
+                            print(f"🎯 어그로 이미지 프롬프트: {attract_prompt[:60]}...")
+                            url = await _generate_flux_image(attract_prompt, portrait=False)
+                            if url:
+                                attract_image_urls.append(url)
+                                image_urls.append(url)
+                        print(f"✅ 어그로 이미지 {len(attract_image_urls)}장 생성 완료")
             
-            # 각 이미지 생성 (Imagen 3)
-            for idx, img_prompt in enumerate(image_prompts):
-                urls = await generate_images_with_imagen(img_prompt, num_images=1)
-                if urls:
-                    image_urls.extend(urls)
+            except ImportError:
+                print("⚠️  fal_client 미설치 - pip install fal-client")
+            except Exception as e:
+                print(f"❌ 이미지 생성 오류: {e}")
         
         return JSONResponse({
             'success': True,
-            'title': title,  # 생성된 제목
-            'body': body,  # 본문
-            'comments': comments,  # 댓글
+            'title': title,
+            'body': body,
+            'comments': comments,
             'keyword': keyword,
             'prompt_name': f"{product.product_name} - {prompt.keyword_classification}",
-            'cafe_name': cafe_name,  # 카페명 추가
-            'cafe_characteristics': cafe_characteristics,  # 카페 특성 추가
+            'cafe_name': cafe_name,
+            'cafe_characteristics': cafe_characteristics,
             'references_used': len(ai_refs),
-            'image_urls': image_urls,  # 이미지 URL 추가
+            'image_urls': image_urls,
+            'product_image_urls': product_image_urls,
+            'attract_image_urls': attract_image_urls,
             'usage': {
                 'input_tokens': response.usage.input_tokens,
                 'output_tokens': response.usage.output_tokens
@@ -2665,3 +2782,177 @@ async def get_ai_schedules(
         import traceback
         traceback.print_exc()
         return JSONResponse({'success': False, 'error': str(e)}, status_code=500)
+
+
+# ============================================================
+# ⭐ FLUX 1.1 Pro 이미지 생성 API
+# ============================================================
+
+@router.post("/api/generate-images")
+async def generate_images(
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    """
+    FLUX 1.1 Pro로 이미지 2종 생성
+    1. 제품 이미지: 제품 정보 기반 자동 생성
+    2. 어그로 이미지: 시선을 끄는 음식/라이프스타일 이미지
+    """
+    try:
+        import os
+        import fal_client
+
+        body = await request.json()
+        product_id = body.get('product_id')
+        prompt_id = body.get('prompt_id')
+        custom_product_prompt = body.get('product_prompt', '')
+        custom_attract_prompt = body.get('attract_prompt', '')
+        image_count = body.get('image_count', 1)  # 각 유형당 생성 수
+
+        # fal.ai API 키 확인
+        fal_key = os.environ.get('FAL_KEY')
+        if not fal_key:
+            return JSONResponse({
+                'success': False,
+                'error': 'FAL_KEY 환경변수가 설정되지 않았습니다. Render 환경변수에 FAL_KEY를 추가해주세요.'
+            }, status_code=400)
+
+        os.environ['FAL_KEY'] = fal_key
+
+        # 제품 정보 조회
+        product = db.query(AIMarketingProduct).get(product_id) if product_id else None
+
+        results = {
+            'success': True,
+            'product_images': [],
+            'attract_images': [],
+        }
+
+        # ─────────────────────────────────────────
+        # 1. 제품 이미지 프롬프트 - Claude가 자동 생성
+        # ─────────────────────────────────────────
+        if not custom_product_prompt and product:
+            import anthropic
+            api_key = os.environ.get('ANTHROPIC_API_KEY')
+            if api_key:
+                client = anthropic.Anthropic(api_key=api_key)
+                claude_msg = client.messages.create(
+                    model="claude-opus-4-5",
+                    max_tokens=300,
+                    messages=[{
+                        "role": "user",
+                        "content": f"""다음 제품을 FLUX AI 이미지 생성기에 넣을 영어 프롬프트로 만들어줘.
+제품명: {product.product_name}
+제품 특징: {product.core_features or ''}
+타겟: {product.target_age or ''} {product.target_gender or ''}
+
+규칙:
+- 영어로 작성
+- 실제 사진처럼 보이는 스타일 (photorealistic)
+- 제품이 자연스럽게 사용되는 생활 장면
+- 밝고 깨끗한 배경
+- 150자 이내
+- 프롬프트만 출력 (설명 없이)"""
+                    }]
+                )
+                custom_product_prompt = claude_msg.content[0].text.strip()
+                print(f"🤖 Claude 생성 이미지 프롬프트: {custom_product_prompt}")
+
+        # ─────────────────────────────────────────
+        # 2. 어그로 이미지 프롬프트 (기본 풀)
+        # ─────────────────────────────────────────
+        if not custom_attract_prompt:
+            import random
+            attract_prompts_pool = [
+                "Thick slices of Korean samgyeopsal pork belly sizzling on a charcoal grill at a Korean BBQ restaurant, close-up shot, glistening fat rendering, smoke rising, side dishes and ssamjang visible in the background, warm restaurant lighting, food photography, shot on Sony A7III 50mm f1.8, shallow depth of field, mouthwatering presentation",
+                "A bubbling hot pot of Korean budae-jjigae army stew with ramyeon noodles, spam, sausages, tofu and melted cheese on top, served on a portable gas burner at a casual Korean restaurant table, steam rising, top-down angle, warm tungsten lighting, realistic food photo, shot on Samsung Galaxy S24 Ultra",
+                "A plate of crispy golden Korean fried chicken with yangnyeom sauce on one side and plain fried on the other, two glasses of cold draft beer with condensation, sitting on a wooden table at a Korean pub, night time cozy atmosphere, warm ambient lighting, candid food photo taken with a mobile phone, realistic quality, slight grain",
+                "A spread of Korean street food on a red plastic tray including tteokbokki, fried mandu dumplings, sundae blood sausage, and fish cake skewers, taken at a traditional Korean bunsik restaurant, bright fluorescent lighting, top-down mobile phone shot, messy authentic street food presentation, realistic snapshot, slight overexposure",
+                "A slice of strawberry cream cake and an iced americano on a marble cafe table, natural window light streaming in from the left, Korean style minimalist cafe interior in the background, soft bokeh, shot on iPhone 15 Pro portrait mode, bright and airy mood, realistic Instagram-style photo",
+            ]
+            custom_attract_prompt = random.choice(attract_prompts_pool)
+
+        # 실사감을 높이는 공통 suffix
+        REALISM_SUFFIX = ", slight lens distortion, minor motion blur, not perfectly composed, natural imperfections, no AI look"
+
+        # ─────────────────────────────────────────
+        # 3. FLUX 1.1 Pro로 이미지 생성
+        # ─────────────────────────────────────────
+        async def generate_single_image(img_prompt: str, portrait: bool = False) -> dict:
+            """fal.ai FLUX 1.1 Pro 단일 이미지 생성 (1024×1024 또는 1024×1536)"""
+            try:
+                full_prompt = img_prompt + REALISM_SUFFIX
+                img_size = {"width": 1024, "height": 1536} if portrait else {"width": 1024, "height": 1024}
+                print(f"🎨 이미지 생성 중 ({img_size['width']}×{img_size['height']}): {img_prompt[:70]}...")
+                result = await fal_client.run_async(
+                    "fal-ai/flux-pro/v1.1",
+                    arguments={
+                        "prompt": full_prompt,
+                        "image_size": img_size,
+                        "num_inference_steps": 28,
+                        "guidance_scale": 3.5,
+                        "num_images": 1,
+                        "safety_tolerance": "2",
+                        "output_format": "jpeg",
+                    }
+                )
+                image_url = result['images'][0]['url']
+                print(f"   ✅ 생성 완료: {image_url[:60]}...")
+                return {
+                    'url': image_url,
+                    'prompt': img_prompt,
+                    'width': result['images'][0].get('width', 0),
+                    'height': result['images'][0].get('height', 0),
+                }
+            except Exception as e:
+                print(f"   ❌ 이미지 생성 실패: {e}")
+                return {'url': None, 'prompt': img_prompt, 'error': str(e)}
+
+        # 제품 이미지 생성
+        if custom_product_prompt:
+            for i in range(image_count):
+                img_result = await generate_single_image(custom_product_prompt, portrait=False)
+                if img_result.get('url'):
+                    results['product_images'].append(img_result)
+
+        # 어그로 이미지 생성
+        if custom_attract_prompt:
+            for i in range(image_count):
+                img_result = await generate_single_image(custom_attract_prompt, portrait=False)
+                if img_result.get('url'):
+                    results['attract_images'].append(img_result)
+
+        results['product_prompt_used'] = custom_product_prompt
+        results['attract_prompt_used'] = custom_attract_prompt
+        results['total_generated'] = len(results['product_images']) + len(results['attract_images'])
+
+        print(f"✅ 이미지 생성 완료: 제품 {len(results['product_images'])}장, 어그로 {len(results['attract_images'])}장")
+        return JSONResponse(results)
+
+    except ImportError:
+        return JSONResponse({
+            'success': False,
+            'error': 'fal-client 패키지가 설치되지 않았습니다.'
+        }, status_code=500)
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return JSONResponse({'success': False, 'error': str(e)}, status_code=500)
+
+
+@router.get("/api/generate-images/test")
+async def test_fal_connection():
+    """fal.ai 연결 상태 확인"""
+    import os
+    fal_key = os.environ.get('FAL_KEY')
+    if not fal_key:
+        return JSONResponse({
+            'success': False,
+            'message': 'FAL_KEY 환경변수 없음',
+            'setup_guide': 'Render 대시보드 → Environment → FAL_KEY 추가'
+        })
+    return JSONResponse({
+        'success': True,
+        'message': 'FAL_KEY 설정됨',
+        'key_preview': f"{fal_key[:8]}..."
+    })

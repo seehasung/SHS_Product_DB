@@ -3660,17 +3660,31 @@ async function generateTestContent() {
                 ${data.image_urls && data.image_urls.length > 0 ? `
                 <div class="card mt-3">
                     <div class="card-header bg-success text-white">
-                        <h6 class="mb-0"><i class="bi bi-images"></i> 생성된 이미지 (${data.image_urls.length}개)</h6>
+                        <h6 class="mb-0"><i class="bi bi-images"></i> 생성된 이미지 (총 ${data.image_urls.length}장)</h6>
                     </div>
                     <div class="card-body">
-                        <div class="row">
-                            ${data.image_urls.map((url, idx) => `
-                                <div class="col-md-4 mb-3">
-                                    <img src="${url}" class="img-fluid rounded" alt="생성된 이미지 ${idx + 1}">
-                                    <p class="text-center mt-2"><small>이미지 ${idx + 1}</small></p>
+                        ${data.product_image_urls && data.product_image_urls.length > 0 ? `
+                        <p class="fw-bold text-primary mb-2">🤖 제품 이미지 (${data.product_image_urls.length}장)</p>
+                        <div class="row mb-3">
+                            ${data.product_image_urls.map((url, idx) => `
+                                <div class="col-md-4 mb-2">
+                                    <img src="${url}" class="img-fluid rounded border" alt="제품 이미지 ${idx + 1}" 
+                                         style="cursor:pointer;" onclick="window.open('${url}', '_blank')">
+                                    <p class="text-center mt-1"><small class="text-muted">제품 ${idx + 1}</small></p>
                                 </div>
                             `).join('')}
-                        </div>
+                        </div>` : ''}
+                        ${data.attract_image_urls && data.attract_image_urls.length > 0 ? `
+                        <p class="fw-bold text-warning mb-2">🎯 어그로 이미지 (${data.attract_image_urls.length}장)</p>
+                        <div class="row">
+                            ${data.attract_image_urls.map((url, idx) => `
+                                <div class="col-md-4 mb-2">
+                                    <img src="${url}" class="img-fluid rounded border" alt="어그로 이미지 ${idx + 1}"
+                                         style="cursor:pointer;" onclick="window.open('${url}', '_blank')">
+                                    <p class="text-center mt-1"><small class="text-muted">어그로 ${idx + 1}</small></p>
+                                </div>
+                            `).join('')}
+                        </div>` : ''}
                     </div>
                 </div>
                 ` : ''}
@@ -4789,6 +4803,13 @@ async function editPrompt(id) {
         document.getElementById('editPromptImages').checked = prompt.generate_images;
         document.getElementById('editPromptCafeContext').checked = prompt.apply_cafe_context || false;
         
+        // 이미지 생성 설정 값 채우기
+        document.getElementById('editNumProductImages').value = prompt.num_product_images ?? 1;
+        document.getElementById('editNumAttractImages').value = prompt.num_attract_images ?? 2;
+        document.getElementById('editProductImageStyle').value = prompt.product_image_style || '';
+        document.getElementById('editAttractImagePrompts').value = prompt.attract_image_prompts || '';
+        toggleImageOptions('edit');
+        
         // 모달 열기
         const modal = new bootstrap.Modal(document.getElementById('editAIPromptModal'));
         modal.show();
@@ -4817,6 +4838,10 @@ async function updatePrompt() {
         formData.append('max_tokens', document.getElementById('editPromptTokens').value);
         formData.append('generate_images', document.getElementById('editPromptImages').checked);
         formData.append('apply_cafe_context', document.getElementById('editPromptCafeContext').checked);
+        formData.append('num_product_images', document.getElementById('editNumProductImages').value || 1);
+        formData.append('num_attract_images', document.getElementById('editNumAttractImages').value || 2);
+        formData.append('product_image_style', document.getElementById('editProductImageStyle').value || '');
+        formData.append('attract_image_prompts', document.getElementById('editAttractImagePrompts').value || '');
         
         const response = await fetch(`/ai-automation/api/prompts/update/${id}`, {
             method: 'POST',
@@ -4942,6 +4967,17 @@ function insertVariableFromSelect(textareaId, selectId) {
     
     // 선택 초기화
     select.value = '';
+}
+
+// 이미지 생성 옵션 패널 토글
+function toggleImageOptions(mode) {
+    const checkboxId = mode === 'edit' ? 'editPromptImages' : 'generateImages';
+    const panelId = mode === 'edit' ? 'editImageOptions' : 'createImageOptions';
+    const checkbox = document.getElementById(checkboxId);
+    const panel = document.getElementById(panelId);
+    if (checkbox && panel) {
+        panel.style.display = checkbox.checked ? 'block' : 'none';
+    }
 }
 
 // 이미지 생성 프롬프트 추가
@@ -5712,11 +5748,11 @@ async function deployWorkerVersion(event) {
                             <small class="text-muted">최대 64,000</small>
                         </div>
                         <div class="col-md-4 mb-3">
-                            <label class="form-label">이미지 생성</label>
+                            <label class="form-label">옵션</label>
                             <div class="form-check mt-2">
-                                <input class="form-check-input" type="checkbox" name="generate_images" id="generateImages">
+                                <input class="form-check-input" type="checkbox" name="generate_images" id="generateImages" onchange="toggleImageOptions('create')">
                                 <label class="form-check-label" for="generateImages">
-                                    이미지 3장 자동 생성
+                                    이미지 자동 생성
                                 </label>
                             </div>
                             <div class="form-check mt-2">
@@ -5725,6 +5761,46 @@ async function deployWorkerVersion(event) {
                                     카페 특성 반영
                                 </label>
                             </div>
+                        </div>
+                    </div>
+                    
+                    <!-- ⭐ 이미지 생성 설정 (체크 시 표시) -->
+                    <div id="createImageOptions" style="display:none;" class="border rounded p-3 mb-3 bg-light">
+                        <h6 class="mb-3"><i class="bi bi-image"></i> 이미지 생성 설정</h6>
+                        <div class="row">
+                            <div class="col-md-3 mb-2">
+                                <label class="form-label small fw-bold">제품 이미지 수</label>
+                                <input type="number" class="form-control form-control-sm" name="num_product_images" id="createNumProductImages" 
+                                       min="0" max="5" value="1">
+                                <small class="text-muted">제품 관련 이미지</small>
+                            </div>
+                            <div class="col-md-3 mb-2">
+                                <label class="form-label small fw-bold">어그로 이미지 수</label>
+                                <input type="number" class="form-control form-control-sm" name="num_attract_images" id="createNumAttractImages" 
+                                       min="0" max="5" value="2">
+                                <small class="text-muted">음식/라이프스타일</small>
+                            </div>
+                            <div class="col-md-6 mb-2">
+                                <label class="form-label small fw-bold">제품 이미지 스타일 힌트</label>
+                                <input type="text" class="form-control form-control-sm" name="product_image_style" id="createProductImageStyle" 
+                                       placeholder="예: lifestyle, product shot, elderly person using">
+                                <small class="text-muted">Claude에게 주는 스타일 방향</small>
+                            </div>
+                        </div>
+                        <div class="mb-2">
+                            <label class="form-label small fw-bold">
+                                어그로 이미지 프롬프트 풀
+                                <span class="badge bg-secondary ms-1">랜덤 선택</span>
+                            </label>
+                            <textarea class="form-control form-control-sm" name="attract_image_prompts" id="createAttractImagePrompts" rows="4"
+                                      placeholder="한 줄에 하나씩 영어로 입력하세요. 발행 시 랜덤으로 1개 선택됩니다.&#10;&#10;예시:&#10;beautiful Korean food spread, delicious rice bowl, warm lighting, photorealistic&#10;cozy Korean cafe interior, aesthetic coffee, soft natural light, lifestyle photography&#10;fresh seasonal fruits, vibrant colors, clean background, food photography"></textarea>
+                            <small class="text-muted">💡 여러 개 등록할수록 매번 다른 이미지가 생성됩니다</small>
+                        </div>
+                        <div class="alert alert-info py-2 mb-0">
+                            <small>
+                                <strong>🤖 제품 이미지</strong>: Claude가 제품 정보를 분석해 매번 자동으로 프롬프트 생성<br>
+                                <strong>🎯 어그로 이미지</strong>: 위 목록에서 랜덤 선택하여 FLUX 1.1 Pro로 생성
+                            </small>
                         </div>
                     </div>
                 </div>
@@ -6075,13 +6151,53 @@ async function deployWorkerVersion(event) {
                         <div class="col-md-4 mb-3">
                             <label class="form-label">옵션</label>
                             <div class="form-check mt-2">
-                                <input class="form-check-input" type="checkbox" id="editPromptImages">
-                                <label class="form-check-label">이미지 3장 생성</label>
+                                <input class="form-check-input" type="checkbox" id="editPromptImages" onchange="toggleImageOptions('edit')">
+                                <label class="form-check-label">이미지 자동 생성</label>
                             </div>
                             <div class="form-check mt-2">
                                 <input class="form-check-input" type="checkbox" id="editPromptCafeContext">
                                 <label class="form-check-label">카페 특성 반영</label>
                             </div>
+                        </div>
+                    </div>
+                    
+                    <!-- ⭐ 이미지 생성 설정 (체크 시 표시) -->
+                    <div id="editImageOptions" style="display:none;" class="border rounded p-3 mb-3 bg-light">
+                        <h6 class="mb-3"><i class="bi bi-image"></i> 이미지 생성 설정</h6>
+                        <div class="row">
+                            <div class="col-md-3 mb-2">
+                                <label class="form-label small fw-bold">제품 이미지 수</label>
+                                <input type="number" class="form-control form-control-sm" id="editNumProductImages" 
+                                       min="0" max="5" value="1">
+                                <small class="text-muted">제품 관련 이미지</small>
+                            </div>
+                            <div class="col-md-3 mb-2">
+                                <label class="form-label small fw-bold">어그로 이미지 수</label>
+                                <input type="number" class="form-control form-control-sm" id="editNumAttractImages" 
+                                       min="0" max="5" value="2">
+                                <small class="text-muted">음식/라이프스타일</small>
+                            </div>
+                            <div class="col-md-6 mb-2">
+                                <label class="form-label small fw-bold">제품 이미지 스타일 힌트</label>
+                                <input type="text" class="form-control form-control-sm" id="editProductImageStyle" 
+                                       placeholder="예: lifestyle, product shot, elderly person using">
+                                <small class="text-muted">Claude에게 주는 스타일 방향</small>
+                            </div>
+                        </div>
+                        <div class="mb-2">
+                            <label class="form-label small fw-bold">
+                                어그로 이미지 프롬프트 풀
+                                <span class="badge bg-secondary ms-1">랜덤 선택</span>
+                            </label>
+                            <textarea class="form-control form-control-sm" id="editAttractImagePrompts" rows="4"
+                                      placeholder="한 줄에 하나씩 영어로 입력하세요. 발행 시 랜덤으로 1개 선택됩니다.&#10;&#10;예시:&#10;beautiful Korean food spread, delicious rice bowl, warm lighting, photorealistic&#10;cozy Korean cafe interior, aesthetic coffee, soft natural light, lifestyle photography&#10;fresh seasonal fruits, vibrant colors, clean background, food photography"></textarea>
+                            <small class="text-muted">💡 여러 개 등록할수록 매번 다른 이미지가 생성됩니다</small>
+                        </div>
+                        <div class="alert alert-info py-2 mb-0">
+                            <small>
+                                <strong>🤖 제품 이미지</strong>: Claude가 제품 정보를 분석해 매번 자동으로 프롬프트 생성<br>
+                                <strong>🎯 어그로 이미지</strong>: 위 목록에서 랜덤 선택하여 FLUX 1.1 Pro로 생성
+                            </small>
                         </div>
                     </div>
                 </div>

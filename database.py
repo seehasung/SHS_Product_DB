@@ -1438,8 +1438,12 @@ class AIPrompt(Base):
     temperature = Column(Float, default=0.7)
     max_tokens = Column(Integer, default=2000)
     
-    # 이미지 생성 여부
+    # 이미지 생성 설정
     generate_images = Column(Boolean, default=False)
+    num_product_images = Column(Integer, default=1)   # 제품 이미지 생성 수
+    num_attract_images = Column(Integer, default=2)   # 어그로 이미지 생성 수
+    product_image_style = Column(String(100), nullable=True)  # 제품 이미지 스타일 힌트 (예: lifestyle, product shot)
+    attract_image_prompts = Column(Text, nullable=True)  # 어그로 이미지 프롬프트 풀 (줄바꿈 구분, 랜덤 선택)
     
     # 카페 특성 반영 여부
     apply_cafe_context = Column(Boolean, default=False)
