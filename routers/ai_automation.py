@@ -2320,7 +2320,7 @@ async def test_generate_content(
                     # ── 제품 이미지 생성 ──
                     num_product = prompt.num_product_images or 1
                     if num_product > 0:
-                        style_hint = prompt.product_image_style or 'lifestyle, photorealistic, shot on Sony A7III, shallow depth of field'
+                        style_hint = prompt.product_image_style or 'lifestyle, photorealistic, shot on Sony A7III 50mm f1.8, shallow depth of field'
                         product_img_prompt = None
                         try:
                             claude_resp = client.messages.create(
@@ -2331,24 +2331,27 @@ async def test_generate_content(
                                     "content": f"""다음 제품을 FLUX AI 이미지 생성기에 넣을 영어 프롬프트를 만들어줘.
 
 제품명: {product.product_name}
-제품 특징: {product.core_features or ''}
+핵심 특징: {product.core_value or ''}
+서브 특징: {product.sub_core_value or ''}
+사이즈/무게: {product.size_weight or ''}
 타겟: {product.target_age or ''} {product.target_gender or ''}
 스타일 힌트: {style_hint}
 
 규칙:
 - 영어로만 작성
 - 실제 사진처럼 보이는 자연스러운 생활 장면
-- 제품이 실제로 사용되는 모습을 구체적으로 묘사
+- 반드시 위 제품이 실제로 사용되는 모습을 묘사 (음식이나 관계없는 장면 절대 금지)
+- 제품의 타겟 고객이 사용하는 장면
 - 카메라 기종, 렌즈, 조명 정보 포함 (예: shot on Sony A7III 50mm f1.8)
 - 200자 이내
 - 프롬프트 텍스트만 출력 (설명, 번호, 따옴표 없이)"""
                                 }]
                             )
                             product_img_prompt = claude_resp.content[0].text.strip()
-                            print(f"🤖 제품 이미지 프롬프트: {product_img_prompt[:100]}...")
+                            print(f"🤖 제품 이미지 프롬프트 (Claude 생성): {product_img_prompt}")
                         except Exception as e:
                             print(f"⚠️  Claude 프롬프트 생성 실패: {e}")
-                            product_img_prompt = f"photorealistic lifestyle photo of {product.product_name}, natural lighting, shot on Sony A7III"
+                            product_img_prompt = f"photorealistic lifestyle photo of Korean person using {product.product_name}, natural lighting, shot on Sony A7III 50mm f1.8, shallow depth of field"
                         
                         for _ in range(num_product):
                             url = await _generate_flux_image(product_img_prompt, portrait=False)
@@ -2838,21 +2841,25 @@ async def generate_images(
                 client = anthropic.Anthropic(api_key=api_key)
                 claude_msg = client.messages.create(
                     model="claude-opus-4-5",
-                    max_tokens=300,
+                    max_tokens=400,
                     messages=[{
                         "role": "user",
-                        "content": f"""다음 제품을 FLUX AI 이미지 생성기에 넣을 영어 프롬프트로 만들어줘.
+                        "content": f"""다음 제품을 FLUX AI 이미지 생성기에 넣을 영어 프롬프트를 만들어줘.
+
 제품명: {product.product_name}
-제품 특징: {product.core_features or ''}
+핵심 특징: {product.core_value or ''}
+서브 특징: {product.sub_core_value or ''}
+사이즈/무게: {product.size_weight or ''}
 타겟: {product.target_age or ''} {product.target_gender or ''}
 
 규칙:
-- 영어로 작성
-- 실제 사진처럼 보이는 스타일 (photorealistic)
-- 제품이 자연스럽게 사용되는 생활 장면
-- 밝고 깨끗한 배경
-- 150자 이내
-- 프롬프트만 출력 (설명 없이)"""
+- 영어로만 작성
+- 실제 사진처럼 보이는 자연스러운 생활 장면
+- 반드시 위 제품이 실제로 사용되는 모습을 묘사 (음식이나 관계없는 장면 절대 금지)
+- 제품의 타겟 고객이 사용하는 장면
+- 카메라 기종, 렌즈, 조명 정보 포함 (예: shot on Sony A7III 50mm f1.8)
+- 200자 이내
+- 프롬프트 텍스트만 출력 (설명, 번호, 따옴표 없이)"""
                     }]
                 )
                 custom_product_prompt = claude_msg.content[0].text.strip()
