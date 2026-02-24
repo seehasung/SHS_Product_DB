@@ -28,6 +28,42 @@ from database import (
 router = APIRouter(prefix="/ai-automation")
 templates = Jinja2Templates(directory="templates")
 
+# ============================================================
+# ⭐ 어그로용 한국 음식 이미지 프롬프트 풀 (FLUX 1.1 Pro 최적화)
+# ============================================================
+KOREAN_FOOD_ATTRACT_POOL = [
+    # 삼겹살
+    "Thick slices of Korean samgyeopsal pork belly sizzling aggressively on a cast iron grill, extreme close-up, rendered fat dripping, charcoal smoke filling the frame, tongs mid-flip, glistening caramelized surface, banchan dishes blurred in background, shot on Canon EOS R5 85mm f1.4, warm amber restaurant lighting, grain visible, authentic Korean BBQ atmosphere",
+    # 소갈비
+    "Korean galbi short ribs marinated in soy and pear sauce, caramelizing on a table grill, close-up macro shot with sauce bubbling and charring at edges, sesame seeds glistening, scissors resting beside the grill, slight smoke haze, shot on Nikon Z6 50mm f1.8, tungsten restaurant lighting, food-blogger style, hyper realistic",
+    # 부대찌개
+    "Bubbling Korean budae-jjigae in a wide aluminum pot on a portable gas burner, ramyeon noodles half-submerged, spam cubes and melted American cheese visible, steam rising aggressively, red broth boiling at edges, ladle resting on pot rim, taken from slightly above at a low-end Korean restaurant table with disposable chopsticks, shot on Samsung Galaxy S24 Ultra, realistic mobile photo, overexposed highlights, authentic look",
+    # 치킨맥주
+    "A half-eaten plate of Korean yangnyeom fried chicken, dark sticky glaze with sesame seeds, next to a frosted glass of golden draft beer with condensation dripping down, crumpled napkins on table, casual Korean chimaek restaurant booth, neon signs blurred in background, shot on iPhone 15 Pro max portrait mode, evening warm light, candid casual vibe, hyper realistic",
+    # 곱창전골
+    "Korean gopchang gui beef small intestine sizzling on a round charcoal grill, dark caramelized exterior, glistening with fat, green onion pieces scattered, doenjang dipping sauce bowl beside it, shot on Sony A7IV 35mm f1.8, low angle close-up, warm izakaya lighting, realistic texture detail, slight motion blur from tongs",
+    # 떡볶이
+    "Steaming Korean tteokbokki in a wide shallow pan at a street pojangmacha stall, glossy red gochujang sauce clinging to rice cakes, fish cakes and boiled eggs visible, fried mandu on a separate tray beside it, fluorescent overhead lighting casting sharp shadows, taken on a worn plastic tray, candid mobile snapshot style, Samsung A54 quality, slight overexposure, authentic street food grit",
+    # 순대국밥
+    "A deep earthenware bowl of Korean sundae-gukbap, milky white bone broth with sliced blood sausage and pork intestines, green onion and doenjang on the side, steaming heavily, small dish of sea salt and shrimp paste beside it, worn wooden table at a traditional Korean restaurant, harsh fluorescent light, realistic candid mobile photo, grainy texture",
+    # 냉면
+    "A stainless steel bowl of Korean mul-naengmyeon, thin buckwheat noodles in cold clear beef broth with floating ice chips, half a boiled egg, sliced pear and cucumber, mustard and vinegar bottles nearby, bright overhead cafeteria-style lighting, top-down flat lay shot, metal chopsticks resting on bowl rim, shot on iPhone 14, realistic and cold-feeling",
+    # 해물파전
+    "Korean haemul pajeon seafood pancake fresh off a cast iron pan, golden crispy edges, green onion stalks and squid pieces visible, served on a dark plate with soy dipping sauce in a small bowl, steam still rising, shot from 45-degree angle on a wooden table, shot on Fujifilm X-T5 with 35mm lens, warm soft kitchen light, appetizing hyper-realistic texture",
+    # 된장찌개
+    "A clay pot of Korean doenjang-jjigae fermented soybean paste stew bubbling on a portable gas stove, tofu cubes and zucchini floating, dark brown broth with white foam at edges, served with rice in a metal bowl beside it, small banchan dishes of kimchi and spinach, worn restaurant plastic table, harsh fluorescent lighting, mobile phone snapshot, authentic everyday Korean meal",
+    # 비빔밥
+    "A stone pot dolsot bibimbap sizzling at the edges, colorful namul vegetables arranged in sections around a raw egg yolk center, gochujang dollop on top, sesame oil gleaming, served on a wooden tray at a Korean restaurant, customer's hand reaching in with a spoon about to mix, shot on Sony A6700 55mm, warm window light, realistic lifestyle food photo",
+    # 칼국수
+    "A wide bowl of Korean kalguksu knife-cut noodle soup, thick handmade noodles in a milky anchovy broth, zucchini and clams visible, light steam rising, chopsticks mid-lift pulling noodles, taken at a busy Korean noodle restaurant, bright fluorescent light, slight motion blur on noodles, shot on Samsung Galaxy S23, authentic lunch vibe",
+    # 보쌈
+    "Korean bossam platter, sliced pork belly cooked soft and tender, arranged next to a fresh head of napa cabbage leaf, fermented kimchi, salted shrimp, and thinly sliced raw garlic, all on a large black plate, customer wrapping a piece into a ssam, close-up shot on Canon EOS M50 50mm f1.8, warm izakaya lighting, hyper realistic texture",
+    # 라면
+    "A single-serving pot of Korean ramyeon on a portable gas stove, bright orange broth boiling vigorously, noodles just placed and starting to soften, an egg cracked in still mostly raw, green onion slices on surface, eaten alone at a small table with a window view at night, soft lamp light, shot on iPhone 13 mini, cozy late-night vibe, realistic mobile photo quality",
+    # 카페 디저트
+    "A freshly baked Korean-style soufflé castella slice and an iced dirty coffee on a white ceramic plate at a minimalist Korean dessert cafe, natural window light creating soft shadows, condensation on the glass, small spoon resting beside, marble tabletop, blurred cafe interior bokeh, shot on iPhone 15 Pro portrait mode, bright airy morning atmosphere, Instagram lifestyle aesthetic",
+]
+
 # Imagen 3 이미지 생성 함수
 async def generate_images_with_imagen(prompt: str, num_images: int = 3) -> List[str]:
     """Imagen 3로 이미지 생성"""
@@ -2368,13 +2404,7 @@ async def test_generate_content(
                         
                         # 풀이 없으면 검증된 기본 풀 사용
                         if not attract_pool:
-                            attract_pool = [
-                                "Thick slices of Korean samgyeopsal pork belly sizzling on a charcoal grill at a Korean BBQ restaurant, close-up shot, glistening fat rendering, smoke rising, side dishes and ssamjang visible in the background, warm restaurant lighting, food photography, shot on Sony A7III 50mm f1.8, shallow depth of field, mouthwatering presentation",
-                                "A bubbling hot pot of Korean budae-jjigae army stew with ramyeon noodles, spam, sausages, tofu and melted cheese on top, served on a portable gas burner at a casual Korean restaurant table, steam rising, top-down angle, warm tungsten lighting, realistic food photo, shot on Samsung Galaxy S24 Ultra",
-                                "A plate of crispy golden Korean fried chicken with yangnyeom sauce on one side and plain fried on the other, two glasses of cold draft beer with condensation, sitting on a wooden table at a Korean pub, night time cozy atmosphere, warm ambient lighting, candid food photo taken with a mobile phone, realistic quality, slight grain",
-                                "A spread of Korean street food on a red plastic tray including tteokbokki, fried mandu dumplings, sundae blood sausage, and fish cake skewers, taken at a traditional Korean bunsik restaurant, bright fluorescent lighting, top-down mobile phone shot, messy authentic street food presentation, realistic snapshot, slight overexposure",
-                                "A slice of strawberry cream cake and an iced americano on a marble cafe table, natural window light streaming in from the left, Korean style minimalist cafe interior in the background, soft bokeh, shot on iPhone 15 Pro portrait mode, bright and airy mood, realistic Instagram-style photo",
-                            ]
+                            attract_pool = KOREAN_FOOD_ATTRACT_POOL
                         
                         for _ in range(num_attract):
                             attract_prompt = random.choice(attract_pool)
@@ -2870,14 +2900,7 @@ async def generate_images(
         # ─────────────────────────────────────────
         if not custom_attract_prompt:
             import random
-            attract_prompts_pool = [
-                "Thick slices of Korean samgyeopsal pork belly sizzling on a charcoal grill at a Korean BBQ restaurant, close-up shot, glistening fat rendering, smoke rising, side dishes and ssamjang visible in the background, warm restaurant lighting, food photography, shot on Sony A7III 50mm f1.8, shallow depth of field, mouthwatering presentation",
-                "A bubbling hot pot of Korean budae-jjigae army stew with ramyeon noodles, spam, sausages, tofu and melted cheese on top, served on a portable gas burner at a casual Korean restaurant table, steam rising, top-down angle, warm tungsten lighting, realistic food photo, shot on Samsung Galaxy S24 Ultra",
-                "A plate of crispy golden Korean fried chicken with yangnyeom sauce on one side and plain fried on the other, two glasses of cold draft beer with condensation, sitting on a wooden table at a Korean pub, night time cozy atmosphere, warm ambient lighting, candid food photo taken with a mobile phone, realistic quality, slight grain",
-                "A spread of Korean street food on a red plastic tray including tteokbokki, fried mandu dumplings, sundae blood sausage, and fish cake skewers, taken at a traditional Korean bunsik restaurant, bright fluorescent lighting, top-down mobile phone shot, messy authentic street food presentation, realistic snapshot, slight overexposure",
-                "A slice of strawberry cream cake and an iced americano on a marble cafe table, natural window light streaming in from the left, Korean style minimalist cafe interior in the background, soft bokeh, shot on iPhone 15 Pro portrait mode, bright and airy mood, realistic Instagram-style photo",
-            ]
-            custom_attract_prompt = random.choice(attract_prompts_pool)
+            custom_attract_prompt = random.choice(KOREAN_FOOD_ATTRACT_POOL)
 
         # 실사감을 높이는 공통 suffix
         REALISM_SUFFIX = ", slight lens distortion, minor motion blur, not perfectly composed, natural imperfections, no AI look"
