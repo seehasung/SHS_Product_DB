@@ -20,9 +20,11 @@ import math
 
 from database import (
     SessionLocal, User, Product, MarketingProduct,
-    AIMarketingProduct, AIProductKeyword, AIProductReference, 
+    AIMarketingProduct, AIProductKeyword, AIProductReference,
     AIPromptTemplate, AIPrompt, AIMarketingSchedule, AIGeneratedPost,
-    AutomationAccount, AutomationCafe, CafeAccountLink, Reference
+    AutomationAccount, AutomationCafe, CafeAccountLink, Reference,
+    DraftCreationSchedule, AutomationWorkerPC, AutomationTask, DraftPost,
+    get_kst_now
 )
 
 router = APIRouter(prefix="/ai-automation")
@@ -3041,3 +3043,375 @@ async def test_fal_connection():
         'message': 'FAL_KEY 설정됨',
         'key_preview': f"{fal_key[:8]}..."
     })
+
+
+# ============================================================
+# ⭐ 신규발행 자동 스케줄 관리 API
+# ============================================================
+
+def _get_db_draft():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+
+def _calc_next_run(hour: int, minute: int, repeat_type: str, repeat_days_json: str) -> Optional[datetime]:
+    """다음 실행 시간 계산 (KST 기준)"""
+    import json as _j
+    now = get_kst_now()
+    today_run = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
+
+    if repeat_type == 'once':
+        return today_run if today_run > now else None
+
+    if repeat_type == 'daily':
+        if today_run > now:
+            return today_run
+        return today_run + timedelta(days=1)
+
+    if repeat_type == 'weekly':
+        try:
+            days = _j.loads(repeat_days_json) if repeat_days_json else []
+        except Exception:
+            days = []
+        if not days:
+            return None
+        for delta in range(8):
+            candidate = today_run + timedelta(days=delta)
+            if candidate.weekday() in days and candidate > now:
+                return candidate
+        return None
+
+    return None
+
+
+@router.get("/api/draft-schedules")
+async def list_draft_schedules(db: Session = Depends(_get_db_draft)):
+    """신규발행 스케줄 목록 조회"""
+    schedules = db.query(DraftCreationSchedule).order_by(DraftCreationSchedule.created_at.desc()).all()
+    result = []
+    for s in schedules:
+        result.append({
+            'id': s.id,
+            'name': s.name,
+            'post_title': s.post_title,
+            'post_body': s.post_body,
+            'cafes_per_account': s.cafes_per_account,
+            'scheduled_hour': s.scheduled_hour,
+            'scheduled_minute': s.scheduled_minute,
+            'repeat_type': s.repeat_type,
+            'repeat_days': s.repeat_days,
+            'target_pcs': s.target_pcs,
+            'is_active': s.is_active,
+            'last_run_at': s.last_run_at.isoformat() if s.last_run_at else None,
+            'next_run_at': s.next_run_at.isoformat() if s.next_run_at else None,
+            'created_at': s.created_at.isoformat() if s.created_at else None,
+        })
+    return JSONResponse({'success': True, 'schedules': result})
+
+
+@router.post("/api/draft-schedules")
+async def create_draft_schedule(
+    name: str = Form(...),
+    post_title: str = Form("안녕하세요"),
+    post_body: str = Form(...),
+    cafes_per_account: int = Form(1),
+    scheduled_hour: int = Form(9),
+    scheduled_minute: int = Form(0),
+    repeat_type: str = Form("daily"),
+    repeat_days: str = Form("[]"),
+    target_pcs: str = Form("[]"),
+    is_active: bool = Form(True),
+    db: Session = Depends(_get_db_draft)
+):
+    """신규발행 스케줄 생성"""
+    next_run = _calc_next_run(scheduled_hour, scheduled_minute, repeat_type, repeat_days)
+    schedule = DraftCreationSchedule(
+        name=name,
+        post_title=post_title,
+        post_body=post_body,
+        cafes_per_account=cafes_per_account,
+        scheduled_hour=scheduled_hour,
+        scheduled_minute=scheduled_minute,
+        repeat_type=repeat_type,
+        repeat_days=repeat_days if repeat_days != '[]' else None,
+        target_pcs=target_pcs if target_pcs != '[]' else None,
+        is_active=is_active,
+        next_run_at=next_run,
+    )
+    db.add(schedule)
+    db.commit()
+    db.refresh(schedule)
+    return JSONResponse({'success': True, 'id': schedule.id, 'message': '스케줄이 생성되었습니다.'})
+
+
+@router.put("/api/draft-schedules/{schedule_id}")
+async def update_draft_schedule(
+    schedule_id: int,
+    name: str = Form(...),
+    post_title: str = Form("안녕하세요"),
+    post_body: str = Form(...),
+    cafes_per_account: int = Form(1),
+    scheduled_hour: int = Form(9),
+    scheduled_minute: int = Form(0),
+    repeat_type: str = Form("daily"),
+    repeat_days: str = Form("[]"),
+    target_pcs: str = Form("[]"),
+    is_active: bool = Form(True),
+    db: Session = Depends(_get_db_draft)
+):
+    """신규발행 스케줄 수정"""
+    s = db.query(DraftCreationSchedule).get(schedule_id)
+    if not s:
+        return JSONResponse({'success': False, 'message': '스케줄을 찾을 수 없습니다.'}, status_code=404)
+    s.name = name
+    s.post_title = post_title
+    s.post_body = post_body
+    s.cafes_per_account = cafes_per_account
+    s.scheduled_hour = scheduled_hour
+    s.scheduled_minute = scheduled_minute
+    s.repeat_type = repeat_type
+    s.repeat_days = repeat_days if repeat_days != '[]' else None
+    s.target_pcs = target_pcs if target_pcs != '[]' else None
+    s.is_active = is_active
+    s.next_run_at = _calc_next_run(scheduled_hour, scheduled_minute, repeat_type, repeat_days)
+    db.commit()
+    return JSONResponse({'success': True, 'message': '스케줄이 수정되었습니다.'})
+
+
+@router.delete("/api/draft-schedules/{schedule_id}")
+async def delete_draft_schedule(schedule_id: int, db: Session = Depends(_get_db_draft)):
+    """신규발행 스케줄 삭제"""
+    s = db.query(DraftCreationSchedule).get(schedule_id)
+    if not s:
+        return JSONResponse({'success': False, 'message': '스케줄을 찾을 수 없습니다.'}, status_code=404)
+    db.delete(s)
+    db.commit()
+    return JSONResponse({'success': True, 'message': '스케줄이 삭제되었습니다.'})
+
+
+@router.post("/api/draft-schedules/{schedule_id}/toggle")
+async def toggle_draft_schedule(schedule_id: int, db: Session = Depends(_get_db_draft)):
+    """스케줄 활성/비활성 토글"""
+    s = db.query(DraftCreationSchedule).get(schedule_id)
+    if not s:
+        return JSONResponse({'success': False, 'message': '스케줄을 찾을 수 없습니다.'}, status_code=404)
+    s.is_active = not s.is_active
+    if s.is_active:
+        s.next_run_at = _calc_next_run(s.scheduled_hour, s.scheduled_minute, s.repeat_type, s.repeat_days)
+    db.commit()
+    return JSONResponse({'success': True, 'is_active': s.is_active})
+
+
+async def _execute_draft_schedule(schedule_id: int, db: Session) -> dict:
+    """
+    스케줄 실행 핵심 로직
+    - PC별 할당 계정 → 활성 CafeAccountLink에서 N개 랜덤 선택
+    - 오늘 이미 해당 (계정+카페)에 인사글 쓴 경우 제외
+    - create_draft AutomationTask 생성 후 WebSocket으로 전송
+    """
+    import random as _random
+
+    s = db.query(DraftCreationSchedule).get(schedule_id)
+    if not s:
+        return {'success': False, 'message': '스케줄을 찾을 수 없습니다.'}
+
+    now = get_kst_now()
+    today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+
+    # 대상 PC 결정
+    target_pc_nums = []
+    if s.target_pcs:
+        try:
+            target_pc_nums = json.loads(s.target_pcs)
+        except Exception:
+            target_pc_nums = []
+
+    pc_query = db.query(AutomationWorkerPC)
+    if target_pc_nums:
+        pc_query = pc_query.filter(AutomationWorkerPC.pc_number.in_(target_pc_nums))
+    pcs = pc_query.all()
+
+    if not pcs:
+        return {'success': False, 'message': '대상 PC가 없습니다.'}
+
+    tasks_created = []
+    skipped = []
+
+    for pc in pcs:
+        # 이 PC에 할당된 활성 계정
+        accounts = db.query(AutomationAccount).filter(
+            AutomationAccount.assigned_pc_id == pc.id,
+            AutomationAccount.status == 'active'
+        ).all()
+
+        for account in accounts:
+            # 이 계정이 가입된 활성 카페 링크
+            links = db.query(CafeAccountLink).filter(
+                CafeAccountLink.account_id == account.id,
+                CafeAccountLink.status == 'active',
+                CafeAccountLink.is_member == True
+            ).all()
+
+            if not links:
+                skipped.append(f"PC#{pc.pc_number}/{account.account_id}: 가입 카페 없음")
+                continue
+
+            # 오늘 이미 create_draft 완료한 카페 제외
+            done_today = db.query(AutomationTask).filter(
+                AutomationTask.task_type == 'create_draft',
+                AutomationTask.assigned_account_id == account.id,
+                AutomationTask.status == 'completed',
+                AutomationTask.completed_at >= today_start
+            ).all()
+            done_cafe_ids = {t.cafe_id for t in done_today}
+
+            available_links = [lk for lk in links if lk.cafe_id not in done_cafe_ids]
+
+            if not available_links:
+                skipped.append(f"PC#{pc.pc_number}/{account.account_id}: 오늘 이미 모든 카페 완료")
+                continue
+
+            # N개 랜덤 선택
+            n = min(s.cafes_per_account, len(available_links))
+            selected = _random.sample(available_links, n)
+
+            for link in selected:
+                task = AutomationTask(
+                    task_type='create_draft',
+                    mode='ai',
+                    status='pending',
+                    assigned_pc_id=pc.id,
+                    assigned_account_id=account.id,
+                    cafe_id=link.cafe_id,
+                    title=s.post_title,
+                    content=s.post_body,
+                    scheduled_time=now,
+                    # draft_title/body를 error_message JSON에 저장 (기존 컬럼 재활용)
+                    error_message=json.dumps({
+                        'draft_title': s.post_title,
+                        'draft_body': s.post_body
+                    }, ensure_ascii=False)
+                )
+                db.add(task)
+                db.flush()
+                tasks_created.append({
+                    'task_id': task.id,
+                    'pc_number': pc.pc_number,
+                    'account_id': account.account_id,
+                    'cafe_id': link.cafe_id,
+                })
+
+    db.commit()
+
+    # WebSocket으로 즉시 전송 시도
+    from routers.automation import worker_connections, send_task_to_worker
+    sent = []
+    queued = []
+    for t_info in tasks_created:
+        task_obj = db.query(AutomationTask).get(t_info['task_id'])
+        pc_num = t_info['pc_number']
+        if pc_num in worker_connections:
+            try:
+                await send_task_to_worker(pc_num, task_obj, db)
+                task_obj.status = 'assigned'
+                db.commit()
+                sent.append(t_info)
+            except Exception as e:
+                queued.append({**t_info, 'reason': str(e)})
+        else:
+            queued.append({**t_info, 'reason': '워커 오프라인 - DB 대기'})
+
+    # 스케줄 last_run_at / next_run_at 업데이트
+    s.last_run_at = now
+    if s.repeat_type == 'once':
+        s.is_active = False
+        s.next_run_at = None
+    else:
+        s.next_run_at = _calc_next_run(s.scheduled_hour, s.scheduled_minute, s.repeat_type, s.repeat_days)
+    db.commit()
+
+    return {
+        'success': True,
+        'tasks_created': len(tasks_created),
+        'sent': len(sent),
+        'queued': len(queued),
+        'details': tasks_created,
+        'skipped': skipped,
+    }
+
+
+@router.post("/api/draft-schedules/{schedule_id}/run")
+async def run_draft_schedule(schedule_id: int, db: Session = Depends(_get_db_draft)):
+    """스케줄 즉시 실행"""
+    result = await _execute_draft_schedule(schedule_id, db)
+    return JSONResponse(result)
+
+
+@router.post("/api/draft-schedules/test-run")
+async def test_run_draft_schedule(
+    name: str = Form("테스트"),
+    post_title: str = Form("안녕하세요"),
+    post_body: str = Form(...),
+    cafes_per_account: int = Form(1),
+    scheduled_hour: int = Form(9),
+    scheduled_minute: int = Form(0),
+    repeat_type: str = Form("daily"),
+    repeat_days: str = Form("[]"),
+    target_pcs: str = Form("[]"),
+    db: Session = Depends(_get_db_draft)
+):
+    """
+    스케줄 저장 없이 즉시 테스트 실행
+    - 임시 스케줄 객체를 DB에 저장 후 실행, 완료 후 삭제
+    """
+    next_run = _calc_next_run(scheduled_hour, scheduled_minute, repeat_type, repeat_days)
+    temp = DraftCreationSchedule(
+        name=f"[테스트] {name}",
+        post_title=post_title,
+        post_body=post_body,
+        cafes_per_account=cafes_per_account,
+        scheduled_hour=scheduled_hour,
+        scheduled_minute=scheduled_minute,
+        repeat_type=repeat_type,
+        repeat_days=repeat_days if repeat_days != '[]' else None,
+        target_pcs=target_pcs if target_pcs != '[]' else None,
+        is_active=False,
+        next_run_at=next_run,
+    )
+    db.add(temp)
+    db.commit()
+    db.refresh(temp)
+
+    result = await _execute_draft_schedule(temp.id, db)
+
+    # 임시 스케줄 삭제
+    temp_obj = db.query(DraftCreationSchedule).get(temp.id)
+    if temp_obj:
+        db.delete(temp_obj)
+        db.commit()
+
+    return JSONResponse({**result, 'test_mode': True})
+
+
+@router.get("/api/draft-schedules/worker-pcs")
+async def list_worker_pcs_for_schedule(db: Session = Depends(_get_db_draft)):
+    """스케줄 설정용 PC 목록"""
+    from routers.automation import worker_connections
+    pcs = db.query(AutomationWorkerPC).order_by(AutomationWorkerPC.pc_number).all()
+    result = []
+    for pc in pcs:
+        accounts = db.query(AutomationAccount).filter(
+            AutomationAccount.assigned_pc_id == pc.id,
+            AutomationAccount.status == 'active'
+        ).count()
+        result.append({
+            'pc_number': pc.pc_number,
+            'pc_name': pc.pc_name,
+            'status': pc.status,
+            'is_connected': pc.pc_number in worker_connections,
+            'account_count': accounts,
+        })
+    return JSONResponse({'success': True, 'pcs': result})

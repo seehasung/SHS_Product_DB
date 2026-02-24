@@ -48,11 +48,18 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
+try:
+    import pyperclip
+    PYPERCLIP_AVAILABLE = True
+except ImportError:
+    PYPERCLIP_AVAILABLE = False
+    print("⚠️ pyperclip이 없습니다. 클립보드 로그인 불가 (설치: pip install pyperclip)")
+
 
 class NaverCafeWorker:
     """네이버 카페 자동 작성 Worker"""
     
-    VERSION = "1.0.9" # 현재 버전
+    VERSION = "1.1.0" # 현재 버전
     
     def __init__(self, pc_number: int, server_url: str = "scorp274.com"):
         self.pc_number = pc_number
@@ -490,13 +497,11 @@ class NaverCafeWorker:
             self.random_delay(0.05, 0.15)  # 글자당 0.05~0.15초
             
     def login_naver(self, account_id: str, account_pw: str):
-        """네이버 로그인 (캡챠 우회 버전)"""
+        """네이버 로그인 - 클립보드 붙여넣기 방식 (캡챠 우회)"""
         print(f"🔐 네이버 로그인 시도: {account_id}")
         
         try:
-            from selenium.webdriver.common.keys import Keys
-            
-            # ⭐ 1. 네이버 메인 먼저 접속
+            # ⭐ 1. 네이버 메인 먼저 접속 (쿠키/세션 초기화)
             self.driver.get('https://www.naver.com')
             self.random_delay(2, 3)
             
@@ -504,69 +509,121 @@ class NaverCafeWorker:
             self.driver.get('https://nid.naver.com/nidlogin.login')
             self.random_delay(2, 3)
             
-            # ⭐ 3. ID 입력 (직접 입력)
+            # ⭐ 3. ID 입력 - 클립보드 붙여넣기 (캡챠 방지 핵심)
             id_input = WebDriverWait(self.driver, 10).until(
                 EC.presence_of_element_located((By.ID, 'id'))
             )
             id_input.click()
             self.random_delay(0.5, 1)
-            self.human_type(id_input, account_id)
+            if PYPERCLIP_AVAILABLE:
+                pyperclip.copy(account_id)
+                id_input.send_keys(Keys.CONTROL, 'v')
+            else:
+                self.human_type(id_input, account_id)
             self.random_delay(0.5, 1)
             
-            # ⭐ 4. PW 입력 (직접 입력)
+            # ⭐ 4. PW 입력 - 클립보드 붙여넣기 (캡챠 방지 핵심)
             pw_input = self.driver.find_element(By.ID, 'pw')
             pw_input.click()
             self.random_delay(0.5, 1)
-            self.human_type(pw_input, account_pw)
+            if PYPERCLIP_AVAILABLE:
+                pyperclip.copy(account_pw)
+                pw_input.send_keys(Keys.CONTROL, 'v')
+            else:
+                self.human_type(pw_input, account_pw)
             self.random_delay(0.5, 1)
             
-            # ⭐ 5. 로그인 버튼 클릭 (정확한 ID 사용)
+            # ⭐ 5. 로그인 버튼 클릭
             self.random_delay(1, 2)
             login_btn = self.driver.find_element(By.ID, 'log.login')
             login_btn.click()
             
             self.random_delay(3, 5)
             
-            # ⭐ 6. 로그인 성공 확인
-            current_url = self.driver.current_url
+            # ⭐ 6. 로그인 결과 확인 루프 (최대 30초)
+            max_wait = 30
+            start_time = time.time()
             
-            # 네이버 메인으로 이동해서 확인
-            if 'nid.naver.com' not in current_url:
-                self.driver.get('https://www.naver.com')
-                self.random_delay(2, 3)
-            
-            # 로그아웃 버튼으로 로그인 확인
-            try:
-                logout_btn = self.driver.find_element(By.XPATH, '//*[@id="account"]/div[1]/div/button')
-                if logout_btn:
-                    self.current_account = account_id
-                    print(f"✅ {account_id} 로그인 성공 (로그아웃 버튼 확인)")
-                    return True
-            except:
-                pass
-            
-            # 대체 확인 방법
-            if 'nid.naver.com' not in self.driver.current_url:
-                self.current_account = account_id
-                print(f"✅ {account_id} 로그인 성공")
-                return True
-            else:
-                print(f"❌ {account_id} 로그인 실패 (캡챠 또는 오류)")
-                print(f"\n{'='*60}")
-                print(f"⏸️  수동 로그인 모드")
-                print(f"{'='*60}")
-                print(f"계정: {account_id}")
-                print(f"")
-                print(f"브라우저에서 수동으로 로그인해주세요.")
-                print(f"로그인 완료 후 아무 키나 누르세요...")
-                print(f"{'='*60}")
+            while time.time() - start_time < max_wait:
+                current_url = self.driver.current_url
+                page_source = self.driver.page_source
                 
-                # 사용자 입력 대기
-                input("▶ 로그인 완료 후 Enter 키를 누르세요: ")
+                # 아이디/비밀번호 오류 체크
+                if ("아이디(로그인 전용 아이디) 또는 비밀번호를 잘못 입력했습니다" in page_source or
+                        "입력하신 아이디와 비밀번호가 일치하지 않습니다" in page_source or
+                        "error=110" in current_url):
+                    print(f"❌ {account_id} 아이디/비밀번호 불일치")
+                    return False
                 
-                print("✅ 수동 로그인 완료로 간주합니다")
-                self.current_account = account_id
-                return True
+                # 캡챠 체크
+                try:
+                    captcha = self.driver.find_element(By.ID, "captcha")
+                    if captcha:
+                        print(f"⚠️ {account_id} 캡챠 발생 - 건너뜀")
+                        return False
+                except:
+                    pass
+                
+                # 브라우저 등록 페이지 처리 (새 기기 인증)
+                if ("새로운 기기(브라우저)에서 로그인되었습니다" in page_source or
+                        "deviceConfirm" in current_url):
+                    print(f"📱 {account_id} 브라우저 등록 페이지 감지 - 자동 등록 시도")
+                    register_selectors = [
+                        (By.XPATH, "//button[contains(text(), '등록')]"),
+                        (By.XPATH, "//a[contains(text(), '등록')]"),
+                        (By.CSS_SELECTOR, "button.btn_confirm"),
+                        (By.CSS_SELECTOR, "button[type='submit']"),
+                    ]
+                    for by, selector in register_selectors:
+                        try:
+                            btn = self.driver.find_element(by, selector)
+                            if btn.is_displayed() and btn.is_enabled():
+                                btn.click()
+                                print(f"✅ 브라우저 등록 버튼 클릭")
+                                self.random_delay(3, 5)
+                                break
+                        except:
+                            continue
+                    continue
+                
+                # nid.naver.com이 아니면 네이버 메인으로 이동해서 로그인 확인
+                if 'nid.naver.com' not in current_url:
+                    self.driver.get('https://www.naver.com')
+                    self.random_delay(2, 3)
+                
+                # 로그아웃 버튼으로 로그인 성공 확인
+                try:
+                    logout_btn = self.driver.find_element(By.XPATH, '//*[@id="account"]/div[1]/div/button')
+                    if logout_btn:
+                        self.current_account = account_id
+                        print(f"✅ {account_id} 로그인 성공 (로그아웃 버튼 확인)")
+                        return True
+                except:
+                    pass
+                
+                # 추가 확인 방법
+                try:
+                    logout_els = self.driver.find_elements(By.XPATH, "//button[contains(text(), '로그아웃')]")
+                    if logout_els:
+                        self.current_account = account_id
+                        print(f"✅ {account_id} 로그인 성공")
+                        return True
+                    account_el = self.driver.find_elements(By.CSS_SELECTOR, "#account")
+                    if account_el and "로그아웃" in account_el[0].get_attribute("innerHTML"):
+                        self.current_account = account_id
+                        print(f"✅ {account_id} 로그인 성공 (계정 영역 확인)")
+                        return True
+                except:
+                    pass
+                
+                elapsed = int(time.time() - start_time)
+                if elapsed % 5 == 0:
+                    print(f"  로그인 확인 중... ({elapsed}초 경과) URL: {current_url[:60]}")
+                
+                time.sleep(1)
+            
+            print(f"❌ {account_id} 로그인 시간 초과")
+            return False
                 
         except Exception as e:
             print(f"❌ 로그인 오류: {e}")
@@ -1296,6 +1353,291 @@ class NaverCafeWorker:
             traceback.print_exc()
             return None
         
+    def create_draft_post(self, cafe_url: str, post_title: str, post_body: str) -> Optional[str]:
+        """카페에 신규 인사글(가입인사) 작성 후 URL 반환"""
+        print(f"📋 신규발행 인사글 작성 시작: {cafe_url[:50]}...")
+        max_retries = 2
+
+        for attempt in range(max_retries):
+            try:
+                if attempt > 0:
+                    print(f"  🔄 재시도 {attempt}/{max_retries - 1}")
+
+                # 카페 접속
+                self.driver.get(cafe_url)
+                self.random_delay(3, 5)
+
+                if "cafe.naver.com" not in self.driver.current_url:
+                    print("  ❌ 카페 페이지 로드 실패")
+                    continue
+
+                # iframe 전환 시도
+                iframe_found = False
+                try:
+                    cafe_iframe = WebDriverWait(self.driver, 5).until(
+                        EC.presence_of_element_located((By.ID, "cafe_main"))
+                    )
+                    self.driver.switch_to.frame(cafe_iframe)
+                    iframe_found = True
+                    print("  ✅ iframe 전환 성공")
+                except Exception:
+                    print("  ℹ️  iframe 없음, 일반 페이지 진행")
+
+                # 글쓰기 버튼 클릭
+                write_btn = None
+                write_selectors = [
+                    (By.XPATH, '//a[contains(@class, "write")]'),
+                    (By.XPATH, '//span[contains(text(), "글쓰기")]'),
+                    (By.CLASS_NAME, 'btn_write'),
+                    (By.XPATH, '//a[contains(@href, "ArticleWrite")]'),
+                    (By.XPATH, '//button[contains(text(), "글쓰기")]'),
+                    (By.XPATH, '//a[contains(text(), "글쓰기")]'),
+                ]
+                for by, value in write_selectors:
+                    try:
+                        for elem in self.driver.find_elements(by, value):
+                            if elem.is_displayed():
+                                write_btn = elem
+                                break
+                        if write_btn:
+                            break
+                    except Exception:
+                        continue
+
+                if not write_btn:
+                    print("  ❌ 글쓰기 버튼 없음")
+                    if iframe_found:
+                        self.driver.switch_to.default_content()
+                    continue
+
+                write_btn.click()
+                self.random_delay(3, 5)
+
+                # 새 창 처리
+                windows = self.driver.window_handles
+                new_window = len(windows) > 1
+                if new_window:
+                    self.driver.switch_to.window(windows[-1])
+                    self.random_delay(2, 3)
+
+                # 제목 입력
+                title_success = False
+                try:
+                    for title_input in self.driver.find_elements(By.TAG_NAME, 'textarea'):
+                        if title_input.is_displayed():
+                            title_input.click()
+                            self.random_delay(0.5, 1)
+                            title_input.clear()
+                            title_input.send_keys(post_title)
+                            self.random_delay(0.5, 1)
+                            if title_input.get_attribute('value'):
+                                title_success = True
+                                print("  ✅ 제목 입력 완료")
+                            break
+                except Exception as e:
+                    print(f"  ❌ 제목 입력 오류: {e}")
+
+                if not title_success:
+                    print("  ❌ 제목 입력 실패 - 작업 중단")
+                    try:
+                        if new_window and len(self.driver.window_handles) > 1:
+                            self.driver.close()
+                            self.driver.switch_to.window(windows[0])
+                        if iframe_found:
+                            self.driver.switch_to.default_content()
+                    except Exception:
+                        pass
+                    return None
+
+                # 본문 입력 (3가지 방법 시도)
+                self.random_delay(1, 2)
+                content_success = False
+
+                # 방법 1: p.se-text-paragraph 클릭 후 직접 입력
+                try:
+                    paragraph = self.driver.find_element(By.CSS_SELECTOR, "p.se-text-paragraph")
+                    self.driver.execute_script("arguments[0].scrollIntoView(true);", paragraph)
+                    self.random_delay(0.5, 1)
+                    paragraph.click()
+                    self.random_delay(0.5, 1)
+                    active = self.driver.switch_to.active_element
+                    active.send_keys(".")
+                    self.random_delay(0.2, 0.3)
+                    active.send_keys(Keys.CONTROL, 'a')
+                    self.random_delay(0.2, 0.3)
+                    active.send_keys(post_body)
+                    self.random_delay(0.5, 1)
+                    check = self.driver.execute_script(
+                        "var s=document.querySelector('span.__se-node'); return s && s.textContent.length > 0;"
+                    )
+                    if check:
+                        content_success = True
+                        print("  ✅ 본문 입력 완료 (직접 입력)")
+                except Exception as e:
+                    print(f"  ℹ️  직접 입력 실패: {e}")
+
+                # 방법 2: JavaScript 강제 입력
+                if not content_success:
+                    try:
+                        result = self.driver.execute_script("""
+                            var content = arguments[0];
+                            var placeholder = document.querySelector('.se-placeholder');
+                            if (placeholder) { placeholder.style.display='none'; placeholder.remove(); }
+                            var textNode = document.querySelector('span.__se-node');
+                            var paragraph = document.querySelector('p.se-text-paragraph');
+                            if (!textNode && paragraph) {
+                                textNode = document.createElement('span');
+                                textNode.className = 'se-ff-system se-fs15 __se-node';
+                                textNode.style.color = 'rgb(0,0,0)';
+                                paragraph.appendChild(textNode);
+                            }
+                            if (textNode) {
+                                textNode.textContent = content;
+                                textNode.innerText = content;
+                                var module = document.querySelector('.se-module');
+                                if (module) module.classList.remove('se-is-empty');
+                                if (paragraph) {
+                                    paragraph.dispatchEvent(new Event('input', {bubbles:true}));
+                                    paragraph.dispatchEvent(new Event('change', {bubbles:true}));
+                                    paragraph.click(); paragraph.focus();
+                                }
+                                return textNode.textContent.length > 0;
+                            }
+                            return false;
+                        """, post_body)
+                        if result:
+                            content_success = True
+                            print("  ✅ 본문 입력 완료 (JavaScript)")
+                    except Exception as e:
+                        print(f"  ℹ️  JS 입력 실패: {e}")
+
+                # 방법 3: 클립보드 붙여넣기
+                if not content_success:
+                    try:
+                        import pyperclip
+                        paragraph = self.driver.find_element(By.CSS_SELECTOR, "p.se-text-paragraph")
+                        paragraph.click()
+                        self.random_delay(0.5, 1)
+                        pyperclip.copy(post_body)
+                        self.driver.switch_to.active_element.send_keys(Keys.CONTROL, 'v')
+                        self.random_delay(0.5, 1)
+                        content_success = True
+                        print("  ✅ 본문 입력 완료 (클립보드)")
+                    except Exception as e:
+                        print(f"  ℹ️  클립보드 입력 실패: {e}")
+
+                if not content_success:
+                    print("  ⚠️  본문 입력 실패 - 등록 계속 시도")
+
+                # 댓글 비허용 처리 (코멘트 체크박스 해제)
+                self.random_delay(1, 2)
+                try:
+                    cb = self.driver.find_element(By.ID, "coment")
+                    if cb.is_selected():
+                        try:
+                            self.driver.find_element(By.CSS_SELECTOR, "label[for='coment']").click()
+                        except Exception:
+                            cb.click()
+                        print("  ✅ 댓글 허용 해제")
+                except Exception:
+                    try:
+                        self.driver.execute_script("""
+                            var cb=document.getElementById('coment');
+                            if(cb && cb.checked){cb.checked=false;cb.dispatchEvent(new Event('change',{bubbles:true}));}
+                        """)
+                    except Exception:
+                        pass
+
+                # 등록 버튼 클릭
+                self.random_delay(2, 3)
+                submit_success = False
+                try:
+                    btn = self.driver.find_element(By.XPATH, '//*[@id="app"]/div/div/section/div/div[1]/div/a')
+                    btn.click()
+                    submit_success = True
+                    print("  ✅ 등록 버튼 클릭 (XPath)")
+                except Exception:
+                    for by, value in [
+                        (By.XPATH, '//a[contains(text(), "등록")]'),
+                        (By.XPATH, '//button[contains(text(), "등록")]'),
+                        (By.CSS_SELECTOR, 'a.btn'),
+                        (By.CSS_SELECTOR, 'button.btn'),
+                    ]:
+                        try:
+                            for elem in self.driver.find_elements(by, value):
+                                if elem.is_displayed() and ("등록" in elem.text or "작성" in elem.text):
+                                    elem.click()
+                                    submit_success = True
+                                    break
+                            if submit_success:
+                                break
+                        except Exception:
+                            continue
+
+                # Alert 처리
+                self.random_delay(2, 3)
+                try:
+                    alert = self.driver.switch_to.alert
+                    alert_text = alert.text
+                    alert.accept()
+                    print(f"  ℹ️  Alert 닫음: {alert_text}")
+                except Exception:
+                    pass
+
+                # URL 캡처
+                self.random_delay(3, 5)
+                post_url = None
+                try:
+                    current = self.driver.current_url
+                    if "articleid=" in current.lower():
+                        post_url = current
+                    elif "cafe.naver.com" in current:
+                        try:
+                            if not new_window:
+                                self.driver.switch_to.default_content()
+                                cafe_iframe = self.driver.find_element(By.ID, "cafe_main")
+                                self.driver.switch_to.frame(cafe_iframe)
+                            links = self.driver.find_elements(By.XPATH, "//a[contains(@href,'articleid=')]")
+                            if links:
+                                post_url = links[0].get_attribute('href')
+                        except Exception:
+                            pass
+                    if not post_url:
+                        post_url = current
+                    print(f"  ✅ 글 URL 캡처: {post_url[:80]}...")
+                except Exception as e:
+                    print(f"  ❌ URL 캡처 실패: {e}")
+
+                # 창 정리
+                try:
+                    if new_window and len(self.driver.window_handles) > 1:
+                        self.driver.close()
+                        self.driver.switch_to.window(windows[0])
+                    if iframe_found:
+                        self.driver.switch_to.default_content()
+                except Exception:
+                    pass
+
+                print(f"  ✅ 신규발행 인사글 완료: {post_url}")
+                return post_url
+
+            except Exception as e:
+                print(f"  ❌ 신규발행 오류 (시도 {attempt+1}): {e}")
+                import traceback
+                traceback.print_exc()
+                try:
+                    if len(self.driver.window_handles) > 1:
+                        self.driver.close()
+                        self.driver.switch_to.window(self.driver.window_handles[0])
+                    self.driver.switch_to.default_content()
+                except Exception:
+                    pass
+                if attempt < max_retries - 1:
+                    self.random_delay(3, 5)
+
+        print("  ❌ 신규발행 최종 실패")
+        return None
+
     def write_comment(self, post_url: str, content: str, is_reply: bool = False, parent_comment_id: Optional[str] = None) -> bool:
         """댓글/대댓글 작성 (새 탭에서 작업)"""
         comment_type = "대댓글" if is_reply else "댓글"
@@ -1583,6 +1925,35 @@ class NaverCafeWorker:
                 else:
                     raise Exception("글 작성/수정 실패")
                 
+            elif task_type == 'create_draft':
+                # 신규발행 인사글 작성
+                cafe_url = task.get('cafe_url')
+                draft_title = task.get('draft_title', '안녕하세요')
+                draft_body = task.get('draft_body', '안녕하세요! 오늘 카페에 새로 가입했습니다.\n앞으로 잘 부탁드립니다! ^^')
+
+                print(f"📋 신규발행 정보:")
+                print(f"   카페 URL: {cafe_url}")
+                print(f"   제목: {draft_title}")
+
+                loop = asyncio.get_event_loop()
+                post_url = await loop.run_in_executor(
+                    None,
+                    lambda: self.create_draft_post(cafe_url, draft_title, draft_body)
+                )
+
+                if post_url:
+                    await self.report_task_complete(task_id, post_url=post_url)
+                    try:
+                        await self.websocket.send(json.dumps({
+                            'type': 'task_completed',
+                            'task_id': task_id,
+                            'post_url': post_url
+                        }))
+                    except Exception:
+                        pass
+                else:
+                    raise Exception("신규발행 인사글 작성 실패")
+
             elif task_type in ['comment', 'reply']:
                 # 댓글 작성
                 is_reply = (task_type == 'reply')

@@ -47,6 +47,13 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
+try:
+    import pyperclip
+    PYPERCLIP_AVAILABLE = True
+except ImportError:
+    PYPERCLIP_AVAILABLE = False
+    print("⚠️ pyperclip이 없습니다. 클립보드 로그인 불가 (설치: pip install pyperclip)")
+
 
 class NaverCafeWorker:
     """네이버 카페 자동 작성 Worker"""
@@ -387,84 +394,103 @@ class NaverCafeWorker:
             self.random_delay(0.05, 0.15)  # 글자당 0.05~0.15초
             
     def login_naver(self, account_id: str, account_pw: str):
-        """네이버 로그인 (캡챠 우회 버전)"""
+        """네이버 로그인 - 클립보드 붙여넣기 방식 (캡챠 우회)"""
         print(f"🔐 네이버 로그인 시도: {account_id}")
-        
         try:
-            from selenium.webdriver.common.keys import Keys
-            
-            # ⭐ 1. 네이버 메인 먼저 접속
             self.driver.get('https://www.naver.com')
             self.random_delay(2, 3)
-            
-            # ⭐ 2. 로그인 페이지로 이동
             self.driver.get('https://nid.naver.com/nidlogin.login')
             self.random_delay(2, 3)
-            
-            # ⭐ 3. ID 입력 (직접 입력)
             id_input = WebDriverWait(self.driver, 10).until(
                 EC.presence_of_element_located((By.ID, 'id'))
             )
             id_input.click()
             self.random_delay(0.5, 1)
-            self.human_type(id_input, account_id)
+            if PYPERCLIP_AVAILABLE:
+                pyperclip.copy(account_id)
+                id_input.send_keys(Keys.CONTROL, 'v')
+            else:
+                self.human_type(id_input, account_id)
             self.random_delay(0.5, 1)
-            
-            # ⭐ 4. PW 입력 (직접 입력)
             pw_input = self.driver.find_element(By.ID, 'pw')
             pw_input.click()
             self.random_delay(0.5, 1)
-            self.human_type(pw_input, account_pw)
+            if PYPERCLIP_AVAILABLE:
+                pyperclip.copy(account_pw)
+                pw_input.send_keys(Keys.CONTROL, 'v')
+            else:
+                self.human_type(pw_input, account_pw)
             self.random_delay(0.5, 1)
-            
-            # ⭐ 5. 로그인 버튼 클릭 (정확한 ID 사용)
             self.random_delay(1, 2)
             login_btn = self.driver.find_element(By.ID, 'log.login')
             login_btn.click()
-            
             self.random_delay(3, 5)
-            
-            # ⭐ 6. 로그인 성공 확인
-            current_url = self.driver.current_url
-            
-            # 네이버 메인으로 이동해서 확인
-            if 'nid.naver.com' not in current_url:
-                self.driver.get('https://www.naver.com')
-                self.random_delay(2, 3)
-            
-            # 로그아웃 버튼으로 로그인 확인
-            try:
-                logout_btn = self.driver.find_element(By.XPATH, '//*[@id="account"]/div[1]/div/button')
-                if logout_btn:
-                    self.current_account = account_id
-                    print(f"✅ {account_id} 로그인 성공 (로그아웃 버튼 확인)")
-                    return True
-            except:
-                pass
-            
-            # 대체 확인 방법
-            if 'nid.naver.com' not in self.driver.current_url:
-                self.current_account = account_id
-                print(f"✅ {account_id} 로그인 성공")
-                return True
-            else:
-                print(f"❌ {account_id} 로그인 실패 (캡챠 또는 오류)")
-                print(f"\n{'='*60}")
-                print(f"⏸️  수동 로그인 모드")
-                print(f"{'='*60}")
-                print(f"계정: {account_id}")
-                print(f"")
-                print(f"브라우저에서 수동으로 로그인해주세요.")
-                print(f"로그인 완료 후 아무 키나 누르세요...")
-                print(f"{'='*60}")
-                
-                # 사용자 입력 대기
-                input("▶ 로그인 완료 후 Enter 키를 누르세요: ")
-                
-                print("✅ 수동 로그인 완료로 간주합니다")
-                self.current_account = account_id
-                return True
-                
+            max_wait = 30
+            start_time = time.time()
+            while time.time() - start_time < max_wait:
+                current_url = self.driver.current_url
+                page_source = self.driver.page_source
+                if ("아이디(로그인 전용 아이디) 또는 비밀번호를 잘못 입력했습니다" in page_source or
+                        "입력하신 아이디와 비밀번호가 일치하지 않습니다" in page_source or
+                        "error=110" in current_url):
+                    print(f"❌ {account_id} 아이디/비밀번호 불일치")
+                    return False
+                try:
+                    captcha = self.driver.find_element(By.ID, "captcha")
+                    if captcha:
+                        print(f"⚠️ {account_id} 캡챠 발생 - 건너뜀")
+                        return False
+                except:
+                    pass
+                if ("새로운 기기(브라우저)에서 로그인되었습니다" in page_source or
+                        "deviceConfirm" in current_url):
+                    print(f"📱 {account_id} 브라우저 등록 페이지 - 자동 등록 시도")
+                    for by, selector in [
+                        (By.XPATH, "//button[contains(text(), '등록')]"),
+                        (By.XPATH, "//a[contains(text(), '등록')]"),
+                        (By.CSS_SELECTOR, "button.btn_confirm"),
+                        (By.CSS_SELECTOR, "button[type='submit']"),
+                    ]:
+                        try:
+                            btn = self.driver.find_element(by, selector)
+                            if btn.is_displayed() and btn.is_enabled():
+                                btn.click()
+                                print(f"✅ 브라우저 등록 버튼 클릭")
+                                self.random_delay(3, 5)
+                                break
+                        except:
+                            continue
+                    continue
+                if 'nid.naver.com' not in current_url:
+                    self.driver.get('https://www.naver.com')
+                    self.random_delay(2, 3)
+                try:
+                    logout_btn = self.driver.find_element(By.XPATH, '//*[@id="account"]/div[1]/div/button')
+                    if logout_btn:
+                        self.current_account = account_id
+                        print(f"✅ {account_id} 로그인 성공 (로그아웃 버튼 확인)")
+                        return True
+                except:
+                    pass
+                try:
+                    logout_els = self.driver.find_elements(By.XPATH, "//button[contains(text(), '로그아웃')]")
+                    if logout_els:
+                        self.current_account = account_id
+                        print(f"✅ {account_id} 로그인 성공")
+                        return True
+                    account_el = self.driver.find_elements(By.CSS_SELECTOR, "#account")
+                    if account_el and "로그아웃" in account_el[0].get_attribute("innerHTML"):
+                        self.current_account = account_id
+                        print(f"✅ {account_id} 로그인 성공 (계정 영역 확인)")
+                        return True
+                except:
+                    pass
+                elapsed = int(time.time() - start_time)
+                if elapsed % 5 == 0:
+                    print(f"  로그인 확인 중... ({elapsed}초 경과)")
+                time.sleep(1)
+            print(f"❌ {account_id} 로그인 시간 초과")
+            return False
         except Exception as e:
             print(f"❌ 로그인 오류: {e}")
             import traceback

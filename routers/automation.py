@@ -104,8 +104,8 @@ async def worker_websocket(websocket: WebSocket, pc_number: int, db: Session = D
         print(f"   전체 대기 Task: {', '.join([f'#{t.id}(PC:{t.assigned_pc_id}, 상태:{t.status})' for t in all_pending])}")
     
     # ⚠️  댓글/대댓글 Task: HTTP 완료 보고로만 다음 Task 전송! (순서 보장)
-    # ✅  post 타입 Task: 연결 즉시 전송 가능 (순서 무관)
-    if assigned_task and assigned_task.task_type == 'post':
+    # ✅  post / create_draft 타입 Task: 연결 즉시 전송 가능 (순서 무관)
+    if assigned_task and assigned_task.task_type in ('post', 'create_draft'):
         print(f"   📤 Post Task #{assigned_task.id} 즉시 전송 (Worker 재연결 감지)")
         try:
             await send_task_to_worker(pc_number, assigned_task, db)
@@ -156,8 +156,36 @@ async def worker_websocket(websocket: WebSocket, pc_number: int, db: Session = D
                     db.commit()
                     print(f"✅ Task #{task.id} 완료 처리 완료 (타입: {task.task_type}, post_url: {task.post_url})")
                     
-                    # 작성된 글/댓글 저장
-                    if task.task_type == 'post':
+                    # 작성된 글/댓글/신규발행 저장
+                    if task.task_type == 'create_draft':
+                        # 신규발행 인사글 URL을 DraftPost에 저장
+                        draft_url = message.get('post_url')
+                        if draft_url and task.cafe_id and task.assigned_account_id:
+                            from database import CafeAccountLink, DraftPost
+                            import re as _re
+                            link = db.query(CafeAccountLink).filter(
+                                CafeAccountLink.cafe_id == task.cafe_id,
+                                CafeAccountLink.account_id == task.assigned_account_id,
+                                CafeAccountLink.status == 'active'
+                            ).first()
+                            if link:
+                                article_id = ''
+                                m = _re.search(r'articleid=(\d+)', draft_url, _re.IGNORECASE)
+                                if m:
+                                    article_id = m.group(1)
+                                draft_post = DraftPost(
+                                    link_id=link.id,
+                                    draft_url=draft_url,
+                                    article_id=article_id,
+                                    status='available'
+                                )
+                                db.add(draft_post)
+                                link.draft_post_count = (link.draft_post_count or 0) + 1
+                                db.commit()
+                                print(f"   ✅ DraftPost 저장: {draft_url[:60]}...")
+                            else:
+                                print(f"   ⚠️  CafeAccountLink 없음 (cafe_id={task.cafe_id}, account_id={task.assigned_account_id})")
+                    elif task.task_type == 'post':
                         post = AutomationPost(
                             mode=task.mode,
                             title=task.title,
@@ -422,7 +450,18 @@ async def send_task_to_worker(pc_number: int, task: AutomationTask, db: Session)
                 'account_pw': account.account_pw if account else None,
                 'target_board': cafe.target_board if cafe else None,
                 'image_urls': image_urls,  # ⭐ 이미지 URL 목록
-                'keyword': task.keyword or None  # ⭐ 타겟 키워드 (태그용)
+                'keyword': task.keyword or None,  # ⭐ 타겟 키워드 (태그용)
+                # ⭐ create_draft 전용: 인사글 제목/본문 (error_message에 JSON으로 저장)
+                'draft_title': (
+                    _json.loads(task.error_message).get('draft_title', '안녕하세요')
+                    if task.error_message and task.error_message.startswith('{')
+                    else '안녕하세요'
+                ) if task.task_type == 'create_draft' else None,
+                'draft_body': (
+                    _json.loads(task.error_message).get('draft_body', '')
+                    if task.error_message and task.error_message.startswith('{')
+                    else ''
+                ) if task.task_type == 'create_draft' else None,
             }
         }
         

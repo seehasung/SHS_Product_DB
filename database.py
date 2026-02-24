@@ -1522,6 +1522,42 @@ class AIGeneratedPost(Base):
     cafe = relationship("AutomationCafe")
     
     
+
+class DraftCreationSchedule(Base):
+    """신규발행(인사글) 자동 스케줄 관리"""
+    __tablename__ = "draft_creation_schedules"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(255), nullable=False)  # 스케줄 이름
+
+    # 인사글 내용
+    post_title = Column(String(500), default="안녕하세요")
+    post_body = Column(Text, nullable=False)
+
+    # 일일 설정
+    cafes_per_account = Column(Integer, default=1)  # 계정당 하루 몇 개 카페에 글 쓸지 (N)
+
+    # 실행 시간
+    scheduled_hour = Column(Integer, nullable=False, default=9)    # 0~23
+    scheduled_minute = Column(Integer, nullable=False, default=0)  # 0~59
+
+    # 반복 타입: 'daily', 'weekly', 'once'
+    repeat_type = Column(String(20), default='daily')
+    # weekly일 때 요일 목록 (JSON: [0,1,2,3,4] → 0=월 ~ 6=일)
+    repeat_days = Column(String(100), nullable=True)
+
+    # 대상 PC 번호 목록 (JSON: [1, 2, 3], null = 활성 PC 전체)
+    target_pcs = Column(Text, nullable=True)
+
+    # 상태
+    is_active = Column(Boolean, default=True)
+    last_run_at = Column(DateTime, nullable=True)
+    next_run_at = Column(DateTime, nullable=True)
+
+    created_at = Column(DateTime, default=get_kst_now)
+    updated_at = Column(DateTime, default=get_kst_now, onupdate=get_kst_now)
+
+
 def get_db():
     """데이터베이스 세션 의존성"""
     db = SessionLocal()
@@ -1553,5 +1589,7 @@ __all__ = [
     "CommentScript",
     # ⭐ AI 자동화 마케팅 시스템
     "AIMarketingProduct", "AIProductKeyword", "AIProductReference", "AIPromptTemplate",
-    "AIPrompt", "AIMarketingSchedule", "AIGeneratedPost"
+    "AIPrompt", "AIMarketingSchedule", "AIGeneratedPost",
+    # ⭐ 신규발행 자동 스케줄
+    "DraftCreationSchedule",
 ]

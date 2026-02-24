@@ -169,6 +169,11 @@
                 <i class="bi bi-link-45deg"></i> AI 연동
             </a>
         </li>
+        <li class="nav-item">
+            <a class="nav-link" data-bs-toggle="tab" href="#draft-schedules" onclick="loadDraftSchedules()">
+                <i class="bi bi-alarm"></i> 신규발행 스케줄
+            </a>
+        </li>
         
         <!-- 공통 설정 탭들 (드롭다운 스타일) -->
         <li class="nav-item dropdown ms-auto">
@@ -742,6 +747,35 @@
                 
                 <div id="connectionsList">
                     <!-- JavaScript로 로드 -->
+                </div>
+            </div>
+        </div>
+
+        <!-- ⭐ 신규발행 스케줄 탭 -->
+        <div class="tab-pane fade" id="draft-schedules">
+            <div class="content-card">
+                <div class="card-header-custom">
+                    <h4><i class="bi bi-alarm"></i> 신규발행(인사글) 자동 스케줄</h4>
+                    <div class="btn-group">
+                        <button class="btn btn-warning" onclick="showDraftScheduleTestModal()">
+                            <i class="bi bi-play-circle"></i> 즉시 테스트
+                        </button>
+                        <button class="btn btn-primary" onclick="showAddDraftScheduleModal()">
+                            <i class="bi bi-plus-circle"></i> 스케줄 추가
+                        </button>
+                    </div>
+                </div>
+
+                <div class="alert alert-info">
+                    <i class="bi bi-info-circle"></i>
+                    <strong>동작 방식:</strong> 설정된 시간에 자동으로 각 PC의 할당 계정이 활성 카페에 인사글을 작성합니다.
+                    계정당 N개 카페를 <strong>랜덤</strong>으로 선택하며, 하루 동일 (계정+카페) 조합은 1회만 작성합니다.
+                </div>
+
+                <div id="draftSchedulesList">
+                    <div class="text-center py-4 text-muted">
+                        <i class="bi bi-arrow-clockwise spin"></i> 로딩 중...
+                    </div>
                 </div>
             </div>
         </div>
@@ -6637,6 +6671,463 @@ async function deployWorkerVersion(event) {
         </div>
     </div>
 </div>
+
+<!-- ⭐ 신규발행 스케줄 추가/수정 모달 -->
+<div class="modal fade" id="draftScheduleModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="draftScheduleModalTitle">
+                    <i class="bi bi-alarm"></i> 신규발행 스케줄 추가
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="draftScheduleId" value="">
+
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label class="form-label">스케줄 이름 <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="draftScheduleName" placeholder="예: 매일 오전 9시 인사글" required>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">계정당 일일 카페 수 (N)</label>
+                        <input type="number" class="form-control" id="draftScheduleCafesPerAccount" value="1" min="1" max="10">
+                        <small class="text-muted">1개 계정이 하루에 몇 개 카페에 글을 쓸지 설정합니다.</small>
+                    </div>
+                </div>
+
+                <div class="row mb-3">
+                    <div class="col-md-4">
+                        <label class="form-label">실행 시간</label>
+                        <div class="input-group">
+                            <input type="number" class="form-control" id="draftScheduleHour" value="9" min="0" max="23" placeholder="시">
+                            <span class="input-group-text">시</span>
+                            <input type="number" class="form-control" id="draftScheduleMinute" value="0" min="0" max="59" placeholder="분">
+                            <span class="input-group-text">분</span>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">반복 유형</label>
+                        <select class="form-select" id="draftScheduleRepeatType" onchange="toggleWeeklyDays()">
+                            <option value="daily">매일</option>
+                            <option value="weekly">매주 특정 요일</option>
+                            <option value="once">1회만</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4" id="weeklyDaysSection" style="display:none;">
+                        <label class="form-label">요일 선택</label>
+                        <div class="d-flex flex-wrap gap-1">
+                            <label class="badge bg-light text-dark border p-1" style="cursor:pointer;"><input type="checkbox" value="0"> 월</label>
+                            <label class="badge bg-light text-dark border p-1" style="cursor:pointer;"><input type="checkbox" value="1"> 화</label>
+                            <label class="badge bg-light text-dark border p-1" style="cursor:pointer;"><input type="checkbox" value="2"> 수</label>
+                            <label class="badge bg-light text-dark border p-1" style="cursor:pointer;"><input type="checkbox" value="3"> 목</label>
+                            <label class="badge bg-light text-dark border p-1" style="cursor:pointer;"><input type="checkbox" value="4"> 금</label>
+                            <label class="badge bg-light text-dark border p-1" style="cursor:pointer;"><input type="checkbox" value="5"> 토</label>
+                            <label class="badge bg-light text-dark border p-1" style="cursor:pointer;"><input type="checkbox" value="6"> 일</label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">대상 PC <small class="text-muted">(미선택 시 전체 활성 PC)</small></label>
+                    <div id="draftSchedulePcCheckboxes" class="d-flex flex-wrap gap-2 p-2 border rounded">
+                        <span class="text-muted small">로딩 중...</span>
+                    </div>
+                </div>
+
+                <hr>
+                <h6 class="fw-bold">인사글 내용</h6>
+
+                <div class="mb-3">
+                    <label class="form-label">제목</label>
+                    <input type="text" class="form-control" id="draftSchedulePostTitle" value="안녕하세요" placeholder="가입인사 글 제목">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">본문 <span class="text-danger">*</span></label>
+                    <textarea class="form-control" id="draftSchedulePostBody" rows="5"
+                        placeholder="가입인사 글 본문을 입력하세요."></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">취소</button>
+                <button type="button" class="btn btn-primary" onclick="saveDraftSchedule()">
+                    <i class="bi bi-save"></i> 저장
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ⭐ 신규발행 즉시 테스트 모달 -->
+<div class="modal fade" id="draftScheduleTestModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header" style="background:#ffc107;">
+                <h5 class="modal-title fw-bold">
+                    <i class="bi bi-play-circle"></i> 신규발행 즉시 테스트
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-warning">
+                    <i class="bi bi-exclamation-triangle"></i>
+                    <strong>테스트 실행:</strong> 스케줄을 저장하지 않고 즉시 실행합니다. 실제 카페에 인사글이 작성됩니다.
+                </div>
+
+                <div class="row mb-3">
+                    <div class="col-md-4">
+                        <label class="form-label fw-bold">계정당 카페 수 (N)</label>
+                        <input type="number" class="form-control" id="testDraftCafesPerAccount" value="1" min="1" max="5">
+                        <small class="text-muted">1개 계정 → N개 카페에 인사글</small>
+                    </div>
+                    <div class="col-md-8">
+                        <label class="form-label fw-bold">대상 PC <small class="text-muted fw-normal">(미선택 = 전체 활성 PC)</small></label>
+                        <div id="testDraftPcCheckboxes" class="d-flex flex-wrap gap-2 p-2 border rounded">
+                            <span class="text-muted small">로딩 중...</span>
+                        </div>
+                    </div>
+                </div>
+
+                <hr>
+                <h6 class="fw-bold">인사글 내용</h6>
+                <div class="mb-3">
+                    <label class="form-label">제목</label>
+                    <input type="text" class="form-control" id="testDraftPostTitle" value="안녕하세요">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">본문 <span class="text-danger">*</span></label>
+                    <textarea class="form-control" id="testDraftPostBody" rows="4">안녕하세요!
+
+오늘 카페에 새로 가입하게 되었습니다.
+앞으로 잘 부탁드립니다! ^^</textarea>
+                </div>
+
+                <div id="testDraftResult" style="display:none;">
+                    <hr>
+                    <h6 class="fw-bold">실행 결과</h6>
+                    <div id="testDraftResultContent"></div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">닫기</button>
+                <button type="button" class="btn btn-warning fw-bold" id="testDraftRunBtn" onclick="runDraftTest()">
+                    <i class="bi bi-play-fill"></i> 지금 실행
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// ============================================================
+// ⭐ 신규발행 스케줄 관리 JavaScript
+// ============================================================
+
+async function loadDraftSchedules() {
+    const container = document.getElementById('draftSchedulesList');
+    if (!container) return;
+    container.innerHTML = '<div class="text-center py-4 text-muted"><i class="bi bi-arrow-clockwise"></i> 로딩 중...</div>';
+    try {
+        const resp = await fetch('/ai-automation/api/draft-schedules');
+        const data = await resp.json();
+        if (!data.success || data.schedules.length === 0) {
+            container.innerHTML = `
+                <div class="text-center py-5 text-muted">
+                    <i class="bi bi-alarm" style="font-size:3rem;"></i>
+                    <p class="mt-3">등록된 스케줄이 없습니다.</p>
+                    <button class="btn btn-primary" onclick="showAddDraftScheduleModal()">
+                        <i class="bi bi-plus-circle"></i> 첫 스케줄 추가
+                    </button>
+                </div>`;
+            return;
+        }
+        const DAY_NAMES = ['월','화','수','목','금','토','일'];
+        const REPEAT_LABELS = {daily:'매일',weekly:'매주',once:'1회'};
+        container.innerHTML = data.schedules.map(s => {
+            const repeatBadge = s.repeat_type === 'weekly' && s.repeat_days
+                ? JSON.parse(s.repeat_days).map(d => DAY_NAMES[d]).join('·')
+                : (REPEAT_LABELS[s.repeat_type] || s.repeat_type);
+            const nextRun = s.next_run_at
+                ? new Date(s.next_run_at).toLocaleString('ko-KR',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'})
+                : '-';
+            const lastRun = s.last_run_at
+                ? new Date(s.last_run_at).toLocaleString('ko-KR',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'})
+                : '미실행';
+            return `
+            <div class="card mb-3 border-${s.is_active ? 'success' : 'secondary'}">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <h6 class="fw-bold mb-1">
+                                <span class="badge bg-${s.is_active ? 'success' : 'secondary'} me-2">${s.is_active ? '활성' : '비활성'}</span>
+                                ${s.name}
+                            </h6>
+                            <div class="text-muted small">
+                                <i class="bi bi-clock"></i> ${String(s.scheduled_hour).padStart(2,'0')}:${String(s.scheduled_minute).padStart(2,'0')}
+                                &nbsp;|&nbsp;<i class="bi bi-arrow-repeat"></i> ${repeatBadge}
+                                &nbsp;|&nbsp;<i class="bi bi-building"></i> 계정당 ${s.cafes_per_account}개 카페
+                            </div>
+                            <div class="text-muted small mt-1">
+                                <i class="bi bi-calendar-event"></i> 다음 실행: <strong>${nextRun}</strong>
+                                &nbsp;|&nbsp; 마지막: ${lastRun}
+                            </div>
+                            <div class="text-muted small mt-1">
+                                <i class="bi bi-card-text"></i> 제목: <em>${s.post_title}</em>
+                            </div>
+                        </div>
+                        <div class="btn-group flex-shrink-0 ms-3">
+                            <button class="btn btn-sm btn-${s.is_active ? 'warning' : 'success'}"
+                                onclick="toggleDraftSchedule(${s.id})" title="${s.is_active ? '비활성화' : '활성화'}">
+                                <i class="bi bi-${s.is_active ? 'pause' : 'play'}"></i>
+                            </button>
+                            <button class="btn btn-sm btn-success"
+                                onclick="runScheduleNow(${s.id}, event)" title="지금 실행">
+                                <i class="bi bi-play-fill"></i>
+                            </button>
+                            <button class="btn btn-sm btn-outline-primary"
+                                onclick="showEditDraftScheduleModal(${s.id})" title="수정">
+                                <i class="bi bi-pencil"></i>
+                            </button>
+                            <button class="btn btn-sm btn-outline-danger"
+                                onclick="deleteDraftSchedule(${s.id})" title="삭제">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>`;
+        }).join('');
+    } catch (e) {
+        container.innerHTML = `<div class="alert alert-danger">로드 실패: ${e.message}</div>`;
+    }
+}
+
+async function loadDraftSchedulePCs(containerId) {
+    try {
+        const resp = await fetch('/ai-automation/api/draft-schedules/worker-pcs');
+        const data = await resp.json();
+        const container = document.getElementById(containerId);
+        if (!container) return;
+        if (!data.success || data.pcs.length === 0) {
+            container.innerHTML = '<span class="text-muted small">등록된 PC 없음</span>';
+            return;
+        }
+        container.innerHTML = data.pcs.map(pc => `
+            <label class="badge border p-2" style="cursor:pointer;background:${pc.is_connected?'#d4edda':'#f8f9fa'};color:#333;">
+                <input type="checkbox" class="draft-pc-checkbox" value="${pc.pc_number}" style="margin-right:4px;">
+                PC#${pc.pc_number} ${pc.pc_name}
+                <span class="badge bg-${pc.is_connected?'success':'secondary'} ms-1">${pc.is_connected?'온':'오프'}</span>
+                <small>(${pc.account_count}계정)</small>
+            </label>`).join('');
+    } catch(e) {
+        const c = document.getElementById(containerId);
+        if (c) c.innerHTML = '<span class="text-danger small">PC 목록 로드 실패</span>';
+    }
+}
+
+function toggleWeeklyDays() {
+    const t = document.getElementById('draftScheduleRepeatType').value;
+    document.getElementById('weeklyDaysSection').style.display = t === 'weekly' ? 'block' : 'none';
+}
+
+function getSelectedPcNums(containerId) {
+    return Array.from(document.querySelectorAll(`#${containerId} .draft-pc-checkbox:checked`))
+        .map(cb => parseInt(cb.value));
+}
+
+function getSelectedWeekDays() {
+    return Array.from(document.querySelectorAll('#weeklyDaysSection input[type=checkbox]:checked'))
+        .map(cb => parseInt(cb.value));
+}
+
+function showAddDraftScheduleModal() {
+    document.getElementById('draftScheduleId').value = '';
+    document.getElementById('draftScheduleModalTitle').innerHTML = '<i class="bi bi-alarm"></i> 신규발행 스케줄 추가';
+    document.getElementById('draftScheduleName').value = '';
+    document.getElementById('draftScheduleCafesPerAccount').value = '1';
+    document.getElementById('draftScheduleHour').value = '9';
+    document.getElementById('draftScheduleMinute').value = '0';
+    document.getElementById('draftScheduleRepeatType').value = 'daily';
+    document.getElementById('draftSchedulePostTitle').value = '안녕하세요';
+    document.getElementById('draftSchedulePostBody').value = '안녕하세요!\n\n오늘 카페에 새로 가입하게 되었습니다.\n앞으로 열심히 활동하면서 좋은 정보 나누고 싶습니다.\n\n잘 부탁드립니다! ^^';
+    toggleWeeklyDays();
+    loadDraftSchedulePCs('draftSchedulePcCheckboxes');
+    new bootstrap.Modal(document.getElementById('draftScheduleModal')).show();
+}
+
+async function showEditDraftScheduleModal(scheduleId) {
+    try {
+        const resp = await fetch('/ai-automation/api/draft-schedules');
+        const data = await resp.json();
+        const s = data.schedules.find(x => x.id === scheduleId);
+        if (!s) { alert('스케줄을 찾을 수 없습니다.'); return; }
+        document.getElementById('draftScheduleId').value = s.id;
+        document.getElementById('draftScheduleModalTitle').innerHTML = '<i class="bi bi-pencil"></i> 신규발행 스케줄 수정';
+        document.getElementById('draftScheduleName').value = s.name;
+        document.getElementById('draftScheduleCafesPerAccount').value = s.cafes_per_account;
+        document.getElementById('draftScheduleHour').value = s.scheduled_hour;
+        document.getElementById('draftScheduleMinute').value = s.scheduled_minute;
+        document.getElementById('draftScheduleRepeatType').value = s.repeat_type;
+        document.getElementById('draftSchedulePostTitle').value = s.post_title || '안녕하세요';
+        document.getElementById('draftSchedulePostBody').value = s.post_body || '';
+        toggleWeeklyDays();
+        await loadDraftSchedulePCs('draftSchedulePcCheckboxes');
+        if (s.repeat_type === 'weekly' && s.repeat_days) {
+            const days = JSON.parse(s.repeat_days);
+            document.querySelectorAll('#weeklyDaysSection input[type=checkbox]').forEach(cb => {
+                cb.checked = days.includes(parseInt(cb.value));
+            });
+        }
+        if (s.target_pcs) {
+            const pcNums = JSON.parse(s.target_pcs);
+            document.querySelectorAll('#draftSchedulePcCheckboxes .draft-pc-checkbox').forEach(cb => {
+                cb.checked = pcNums.includes(parseInt(cb.value));
+            });
+        }
+        new bootstrap.Modal(document.getElementById('draftScheduleModal')).show();
+    } catch(e) { alert('오류: ' + e.message); }
+}
+
+async function saveDraftSchedule() {
+    const id = document.getElementById('draftScheduleId').value;
+    const name = document.getElementById('draftScheduleName').value.trim();
+    const cafesPerAccount = document.getElementById('draftScheduleCafesPerAccount').value;
+    const hour = document.getElementById('draftScheduleHour').value;
+    const minute = document.getElementById('draftScheduleMinute').value;
+    const repeatType = document.getElementById('draftScheduleRepeatType').value;
+    const postTitle = document.getElementById('draftSchedulePostTitle').value.trim();
+    const postBody = document.getElementById('draftSchedulePostBody').value.trim();
+    if (!name) { alert('스케줄 이름을 입력하세요.'); return; }
+    if (!postBody) { alert('인사글 본문을 입력하세요.'); return; }
+    const repeatDays = repeatType === 'weekly' ? JSON.stringify(getSelectedWeekDays()) : '[]';
+    const targetPcs = JSON.stringify(getSelectedPcNums('draftSchedulePcCheckboxes'));
+    const form = new FormData();
+    form.append('name', name);
+    form.append('post_title', postTitle);
+    form.append('post_body', postBody);
+    form.append('cafes_per_account', cafesPerAccount);
+    form.append('scheduled_hour', hour);
+    form.append('scheduled_minute', minute);
+    form.append('repeat_type', repeatType);
+    form.append('repeat_days', repeatDays);
+    form.append('target_pcs', targetPcs);
+    form.append('is_active', 'true');
+    const url = id ? `/ai-automation/api/draft-schedules/${id}` : '/ai-automation/api/draft-schedules';
+    const method = id ? 'PUT' : 'POST';
+    try {
+        const resp = await fetch(url, {method, body: form});
+        const data = await resp.json();
+        if (data.success) {
+            bootstrap.Modal.getInstance(document.getElementById('draftScheduleModal')).hide();
+            loadDraftSchedules();
+            alert(data.message);
+        } else { alert('저장 실패: ' + (data.message || '')); }
+    } catch(e) { alert('오류: ' + e.message); }
+}
+
+async function toggleDraftSchedule(scheduleId) {
+    try {
+        const resp = await fetch(`/ai-automation/api/draft-schedules/${scheduleId}/toggle`, {method:'POST'});
+        const data = await resp.json();
+        if (data.success) loadDraftSchedules();
+        else alert('토글 실패: ' + (data.message || ''));
+    } catch(e) { alert('오류: ' + e.message); }
+}
+
+async function deleteDraftSchedule(scheduleId) {
+    if (!confirm('이 스케줄을 삭제하시겠습니까?')) return;
+    try {
+        const resp = await fetch(`/ai-automation/api/draft-schedules/${scheduleId}`, {method:'DELETE'});
+        const data = await resp.json();
+        if (data.success) { loadDraftSchedules(); alert(data.message); }
+        else alert('삭제 실패: ' + (data.message || ''));
+    } catch(e) { alert('오류: ' + e.message); }
+}
+
+async function runScheduleNow(scheduleId, evt) {
+    if (!confirm('이 스케줄을 지금 바로 실행하시겠습니까?\n실제 카페에 인사글이 작성됩니다.')) return;
+    const btn = evt ? evt.target.closest('button') : null;
+    if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>'; }
+    try {
+        const resp = await fetch(`/ai-automation/api/draft-schedules/${scheduleId}/run`, {method:'POST'});
+        const data = await resp.json();
+        if (btn) { btn.disabled = false; btn.innerHTML = '<i class="bi bi-play-fill"></i>'; }
+        if (data.success) {
+            const skip = data.skipped && data.skipped.length > 0 ? `\n\n⚠️ 건너뜀:\n${data.skipped.join('\n')}` : '';
+            alert(`✅ 실행 완료!\nTask 생성: ${data.tasks_created}개 | 즉시 전송: ${data.sent}개 | DB 대기: ${data.queued}개${skip}`);
+            loadDraftSchedules();
+        } else { alert('실행 실패: ' + (data.message || '')); }
+    } catch(e) {
+        if (btn) { btn.disabled = false; btn.innerHTML = '<i class="bi bi-play-fill"></i>'; }
+        alert('오류: ' + e.message);
+    }
+}
+
+function showDraftScheduleTestModal() {
+    document.getElementById('testDraftResult').style.display = 'none';
+    document.getElementById('testDraftResultContent').innerHTML = '';
+    loadDraftSchedulePCs('testDraftPcCheckboxes');
+    new bootstrap.Modal(document.getElementById('draftScheduleTestModal')).show();
+}
+
+async function runDraftTest() {
+    const cafesPerAccount = document.getElementById('testDraftCafesPerAccount').value;
+    const postTitle = document.getElementById('testDraftPostTitle').value.trim();
+    const postBody = document.getElementById('testDraftPostBody').value.trim();
+    if (!postBody) { alert('인사글 본문을 입력하세요.'); return; }
+    const targetPcs = JSON.stringify(getSelectedPcNums('testDraftPcCheckboxes'));
+    const btn = document.getElementById('testDraftRunBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> 실행 중...';
+    const form = new FormData();
+    form.append('name', '즉시 테스트');
+    form.append('post_title', postTitle);
+    form.append('post_body', postBody);
+    form.append('cafes_per_account', cafesPerAccount);
+    form.append('scheduled_hour', '0');
+    form.append('scheduled_minute', '0');
+    form.append('repeat_type', 'once');
+    form.append('repeat_days', '[]');
+    form.append('target_pcs', targetPcs);
+    try {
+        const resp = await fetch('/ai-automation/api/draft-schedules/test-run', {method:'POST', body:form});
+        const data = await resp.json();
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-play-fill"></i> 지금 실행';
+        const resultDiv = document.getElementById('testDraftResult');
+        const resultContent = document.getElementById('testDraftResultContent');
+        resultDiv.style.display = 'block';
+        if (data.success) {
+            const skippedHtml = data.skipped && data.skipped.length > 0
+                ? `<div class="mt-2"><strong>⚠️ 건너뜀 (${data.skipped.length}개):</strong><ul class="small text-muted mt-1">${data.skipped.map(s=>`<li>${s}</li>`).join('')}</ul></div>`
+                : '';
+            const detailsHtml = data.details && data.details.length > 0
+                ? `<div class="mt-2"><strong>📋 생성된 Task 목록:</strong>
+                    <table class="table table-sm table-bordered mt-1">
+                        <thead><tr><th>Task#</th><th>PC#</th><th>계정 ID</th><th>카페 ID</th></tr></thead>
+                        <tbody>${data.details.map(d=>`<tr><td>#${d.task_id}</td><td>PC#${d.pc_number}</td><td>${d.account_id}</td><td>${d.cafe_id}</td></tr>`).join('')}</tbody>
+                    </table></div>`
+                : '';
+            resultContent.innerHTML = `
+                <div class="alert alert-success">
+                    <i class="bi bi-check-circle"></i> <strong>실행 성공!</strong><br>
+                    Task 생성: <strong>${data.tasks_created}개</strong> &nbsp;|&nbsp;
+                    즉시 전송: <strong>${data.sent}개</strong> &nbsp;|&nbsp;
+                    DB 대기: <strong>${data.queued}개</strong>
+                </div>
+                ${detailsHtml}${skippedHtml}`;
+        } else {
+            resultContent.innerHTML = `<div class="alert alert-danger"><i class="bi bi-x-circle"></i> 실행 실패: ${data.message || JSON.stringify(data)}</div>`;
+        }
+    } catch(e) {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-play-fill"></i> 지금 실행';
+        document.getElementById('testDraftResult').style.display = 'block';
+        document.getElementById('testDraftResultContent').innerHTML = `<div class="alert alert-danger">오류: ${e.message}</div>`;
+    }
+}
+</script>
 
 {% endblock %}
 
