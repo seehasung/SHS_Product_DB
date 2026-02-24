@@ -3574,8 +3574,8 @@ async function generateTestContent() {
     const keyword = document.getElementById('testKeywordSelect').value;
     const cafeId = document.getElementById('testCafeSelect').value;
     
-    if (!promptId || !keyword || !cafeId) {
-        alert('프롬프트, 키워드, 카페를 모두 선택해주세요.');
+    if (!promptId || !keyword) {
+        alert('프롬프트와 키워드를 선택해주세요.');
         return;
     }
     
@@ -6391,7 +6391,15 @@ async function deployWorkerVersion(event) {
                     <small class="text-muted">프롬프트의 분류에 맞는 키워드만 표시됩니다.</small>
                 </div>
                 
-                <!-- 카페는 초안 URL에서 자동 추출! -->
+                <div class="mb-3">
+                    <label class="form-label">5. 카페 선택 <span class="text-danger">*</span></label>
+                    <select class="form-select" id="testCafeSelect" onchange="showCafeCharacteristics()" required>
+                        <option value="">카페를 선택하세요</option>
+                    </select>
+                    <div id="cafeCharacteristicsPreview" style="display:none;" class="mt-2">
+                        <small class="text-muted">카페 특성: <span id="cafeCharacteristicsText"></span></small>
+                    </div>
+                </div>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">취소</button>
