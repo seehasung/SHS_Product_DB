@@ -390,6 +390,15 @@ async def send_task_to_worker(pc_number: int, task: AutomationTask, db: Session)
                 
                 print(f"   부모 Task #{parent_task.id} post_url: {post_url}")
         
+        # 이미지 URL 파싱 (JSON 문자열 → 리스트)
+        import json as _json
+        image_urls = []
+        if task.image_urls:
+            try:
+                image_urls = _json.loads(task.image_urls)
+            except Exception:
+                pass
+        
         # Task 데이터
         task_data = {
             'type': 'new_task',
@@ -399,12 +408,14 @@ async def send_task_to_worker(pc_number: int, task: AutomationTask, db: Session)
                 'title': task.title,
                 'content': task.content,
                 'cafe_url': cafe.url if cafe else None,
-                'post_url': post_url,  # 명시적으로 로드한 post_url
-                'draft_url': draft_url,  # 수정 발행 URL 추가!
-                'parent_comment_id': parent_comment_id,  # 부모 댓글 ID (대댓글용)
+                'post_url': post_url,
+                'draft_url': draft_url,
+                'parent_comment_id': parent_comment_id,
                 'account_id': account.account_id if account else None,
                 'account_pw': account.account_pw if account else None,
-                'target_board': cafe.target_board if cafe else None  # ⭐ 게시판명 추가
+                'target_board': cafe.target_board if cafe else None,
+                'image_urls': image_urls,  # ⭐ 이미지 URL 목록
+                'keyword': task.keyword or None  # ⭐ 타겟 키워드 (태그용)
             }
         }
         
@@ -1136,14 +1147,15 @@ async def complete_task(
 async def get_worker_version():
     """Worker 버전 정보 제공"""
     return JSONResponse({
-        "version": "1.0.8",
+        "version": "1.0.9",
         "release_date": "2026-01-25",
         "download_url": "/automation/api/worker/download",
         "changelog": [
             "Selenium을 스레드에서 실행 (연결 끊김 근본 해결)",
             "Heartbeat 실패 시 자동 재연결",
             "완료 신호 5분 재시도 + 큐 보관",
-            "게시판 자동 변경 기능 추가"
+            "게시판 자동 변경 기능 추가",
+            "FLUX 이미지 자동 다운로드 + 에디터 업로드 기능 추가"
         ],
         "required_packages": {
             "selenium": "4.15.2",

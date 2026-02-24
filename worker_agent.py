@@ -12,6 +12,7 @@ import websockets
 import json
 import warnings
 import logging
+import os
 
 # 경고 메시지 숨기기
 warnings.filterwarnings('ignore')
@@ -51,7 +52,7 @@ from pathlib import Path
 class NaverCafeWorker:
     """네이버 카페 자동 작성 Worker"""
     
-    VERSION = "1.0.8" # 현재 버전
+    VERSION = "1.0.9" # 현재 버전
     
     def __init__(self, pc_number: int, server_url: str = "scorp274.com"):
         self.pc_number = pc_number
@@ -573,7 +574,81 @@ class NaverCafeWorker:
             traceback.print_exc()
             return False
         
-    def modify_post(self, draft_url: str, title: str, content: str, target_board: str = None) -> Optional[str]:
+    def download_image(self, image_url: str) -> Optional[str]:
+        """이미지 URL에서 임시 파일로 다운로드 후 경로 반환"""
+        try:
+            import requests as req
+            import tempfile
+            response = req.get(image_url, timeout=30, verify=False)
+            if response.status_code == 200:
+                temp_dir = tempfile.gettempdir()
+                filename = f"cafe_img_{int(time.time() * 1000)}.jpg"
+                temp_path = os.path.join(temp_dir, filename)
+                with open(temp_path, 'wb') as f:
+                    f.write(response.content)
+                print(f"   ✅ 이미지 다운로드 완료: {filename}")
+                return temp_path
+            else:
+                print(f"   ❌ 이미지 다운로드 실패 (HTTP {response.status_code})")
+                return None
+        except Exception as e:
+            print(f"   ❌ 이미지 다운로드 오류: {e}")
+            return None
+
+    def upload_images_to_editor(self, temp_files: list):
+        """스마트 에디터에 이미지 파일 업로드 (file input 방식)"""
+        if not temp_files:
+            return
+        print(f"\n📤 이미지 {len(temp_files)}장 에디터 업로드 중...")
+        for idx, temp_file in enumerate(temp_files, 1):
+            try:
+                print(f"   이미지 {idx}/{len(temp_files)}: {os.path.basename(temp_file)}")
+                
+                # file input 목록 탐색
+                file_inputs = self.driver.find_elements(By.CSS_SELECTOR, 'input[type="file"]')
+                if not file_inputs:
+                    print(f"   ❌ file input 없음")
+                    continue
+                
+                # 이미지용 input 선택 (accept에 image 포함 또는 accept 없음)
+                image_input = None
+                for fi in file_inputs:
+                    accept = fi.get_attribute('accept') or ''
+                    if 'image' in accept.lower() or not accept:
+                        image_input = fi
+                        break
+                
+                if not image_input:
+                    print(f"   ❌ 이미지용 file input 없음")
+                    continue
+                
+                # JS로 강제 표시 (숨겨진 input 활성화)
+                self.driver.execute_script("""
+                    var inp = arguments[0];
+                    inp.style.display  = 'block';
+                    inp.style.visibility = 'visible';
+                    inp.style.opacity  = '1';
+                    inp.style.position = 'fixed';
+                    inp.style.top      = '0';
+                    inp.style.left     = '0';
+                    inp.style.zIndex   = '9999';
+                """, image_input)
+                self.random_delay(0.5, 1)
+                
+                # 파일 경로 전달 (로컬 탐색기 없이 직접 전송)
+                image_input.send_keys(temp_file)
+                self.random_delay(4, 6)  # 업로드 완료 대기
+                
+                # input 다시 숨기기
+                self.driver.execute_script(
+                    "arguments[0].style.display='none';", image_input
+                )
+                print(f"   ✅ 이미지 {idx} 업로드 완료")
+                
+            except Exception as e:
+                print(f"   ❌ 이미지 {idx} 업로드 오류: {e}")
+
+    def modify_post(self, draft_url: str, title: str, content: str, target_board: str = None, image_urls: list = None, keyword: str = None) -> Optional[str]:
         """기존 글 수정 발행 (새 탭에서 작업)"""
         print(f"\n{'='*60}")
         print(f"🔄 글 수정 발행 시작")
@@ -753,6 +828,43 @@ class NaverCafeWorker:
                 print("   수동으로 본문을 입력해주세요!")
             
             self.random_delay(2, 3)
+            
+            # ⭐ 이미지 업로드 (image_urls가 있는 경우)
+            temp_files = []
+            if image_urls:
+                print(f"\n📷 이미지 업로드 준비 ({len(image_urls)}장)...")
+                for img_url in image_urls:
+                    temp_path = self.download_image(img_url)
+                    if temp_path:
+                        temp_files.append(temp_path)
+                
+                if temp_files:
+                    self.upload_images_to_editor(temp_files)
+                    self.random_delay(2, 3)
+                    
+                    # 업로드 완료 후 임시 파일 정리
+                    for tf in temp_files:
+                        try:
+                            os.remove(tf)
+                        except Exception:
+                            pass
+                    print(f"   🗑️ 임시 파일 정리 완료")
+                else:
+                    print("   ⚠️ 다운로드된 이미지 없음, 업로드 건너뜀")
+            
+            # ⭐ 태그(키워드) 입력
+            if keyword:
+                print(f"\n🏷️ 태그 입력: {keyword}")
+                try:
+                    tag_input = self.driver.find_element(By.CSS_SELECTOR, 'input.tag_input')
+                    tag_input.click()
+                    self.random_delay(0.5, 1)
+                    self.human_type(tag_input, keyword)
+                    tag_input.send_keys(Keys.ENTER)
+                    self.random_delay(0.5, 1)
+                    print("   ✅ 태그 입력 완료")
+                except Exception as e:
+                    print(f"   ⚠️  태그 입력 실패: {e} (계속 진행)")
             
             # ⭐ 댓글 허용 체크박스 확인 및 설정
             print("\n💬 댓글 허용 설정 확인 중...")
@@ -1284,9 +1396,18 @@ class NaverCafeWorker:
                 loop = asyncio.get_event_loop()
                 if draft_url:
                     print(f"🔄 수정 발행: {draft_url[:50]}...")
+                    _image_urls = task.get('image_urls') or []
+                    _keyword = task.get('keyword') or None
+                    if _image_urls:
+                        print(f"   📸 이미지 {len(_image_urls)}장 포함")
+                    if _keyword:
+                        print(f"   🏷️  태그 키워드: {_keyword}")
                     post_url = await loop.run_in_executor(
                         None,
-                        lambda: self.modify_post(draft_url, task['title'], task['content'], task.get('target_board'))
+                        lambda: self.modify_post(
+                            draft_url, task['title'], task['content'],
+                            task.get('target_board'), _image_urls, _keyword
+                        )
                     )
                 else:
                     print(f"📝 새 글 작성: {task['cafe_url']}")

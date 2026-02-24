@@ -2502,18 +2502,27 @@ async def publish_test(
             if account:
                 assigned_pc_id = account.assigned_pc_id
         
+        # 이미지 URLs JSON 직렬화
+        import json as _json
+        task_image_urls = test_data.get('image_urls', [])
+        image_urls_json = _json.dumps(task_image_urls) if task_image_urls else None
+        if task_image_urls:
+            print(f"   📸 이미지 {len(task_image_urls)}장 Task에 포함")
+        
         post_task = AutomationTask(
             task_type='post',
             mode='ai',
-            schedule_id=None,  # 스케줄 없이 독립 실행
+            schedule_id=None,
             scheduled_time=datetime.now(),
-            title=post_title,  # AI 생성 제목 또는 키워드
-            content=test_data['body'],  # 본문만
+            title=post_title,
+            content=test_data['body'],
             cafe_id=cafe_id,
-            assigned_pc_id=assigned_pc_id,  # PC 할당!
-            assigned_account_id=assigned_account_id,  # 계정 할당!
+            assigned_pc_id=assigned_pc_id,
+            assigned_account_id=assigned_account_id,
             status='pending',
-            priority=10
+            priority=10,
+            image_urls=image_urls_json,  # ⭐ 이미지 URL 저장
+            keyword=keyword  # ⭐ 타겟 키워드 (태그 자동 입력용)
         )
         
         # 수정 발행 URL 추가 (간단하게)

@@ -1131,6 +1131,8 @@ class AutomationTask(Base):
     
     # 결과
     post_url = Column(String(500), nullable=True)
+    image_urls = Column(Text, nullable=True)   # JSON 배열 문자열 - 이미지 URL 목록
+    keyword = Column(String(255), nullable=True)  # 타겟 키워드 (태그 자동 입력용)
     started_at = Column(DateTime, nullable=True)
     completed_at = Column(DateTime, nullable=True)
     
