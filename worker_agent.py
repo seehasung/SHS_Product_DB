@@ -595,6 +595,150 @@ class NaverCafeWorker:
             print(f"   ❌ 이미지 다운로드 오류: {e}")
             return None
 
+    def _find_image_file_input(self):
+        """Smart Editor ONE에서 이미지 file input 탐색
+        
+        핵심 원리:
+        - 사진 버튼 클릭 → 내부적으로 input[type=file].click() 호출 → 네이티브 다이얼로그 오픈
+        - JS 프로토타입 오버라이드로 .click() 차단 → 다이얼로그 없이 file input 참조만 획득
+        - 이후 send_keys()로 파일 경로 직접 전달 (Selenium 표준 업로드 방식)
+        """
+
+        def search_in_current_frame():
+            """현재 프레임에서 이미지용 file input 탐색"""
+            inputs = self.driver.find_elements(By.CSS_SELECTOR, 'input[type="file"]')
+            for fi in inputs:
+                accept = fi.get_attribute('accept') or ''
+                if 'image' in accept.lower() or not accept:
+                    return fi
+            return None
+
+        # ── Step 1: 버튼 클릭 없이 직접 탐색 ──────────────────────
+        result = search_in_current_frame()
+        if result:
+            print(f"   [발견] 메인 문서 file input (버튼 클릭 불필요)")
+            return result
+
+        # ── Step 2: 다이얼로그 차단 JS 주입 ───────────────────────
+        # Object.defineProperty로 프로토타입 오버라이드 + capture 이벤트 리스너 병행
+        self.driver.execute_script("""
+            window._seLastFileInput = null;
+            if (!window._seClickOverridden) {
+                window._seClickOverridden = true;
+                try {
+                    var _origProto = HTMLInputElement.prototype.click;
+                    Object.defineProperty(HTMLInputElement.prototype, 'click', {
+                        configurable: true,
+                        writable: true,
+                        value: function() {
+                            if (this.type === 'file') {
+                                window._seLastFileInput = this;
+                                return;  // 네이티브 다이얼로그 차단
+                            }
+                            return _origProto.apply(this, arguments);
+                        }
+                    });
+                } catch(e) {}
+                // capture phase 이벤트도 차단
+                document.addEventListener('click', function(e) {
+                    if (e.target && e.target.tagName === 'INPUT' && e.target.type === 'file') {
+                        window._seLastFileInput = e.target;
+                        e.preventDefault();
+                        e.stopImmediatePropagation();
+                    }
+                }, true);
+            }
+        """)
+
+        # ── Step 3: 이미지 버튼 클릭 ──────────────────────────────
+        # 실제 확인된 버튼 HTML:
+        # <button class="se-image-toolbar-button" data-name="image"
+        #         data-group="documentToolbar" data-log="dot.img">
+        image_btn_selectors = [
+            'button.se-image-toolbar-button[data-name="image"]',
+            'button[data-name="image"][data-group="documentToolbar"]',
+            'button[data-log="dot.img"]',
+            'button.se-image-toolbar-button',
+            'button[data-name="image"]',
+            '.__se__toolbar li[data-name="image"] button',
+            'button[title*="사진"]',
+            'button[title*="이미지"]',
+        ]
+
+        btn_clicked = False
+        for sel in image_btn_selectors:
+            try:
+                btn = self.driver.find_element(By.CSS_SELECTOR, sel)
+                self.driver.execute_script("arguments[0].click();", btn)
+                self.random_delay(1.5, 2)
+                btn_clicked = True
+                print(f"   [클릭] 이미지 버튼: {sel}")
+                break
+            except Exception:
+                continue
+
+        if not btn_clicked:
+            print(f"   ⚠️  이미지 버튼 못 찾음")
+
+        # ── Step 4: JS intercept 결과 확인 ────────────────────────
+        intercepted = self.driver.execute_script("return window._seLastFileInput;")
+        if intercepted:
+            print(f"   [감지] JS 프로토타입 intercept 성공 - 다이얼로그 없이 file input 획득")
+            return intercepted
+
+        # ── Step 5: DOM 재탐색 (동적 생성됐을 수 있음) ────────────
+        result = search_in_current_frame()
+        if result:
+            print(f"   [발견] 버튼 클릭 후 DOM에서 file input 발견")
+            return result
+
+        # ── Step 6: 다이얼로그 열린 경우 ESC로 닫기 후 재탐색 ─────
+        # (JS 오버라이드 실패 시 - 네이티브 다이얼로그가 열렸을 가능성)
+        print(f"   ⚠️  JS 차단 실패 - 네이티브 다이얼로그 닫기 시도")
+        closed = False
+        try:
+            import pyautogui
+            pyautogui.press('escape')
+            self.random_delay(1, 1.5)
+            closed = True
+            print(f"   [ESC] pyautogui로 다이얼로그 닫음")
+        except ImportError:
+            pass
+
+        if not closed:
+            try:
+                from selenium.webdriver.common.action_chains import ActionChains
+                ActionChains(self.driver).send_keys(Keys.ESCAPE).perform()
+                self.random_delay(0.5, 1)
+                print(f"   [ESC] ActionChains ESC 전송")
+            except Exception:
+                pass
+
+        result = search_in_current_frame()
+        if result:
+            print(f"   [발견] ESC 후 file input 발견")
+            return result
+
+        # ── Step 7: 모든 iframe 탐색 ──────────────────────────────
+        iframes = self.driver.find_elements(By.TAG_NAME, 'iframe')
+        print(f"   [iframe] {len(iframes)}개 iframe 탐색...")
+        for i, iframe in enumerate(iframes):
+            try:
+                self.driver.switch_to.frame(iframe)
+                result = search_in_current_frame()
+                if result:
+                    print(f"   [발견] iframe[{i}]에서 file input 발견")
+                    return result  # ⚠️ iframe 컨텍스트 유지 - send_keys 후 default_content() 복원 필요
+                self.driver.switch_to.default_content()
+            except Exception:
+                try:
+                    self.driver.switch_to.default_content()
+                except Exception:
+                    pass
+
+        print(f"   ❌ 모든 방법으로도 file input 없음")
+        return None
+
     def upload_images_to_editor(self, temp_files: list):
         """스마트 에디터에 이미지 파일 업로드 (file input 방식)"""
         if not temp_files:
@@ -603,50 +747,57 @@ class NaverCafeWorker:
         for idx, temp_file in enumerate(temp_files, 1):
             try:
                 print(f"   이미지 {idx}/{len(temp_files)}: {os.path.basename(temp_file)}")
-                
-                # file input 목록 탐색
-                file_inputs = self.driver.find_elements(By.CSS_SELECTOR, 'input[type="file"]')
-                if not file_inputs:
-                    print(f"   ❌ file input 없음")
-                    continue
-                
-                # 이미지용 input 선택 (accept에 image 포함 또는 accept 없음)
-                image_input = None
-                for fi in file_inputs:
-                    accept = fi.get_attribute('accept') or ''
-                    if 'image' in accept.lower() or not accept:
-                        image_input = fi
-                        break
-                
+
+                image_input = self._find_image_file_input()
+
                 if not image_input:
-                    print(f"   ❌ 이미지용 file input 없음")
+                    print(f"   ❌ file input 없음 - 이미지 {idx} 건너뜀")
                     continue
-                
-                # JS로 강제 표시 (숨겨진 input 활성화)
+
+                # JS로 강제 표시
                 self.driver.execute_script("""
                     var inp = arguments[0];
-                    inp.style.display  = 'block';
-                    inp.style.visibility = 'visible';
-                    inp.style.opacity  = '1';
-                    inp.style.position = 'fixed';
-                    inp.style.top      = '0';
-                    inp.style.left     = '0';
-                    inp.style.zIndex   = '9999';
+                    inp.style.cssText = [
+                        'display:block !important',
+                        'visibility:visible !important',
+                        'opacity:1 !important',
+                        'position:fixed !important',
+                        'top:0 !important',
+                        'left:0 !important',
+                        'z-index:99999 !important',
+                        'width:200px !important',
+                        'height:50px !important'
+                    ].join(';');
                 """, image_input)
                 self.random_delay(0.5, 1)
-                
+
                 # 파일 경로 전달 (로컬 탐색기 없이 직접 전송)
                 image_input.send_keys(temp_file)
-                self.random_delay(4, 6)  # 업로드 완료 대기
-                
-                # input 다시 숨기기
-                self.driver.execute_script(
-                    "arguments[0].style.display='none';", image_input
-                )
+                self.random_delay(5, 7)  # 업로드 완료 대기
+
+                # 업로드 완료 후 숨기기
+                try:
+                    self.driver.execute_script("arguments[0].style.display='none';", image_input)
+                except Exception:
+                    pass
+
+                # iframe 컨텍스트 복원
+                try:
+                    self.driver.switch_to.default_content()
+                except Exception:
+                    pass
+
+                # JS intercept 리셋
+                self.driver.execute_script("window._seLastFileInput = null;")
+
                 print(f"   ✅ 이미지 {idx} 업로드 완료")
-                
+
             except Exception as e:
                 print(f"   ❌ 이미지 {idx} 업로드 오류: {e}")
+                try:
+                    self.driver.switch_to.default_content()
+                except Exception:
+                    pass
 
     def modify_post(self, draft_url: str, title: str, content: str, target_board: str = None, image_urls: list = None, keyword: str = None) -> Optional[str]:
         """기존 글 수정 발행 (새 탭에서 작업)"""
