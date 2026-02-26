@@ -160,8 +160,8 @@
             </a>
         </li>
         <li class="nav-item">
-            <a class="nav-link" data-bs-toggle="tab" href="#ai-posts">
-                <i class="bi bi-file-earmark-text"></i> AI 신규발행
+            <a class="nav-link" data-bs-toggle="tab" href="#ai-posts" onclick="loadGeneratedPosts(); loadPostHistoryFilters();">
+                <i class="bi bi-check2-circle"></i> 수정발행 이력
             </a>
         </li>
         <li class="nav-item">
@@ -687,28 +687,38 @@
         <!-- AI 신규 발행 관리 탭 -->
         <div class="tab-pane fade" id="ai-posts">
             <div class="content-card">
-                <div class="card-header-custom">
-                    <h4><i class="bi bi-file-earmark-text"></i> AI 신규 발행 관리</h4>
+                <div class="card-header-custom d-flex justify-content-between align-items-center">
+                    <h4><i class="bi bi-check2-circle"></i> 수정 발행 이력</h4>
+                    <button class="btn btn-sm btn-outline-secondary" onclick="loadGeneratedPosts()">
+                        <i class="bi bi-arrow-clockwise"></i> 새로고침
+                    </button>
                 </div>
-                
+
                 <div class="mb-3">
-                    <div class="row">
-                        <div class="col-md-4">
-                            <select class="form-select" id="postAccountFilter" onchange="loadGeneratedPosts()">
+                    <div class="row g-2">
+                        <div class="col-md-3">
+                            <select class="form-select form-select-sm" id="postAccountFilter" onchange="loadGeneratedPosts()">
                                 <option value="">전체 계정</option>
                             </select>
                         </div>
-                        <div class="col-md-4">
-                            <select class="form-select" id="postCafeFilter" onchange="loadGeneratedPosts()">
+                        <div class="col-md-3">
+                            <select class="form-select form-select-sm" id="postCafeFilter" onchange="loadGeneratedPosts()">
                                 <option value="">전체 카페</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <select class="form-select form-select-sm" id="postProductFilter" onchange="loadGeneratedPosts()">
+                                <option value="">전체 상품</option>
                             </select>
                         </div>
                     </div>
                 </div>
-                
+
                 <div id="generatedPostsList">
                     <!-- JavaScript로 로드 -->
                 </div>
+
+                <div id="postHistoryPagination" class="mt-3"></div>
             </div>
         </div>
         
@@ -2898,6 +2908,9 @@ async function loadSchedules(page = 1) {
                                         </span>
                                     </td>
                                     <td>
+                                        <button class="btn btn-sm btn-success me-1" onclick="runAiScheduleNow(${s.id})" title="즉시 실행">
+                                            <i class="bi bi-play-fill"></i>
+                                        </button>
                                         <button class="btn btn-sm btn-danger" onclick="deleteSchedule(${s.id})">
                                             <i class="bi bi-trash"></i>
                                         </button>
@@ -2974,76 +2987,110 @@ async function loadPostFilters() {
 }
 
 // 신규 발행 글 로드
-async function loadGeneratedPosts() {
+async function loadGeneratedPosts(page = 1) {
     const accountFilter = document.getElementById('postAccountFilter')?.value || '';
     const cafeFilter = document.getElementById('postCafeFilter')?.value || '';
-    
+    const productFilter = document.getElementById('postProductFilter')?.value || '';
+
     try {
-        // 빈 문자열이면 파라미터 제외
-        let url = '/ai-automation/api/generated-posts?';
-        const params = [];
+        const params = [`page=${page}`, `page_size=50`];
         if (accountFilter) params.push(`account=${accountFilter}`);
         if (cafeFilter) params.push(`cafe=${cafeFilter}`);
-        url += params.join('&');
-        
+        if (productFilter) params.push(`product=${productFilter}`);
+        const url = '/ai-automation/api/post-history?' + params.join('&');
+
         const response = await fetch(url);
         const data = await response.json();
-        
-        if (data.success) {
-            const container = document.getElementById('generatedPostsList');
-            container.innerHTML = '';
-            
-            if (data.posts.length === 0) {
-                container.innerHTML = `
-                    <div class="empty-state">
-                        <i class="bi bi-file-earmark-text"></i>
-                        <p>생성된 글이 없습니다.</p>
-                    </div>
-                `;
-                return;
-            }
-            
-            const table = `
-                <div class="table-responsive">
-                    <table class="data-table">
-                        <thead>
+
+        const container = document.getElementById('generatedPostsList');
+        const paginationEl = document.getElementById('postHistoryPagination');
+        container.innerHTML = '';
+        if (paginationEl) paginationEl.innerHTML = '';
+
+        if (!data.success) {
+            container.innerHTML = `<div class="alert alert-danger">${data.error}</div>`;
+            return;
+        }
+
+        if (!data.posts || data.posts.length === 0) {
+            container.innerHTML = `
+                <div class="empty-state">
+                    <i class="bi bi-check2-circle"></i>
+                    <p>수정 발행 이력이 없습니다.</p>
+                </div>`;
+            return;
+        }
+
+        const table = `
+            <div class="table-responsive">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>계정</th>
+                            <th>카페</th>
+                            <th>상품</th>
+                            <th>키워드</th>
+                            <th>인사글 URL</th>
+                            <th>발행 URL</th>
+                            <th>상태</th>
+                            <th>발행일시</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${data.posts.map(p => `
                             <tr>
-                                <th>상품명</th>
-                                <th>계정</th>
-                                <th>카페</th>
-                                <th>제목</th>
-                                <th>상태</th>
-                                <th>생성일</th>
-                                <th>관리</th>
+                                <td><span class="badge bg-secondary">${p.account_id || '-'}</span></td>
+                                <td>${p.cafe_name || '-'}</td>
+                                <td>${p.product_name || '-'}</td>
+                                <td>${p.keyword ? `<span class="badge bg-info text-dark">${p.keyword}</span>` : '-'}</td>
+                                <td>
+                                    ${p.draft_url ? `<a href="${p.draft_url}" target="_blank" class="btn btn-xs btn-outline-secondary" style="font-size:11px;padding:1px 6px;">인사글 <i class="bi bi-box-arrow-up-right"></i></a>` : '-'}
+                                </td>
+                                <td>
+                                    ${p.post_url ? `<a href="${p.post_url}" target="_blank" class="btn btn-sm btn-success"><i class="bi bi-box-arrow-up-right"></i> 발행글</a>` : '-'}
+                                </td>
+                                <td><span class="badge bg-success">사용됨</span></td>
+                                <td style="white-space:nowrap;">${p.completed_at ? new Date(p.completed_at).toLocaleString('ko-KR') : '-'}</td>
                             </tr>
-                        </thead>
-                        <tbody>
-                            ${data.posts.map(p => `
-                                <tr>
-                                    <td>${p.product_name}</td>
-                                    <td>${p.account_name}</td>
-                                    <td>${p.cafe_name}</td>
-                                    <td><strong>${p.post_title}</strong></td>
-                                    <td>
-                                        <span class="badge ${p.status === 'published' ? 'bg-success' : 'bg-secondary'}">
-                                            ${p.status === 'published' ? '발행완료' : '초안'}
-                                        </span>
-                                    </td>
-                                    <td>${new Date(p.created_at).toLocaleString('ko-KR')}</td>
-                                    <td>
-                                        ${p.post_url ? `<a href="${p.post_url}" target="_blank" class="btn btn-sm btn-info"><i class="bi bi-box-arrow-up-right"></i></a>` : ''}
-                                    </td>
-                                </tr>
-                            `).join('')}
-                        </tbody>
-                    </table>
-                </div>
-            `;
-            container.innerHTML = table;
+                        `).join('')}
+                    </tbody>
+                </table>
+            </div>
+            <div class="text-muted small mt-2">총 ${data.total}건</div>
+        `;
+        container.innerHTML = table;
+
+        // 페이지네이션
+        if (paginationEl && data.total > 50) {
+            const totalPages = Math.ceil(data.total / 50);
+            let pg = '<nav><ul class="pagination justify-content-center">';
+            for (let i = 1; i <= totalPages; i++) {
+                pg += `<li class="page-item ${i === page ? 'active' : ''}">
+                    <a class="page-link" href="#" onclick="loadGeneratedPosts(${i}); return false;">${i}</a>
+                </li>`;
+            }
+            pg += '</ul></nav>';
+            paginationEl.innerHTML = pg;
         }
     } catch (error) {
-        console.error('발행 글 로드 오류:', error);
+        console.error('수정 발행 이력 로드 오류:', error);
+        document.getElementById('generatedPostsList').innerHTML =
+            `<div class="alert alert-danger">로드 중 오류: ${error.message}</div>`;
     }
+}
+
+async function loadPostHistoryFilters() {
+    // 상품 필터 로드
+    try {
+        const res = await fetch('/ai-automation/api/products/list');
+        const data = await res.json();
+        const sel = document.getElementById('postProductFilter');
+        if (sel && data.success && data.products) {
+            const current = sel.value;
+            sel.innerHTML = '<option value="">전체 상품</option>' +
+                data.products.map(p => `<option value="${p.id}" ${p.id == current ? 'selected' : ''}>${p.product_name}</option>`).join('');
+        }
+    } catch (e) { /* ignore */ }
 }
 
 // 연동 추가 모달 열기
@@ -5017,17 +5064,32 @@ function showAddScheduleModal() {
     modal.show();
 }
 
+function toggleAiScheduleWeekdays() {
+    const rt = document.getElementById('scheduleRepeatType')?.value;
+    const row = document.getElementById('aiScheduleWeekdayRow');
+    if (row) row.style.display = (rt === 'weekly') ? '' : 'none';
+}
+
+function getAiScheduleRepeatDays() {
+    return JSON.stringify(
+        Array.from(document.querySelectorAll('.ai-weekday-cb:checked')).map(cb => parseInt(cb.value))
+    );
+}
+
 async function saveSchedule(event) {
     event.preventDefault();
     const formData = new FormData(event.target);
-    
+
+    // 반복 요일 추가
+    formData.set('repeat_days', getAiScheduleRepeatDays());
+
     try {
         const response = await fetch('/ai-automation/api/schedules/add', {
             method: 'POST',
             body: formData
         });
         const data = await response.json();
-        
+
         if (data.success) {
             alert('스케줄이 생성되었습니다.');
             bootstrap.Modal.getInstance(document.getElementById('addScheduleModal')).hide();
@@ -5038,6 +5100,22 @@ async function saveSchedule(event) {
         }
     } catch (error) {
         alert('스케줄 생성 중 오류가 발생했습니다.');
+    }
+}
+
+async function runAiScheduleNow(scheduleId) {
+    if (!confirm('지금 바로 이 스케줄을 실행하시겠습니까?')) return;
+    try {
+        const res = await fetch(`/ai-automation/api/ai-schedules/${scheduleId}/run`, { method: 'POST' });
+        const data = await res.json();
+        if (data.success) {
+            alert(`실행 완료: Task ${data.tasks_created}개 생성 (전송: ${data.sent}, 대기: ${data.queued})`);
+            loadSchedules();
+        } else {
+            alert('실행 오류: ' + data.message);
+        }
+    } catch (e) {
+        alert('실행 중 오류가 발생했습니다.');
     }
 }
 
@@ -6616,7 +6694,48 @@ async function deployWorkerVersion(event) {
                         <label class="form-label">하루 작성 개수 <span class="text-danger">*</span></label>
                         <input type="number" class="form-control" name="daily_post_count" id="dailyPostCount" min="1" onchange="calculateTotal()" required>
                     </div>
-                    
+
+                    <hr class="my-3">
+                    <p class="text-muted small mb-3"><i class="bi bi-alarm"></i> 자동 실행 설정</p>
+
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">실행 시간</label>
+                            <input type="number" class="form-control" id="scheduleHour" name="scheduled_hour" min="0" max="23" value="9" placeholder="시">
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">분</label>
+                            <input type="number" class="form-control" id="scheduleMinute" name="scheduled_minute" min="0" max="59" value="0" placeholder="분">
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">반복 유형</label>
+                            <select class="form-select" id="scheduleRepeatType" name="repeat_type" onchange="toggleAiScheduleWeekdays()">
+                                <option value="daily">매일</option>
+                                <option value="weekly">매주 특정 요일</option>
+                                <option value="once">1회만</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div id="aiScheduleWeekdayRow" class="mb-3" style="display:none;">
+                        <label class="form-label">반복 요일</label>
+                        <div class="d-flex gap-2 flex-wrap">
+                            <div class="form-check"><input class="form-check-input ai-weekday-cb" type="checkbox" value="0" id="aiWd0"><label class="form-check-label" for="aiWd0">월</label></div>
+                            <div class="form-check"><input class="form-check-input ai-weekday-cb" type="checkbox" value="1" id="aiWd1"><label class="form-check-label" for="aiWd1">화</label></div>
+                            <div class="form-check"><input class="form-check-input ai-weekday-cb" type="checkbox" value="2" id="aiWd2"><label class="form-check-label" for="aiWd2">수</label></div>
+                            <div class="form-check"><input class="form-check-input ai-weekday-cb" type="checkbox" value="3" id="aiWd3"><label class="form-check-label" for="aiWd3">목</label></div>
+                            <div class="form-check"><input class="form-check-input ai-weekday-cb" type="checkbox" value="4" id="aiWd4"><label class="form-check-label" for="aiWd4">금</label></div>
+                            <div class="form-check"><input class="form-check-input ai-weekday-cb" type="checkbox" value="5" id="aiWd5"><label class="form-check-label" for="aiWd5">토</label></div>
+                            <div class="form-check"><input class="form-check-input ai-weekday-cb" type="checkbox" value="6" id="aiWd6"><label class="form-check-label" for="aiWd6">일</label></div>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">계정당 하루 수정 발행 수</label>
+                        <input type="number" class="form-control" id="postsPerAccount" name="posts_per_account" min="1" value="1">
+                        <small class="text-muted">각 계정이 하루에 최대 몇 개의 인사글을 수정 발행할지 설정합니다.</small>
+                    </div>
+
                     <div id="totalPostsDisplay" class="alert alert-info" style="display: none;">
                         <i class="bi bi-info-circle"></i> 예상 총 글 발행 수: <strong id="totalPostsCount">0</strong>개
                     </div>

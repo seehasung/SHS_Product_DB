@@ -1476,8 +1476,20 @@ class AIMarketingSchedule(Base):
     # 예상 통계
     expected_total_posts = Column(Integer, nullable=False)  # 예상 총 글 발행 수
     
+    # 실행 시간 및 반복 설정
+    scheduled_hour = Column(Integer, nullable=False, default=9)
+    scheduled_minute = Column(Integer, nullable=False, default=0)
+    repeat_type = Column(String(20), default='daily')   # daily, weekly, once
+    repeat_days = Column(String(100), nullable=True)    # JSON: [0,1,2,3,4] (월=0~일=6)
+    posts_per_account = Column(Integer, default=1)      # 계정당 하루 수정 발행 수
+
+    # 스케줄 실행 이력
+    last_run_at = Column(DateTime, nullable=True)
+    next_run_at = Column(DateTime, nullable=True)
+
     # 상태
     status = Column(String(20), default='scheduled')  # scheduled(진행예정), in_progress(진행중), completed(종료)
+    is_active = Column(Boolean, default=True)
     
     created_at = Column(DateTime, default=get_kst_now)
     updated_at = Column(DateTime, default=get_kst_now, onupdate=get_kst_now)

@@ -41,6 +41,15 @@ os.makedirs(f"{STATIC_DIR}/worker_files", exist_ok=True)  # ⭐ Worker 파일
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """앱 시작/종료 시 실행되는 이벤트"""
+    # Alembic migration 자동 실행
+    try:
+        from alembic.config import Config
+        from alembic import command as alembic_command
+        alembic_cfg = Config("alembic.ini")
+        alembic_command.upgrade(alembic_cfg, "head")
+        print("✅ Alembic migration 완료")
+    except Exception as _mig_err:
+        print(f"⚠️ Alembic migration 오류 (무시): {_mig_err}")
     # 시작 시
     start_scheduler()
     yield

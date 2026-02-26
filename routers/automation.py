@@ -28,7 +28,8 @@ from database import (
     AutomationWorkerPC, AutomationAccount, AutomationCafe,
     AutomationPrompt, AutomationSchedule, AutomationTask,
     AutomationPost, AutomationComment, MarketingProduct, Product,
-    MarketingPost, User, CommentScript, WorkerVersion, AIGeneratedPost  # ⭐ AIGeneratedPost 추가!
+    MarketingPost, User, CommentScript, WorkerVersion, AIGeneratedPost,
+    DraftPost,
 )
 
 router = APIRouter(prefix="/automation", tags=["automation"])
@@ -1177,7 +1178,25 @@ async def complete_task(
             if cafe_comment_id:
                 task.error_message = f"cafe_comment_id:{cafe_comment_id}"
                 print(f"  📌 카페 댓글 ID 저장: {cafe_comment_id}")
-            
+
+            # ★ post 완료 시 DraftPost를 '사용됨'으로 업데이트
+            if (task.task_type == 'post'
+                    and task.error_message
+                    and 'MODIFY_URL:' in task.error_message
+                    and post_url):
+                try:
+                    draft_url = task.error_message.split('MODIFY_URL:')[1].strip()
+                    draft_post = db.query(DraftPost).filter(
+                        DraftPost.draft_url == draft_url
+                    ).first()
+                    if draft_post:
+                        draft_post.modified_url = post_url
+                        draft_post.status = 'used'
+                        draft_post.used_at = get_kst_now()
+                        print(f"  ✅ DraftPost #{draft_post.id} → status='used', modified_url 저장")
+                except Exception as dp_err:
+                    print(f"  ⚠️ DraftPost 업데이트 실패: {dp_err}")
+
             db.commit()
             print(f"✅ Task #{task_id} 완료 (HTTP, sequence:{task.order_sequence}, post_url: {task.post_url})")
         

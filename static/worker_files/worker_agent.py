@@ -1071,6 +1071,21 @@ class NaverCafeWorker:
                         self.driver.execute_script("var cb=document.getElementById('coment'); if(cb && cb.checked){cb.checked=false;cb.dispatchEvent(new Event('change',{bubbles:true}));}")
                     except Exception:
                         pass
+                # ★ 등록 전 최신 articleid 기록
+                pre_max_article_id = 0
+                import re as _re
+                try:
+                    for lnk in self.driver.find_elements(By.XPATH, "//a[contains(@href,'articleid=')]"):
+                        href = lnk.get_attribute('href') or ''
+                        m = _re.search(r'articleid=(\d+)', href, _re.IGNORECASE)
+                        if m:
+                            aid = int(m.group(1))
+                            if aid > pre_max_article_id:
+                                pre_max_article_id = aid
+                    if pre_max_article_id:
+                        print(f"  📌 등록 전 최신 articleid: {pre_max_article_id}")
+                except Exception:
+                    pass
                 self.random_delay(2, 3)
                 submit_success = False
                 try:
@@ -1107,22 +1122,51 @@ class NaverCafeWorker:
                 post_url = None
                 try:
                     current = self.driver.current_url
-                    if "articleid=" in current.lower():
+                    # 1단계: redirect URL에 내 글 articleid가 있는지 확인
+                    m = _re.search(r'articleid=(\d+)', current, _re.IGNORECASE)
+                    if m and int(m.group(1)) > pre_max_article_id:
                         post_url = current
-                    elif "cafe.naver.com" in current:
+                        print(f"  ✅ 내 글 URL (redirect): articleid={m.group(1)}")
+                    # 2단계: 페이지 링크에서 pre_max보다 큰 새 articleid 탐색
+                    if not post_url:
                         try:
                             if not new_window:
                                 self.driver.switch_to.default_content()
-                                cafe_iframe = self.driver.find_element(By.ID, "cafe_main")
-                                self.driver.switch_to.frame(cafe_iframe)
-                            links = self.driver.find_elements(By.XPATH, "//a[contains(@href,'articleid=')]")
-                            if links:
-                                post_url = links[0].get_attribute('href')
+                                try:
+                                    fi = self.driver.find_element(By.ID, "cafe_main")
+                                    self.driver.switch_to.frame(fi)
+                                except Exception:
+                                    pass
+                            new_max_id = 0
+                            new_url = None
+                            for lnk in self.driver.find_elements(By.XPATH, "//a[contains(@href,'articleid=')]"):
+                                href = lnk.get_attribute('href') or ''
+                                m2 = _re.search(r'articleid=(\d+)', href, _re.IGNORECASE)
+                                if m2:
+                                    aid = int(m2.group(1))
+                                    if aid > pre_max_article_id and aid > new_max_id:
+                                        new_max_id = aid
+                                        new_url = href
+                            if new_url:
+                                post_url = new_url
+                                print(f"  ✅ 내 글 URL (새 articleid={new_max_id}): {post_url[:80]}")
+                        except Exception:
+                            pass
+                    # 3단계: 제목 매칭
+                    if not post_url:
+                        try:
+                            for lnk in self.driver.find_elements(By.XPATH, f"//a[contains(text(), '{post_title[:10]}')]"):
+                                href = lnk.get_attribute('href') or ''
+                                if 'articleid=' in href.lower():
+                                    post_url = href
+                                    print(f"  ✅ 내 글 URL (제목 매칭): {post_url[:80]}")
+                                    break
                         except Exception:
                             pass
                     if not post_url:
                         post_url = current
-                    print(f"  ✅ 글 URL 캡처: {post_url[:80]}...")
+                        print(f"  ⚠️  URL fallback: {post_url[:80]}")
+                    print(f"  ✅ 글 URL 캡처 완료: {post_url[:80]}...")
                 except Exception as e:
                     print(f"  ❌ URL 캡처 실패: {e}")
                 try:

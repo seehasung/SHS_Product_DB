@@ -416,12 +416,61 @@ def start_scheduler():
         replace_existing=True
     )
     
+    # ─── AI 자동화 스케줄 체크 (1분마다) ───
+    scheduler.add_job(
+        check_ai_schedules,
+        trigger=IntervalTrigger(minutes=1),
+        id='check_ai_schedules',
+        name='AI 자동화 스케줄 체크',
+        replace_existing=True
+    )
+
     scheduler.start()
     print("✅ 스케줄러 시작됨")
     print("   - 미완료 업무 알림: 30분마다")
     print("   - 알림 정리: 매일 자정")
     print("   - 통관 절차 이상 체크: 매일 13시, 18시")
     print("   - 네이버 송장 흐름 체크: 매일 9시, 13시 30분, 18시 30분")
+    print("   - AI 자동화 스케줄 체크: 1분마다")
+
+
+async def check_ai_schedules():
+    """AI 자동화 스케줄 (신규발행 + 수정발행) 실행 체크 - 1분마다"""
+    from database import AIMarketingSchedule, DraftCreationSchedule
+    from routers.ai_automation import _execute_ai_schedule, _execute_draft_schedule
+
+    db = SessionLocal()
+    now = get_kst_now()
+    try:
+        # ── 신규발행(인사글) 스케줄 ──
+        draft_schedules = db.query(DraftCreationSchedule).filter(
+            DraftCreationSchedule.is_active == True,
+            DraftCreationSchedule.next_run_at != None,
+            DraftCreationSchedule.next_run_at <= now,
+        ).all()
+        for s in draft_schedules:
+            try:
+                print(f"🚀 [신규발행 스케줄 #{s.id}] 자동 실행")
+                await _execute_draft_schedule(s.id, db)
+            except Exception as e:
+                print(f"⚠️ 신규발행 스케줄 #{s.id} 실행 오류: {e}")
+
+        # ── 수정발행(AI) 스케줄 ──
+        ai_schedules = db.query(AIMarketingSchedule).filter(
+            AIMarketingSchedule.is_active == True,
+            AIMarketingSchedule.next_run_at != None,
+            AIMarketingSchedule.next_run_at <= now,
+        ).all()
+        for s in ai_schedules:
+            try:
+                print(f"🚀 [AI 수정발행 스케줄 #{s.id}] 자동 실행")
+                await _execute_ai_schedule(s.id, db)
+            except Exception as e:
+                print(f"⚠️ AI 수정발행 스케줄 #{s.id} 실행 오류: {e}")
+    except Exception as e:
+        print(f"⚠️ check_ai_schedules 오류: {e}")
+    finally:
+        db.close()
 
 
 def stop_scheduler():

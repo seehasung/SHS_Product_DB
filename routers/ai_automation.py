@@ -1268,24 +1268,32 @@ async def add_schedule_json(
     start_date: date = Form(...),
     end_date: date = Form(...),
     daily_post_count: int = Form(...),
+    scheduled_hour: int = Form(9),
+    scheduled_minute: int = Form(0),
+    repeat_type: str = Form('daily'),
+    repeat_days: str = Form(None),
+    posts_per_account: int = Form(1),
     db: Session = Depends(get_db)
 ):
     """스케줄 추가 (JSON)"""
     current_user = get_current_user(request, db)
     if not current_user:
         return JSONResponse({"success": False, "error": "로그인이 필요합니다"}, status_code=401)
-    
+
     try:
         # 예상 총 글 발행 수 계산 (주말 제외)
-        current = start_date
+        current_d = start_date
         work_days = 0
-        while current <= end_date:
-            if current.weekday() < 5:  # 월~금
+        while current_d <= end_date:
+            if current_d.weekday() < 5:
                 work_days += 1
-            current += timedelta(days=1)
-        
+            current_d += timedelta(days=1)
+
         expected_total = work_days * daily_post_count
-        
+
+        # next_run_at 계산
+        next_run = _calc_next_run(scheduled_hour, scheduled_minute, repeat_type, repeat_days)
+
         new_schedule = AIMarketingSchedule(
             ai_product_id=ai_product_id,
             prompt_id=prompt_id,
@@ -1293,13 +1301,20 @@ async def add_schedule_json(
             end_date=end_date,
             daily_post_count=daily_post_count,
             expected_total_posts=expected_total,
+            scheduled_hour=scheduled_hour,
+            scheduled_minute=scheduled_minute,
+            repeat_type=repeat_type,
+            repeat_days=repeat_days,
+            posts_per_account=posts_per_account,
+            next_run_at=next_run,
+            is_active=True,
             status='scheduled'
         )
-        
+
         db.add(new_schedule)
         db.commit()
         db.refresh(new_schedule)
-        
+
         return JSONResponse({"success": True, "id": new_schedule.id})
     except Exception as e:
         db.rollback()
@@ -1830,6 +1845,84 @@ async def get_generated_posts_list(
         
         return JSONResponse({'success': True, 'posts': posts_data})
     except Exception as e:
+        return JSONResponse({'success': False, 'error': str(e)}, status_code=500)
+
+
+@router.get("/api/post-history")
+async def get_post_history(
+    request: Request,
+    account: Optional[int] = Query(None),
+    cafe: Optional[int] = Query(None),
+    product: Optional[int] = Query(None),
+    page: int = Query(1),
+    page_size: int = Query(50),
+    db: Session = Depends(get_db)
+):
+    """수정 발행 이력 조회 (AI 신규발행 탭용)"""
+    current_user = get_current_user(request, db)
+    if not current_user:
+        return JSONResponse({"success": False, "error": "로그인이 필요합니다"}, status_code=401)
+
+    try:
+        from database import CafeAccountLink, DraftPost, AIMarketingProduct
+        from sqlalchemy import desc as _desc
+
+        query = db.query(AutomationTask).filter(
+            AutomationTask.task_type == 'post',
+            AutomationTask.status == 'completed',
+        )
+
+        if account:
+            query = query.filter(AutomationTask.assigned_account_id == account)
+        if cafe:
+            query = query.filter(AutomationTask.cafe_id == cafe)
+        if product:
+            query = query.filter(AutomationTask.schedule_id.in_(
+                db.query(AIMarketingSchedule.id).filter(AIMarketingSchedule.ai_product_id == product)
+            ))
+
+        total = query.count()
+        tasks = query.order_by(_desc(AutomationTask.completed_at)).offset((page - 1) * page_size).limit(page_size).all()
+
+        result = []
+        for t in tasks:
+            acc = db.query(AutomationAccount).get(t.assigned_account_id) if t.assigned_account_id else None
+            cafe_obj = db.query(AutomationCafe).get(t.cafe_id) if t.cafe_id else None
+            schedule = db.query(AIMarketingSchedule).get(t.schedule_id) if t.schedule_id else None
+            product_obj = db.query(AIMarketingProduct).get(schedule.ai_product_id) if schedule else None
+
+            # DraftPost 상태 조회
+            draft_url = None
+            draft_status = None
+            if t.error_message and 'MODIFY_URL:' in t.error_message:
+                draft_url = t.error_message.split('MODIFY_URL:')[1].strip()
+                dp = db.query(DraftPost).filter(DraftPost.draft_url == draft_url).first()
+                draft_status = dp.status if dp else None
+
+            result.append({
+                'task_id': t.id,
+                'account_id': acc.account_id if acc else '',
+                'cafe_name': cafe_obj.name if cafe_obj else '',
+                'cafe_id': t.cafe_id,
+                'product_name': product_obj.product_name if product_obj else '',
+                'product_id': product_obj.id if product_obj else None,
+                'keyword': t.keyword or '',
+                'draft_url': draft_url or '',
+                'post_url': t.post_url or '',
+                'draft_status': draft_status or 'used',
+                'completed_at': t.completed_at.isoformat() if t.completed_at else None,
+            })
+
+        return JSONResponse({
+            'success': True,
+            'posts': result,
+            'total': total,
+            'page': page,
+            'page_size': page_size,
+        })
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
         return JSONResponse({'success': False, 'error': str(e)}, status_code=500)
 
 
@@ -2807,6 +2900,25 @@ async def delete_draft_post(
         return JSONResponse({'success': False, 'error': str(e)}, status_code=500)
 
 
+@router.get("/api/products/list")
+async def get_ai_products_list(
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    """AI 상품 목록 (필터용)"""
+    current_user = get_current_user(request, db)
+    if not current_user:
+        return JSONResponse({"success": False, "error": "로그인이 필요합니다"}, status_code=401)
+    try:
+        products = db.query(AIMarketingProduct).order_by(AIMarketingProduct.id.desc()).all()
+        return JSONResponse({
+            'success': True,
+            'products': [{'id': p.id, 'product_name': p.product_name} for p in products]
+        })
+    except Exception as e:
+        return JSONResponse({'success': False, 'error': str(e)}, status_code=500)
+
+
 @router.get("/api/schedules")
 async def get_ai_schedules(
     request: Request,
@@ -3341,6 +3453,153 @@ async def _execute_draft_schedule(schedule_id: int, db: Session) -> dict:
         'details': tasks_created,
         'skipped': skipped,
     }
+
+
+# ─────────────────────────────────────────────────────────────
+# AI 수정발행 스케줄 실행 함수
+# ─────────────────────────────────────────────────────────────
+async def _execute_ai_schedule(schedule_id: int, db: Session) -> dict:
+    """
+    AI 마케팅 스케줄 실행:
+    - PC → 계정 → DraftPost(available) 에서 posts_per_account개 랜덤 선택
+    - 오늘 이미 해당 (계정+카페)에 post 완료한 것 제외
+    - AutomationTask(task_type='post') 생성 후 WebSocket 전송
+    """
+    import random as _random
+
+    schedule = db.query(AIMarketingSchedule).get(schedule_id)
+    if not schedule:
+        return {'success': False, 'message': '스케줄을 찾을 수 없습니다.'}
+
+    now = get_kst_now()
+    today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+
+    pcs = db.query(AutomationWorkerPC).all()
+    if not pcs:
+        return {'success': False, 'message': '등록된 Worker PC가 없습니다.'}
+
+    tasks_created = []
+    skipped = []
+
+    for pc in pcs:
+        accounts = db.query(AutomationAccount).filter(
+            AutomationAccount.assigned_pc_id == pc.id,
+            AutomationAccount.status == 'active'
+        ).all()
+
+        for account in accounts:
+            # 오늘 이미 post 완료한 (계정+카페) 조합 제외
+            done_today = db.query(AutomationTask).filter(
+                AutomationTask.task_type == 'post',
+                AutomationTask.assigned_account_id == account.id,
+                AutomationTask.status == 'completed',
+                AutomationTask.completed_at >= today_start
+            ).all()
+            done_cafe_ids = {t.cafe_id for t in done_today}
+
+            # 이 계정의 available DraftPost 조회 (CafeAccountLink 경유)
+            from database import CafeAccountLink
+            available_links = db.query(CafeAccountLink).filter(
+                CafeAccountLink.account_id == account.id,
+                CafeAccountLink.status == 'active',
+            ).all()
+
+            eligible = []
+            for link in available_links:
+                if link.cafe_id in done_cafe_ids:
+                    continue
+                draft = db.query(DraftPost).filter(
+                    DraftPost.link_id == link.id,
+                    DraftPost.status == 'available'
+                ).first()
+                if draft:
+                    eligible.append((link, draft))
+
+            if not eligible:
+                skipped.append(f"PC#{pc.pc_number}/{account.account_id}: available DraftPost 없음")
+                continue
+
+            n = min(schedule.posts_per_account or 1, len(eligible))
+            selected = _random.sample(eligible, n)
+
+            for link, draft in selected:
+                cafe = db.query(AutomationCafe).get(link.cafe_id)
+                task = AutomationTask(
+                    task_type='post',
+                    mode='ai',
+                    status='pending',
+                    schedule_id=schedule_id,
+                    assigned_pc_id=pc.id,
+                    assigned_account_id=account.id,
+                    cafe_id=link.cafe_id,
+                    scheduled_time=now,
+                    error_message=f"MODIFY_URL:{draft.draft_url}",
+                    keyword=schedule.ai_product.keyword_text if schedule.ai_product else None,
+                )
+                db.add(task)
+                db.flush()
+                tasks_created.append({
+                    'task_id': task.id,
+                    'pc_number': pc.pc_number,
+                    'account_id': account.account_id,
+                    'cafe_id': link.cafe_id,
+                    'draft_url': draft.draft_url,
+                })
+
+    db.commit()
+
+    # WebSocket 즉시 전송 시도
+    from routers.automation import worker_connections, send_task_to_worker
+    sent = []
+    queued = []
+    for t_info in tasks_created:
+        task_obj = db.query(AutomationTask).get(t_info['task_id'])
+        pc_num = t_info['pc_number']
+        if pc_num in worker_connections:
+            try:
+                await send_task_to_worker(pc_num, task_obj, db)
+                task_obj.status = 'assigned'
+                db.commit()
+                sent.append(t_info)
+            except Exception as e:
+                queued.append({**t_info, 'reason': str(e)})
+        else:
+            queued.append({**t_info, 'reason': '워커 오프라인 - DB 대기'})
+
+    # 스케줄 last_run_at / next_run_at 업데이트
+    schedule.last_run_at = now
+    if schedule.repeat_type == 'once':
+        schedule.is_active = False
+        schedule.next_run_at = None
+    else:
+        schedule.next_run_at = _calc_next_run(
+            schedule.scheduled_hour, schedule.scheduled_minute,
+            schedule.repeat_type, schedule.repeat_days
+        )
+    db.commit()
+
+    return {
+        'success': True,
+        'tasks_created': len(tasks_created),
+        'sent': len(sent),
+        'queued': len(queued),
+        'details': tasks_created,
+        'skipped': skipped,
+    }
+
+
+@router.post("/api/ai-schedules/{schedule_id}/run")
+async def run_ai_schedule(
+    schedule_id: int,
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    """AI 수정발행 스케줄 즉시 실행"""
+    current_user = get_current_user(request, db)
+    if not current_user:
+        return JSONResponse({"success": False, "error": "로그인이 필요합니다"}, status_code=401)
+    result = await _execute_ai_schedule(schedule_id, db)
+    return JSONResponse(result)
 
 
 @router.post("/api/draft-schedules/{schedule_id}/run")
