@@ -1179,6 +1179,42 @@ async def complete_task(
                 task.error_message = f"cafe_comment_id:{cafe_comment_id}"
                 print(f"  📌 카페 댓글 ID 저장: {cafe_comment_id}")
 
+            # ★ create_draft 완료 시 DraftPost 생성
+            if task.task_type == 'create_draft' and post_url:
+                try:
+                    import re as _re
+                    from database import CafeAccountLink
+                    link = db.query(CafeAccountLink).filter(
+                        CafeAccountLink.cafe_id == task.cafe_id,
+                        CafeAccountLink.account_id == task.assigned_account_id,
+                        CafeAccountLink.status == 'active'
+                    ).first()
+                    if link:
+                        article_id = ''
+                        m = _re.search(r'articleid=(\d+)', post_url, _re.IGNORECASE)
+                        if m:
+                            article_id = m.group(1)
+                        # 중복 방지: 같은 URL이 이미 저장되어 있으면 skip
+                        existing = db.query(DraftPost).filter(
+                            DraftPost.draft_url == post_url
+                        ).first()
+                        if not existing:
+                            draft_post_new = DraftPost(
+                                link_id=link.id,
+                                draft_url=post_url,
+                                article_id=article_id,
+                                status='available'
+                            )
+                            db.add(draft_post_new)
+                            link.draft_post_count = (link.draft_post_count or 0) + 1
+                            print(f"  ✅ DraftPost 저장 (HTTP): {post_url[:60]}...")
+                        else:
+                            print(f"  ℹ️  DraftPost 이미 존재: {post_url[:60]}...")
+                    else:
+                        print(f"  ⚠️  CafeAccountLink 없음 (cafe_id={task.cafe_id}, account_id={task.assigned_account_id})")
+                except Exception as dp_err:
+                    print(f"  ⚠️ DraftPost 저장 실패: {dp_err}")
+
             # ★ post 완료 시 DraftPost를 '사용됨'으로 업데이트
             if (task.task_type == 'post'
                     and task.error_message

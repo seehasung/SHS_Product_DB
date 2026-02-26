@@ -5307,34 +5307,40 @@ async function showKeywordCount() {
 
 // 총 발행 수 계산
 function calculateTotal() {
-    const startDate = document.getElementById('scheduleStartDate').value;
-    const endDate = document.getElementById('scheduleEndDate').value;
-    const dailyCount = parseInt(document.getElementById('dailyPostCount').value) || 0;
-    
+    const startEl = document.getElementById('scheduleStartDate');
+    const endEl = document.getElementById('scheduleEndDate');
+    const countEl = document.getElementById('dailyPostCount');
+    const displayEl = document.getElementById('totalPostsDisplay');
+    const countDisplay = document.getElementById('totalPostsCount');
+    if (!startEl || !endEl || !countEl || !displayEl || !countDisplay) return;
+
+    const startDate = startEl.value;
+    const endDate = endEl.value;
+    const dailyCount = parseInt(countEl.value) || 0;
+
     if (!startDate || !endDate || !dailyCount) {
-        document.getElementById('totalPostsDisplay').style.display = 'none';
+        displayEl.style.display = 'none';
         return;
     }
-    
+
     const start = new Date(startDate);
     const end = new Date(endDate);
-    
+
     if (start > end) {
         alert('종료일은 시작일보다 이후여야 합니다.');
         return;
     }
-    
-    // 주말 제외한 일수 계산
+
     let workDays = 0;
     for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-        if (d.getDay() !== 0 && d.getDay() !== 6) { // 일요일(0), 토요일(6) 제외
+        if (d.getDay() !== 0 && d.getDay() !== 6) {
             workDays++;
         }
     }
-    
+
     const totalPosts = workDays * dailyCount;
-    document.getElementById('totalPostsCount').textContent = totalPosts;
-    document.getElementById('totalPostsDisplay').style.display = 'block';
+    countDisplay.textContent = totalPosts;
+    displayEl.style.display = 'block';
 }
 
 // 모달이 열릴 때 상품 목록 로드
@@ -7004,11 +7010,11 @@ async function loadDraftSchedules() {
                                 onclick="runScheduleNow(${s.id}, event)" title="지금 실행">
                                 <i class="bi bi-play-fill"></i>
                             </button>
-                            <button class="btn btn-sm btn-outline-primary"
+                            <button class="btn btn-sm btn-primary"
                                 onclick="showEditDraftScheduleModal(${s.id})" title="수정">
                                 <i class="bi bi-pencil"></i>
                             </button>
-                            <button class="btn btn-sm btn-outline-danger"
+                            <button class="btn btn-sm btn-danger"
                                 onclick="deleteDraftSchedule(${s.id})" title="삭제">
                                 <i class="bi bi-trash"></i>
                             </button>

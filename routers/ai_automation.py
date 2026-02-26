@@ -431,6 +431,25 @@ async def delete_keyword(keyword_id: int, db: Session = Depends(get_db)):
     return JSONResponse({"success": True})
 
 
+@router.get("/api/products/list")
+async def get_ai_products_list(
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    """AI 상품 목록 (필터용) - 반드시 /api/products/{product_id} 라우트보다 먼저 정의"""
+    current_user = get_current_user(request, db)
+    if not current_user:
+        return JSONResponse({"success": False, "error": "로그인이 필요합니다"}, status_code=401)
+    try:
+        products = db.query(AIMarketingProduct).order_by(AIMarketingProduct.id.desc()).all()
+        return JSONResponse({
+            'success': True,
+            'products': [{'id': p.id, 'product_name': p.product_name} for p in products]
+        })
+    except Exception as e:
+        return JSONResponse({'success': False, 'error': str(e)}, status_code=500)
+
+
 @router.get("/api/products/{product_id}/keywords")
 async def get_product_keywords(
     product_id: int,
@@ -1891,6 +1910,12 @@ async def get_post_history(
             schedule = db.query(AIMarketingSchedule).get(t.schedule_id) if t.schedule_id else None
             product_obj = db.query(AIMarketingProduct).get(schedule.ai_product_id) if schedule else None
 
+            # 상품명: schedule 링크가 없으면 task.title에서 폴백
+            resolved_product_name = (
+                product_obj.product_name if product_obj
+                else (t.title or '')
+            )
+
             # DraftPost 상태 조회
             draft_url = None
             draft_status = None
@@ -1904,7 +1929,7 @@ async def get_post_history(
                 'account_id': acc.account_id if acc else '',
                 'cafe_name': cafe_obj.name if cafe_obj else '',
                 'cafe_id': t.cafe_id,
-                'product_name': product_obj.product_name if product_obj else '',
+                'product_name': resolved_product_name,
                 'product_id': product_obj.id if product_obj else None,
                 'keyword': t.keyword or '',
                 'draft_url': draft_url or '',
@@ -2900,25 +2925,6 @@ async def delete_draft_post(
         return JSONResponse({'success': False, 'error': str(e)}, status_code=500)
 
 
-@router.get("/api/products/list")
-async def get_ai_products_list(
-    request: Request,
-    db: Session = Depends(get_db)
-):
-    """AI 상품 목록 (필터용)"""
-    current_user = get_current_user(request, db)
-    if not current_user:
-        return JSONResponse({"success": False, "error": "로그인이 필요합니다"}, status_code=401)
-    try:
-        products = db.query(AIMarketingProduct).order_by(AIMarketingProduct.id.desc()).all()
-        return JSONResponse({
-            'success': True,
-            'products': [{'id': p.id, 'product_name': p.product_name} for p in products]
-        })
-    except Exception as e:
-        return JSONResponse({'success': False, 'error': str(e)}, status_code=500)
-
-
 @router.get("/api/schedules")
 async def get_ai_schedules(
     request: Request,
@@ -3523,18 +3529,31 @@ async def _execute_ai_schedule(schedule_id: int, db: Session) -> dict:
             selected = _random.sample(eligible, n)
 
             for link, draft in selected:
-                cafe = db.query(AutomationCafe).get(link.cafe_id)
+                # 이 계정/상품의 첫 번째 활성 키워드 조회
+                keyword_str = None
+                if schedule.ai_product:
+                    kw = db.query(AIProductKeyword).filter(
+                        AIProductKeyword.ai_product_id == schedule.ai_product_id,
+                        AIProductKeyword.is_active == True
+                    ).first()
+                    if kw:
+                        keyword_str = kw.keyword_text
+
+                product_name_str = schedule.ai_product.product_name if schedule.ai_product else ''
+
                 task = AutomationTask(
                     task_type='post',
                     mode='ai',
                     status='pending',
-                    schedule_id=schedule_id,
+                    # schedule_id는 automation_schedules FK이므로 사용하지 않음
                     assigned_pc_id=pc.id,
                     assigned_account_id=account.id,
                     cafe_id=link.cafe_id,
                     scheduled_time=now,
+                    title=product_name_str,     # 상품명 보존용
+                    content=draft.draft_url,    # NOT NULL 충족용
                     error_message=f"MODIFY_URL:{draft.draft_url}",
-                    keyword=schedule.ai_product.keyword_text if schedule.ai_product else None,
+                    keyword=keyword_str,
                 )
                 db.add(task)
                 db.flush()
