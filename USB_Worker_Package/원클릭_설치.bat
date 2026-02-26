@@ -55,6 +55,14 @@ echo 다운로드 webdriver-manager...
 python -m pip install webdriver-manager -q
 echo OK webdriver-manager
 
+echo 다운로드 undetected-chromedriver...
+python -m pip install undetected-chromedriver -q
+echo OK undetected-chromedriver
+
+echo 다운로드 pyperclip...
+python -m pip install pyperclip -q
+echo OK pyperclip
+
 echo.
 echo OK 모든 패키지 설치 완료!
 echo.

@@ -877,29 +877,57 @@ class NaverCafeWorker:
                     print("  ℹ️  iframe 없음, 일반 페이지 진행")
                 write_btn = None
                 write_selectors = [
+                    (By.XPATH, '//*[@id="cafe_content"]/div[4]/div/div[2]/a'),
+                    (By.XPATH, '//*[@id="cafe_content"]//a[contains(@class,"write")]'),
                     (By.XPATH, '//a[contains(@class, "write")]'),
                     (By.XPATH, '//span[contains(text(), "글쓰기")]'),
                     (By.CLASS_NAME, 'btn_write'),
                     (By.XPATH, '//a[contains(@href, "ArticleWrite")]'),
                     (By.XPATH, '//button[contains(text(), "글쓰기")]'),
                     (By.XPATH, '//a[contains(text(), "글쓰기")]'),
+                    (By.CSS_SELECTOR, 'a.cafe-write-btn'),
+                    (By.CSS_SELECTOR, '[class*="write"]'),
                 ]
                 for by, value in write_selectors:
                     try:
                         for elem in self.driver.find_elements(by, value):
                             if elem.is_displayed():
                                 write_btn = elem
+                                print(f"  ✅ 글쓰기 버튼 발견: {value}")
                                 break
                         if write_btn:
                             break
                     except Exception:
                         continue
                 if not write_btn:
-                    print("  ❌ 글쓰기 버튼 없음")
+                    print("  ❌ 글쓰기 버튼 없음 - JavaScript로 재시도")
+                    try:
+                        write_btn_href = self.driver.execute_script("""
+                            var links = document.querySelectorAll('a');
+                            for(var i=0; i<links.length; i++){
+                                var txt = links[i].textContent.trim();
+                                var cls = links[i].className || '';
+                                var href = links[i].href || '';
+                                if(txt==='글쓰기' || cls.indexOf('write')>-1 || href.indexOf('ArticleWrite')>-1){
+                                    return links[i].href;
+                                }
+                            }
+                            return null;
+                        """)
+                        if write_btn_href:
+                            self.driver.get(write_btn_href)
+                            self.random_delay(3, 5)
+                            write_btn = True
+                            print(f"  ✅ 글쓰기 페이지 직접 이동: {write_btn_href[:60]}")
+                    except Exception as js_e:
+                        print(f"  ❌ JS 버튼 탐색 실패: {js_e}")
+                if not write_btn:
+                    print("  ❌ 글쓰기 버튼 최종 실패")
                     if iframe_found:
                         self.driver.switch_to.default_content()
                     continue
-                write_btn.click()
+                if write_btn is not True:
+                    write_btn.click()
                 self.random_delay(3, 5)
                 windows = self.driver.window_handles
                 new_window = len(windows) > 1
@@ -917,10 +945,39 @@ class NaverCafeWorker:
                             self.random_delay(0.5, 1)
                             if title_input.get_attribute('value'):
                                 title_success = True
-                                print("  ✅ 제목 입력 완료")
+                                print("  ✅ 제목 입력 완료 (textarea)")
                             break
-                except Exception as e:
-                    print(f"  ❌ 제목 입력 오류: {e}")
+                except Exception:
+                    pass
+                if not title_success:
+                    for sel in ['input[placeholder*="제목"]','input.se-input-title','input[name="subject"]','input[name="title"]','.se-title-input input','#subject','#title']:
+                        try:
+                            el = self.driver.find_element(By.CSS_SELECTOR, sel)
+                            if el.is_displayed():
+                                el.click()
+                                self.random_delay(0.3, 0.6)
+                                el.clear()
+                                el.send_keys(post_title)
+                                title_success = True
+                                print(f"  ✅ 제목 입력 완료 ({sel})")
+                                break
+                        except Exception:
+                            continue
+                if not title_success:
+                    try:
+                        for el in self.driver.find_elements(By.CSS_SELECTOR, '[contenteditable="true"]'):
+                            ph = el.get_attribute('data-placeholder') or ''
+                            al = el.get_attribute('aria-label') or ''
+                            if '제목' in ph or '제목' in al:
+                                el.click()
+                                self.random_delay(0.3, 0.6)
+                                el.send_keys(Keys.CONTROL, 'a')
+                                el.send_keys(post_title)
+                                title_success = True
+                                print("  ✅ 제목 입력 완료 (contenteditable)")
+                                break
+                    except Exception:
+                        pass
                 if not title_success:
                     print("  ❌ 제목 입력 실패 - 작업 중단")
                     try:
