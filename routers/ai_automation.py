@@ -3724,14 +3724,350 @@ async def _execute_draft_schedule(schedule_id: int, db: Session) -> dict:
 
 
 # ─────────────────────────────────────────────────────────────
+# 내부용 AI 글 생성 헬퍼 (인증 불필요)
+# ─────────────────────────────────────────────────────────────
+async def _generate_ai_content_internal(
+    prompt_id: int, keyword: str, cafe_id: int, db: Session
+) -> dict:
+    """
+    스케줄 자동 실행용 AI 글 생성 함수.
+    인증 없이 Claude API를 호출해 제목/본문/댓글을 반환한다.
+    반환: {'success': bool, 'title': str, 'body': str, 'comments': str, 'image_urls': list, 'error': str}
+    """
+    try:
+        import anthropic, os
+
+        prompt = db.query(AIPrompt).options(
+            joinedload(AIPrompt.ai_product)
+        ).filter(AIPrompt.id == prompt_id).first()
+        if not prompt or not prompt.ai_product:
+            return {'success': False, 'error': '프롬프트를 찾을 수 없습니다'}
+
+        product = prompt.ai_product
+        cafe = db.query(AutomationCafe).filter(AutomationCafe.id == cafe_id).first()
+        cafe_name = cafe.name if cafe else '알 수 없음'
+        cafe_characteristics = (
+            cafe.characteristics if cafe and cafe.characteristics
+            else '일반적인 톤, 자연스러운 대화체'
+        )
+
+        # 레퍼런스
+        ai_refs = db.query(AIProductReference).options(
+            joinedload(AIProductReference.reference).joinedload(Reference.comments)
+        ).filter(
+            AIProductReference.ai_product_id == product.id,
+            AIProductReference.reference_type == prompt.keyword_classification
+        ).limit(3).all()
+
+        reference_text = ''
+        for idx, ai_ref in enumerate(ai_refs):
+            if ai_ref.reference:
+                ref = ai_ref.reference
+                reference_text += f'\n\n【예시 {idx + 1}: {ref.title}】\n{ref.content}\n'
+                if ref.comments:
+                    reference_text += '\n댓글:\n'
+                    for c in ref.comments[:5]:
+                        reference_text += f'- 계정{c.account_sequence}: {c.text}\n'
+
+        # 변수 치환
+        replacements = {
+            '{타겟_키워드}': keyword, '{keyword}': keyword,
+            '{product_name}': product.product_name,
+            '{core_value}': product.core_value or '',
+            '{sub_core_value}': product.sub_core_value or '',
+            '{size_weight}': product.size_weight or '',
+            '{difference}': product.difference or '',
+            '{famous_brands}': product.famous_brands or '',
+            '{market_problem}': product.market_problem or '',
+            '{our_price}': product.our_price or '',
+            '{market_avg_price}': product.market_avg_price or '',
+            '{target_age}': product.target_age or '',
+            '{target_gender}': product.target_gender or '',
+            '{additional_info}': product.additional_info or '',
+            '{marketing_link}': product.marketing_link or '',
+        }
+        user_prompt = prompt.user_prompt
+        system_prompt = prompt.system_prompt
+        for var, val in replacements.items():
+            user_prompt = user_prompt.replace(var, str(val))
+            system_prompt = system_prompt.replace(var, str(val))
+
+        if reference_text:
+            user_prompt += f'\n\n참고할 예시 글들:{reference_text}\n\n위 예시들의 톤과 스타일을 참고하여 자연스럽고 진정성 있는 글을 작성해주세요.'
+
+        if prompt.apply_cafe_context:
+            user_prompt += f'\n\n[발행될 카페 정보]\n- 카페명: {cafe_name}\n- 카페 특성: {cafe_characteristics}\n\n위 카페의 특성에 맞춰 자연스럽게 작성해주세요.'
+
+        # 댓글 지침
+        from database import CafeAccountLink as _Cal
+        cafe_links_cnt = db.query(_Cal).filter(_Cal.cafe_id == cafe_id).count()
+        comment_account_count = max(1, cafe_links_cnt - 1)
+        user_prompt += f'''
+
+[댓글 작성 지침 - 중요!]
+- 이 카페에 가입된 계정은 총 {cafe_links_cnt}개입니다 (작성자 포함).
+- 댓글 작성자는 정확히 {comment_account_count}명만 사용하세요.
+- 작성자명: '계정1'부터 '계정{comment_account_count}'까지'''
+
+        api_key = os.environ.get('ANTHROPIC_API_KEY')
+        if not api_key:
+            return {'success': False, 'error': 'ANTHROPIC_API_KEY 환경변수 없음'}
+
+        client = anthropic.Anthropic(api_key=api_key)
+        response = client.messages.create(
+            model='claude-opus-4-5',
+            max_tokens=prompt.max_tokens,
+            temperature=prompt.temperature,
+            system=system_prompt,
+            messages=[{'role': 'user', 'content': user_prompt}]
+        )
+        raw = response.content[0].text
+        print(f'  [AI생성] 키워드={keyword} / 길이={len(raw)}자')
+
+        # 제목/본문/댓글 분리 (test_generate_content와 동일 로직)
+        def _split(text):
+            title = body = comments = ''
+            sections = text.split('---')
+            if len(sections) >= 3:
+                t, b, c = sections[0].strip(), sections[1].strip(), sections[2].strip()
+                for prefix in ['# 제목', '**제목:**', '**제목**']:
+                    if t.startswith(prefix):
+                        title = t.replace(prefix, '', 1).strip(); break
+                else:
+                    lines = t.split('\n')
+                    title = lines[0].replace('#', '').strip()
+                for prefix in ['# 본문', '## 본문', '**본문:**', '**본문**']:
+                    if b.startswith(prefix):
+                        body = b.replace(prefix, '', 1).strip(); break
+                else:
+                    body = b
+                for prefix in ['# 댓글', '**댓글:**', '**댓글**']:
+                    if c.startswith(prefix):
+                        comments = c.replace(prefix, '', 1).strip(); break
+                else:
+                    comments = c
+            elif len(sections) == 2:
+                t, b = sections[0].strip(), sections[1].strip()
+                title = t.replace('# 제목', '', 1).strip() if t.startswith('# 제목') else t.split('\n')[0].replace('#', '').strip()
+                body = b.replace('# 본문', '', 1).strip() if b.startswith('# 본문') else b
+            else:
+                lines = text.strip().split('\n')
+                if lines and lines[0].startswith('#'):
+                    title = lines[0].replace('#', '').strip()
+                    body = '\n'.join(lines[1:]).strip()
+                else:
+                    body = text.strip()
+            return title, body, comments
+
+        title, body, comments = _split(raw)
+
+        # 이미지 생성 (prompt 설정에 따라)
+        image_urls = []
+        if prompt.generate_images:
+            try:
+                n_product = getattr(prompt, 'product_image_count', 1) or 1
+                n_attract = getattr(prompt, 'attract_image_count', 2) or 2
+                attract_pool_raw = getattr(prompt, 'attract_image_prompts', None)
+                attract_pool = []
+                if attract_pool_raw:
+                    import json as _j
+                    try:
+                        attract_pool = _j.loads(attract_pool_raw)
+                    except Exception:
+                        attract_pool = [p.strip() for p in attract_pool_raw.split('\n') if p.strip()]
+
+                import random as _rnd
+                # 제품 이미지 프롬프트 (Claude로 생성)
+                for _ in range(n_product):
+                    prod_prompt_text = (
+                        f"Professional product photography of {product.product_name}. "
+                        f"{product.core_value}. High quality, clean background, "
+                        f"natural lighting, 4K resolution."
+                    )
+                    url = await generate_images_with_imagen(prod_prompt_text, 1)
+                    if url:
+                        image_urls.extend(url if isinstance(url, list) else [url])
+
+                # 어그로 이미지
+                for _ in range(n_attract):
+                    if attract_pool:
+                        ap = _rnd.choice(attract_pool)
+                        tail = ", slight lens distortion, minor motion blur, not perfectly composed, natural imperfections, no AI look"
+                        url = await generate_images_with_imagen(ap + tail, 1)
+                        if url:
+                            image_urls.extend(url if isinstance(url, list) else [url])
+            except Exception as img_err:
+                print(f'  ⚠️ 이미지 생성 오류 (무시): {img_err}')
+
+        return {
+            'success': True,
+            'title': title,
+            'body': body,
+            'comments': comments,
+            'image_urls': image_urls,
+        }
+    except Exception as e:
+        import traceback; traceback.print_exc()
+        return {'success': False, 'error': str(e)}
+
+
+# ─────────────────────────────────────────────────────────────
+# AI 순차 실행 큐 (메모리) - schedule_id → deque of group_info
+# ─────────────────────────────────────────────────────────────
+from collections import deque as _deque
+_ai_schedule_queues: dict = {}       # schedule_id → deque[group_info]
+_ai_task_schedule_map: dict = {}     # post_task_id → schedule_id
+
+
+async def _run_ai_group(group_info: dict, schedule_id: int, db) -> int | None:
+    """
+    단일 그룹 실행: AI 생성 → post task + 댓글 task 생성 → 첫 task 전송
+    반환: post_task.id (실패 시 None)
+    """
+    import random as _r
+    import json as _j
+
+    account_id  = group_info['account_id']
+    pc_id       = group_info['pc_id']
+    pc_number   = group_info['pc_number']
+    link_id     = group_info['link_id']
+    cafe_id     = group_info['cafe_id']
+    draft_url   = group_info['draft_url']
+    draft_id    = group_info['draft_id']
+    keyword_str = group_info['keyword']
+    prompt_id   = group_info['prompt_id']
+    product_name= group_info['product_name']
+    now         = group_info['now']
+
+    # ── AI 글/댓글/이미지 생성 ─────────────────────────────────
+    print(f"\n  🤖 [AI그룹] 생성 중... PC#{pc_number} / 키워드={keyword_str} / cafe_id={cafe_id}")
+    ai_result = await _generate_ai_content_internal(prompt_id, keyword_str or product_name, cafe_id, db)
+    if not ai_result.get('success'):
+        print(f"  ❌ AI 생성 실패: {ai_result.get('error')}")
+        return None
+
+    ai_title = ai_result['title'] or keyword_str or product_name
+    ai_body  = ai_result['body']
+    ai_comments_text = ai_result.get('comments', '')
+    ai_image_urls    = ai_result.get('image_urls', [])
+    image_urls_json  = _j.dumps(ai_image_urls) if ai_image_urls else None
+
+    # ── post task 생성 ─────────────────────────────────────────
+    account = db.query(AutomationAccount).get(account_id)
+    post_task = AutomationTask(
+        task_type='post', mode='ai', status='pending',
+        assigned_pc_id=pc_id, assigned_account_id=account_id,
+        cafe_id=cafe_id, scheduled_time=now,
+        title=ai_title, content=ai_body,
+        error_message=f"MODIFY_URL:{draft_url}",
+        keyword=keyword_str, image_urls=image_urls_json,
+    )
+    db.add(post_task)
+    db.flush()
+    print(f"  ✅ post Task #{post_task.id} (제목: {ai_title[:30]}...)")
+
+    # ── 댓글/대댓글 task 생성 ──────────────────────────────────
+    from database import CafeAccountLink as _Cal
+    other_accs = []
+    for cl in db.query(_Cal).filter(_Cal.cafe_id == cafe_id, _Cal.status == 'active', _Cal.account_id != account_id).all():
+        acc = db.query(AutomationAccount).filter(AutomationAccount.id == cl.account_id, AutomationAccount.status == 'active').first()
+        if acc:
+            other_accs.append(acc)
+
+    comment_count = 0
+    if ai_comments_text and other_accs:
+        def _parse(text):
+            res = []
+            for line in text.strip().split('\n'):
+                if not line.strip() or line.startswith('---') or line.startswith('#'): continue
+                lvl = 0
+                while line.startswith('>'): lvl += 1; line = line[1:].strip()
+                if '**' in line and ':**' in line:
+                    try:
+                        parts = line.split('**')
+                        if len(parts) >= 3:
+                            acct = parts[1].split(':')[0].strip()
+                            content = '**'.join(parts[2:]).strip()
+                            res.append({'level': lvl, 'account': acct, 'content': content})
+                    except: pass
+            return res
+
+        parsed = _parse(ai_comments_text)
+        task_map = {}
+        for idx, cm in enumerate(parsed):
+            parent_id = post_task.id
+            task_type_cm = 'comment' if cm['level'] == 0 else 'reply'
+            if cm['level'] > 0:
+                for i in range(idx - 1, -1, -1):
+                    if parsed[i]['level'] == 0:
+                        parent_id = task_map.get(i, post_task.id); break
+
+            target_acc_id = target_pc_id = None
+            aname = cm['account']
+            if aname == '작성자':
+                target_acc_id, target_pc_id = account_id, pc_id
+            elif aname.startswith('계정'):
+                import re as _re
+                m = _re.search(r'\d+', aname)
+                if m and other_accs:
+                    oa = other_accs[(int(m.group()) - 1) % len(other_accs)]
+                    target_acc_id, target_pc_id = oa.id, oa.assigned_pc_id
+
+            ct = AutomationTask(
+                task_type=task_type_cm, mode='ai', status='pending',
+                scheduled_time=now, content=cm['content'],
+                parent_task_id=parent_id, order_sequence=idx,
+                cafe_id=cafe_id, assigned_pc_id=target_pc_id,
+                assigned_account_id=target_acc_id, priority=10,
+            )
+            db.add(ct); db.flush()
+            task_map[idx] = ct.id
+            comment_count += 1
+
+    db.commit()
+    print(f"  💬 댓글 {comment_count}개 생성")
+
+    # ── post task 워커에 전송 ──────────────────────────────────
+    from routers.automation import worker_connections, send_task_to_worker
+    if pc_number in worker_connections:
+        await send_task_to_worker(pc_number, post_task, db)
+        post_task.status = 'assigned'; db.commit()
+        print(f"  📤 Task #{post_task.id} → PC #{pc_number} 전송")
+    else:
+        print(f"  ⏳ PC #{pc_number} 오프라인 - DB 대기")
+
+    # ── DraftPost 예약 처리 ────────────────────────────────────
+    draft = db.query(DraftPost).get(draft_id)
+    if draft:
+        draft.status = 'reserved'
+        db.commit()
+
+    return post_task.id
+
+
+async def _execute_next_ai_group(schedule_id: int, db) -> bool:
+    """큐에서 다음 그룹을 꺼내 실행. 큐가 비면 False 반환."""
+    queue = _ai_schedule_queues.get(schedule_id)
+    if not queue:
+        print(f"  ✅ [AI스케줄#{schedule_id}] 모든 그룹 처리 완료")
+        return False
+
+    group_info = queue.popleft()
+    post_task_id = await _run_ai_group(group_info, schedule_id, db)
+    if post_task_id:
+        _ai_task_schedule_map[post_task_id] = schedule_id
+    return True
+
+
+# ─────────────────────────────────────────────────────────────
 # AI 수정발행 스케줄 실행 함수
 # ─────────────────────────────────────────────────────────────
 async def _execute_ai_schedule(schedule_id: int, db: Session) -> dict:
     """
-    AI 마케팅 스케줄 실행:
-    - PC → 계정 → DraftPost(available) 에서 posts_per_account개 랜덤 선택
-    - 오늘 이미 해당 (계정+카페)에 post 완료한 것 제외
-    - AutomationTask(task_type='post') 생성 후 WebSocket 전송
+    AI 수정발행 스케줄 실행 (완전 순차).
+    1) 전체 실행 계획(그룹 목록)을 빌드하여 메모리 큐에 저장
+    2) 첫 번째 그룹만 즉시 AI 생성 → task 생성 → 전송
+    3) 이후 그룹들은 _dispatch_next_task_bg 가 마지막 댓글 완료 시 하나씩 꺼내 실행
     """
     import random as _random
 
@@ -3742,12 +4078,34 @@ async def _execute_ai_schedule(schedule_id: int, db: Session) -> dict:
     now = get_kst_now()
     today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
 
-    pcs = db.query(AutomationWorkerPC).all()
+    pcs = db.query(AutomationWorkerPC).order_by(AutomationWorkerPC.pc_number).all()
     if not pcs:
         return {'success': False, 'message': '등록된 Worker PC가 없습니다.'}
 
-    tasks_created = []
+    # ── 활성 키워드 한 번만 조회 ──────────────────────────────
+    active_kws = []
+    if schedule.ai_product:
+        active_kws = db.query(AIProductKeyword).filter(
+            AIProductKeyword.ai_product_id == schedule.ai_product_id,
+            AIProductKeyword.is_active == True
+        ).all()
+
+    def _pick_keyword():
+        if not active_kws:
+            return None
+        eligible = [k for k in active_kws if db.query(AutomationTask).filter(
+            AutomationTask.task_type == 'post',
+            AutomationTask.keyword == k.keyword_text,
+            AutomationTask.status == 'completed'
+        ).count() < 6]
+        pool = eligible if eligible else active_kws
+        return _random.choice(pool).keyword_text
+
+    product_name = schedule.ai_product.product_name if schedule.ai_product else ''
+    groups = []   # 실행 계획
     skipped = []
+
+    from database import CafeAccountLink
 
     for pc in pcs:
         accounts = db.query(AutomationAccount).filter(
@@ -3756,24 +4114,18 @@ async def _execute_ai_schedule(schedule_id: int, db: Session) -> dict:
         ).all()
 
         for account in accounts:
-            # 오늘 이미 post 완료한 (계정+카페) 조합 제외
-            done_today = db.query(AutomationTask).filter(
+            done_cafe_ids = {t.cafe_id for t in db.query(AutomationTask).filter(
                 AutomationTask.task_type == 'post',
                 AutomationTask.assigned_account_id == account.id,
                 AutomationTask.status == 'completed',
                 AutomationTask.completed_at >= today_start
-            ).all()
-            done_cafe_ids = {t.cafe_id for t in done_today}
-
-            # 이 계정의 available DraftPost 조회 (CafeAccountLink 경유)
-            from database import CafeAccountLink
-            available_links = db.query(CafeAccountLink).filter(
-                CafeAccountLink.account_id == account.id,
-                CafeAccountLink.status == 'active',
-            ).all()
+            ).all()}
 
             eligible = []
-            for link in available_links:
+            for link in db.query(CafeAccountLink).filter(
+                CafeAccountLink.account_id == account.id,
+                CafeAccountLink.status == 'active'
+            ).all():
                 if link.cafe_id in done_cafe_ids:
                     continue
                 draft = db.query(DraftPost).filter(
@@ -3784,93 +4136,38 @@ async def _execute_ai_schedule(schedule_id: int, db: Session) -> dict:
                     eligible.append((link, draft))
 
             if not eligible:
-                skipped.append(f"PC#{pc.pc_number}/{account.account_id}: available DraftPost 없음")
+                skipped.append(f"PC#{pc.pc_number}/{account.account_id}: DraftPost 없음")
                 continue
 
             n = min(schedule.posts_per_account or 1, len(eligible))
-            selected = _random.sample(eligible, n)
-
-            for link, draft in selected:
-                # 활성 키워드 중 발행 횟수 6회 미만인 것만 랜덤 선택
-                keyword_str = None
-                if schedule.ai_product:
-                    active_kws = db.query(AIProductKeyword).filter(
-                        AIProductKeyword.ai_product_id == schedule.ai_product_id,
-                        AIProductKeyword.is_active == True
-                    ).all()
-                    # 6회 미만인 키워드만 필터
-                    eligible_kws = []
-                    for _kw in active_kws:
-                        cnt = db.query(AutomationTask).filter(
-                            AutomationTask.task_type == 'post',
-                            AutomationTask.keyword == _kw.keyword_text,
-                            AutomationTask.status == 'completed'
-                        ).count()
-                        if cnt < 6:
-                            eligible_kws.append(_kw)
-                    if eligible_kws:
-                        chosen_kw = _random.choice(eligible_kws)
-                        keyword_str = chosen_kw.keyword_text
-                    elif active_kws:
-                        # 모든 키워드가 6회 초과된 경우 — 가장 적게 사용된 것 선택
-                        counts = []
-                        for _kw in active_kws:
-                            cnt = db.query(AutomationTask).filter(
-                                AutomationTask.task_type == 'post',
-                                AutomationTask.keyword == _kw.keyword_text,
-                                AutomationTask.status == 'completed'
-                            ).count()
-                            counts.append((_kw, cnt))
-                        counts.sort(key=lambda x: x[1])
-                        keyword_str = counts[0][0].keyword_text
-
-                product_name_str = schedule.ai_product.product_name if schedule.ai_product else ''
-
-                task = AutomationTask(
-                    task_type='post',
-                    mode='ai',
-                    status='pending',
-                    # schedule_id는 automation_schedules FK이므로 사용하지 않음
-                    assigned_pc_id=pc.id,
-                    assigned_account_id=account.id,
-                    cafe_id=link.cafe_id,
-                    scheduled_time=now,
-                    title=product_name_str,     # 상품명 보존용
-                    content=draft.draft_url,    # NOT NULL 충족용
-                    error_message=f"MODIFY_URL:{draft.draft_url}",
-                    keyword=keyword_str,
-                )
-                db.add(task)
-                db.flush()
-                tasks_created.append({
-                    'task_id': task.id,
+            for link, draft in _random.sample(eligible, n):
+                groups.append({
+                    'account_id': account.id,
+                    'pc_id': pc.id,
                     'pc_number': pc.pc_number,
-                    'account_id': account.account_id,
+                    'link_id': link.id,
                     'cafe_id': link.cafe_id,
                     'draft_url': draft.draft_url,
+                    'draft_id': draft.id,
+                    'keyword': _pick_keyword() or product_name,
+                    'prompt_id': schedule.prompt_id,
+                    'product_name': product_name,
+                    'now': now,
                 })
 
-    db.commit()
+    if not groups:
+        return {'success': False, 'message': '실행할 그룹 없음', 'skipped': skipped}
 
-    # WebSocket 즉시 전송 시도
-    from routers.automation import worker_connections, send_task_to_worker
-    sent = []
-    queued = []
-    for t_info in tasks_created:
-        task_obj = db.query(AutomationTask).get(t_info['task_id'])
-        pc_num = t_info['pc_number']
-        if pc_num in worker_connections:
-            try:
-                await send_task_to_worker(pc_num, task_obj, db)
-                task_obj.status = 'assigned'
-                db.commit()
-                sent.append(t_info)
-            except Exception as e:
-                queued.append({**t_info, 'reason': str(e)})
-        else:
-            queued.append({**t_info, 'reason': '워커 오프라인 - DB 대기'})
+    # ── 큐에 저장 (그룹 1 제외한 나머지) ─────────────────────
+    _ai_schedule_queues[schedule_id] = _deque(groups[1:])
 
-    # 스케줄 last_run_at / next_run_at 업데이트
+    # ── 첫 번째 그룹 즉시 실행 ────────────────────────────────
+    print(f"\n[AI스케줄#{schedule_id}] 총 {len(groups)}개 그룹 → 첫 그룹 즉시 실행")
+    first_post_id = await _run_ai_group(groups[0], schedule_id, db)
+    if first_post_id:
+        _ai_task_schedule_map[first_post_id] = schedule_id
+
+    # ── 스케줄 last_run_at / next_run_at 업데이트 ─────────────
     schedule.last_run_at = now
     if schedule.repeat_type == 'once':
         schedule.is_active = False
@@ -3881,36 +4178,29 @@ async def _execute_ai_schedule(schedule_id: int, db: Session) -> dict:
             schedule.repeat_type, schedule.repeat_days
         )
 
-    # 실행 로그 저장 (task_ids JSON으로 상세 조회 가능하게)
+    # ── 실행 로그 저장 ─────────────────────────────────────────
     try:
         from database import ScheduleLog
-        import json as _json_log
-        product_name = schedule.ai_product.product_name if schedule.ai_product else str(schedule_id)
-        log_data = {
-            'task_ids': [t['task_id'] for t in tasks_created],
-            'skipped': skipped[:10],
-        }
+        import json as _jl
         log_entry = ScheduleLog(
-            schedule_type='ai',
-            schedule_id=schedule.id,
+            schedule_type='ai', schedule_id=schedule.id,
             schedule_name=product_name,
-            status='success' if tasks_created else 'partial',
-            tasks_created=len(tasks_created),
-            message=_json_log.dumps(log_data, ensure_ascii=False)
+            status='success' if groups else 'partial',
+            tasks_created=len(groups),
+            message=_jl.dumps({'task_ids': [], 'skipped': skipped[:10]}, ensure_ascii=False)
         )
         db.add(log_entry)
     except Exception as le:
-        print(f"  ⚠️ AI 스케줄 로그 저장 실패: {le}")
+        print(f"  ⚠️ 로그 저장 실패: {le}")
 
     db.commit()
 
     return {
         'success': True,
-        'tasks_created': len(tasks_created),
-        'sent': len(sent),
-        'queued': len(queued),
-        'details': tasks_created,
+        'total_groups': len(groups),
+        'queued': len(groups) - 1,
         'skipped': skipped,
+        'message': f'총 {len(groups)}개 그룹 순차 실행 예약 완료 (첫 그룹 즉시 시작)',
     }
 
 

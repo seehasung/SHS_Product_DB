@@ -400,24 +400,24 @@ async def send_task_to_worker(pc_number: int, task: AutomationTask, db: Session)
         if task.error_message and 'MODIFY_URL:' in task.error_message:
             draft_url = task.error_message.split('MODIFY_URL:')[1].strip()
         
-        # 부모 Task의 post_url 가져오기 (댓글/대댓글용)
+        # 부모 Task의 post_url 가져오기 (댓글/대댓글용만, post task는 불필요)
         post_url = None
         parent_comment_id = None
-        
-        if task.parent_task_id:
+
+        if task.task_type in ['comment', 'reply'] and task.parent_task_id:
             parent_task = db.query(AutomationTask).get(task.parent_task_id)
             if parent_task:
                 # post_url 가져오기
                 if parent_task.task_type == 'post':
                     post_url = parent_task.post_url
                 else:
-                    # 부모가 댓글이면 그 댓글의 post_url 사용
+                    # 부모가 댓글이면 루트 post까지 올라가서 post_url 사용
                     root_task = parent_task
                     while root_task and root_task.task_type != 'post':
                         root_task = db.query(AutomationTask).get(root_task.parent_task_id) if root_task.parent_task_id else None
                     if root_task:
                         post_url = root_task.post_url
-                
+
                 # 대댓글이면 부모 댓글의 cafe_comment_id 가져오기
                 if task.task_type == 'reply' and parent_task.task_type in ['comment', 'reply']:
                     if parent_task.error_message and 'cafe_comment_id:' in parent_task.error_message:
@@ -1047,10 +1047,11 @@ async def _dispatch_next_task_bg(task_id: int, task_type: str, parent_task_id, o
         print(f"⏳ [BG] 다음 작업 대기 중... ({wait_time}초)")
         await asyncio.sleep(wait_time)
 
-        if task_type == 'post' and parent_task_id is None:
-            # 본문 완료 → 첫 댓글 전송
+        if task_type == 'post':
+            # 본문 완료 → 첫 댓글 전송 (task_type 필터로 post 체인 제외)
             first_comment = db.query(AutomationTask).filter(
                 AutomationTask.parent_task_id == task_id,
+                AutomationTask.task_type.in_(['comment', 'reply']),
                 AutomationTask.status.in_(['pending', 'assigned'])
             ).order_by(AutomationTask.order_sequence.asc()).first()
 
@@ -1058,7 +1059,7 @@ async def _dispatch_next_task_bg(task_id: int, task_type: str, parent_task_id, o
                 print(f"   📋 [BG] 첫 댓글 Task #{first_comment.id} (PC:{first_comment.assigned_pc_id})")
             else:
                 total = db.query(AutomationTask).filter(AutomationTask.parent_task_id == task_id).count()
-                print(f"   ⚠️  [BG] 첫 댓글 없음 (자식 Task 총 {total}개)")
+                print(f"   ⚠️  [BG] 댓글 없음 (총 {total}개) → 다음 AI 그룹 확인")
 
             if first_comment and first_comment.assigned_pc_id:
                 if first_comment.assigned_pc_id not in worker_connections:
@@ -1074,6 +1075,16 @@ async def _dispatch_next_task_bg(task_id: int, task_type: str, parent_task_id, o
 
                 print(f"   📨 [BG] 첫 댓글 Task #{first_comment.id} → PC #{first_comment.assigned_pc_id}")
                 await send_task_to_worker(first_comment.assigned_pc_id, first_comment, db)
+            else:
+                # 댓글 없는 경우 → 다음 AI 그룹 즉시 실행
+                try:
+                    from routers.ai_automation import _execute_next_ai_group, _ai_task_schedule_map
+                    schedule_id = _ai_task_schedule_map.get(task_id)
+                    if schedule_id is not None:
+                        print(f"   🔗 [BG] 댓글 없음 → 다음 AI 그룹 실행 (schedule#{schedule_id})")
+                        await _execute_next_ai_group(schedule_id, db)
+                except Exception as _nge:
+                    print(f"   ⚠️ [BG] 다음 AI 그룹 실행 오류: {_nge}")
 
         elif task_type in ['comment', 'reply']:
             # 댓글/대댓글 완료 → 다음 댓글 전송
@@ -1121,6 +1132,20 @@ async def _dispatch_next_task_bg(task_id: int, task_type: str, parent_task_id, o
 
                     print(f"   📨 [BG] 다음 댓글 Task #{next_comment.id} (순서:{next_comment.order_sequence}) → PC #{next_comment.assigned_pc_id}")
                     await send_task_to_worker(next_comment.assigned_pc_id, next_comment, db)
+
+                else:
+                    # ★ 마지막 댓글 완료 → 다음 AI 그룹 실행 (순차)
+                    try:
+                        from routers.ai_automation import _execute_next_ai_group, _ai_task_schedule_map
+                        if root_task:
+                            schedule_id = _ai_task_schedule_map.get(root_task.id)
+                            if schedule_id is not None:
+                                print(f"   🔗 [BG] 마지막 댓글 완료 → 다음 AI 그룹 실행 (schedule#{schedule_id})")
+                                await _execute_next_ai_group(schedule_id, db)
+                            else:
+                                print(f"   ✅ [BG] 모든 그룹 처리 완료 (root_task #{root_task.id})")
+                    except Exception as _nge:
+                        print(f"   ⚠️ [BG] 다음 AI 그룹 실행 오류: {_nge}")
 
     except Exception as e:
         import traceback
