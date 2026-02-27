@@ -465,24 +465,86 @@ async def get_product_keywords(
         keywords = db.query(AIProductKeyword).filter(
             AIProductKeyword.ai_product_id == product_id
         ).order_by(AIProductKeyword.keyword_text).all()
-        
+
+        # 키워드별 수정발행 완료 횟수 계산 (keyword 컬럼 기준)
+        publish_counts = {}
+        for kw in keywords:
+            cnt = db.query(AutomationTask).filter(
+                AutomationTask.task_type == 'post',
+                AutomationTask.keyword == kw.keyword_text,
+                AutomationTask.status == 'completed'
+            ).count()
+            publish_counts[kw.id] = cnt
+
         keywords_data = [{
             'id': kw.id,
             'keyword_text': kw.keyword_text,
             'keyword_type': kw.keyword_type,
-            'is_active': kw.is_active
+            'is_active': kw.is_active,
+            'publish_count': publish_counts.get(kw.id, 0),
+            'max_publish': 6,
         } for kw in keywords]
-        
-        # 활성 키워드 수 계산
+
         active_count = sum(1 for kw in keywords if kw.is_active)
-        
+
         return JSONResponse({
-            'success': True, 
+            'success': True,
             'keywords': keywords_data,
             'count': active_count,
             'total': len(keywords_data)
         })
     except Exception as e:
+        return JSONResponse({'success': False, 'error': str(e)}, status_code=500)
+
+
+@router.get("/api/keywords/{keyword_id}/publish-history")
+async def get_keyword_publish_history(
+    keyword_id: int,
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    """키워드별 수정발행 내역 조회"""
+    current_user = get_current_user(request, db)
+    if not current_user:
+        return JSONResponse({"success": False, "error": "로그인이 필요합니다"}, status_code=401)
+
+    try:
+        kw = db.query(AIProductKeyword).filter(AIProductKeyword.id == keyword_id).first()
+        if not kw:
+            return JSONResponse({"success": False, "error": "키워드를 찾을 수 없습니다"}, status_code=404)
+
+        tasks = db.query(AutomationTask).filter(
+            AutomationTask.task_type == 'post',
+            AutomationTask.keyword == kw.keyword_text,
+            AutomationTask.status == 'completed'
+        ).order_by(AutomationTask.completed_at.desc()).all()
+
+        history = []
+        for t in tasks:
+            acc = db.query(AutomationAccount).filter(AutomationAccount.id == t.assigned_account_id).first()
+            cafe = db.query(AutomationCafe).filter(AutomationCafe.id == t.cafe_id).first()
+            draft_url = None
+            if t.error_message and 'MODIFY_URL:' in t.error_message:
+                draft_url = t.error_message.split('MODIFY_URL:')[1].strip()
+            history.append({
+                'task_id': t.id,
+                'account_id': acc.account_id if acc else '',
+                'cafe_name': cafe.name if cafe else '',
+                'cafe_url': cafe.cafe_url if cafe else '',
+                'post_url': t.post_url or '',
+                'draft_url': draft_url or '',
+                'completed_at': (t.completed_at.strftime('%Y-%m-%dT%H:%M:%S') + '+09:00') if t.completed_at else None,
+            })
+
+        return JSONResponse({
+            'success': True,
+            'keyword_text': kw.keyword_text,
+            'publish_count': len(history),
+            'max_publish': 6,
+            'history': history,
+        })
+    except Exception as e:
+        import traceback; traceback.print_exc()
         return JSONResponse({'success': False, 'error': str(e)}, status_code=500)
 
 
@@ -1433,6 +1495,79 @@ async def update_ai_schedule(
         return JSONResponse({"success": False, "error": str(e)}, status_code=500)
 
 
+@router.get("/api/schedule-logs/detail/{log_id}")
+async def get_schedule_log_detail(
+    log_id: int,
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    """스케줄 로그 상세 조회 - 작업별 계정/카페/URL/상태"""
+    current_user = get_current_user(request, db)
+    if not current_user:
+        return JSONResponse({"success": False, "error": "로그인이 필요합니다"}, status_code=401)
+    try:
+        from database import ScheduleLog, AutomationTask, AutomationAccount, AutomationCafe, DraftPost
+        import json as _json_detail
+
+        log = db.query(ScheduleLog).filter(ScheduleLog.id == log_id).first()
+        if not log:
+            return JSONResponse({"success": False, "error": "로그를 찾을 수 없습니다"}, status_code=404)
+
+        # message에서 task_ids 파싱
+        task_ids = []
+        skipped = []
+        try:
+            msg_data = _json_detail.loads(log.message) if log.message else {}
+            task_ids = msg_data.get('task_ids', [])
+            skipped = msg_data.get('skipped', [])
+        except Exception:
+            pass
+
+        # 각 task의 상세 정보 조회
+        tasks_detail = []
+        for tid in task_ids:
+            task = db.query(AutomationTask).get(tid)
+            if not task:
+                tasks_detail.append({'task_id': tid, 'status': 'unknown', 'account': '-', 'cafe': '-', 'url': None})
+                continue
+
+            account = db.query(AutomationAccount).get(task.assigned_account_id) if task.assigned_account_id else None
+            cafe = db.query(AutomationCafe).get(task.cafe_id) if task.cafe_id else None
+
+            # DraftPost URL (create_draft → DraftPost 저장된 경우)
+            draft_url = task.post_url  # 완료 시 post_url에 저장됨
+
+            # AI 수정발행의 경우 error_message에 원본 MODIFY_URL이 있고, post_url이 발행된 URL
+            original_draft_url = None
+            if task.task_type == 'post' and task.error_message and 'MODIFY_URL:' in task.error_message:
+                try:
+                    original_draft_url = task.error_message.split('MODIFY_URL:')[1].strip()
+                except Exception:
+                    pass
+
+            tasks_detail.append({
+                'task_id': tid,
+                'task_type': task.task_type,
+                'status': task.status,
+                'account': account.account_id if account else '-',
+                'cafe': cafe.name if cafe else f'cafe#{task.cafe_id}',
+                'cafe_url': cafe.url if cafe else None,
+                'url': draft_url,                      # 신규발행 or 수정발행 완료 URL
+                'original_draft_url': original_draft_url,  # 수정발행 원본 URL
+                'completed_at': (task.completed_at.strftime('%Y-%m-%dT%H:%M:%S') + '+09:00') if task.completed_at else None,
+            })
+
+        return JSONResponse({
+            "success": True,
+            "log_id": log_id,
+            "tasks": tasks_detail,
+            "skipped": skipped,
+        })
+    except Exception as e:
+        import traceback; traceback.print_exc()
+        return JSONResponse({"success": False, "error": str(e)}, status_code=500)
+
+
 @router.get("/api/schedule-logs/{schedule_type}/{schedule_id}")
 async def get_schedule_logs(
     schedule_type: str,
@@ -2216,8 +2351,8 @@ async def get_draft_posts(
             'article_id': dp.article_id,
             'status': dp.status,
             'modified_url': dp.modified_url,
-            'used_at': dp.used_at.isoformat() if dp.used_at else None,
-            'created_at': dp.created_at.isoformat() if dp.created_at else None
+            'used_at': (dp.used_at.strftime('%Y-%m-%dT%H:%M:%S') + '+09:00') if dp.used_at else None,
+            'created_at': (dp.created_at.strftime('%Y-%m-%dT%H:%M:%S') + '+09:00') if dp.created_at else None,
         } for dp in draft_posts]
         
         return JSONResponse({'success': True, 'draft_posts': posts_data})
@@ -3556,19 +3691,21 @@ async def _execute_draft_schedule(schedule_id: int, db: Session) -> dict:
     else:
         s.next_run_at = _calc_next_run(s.scheduled_hour, s.scheduled_minute, s.repeat_type, s.repeat_days)
 
-    # 실행 로그 저장
+    # 실행 로그 저장 (task_ids JSON으로 상세 조회 가능하게)
     try:
         from database import ScheduleLog
-        log_msg_parts = [f"생성된 작업: {len(tasks_created)}개"]
-        if skipped:
-            log_msg_parts.append(f"스킵: {'; '.join(skipped[:5])}")
+        import json as _json_log
+        log_data = {
+            'task_ids': [t['task_id'] for t in tasks_created],
+            'skipped': skipped[:10],
+        }
         log_entry = ScheduleLog(
             schedule_type='draft',
             schedule_id=s.id,
             schedule_name=s.name,
             status='success' if tasks_created else 'partial',
             tasks_created=len(tasks_created),
-            message='\n'.join(log_msg_parts)
+            message=_json_log.dumps(log_data, ensure_ascii=False)
         )
         db.add(log_entry)
     except Exception as le:
@@ -3654,15 +3791,38 @@ async def _execute_ai_schedule(schedule_id: int, db: Session) -> dict:
             selected = _random.sample(eligible, n)
 
             for link, draft in selected:
-                # 이 계정/상품의 첫 번째 활성 키워드 조회
+                # 활성 키워드 중 발행 횟수 6회 미만인 것만 랜덤 선택
                 keyword_str = None
                 if schedule.ai_product:
-                    kw = db.query(AIProductKeyword).filter(
+                    active_kws = db.query(AIProductKeyword).filter(
                         AIProductKeyword.ai_product_id == schedule.ai_product_id,
                         AIProductKeyword.is_active == True
-                    ).first()
-                    if kw:
-                        keyword_str = kw.keyword_text
+                    ).all()
+                    # 6회 미만인 키워드만 필터
+                    eligible_kws = []
+                    for _kw in active_kws:
+                        cnt = db.query(AutomationTask).filter(
+                            AutomationTask.task_type == 'post',
+                            AutomationTask.keyword == _kw.keyword_text,
+                            AutomationTask.status == 'completed'
+                        ).count()
+                        if cnt < 6:
+                            eligible_kws.append(_kw)
+                    if eligible_kws:
+                        chosen_kw = _random.choice(eligible_kws)
+                        keyword_str = chosen_kw.keyword_text
+                    elif active_kws:
+                        # 모든 키워드가 6회 초과된 경우 — 가장 적게 사용된 것 선택
+                        counts = []
+                        for _kw in active_kws:
+                            cnt = db.query(AutomationTask).filter(
+                                AutomationTask.task_type == 'post',
+                                AutomationTask.keyword == _kw.keyword_text,
+                                AutomationTask.status == 'completed'
+                            ).count()
+                            counts.append((_kw, cnt))
+                        counts.sort(key=lambda x: x[1])
+                        keyword_str = counts[0][0].keyword_text
 
                 product_name_str = schedule.ai_product.product_name if schedule.ai_product else ''
 
@@ -3721,20 +3881,22 @@ async def _execute_ai_schedule(schedule_id: int, db: Session) -> dict:
             schedule.repeat_type, schedule.repeat_days
         )
 
-    # 실행 로그 저장
+    # 실행 로그 저장 (task_ids JSON으로 상세 조회 가능하게)
     try:
         from database import ScheduleLog
+        import json as _json_log
         product_name = schedule.ai_product.product_name if schedule.ai_product else str(schedule_id)
-        log_msg_parts = [f"생성된 작업: {len(tasks_created)}개"]
-        if skipped:
-            log_msg_parts.append(f"스킵: {'; '.join(skipped[:5])}")
+        log_data = {
+            'task_ids': [t['task_id'] for t in tasks_created],
+            'skipped': skipped[:10],
+        }
         log_entry = ScheduleLog(
             schedule_type='ai',
             schedule_id=schedule.id,
             schedule_name=product_name,
             status='success' if tasks_created else 'partial',
             tasks_created=len(tasks_created),
-            message='\n'.join(log_msg_parts)
+            message=_json_log.dumps(log_data, ensure_ascii=False)
         )
         db.add(log_entry)
     except Exception as le:

@@ -3069,17 +3069,105 @@ async function loadScheduleLogData(type, scheduleId) {
         body.innerHTML = data.logs.map(l => {
             const dt = l.executed_at ? new Date(l.executed_at).toLocaleString('ko-KR') : '-';
             return `
-            <div class="border rounded p-2 mb-2">
-                <div class="d-flex justify-content-between">
-                    <span>${statusIcon[l.status] || '•'} <strong>${dt}</strong></span>
-                    <span class="badge bg-${l.status === 'success' ? 'success' : l.status === 'error' ? 'danger' : 'warning'}">${l.status}</span>
+            <div class="border rounded mb-2" style="overflow:hidden;">
+                <div class="d-flex justify-content-between align-items-center p-2"
+                     style="cursor:pointer;background:#f8f9fa;"
+                     onclick="toggleLogDetail(${l.id})">
+                    <span>${statusIcon[l.status] || '•'} <strong>${dt}</strong>
+                        <small class="text-muted ms-2">작업 ${l.tasks_created}개</small>
+                    </span>
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="badge bg-${l.status === 'success' ? 'success' : l.status === 'error' ? 'danger' : 'warning'}">${l.status}</span>
+                        <i class="bi bi-chevron-down" id="log-chevron-${l.id}"></i>
+                    </div>
                 </div>
-                <div class="text-muted small mt-1">작업 생성: ${l.tasks_created}개</div>
-                ${l.message ? `<div class="text-muted small" style="white-space:pre-wrap;">${l.message}</div>` : ''}
+                <div id="log-detail-${l.id}" style="display:none;" class="p-2 border-top">
+                    <div class="text-center text-muted small py-2">
+                        <i class="bi bi-arrow-clockwise"></i> 로딩 중...
+                    </div>
+                </div>
             </div>`;
         }).join('');
     } catch (e) {
         document.getElementById('scheduleLogBody').innerHTML = `<div class="alert alert-danger">로드 실패: ${e.message}</div>`;
+    }
+}
+
+async function toggleLogDetail(logId) {
+    const detail = document.getElementById(`log-detail-${logId}`);
+    const chevron = document.getElementById(`log-chevron-${logId}`);
+    if (!detail) return;
+
+    const isOpen = detail.style.display !== 'none';
+    detail.style.display = isOpen ? 'none' : 'block';
+    if (chevron) chevron.className = isOpen ? 'bi bi-chevron-down' : 'bi bi-chevron-up';
+
+    if (!isOpen && detail.dataset.loaded !== 'true') {
+        detail.dataset.loaded = 'true';
+        try {
+            const res = await fetch(`/ai-automation/api/schedule-logs/detail/${logId}`);
+            const data = await res.json();
+            if (!data.success) {
+                detail.innerHTML = `<div class="text-danger small p-2">상세 로드 실패: ${data.error}</div>`;
+                return;
+            }
+
+            const statusBadge = s => {
+                if (s === 'completed') return '<span class="badge bg-success">완료</span>';
+                if (s === 'failed') return '<span class="badge bg-danger">실패</span>';
+                if (s === 'in_progress') return '<span class="badge bg-primary">진행중</span>';
+                if (s === 'pending' || s === 'assigned') return '<span class="badge bg-warning text-dark">대기</span>';
+                return `<span class="badge bg-secondary">${s}</span>`;
+            };
+
+            let html = '';
+
+            if (data.tasks.length === 0) {
+                html = '<div class="text-muted small p-1">생성된 작업이 없습니다.</div>';
+            } else {
+                html += `<table class="table table-sm table-borderless mb-1" style="font-size:0.82rem;">
+                    <thead class="table-light">
+                        <tr>
+                            <th>계정</th><th>카페</th><th>상태</th><th>URL</th>
+                        </tr>
+                    </thead>
+                    <tbody>`;
+                data.tasks.forEach(t => {
+                    const cafeLink = t.cafe_url
+                        ? `<a href="${t.cafe_url}" target="_blank" class="text-truncate d-inline-block" style="max-width:120px;">${t.cafe}</a>`
+                        : `<span>${t.cafe}</span>`;
+
+                    let urlCell = '-';
+                    if (t.url) {
+                        urlCell = `<a href="${t.url}" target="_blank" class="text-truncate d-inline-block" style="max-width:160px;" title="${t.url}">
+                            <i class="bi bi-box-arrow-up-right"></i> 글 보기</a>`;
+                    }
+                    // 수정발행인 경우 원본 URL도 표시
+                    if (t.original_draft_url && t.url) {
+                        urlCell = `<div><a href="${t.url}" target="_blank" title="${t.url}"><i class="bi bi-box-arrow-up-right"></i> 발행 글</a></div>
+                                   <div class="text-muted" style="font-size:0.75rem;"><a href="${t.original_draft_url}" target="_blank">원본 초안</a></div>`;
+                    }
+
+                    html += `<tr>
+                        <td><span class="fw-semibold">${t.account}</span></td>
+                        <td>${cafeLink}</td>
+                        <td>${statusBadge(t.status)}</td>
+                        <td>${urlCell}</td>
+                    </tr>`;
+                });
+                html += '</tbody></table>';
+            }
+
+            if (data.skipped && data.skipped.length > 0) {
+                html += `<div class="text-muted small mt-1">
+                    <strong>스킵:</strong> ${data.skipped.join(' / ')}
+                </div>`;
+            }
+
+            detail.innerHTML = html;
+        } catch (e) {
+            detail.innerHTML = `<div class="text-danger small p-2">오류: ${e.message}</div>`;
+        }
     }
 }
 
@@ -4088,28 +4176,40 @@ async function loadDraftPosts(linkId) {
                 return;
             }
             
-            container.innerHTML = data.draft_posts.map((dp, idx) => `
+            container.innerHTML = data.draft_posts.map((dp, idx) => {
+                const createdAt = dp.created_at
+                    ? new Date(dp.created_at).toLocaleString('ko-KR', {year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'})
+                    : '-';
+                const usedAt = dp.used_at
+                    ? new Date(dp.used_at).toLocaleString('ko-KR', {year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'})
+                    : null;
+                return `
                 <div class="card mb-2">
-                    <div class="card-body">
+                    <div class="card-body py-2">
                         <div class="d-flex justify-content-between align-items-start">
-                            <div>
-                                <strong>URL ${idx + 1}</strong>
-                                <span class="badge ${dp.status === 'available' ? 'bg-success' : 'bg-secondary'} ms-2">
-                                    ${dp.status === 'available' ? '사용 가능' : '사용됨'}
-                                </span>
-                                <br>
-                                <a href="${dp.draft_url}" target="_blank" class="small">
-                                    ${dp.draft_url}
+                            <div class="flex-grow-1 me-2">
+                                <div class="d-flex align-items-center gap-2 mb-1">
+                                    <strong class="text-muted">#${idx + 1}</strong>
+                                    <span class="badge ${dp.status === 'available' ? 'bg-success' : 'bg-secondary'}">
+                                        ${dp.status === 'available' ? '사용 가능' : '사용됨'}
+                                    </span>
+                                    <small class="text-muted">
+                                        <i class="bi bi-calendar3"></i> 신규발행: <strong>${createdAt}</strong>
+                                    </small>
+                                </div>
+                                <a href="${dp.draft_url}" target="_blank" class="small text-break">
+                                    <i class="bi bi-box-arrow-up-right"></i> ${dp.draft_url}
                                 </a>
-                                ${dp.used_at ? `<br><small class="text-muted">사용일: ${new Date(dp.used_at).toLocaleString('ko-KR')}</small>` : ''}
+                                ${usedAt ? `<br><small class="text-muted"><i class="bi bi-check2"></i> 수정발행: ${usedAt}</small>` : ''}
+                                ${dp.modified_url ? `<br><a href="${dp.modified_url}" target="_blank" class="small text-success"><i class="bi bi-box-arrow-up-right"></i> 수정발행 글</a>` : ''}
                             </div>
-                            <button class="btn btn-sm btn-danger" onclick="deleteDraftPost(${dp.id})">
+                            <button class="btn btn-sm btn-danger flex-shrink-0" onclick="deleteDraftPost(${dp.id})">
                                 <i class="bi bi-trash"></i>
                             </button>
                         </div>
                     </div>
-                </div>
-            `).join('');
+                </div>`;
+            }).join('');
         }
     } catch (error) {
         console.error('URL 목록 로드 오류:', error);
@@ -4458,16 +4558,16 @@ async function loadKeywords(productId) {
             tbody.innerHTML = '';
             
             if (data.keywords.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted">키워드가 없습니다. 동기화 버튼을 눌러주세요.</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted">키워드가 없습니다. 동기화 버튼을 눌러주세요.</td></tr>';
                 return;
             }
             
             data.keywords.forEach(kw => {
-                const typeClass = kw.keyword_type === 'alternative' ? 'success' : 
-                                 kw.keyword_type === 'informational' ? 'info' : 'secondary';
-                const typeName = kw.keyword_type === 'alternative' ? '대안성' :
-                                kw.keyword_type === 'informational' ? '정보성' : '미분류';
-                
+                const publishCount = kw.publish_count || 0;
+                const maxPublish = kw.max_publish || 6;
+                const pct = Math.min(100, Math.round(publishCount / maxPublish * 100));
+                const barColor = publishCount >= maxPublish ? 'bg-danger' : publishCount >= 4 ? 'bg-warning' : 'bg-success';
+
                 const row = `
                     <tr>
                         <td><strong>${kw.keyword_text}</strong></td>
@@ -4484,6 +4584,16 @@ async function loadKeywords(productId) {
                             </span>
                         </td>
                         <td>
+                            <button class="btn btn-sm btn-link p-0 text-decoration-none" onclick="showKeywordPublishHistory(${kw.id}, '${kw.keyword_text.replace(/'/g, "\\'")}')" title="수정발행 내역 보기">
+                                <div class="d-flex align-items-center gap-1">
+                                    <span class="badge ${publishCount >= maxPublish ? 'bg-danger' : 'bg-primary'}">${publishCount}/${maxPublish}</span>
+                                </div>
+                                <div class="progress mt-1" style="height:4px;width:60px;">
+                                    <div class="progress-bar ${barColor}" style="width:${pct}%"></div>
+                                </div>
+                            </button>
+                        </td>
+                        <td>
                             <button class="btn btn-sm btn-danger" onclick="deleteKeyword(${kw.id})">
                                 <i class="bi bi-trash"></i>
                             </button>
@@ -4495,6 +4605,51 @@ async function loadKeywords(productId) {
         }
     } catch (error) {
         console.error('키워드 로드 오류:', error);
+    }
+}
+
+async function showKeywordPublishHistory(keywordId, keywordText) {
+    const modal = new bootstrap.Modal(document.getElementById('keywordPublishHistoryModal'));
+    document.getElementById('kwHistoryTitle').textContent = `"${keywordText}" 수정발행 내역`;
+    document.getElementById('kwHistoryBody').innerHTML = '<tr><td colspan="5" class="text-center text-muted">로딩 중...</td></tr>';
+    modal.show();
+
+    try {
+        const resp = await fetch(`/ai-automation/api/keywords/${keywordId}/publish-history`);
+        const data = await resp.json();
+        const tbody = document.getElementById('kwHistoryBody');
+
+        if (!data.success) {
+            tbody.innerHTML = `<tr><td colspan="5" class="text-center text-danger">${data.error}</td></tr>`;
+            return;
+        }
+
+        // 헤더 카운터 업데이트
+        const pct = Math.min(100, Math.round(data.publish_count / data.max_publish * 100));
+        const barColor = data.publish_count >= data.max_publish ? 'danger' : data.publish_count >= 4 ? 'warning' : 'success';
+        document.getElementById('kwHistoryCounter').innerHTML = `
+            <span class="badge bg-${barColor} fs-6">${data.publish_count} / ${data.max_publish}회</span>
+            <div class="progress mt-1" style="height:6px;">
+                <div class="progress-bar bg-${barColor}" style="width:${pct}%"></div>
+            </div>`;
+
+        if (data.history.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted">수정발행 내역이 없습니다.</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = data.history.map((h, i) => {
+            const date = h.completed_at ? new Date(h.completed_at).toLocaleString('ko-KR', {year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}) : '-';
+            return `<tr>
+                <td>${i + 1}</td>
+                <td><small>${h.account_id}</small></td>
+                <td><small>${h.cafe_name ? `<a href="${h.cafe_url}" target="_blank">${h.cafe_name}</a>` : '-'}</small></td>
+                <td><small>${h.post_url ? `<a href="${h.post_url}" target="_blank" class="text-success"><i class="bi bi-box-arrow-up-right"></i> 수정발행 글</a>` : '-'}</small></td>
+                <td><small class="text-muted">${date}</small></td>
+            </tr>`;
+        }).join('');
+    } catch (e) {
+        document.getElementById('kwHistoryBody').innerHTML = `<tr><td colspan="5" class="text-danger">오류: ${e.message}</td></tr>`;
     }
 }
 
@@ -6195,10 +6350,11 @@ async function deployWorkerVersion(event) {
                     <table class="table table-hover">
                         <thead>
                             <tr>
-                                <th style="width: 40%;">키워드</th>
-                                <th style="width: 30%;">분류</th>
-                                <th style="width: 15%;">활성</th>
-                                <th style="width: 15%;">관리</th>
+                                <th style="width: 35%;">키워드</th>
+                                <th style="width: 25%;">분류</th>
+                                <th style="width: 12%;">활성</th>
+                                <th style="width: 16%;">발행 수 <small class="text-muted fw-normal">(최대 6)</small></th>
+                                <th style="width: 12%;">관리</th>
                             </tr>
                         </thead>
                         <tbody id="keywordsTableBody">
@@ -6237,6 +6393,42 @@ async function deployWorkerVersion(event) {
                             </form>
                         </div>
                     </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">닫기</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 키워드 수정발행 내역 모달 -->
+<div class="modal fade" id="keywordPublishHistoryModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div>
+                    <h5 class="modal-title" id="kwHistoryTitle"><i class="bi bi-bar-chart"></i> 수정발행 내역</h5>
+                    <div id="kwHistoryCounter" class="mt-1"></div>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover table-sm mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th style="width:5%;">#</th>
+                                <th style="width:15%;">계정</th>
+                                <th style="width:20%;">카페</th>
+                                <th style="width:35%;">수정발행 글</th>
+                                <th style="width:25%;">발행일</th>
+                            </tr>
+                        </thead>
+                        <tbody id="kwHistoryBody">
+                            <tr><td colspan="5" class="text-center text-muted">로딩 중...</td></tr>
+                        </tbody>
+                    </table>
                 </div>
             </div>
             <div class="modal-footer">

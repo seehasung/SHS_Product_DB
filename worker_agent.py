@@ -1454,6 +1454,20 @@ class NaverCafeWorker:
                     self.driver.switch_to.window(windows[-1])
                     self.random_delay(2, 3)
 
+                # ★ 에디터 페이지 iframe 전환 시도
+                # 글쓰기 버튼 클릭 후 이동한 에디터 페이지도 iframe 안에 있을 수 있음
+                editor_iframe_found = False
+                try:
+                    self.driver.switch_to.default_content()
+                    editor_frame = WebDriverWait(self.driver, 5).until(
+                        EC.presence_of_element_located((By.ID, "cafe_main"))
+                    )
+                    self.driver.switch_to.frame(editor_frame)
+                    editor_iframe_found = True
+                    print("  ✅ 에디터 iframe 전환 성공")
+                except Exception:
+                    pass  # iframe 없으면 일반 페이지로 진행
+
                 # 제목 입력 (다양한 방법 시도)
                 title_success = False
 
@@ -1522,11 +1536,10 @@ class NaverCafeWorker:
                 if not title_success:
                     print("  ❌ 제목 입력 실패 - 작업 중단")
                     try:
+                        self.driver.switch_to.default_content()
                         if new_window and len(self.driver.window_handles) > 1:
                             self.driver.close()
                             self.driver.switch_to.window(windows[0])
-                        if iframe_found:
-                            self.driver.switch_to.default_content()
                     except Exception:
                         pass
                     return None
@@ -1668,16 +1681,46 @@ class NaverCafeWorker:
 
                 # ★ URL 캡처 — 등록 후 자동으로 열리는 내 글 페이지의 URL 사용
                 # 네이버 카페는 등록 완료 후 해당 글 페이지로 자동 redirect 됨
+                from urllib.parse import unquote, parse_qs, urlparse
+
+                def _extract_article_url(raw_url: str):
+                    """URL에서 articleid를 추출하고 정규화된 글 URL 반환"""
+                    # 직접 articleid 포함
+                    m = _re.search(r'articleid=(\d+)', raw_url, _re.IGNORECASE)
+                    if m:
+                        return raw_url
+
+                    # iframe_url_utf8 파라미터 안에 인코딩된 경우
+                    # 예: ?iframe_url_utf8=%2FArticleRead.nhn%3Fclubid%3D...%26articleid%3D12345
+                    try:
+                        parsed = urlparse(raw_url)
+                        qs = parse_qs(parsed.query)
+                        for key in ['iframe_url_utf8', 'iframe_url']:
+                            if key in qs:
+                                decoded = unquote(unquote(qs[key][0]))  # 이중 인코딩 대응
+                                m2 = _re.search(r'articleid=(\d+)', decoded, _re.IGNORECASE)
+                                if m2:
+                                    # 정규화된 URL 생성
+                                    club_m = _re.search(r'clubid=(\d+)', decoded, _re.IGNORECASE)
+                                    club_id = club_m.group(1) if club_m else ''
+                                    article_id = m2.group(1)
+                                    normalized = f"https://cafe.naver.com/ArticleRead.nhn?clubid={club_id}&articleid={article_id}"
+                                    print(f"  ✅ iframe_url_utf8에서 articleid 추출: {article_id}")
+                                    return normalized
+                    except Exception:
+                        pass
+                    return None
+
                 post_url = None
                 try:
                     # 최대 15초 동안 현재 탭 URL이 articleid 포함 URL로 바뀌길 기다림
                     deadline = time.time() + 15
                     while time.time() < deadline:
                         current = self.driver.current_url
-                        m = _re.search(r'articleid=(\d+)', current, _re.IGNORECASE)
-                        if m:
-                            post_url = current
-                            print(f"  ✅ 내 글 URL 캡처 (redirect): articleid={m.group(1)}")
+                        extracted = _extract_article_url(current)
+                        if extracted:
+                            post_url = extracted
+                            print(f"  ✅ 내 글 URL 캡처 (redirect): {post_url[:80]}")
                             break
                         time.sleep(1)
 
@@ -1687,10 +1730,10 @@ class NaverCafeWorker:
                             for handle in self.driver.window_handles:
                                 self.driver.switch_to.window(handle)
                                 url = self.driver.current_url
-                                m = _re.search(r'articleid=(\d+)', url, _re.IGNORECASE)
-                                if m:
-                                    post_url = url
-                                    print(f"  ✅ 내 글 URL 캡처 (새 탭): articleid={m.group(1)}")
+                                extracted = _extract_article_url(url)
+                                if extracted:
+                                    post_url = extracted
+                                    print(f"  ✅ 내 글 URL 캡처 (새 탭): {post_url[:80]}")
                                     break
                         except Exception:
                             pass
@@ -1705,6 +1748,7 @@ class NaverCafeWorker:
 
                 # 창 정리
                 try:
+                    self.driver.switch_to.default_content()
                     if new_window and len(self.driver.window_handles) > 1:
                         self.driver.close()
                         self.driver.switch_to.window(windows[0])

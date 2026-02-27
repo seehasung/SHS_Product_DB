@@ -834,7 +834,7 @@ class PersonalMemo(Base):
     updated_at = Column(DateTime(timezone=True), default=get_kst_now, onupdate=get_kst_now)
     
     # 관계 설정
-    user = relationship("User", backref="personal_memos")
+    user = relationship("User", backref="personal_memos", passive_deletes=True)
     files = relationship("MemoFile", back_populates="memo", cascade="all, delete-orphan")
 
 

@@ -155,25 +155,47 @@ async def delete_user(user_id: int = Form(...), db: Session = Depends(get_db)):
         
         # ✅ 1. LoginLog 먼저 삭제
         db.query(LoginLog).filter(LoginLog.user_id == user_id).delete()
-        
-        # ✅ 2. WorkTask 삭제 (있다면)
+
+        # ✅ 2. PersonalMemo 관련 삭제 (MemoFile은 DB CASCADE로 자동 삭제됨)
+        try:
+            from database import PersonalMemo
+            db.query(PersonalMemo).filter(PersonalMemo.user_id == user_id).delete()
+        except Exception:
+            pass
+
+        # ✅ 3. TaskAssignment 관련 처리 (creator/assignee)
+        try:
+            from database import TaskAssignment
+            # 작성자인 경우 삭제, 담당자인 경우 null 처리 (nullable 컬럼)
+            db.query(TaskAssignment).filter(TaskAssignment.creator_id == user_id).delete()
+            db.query(TaskAssignment).filter(TaskAssignment.assignee_id == user_id).update(
+                {TaskAssignment.assignee_id: None}
+            )
+        except Exception:
+            pass
+
+        # ✅ 4. TaskNotification 삭제
+        try:
+            from database import TaskNotification
+            db.query(TaskNotification).filter(TaskNotification.user_id == user_id).delete()
+        except Exception:
+            pass
+
+        # ✅ 5. WorkTask 삭제 (있다면)
         try:
             from database import WorkTask
             db.query(WorkTask).filter(WorkTask.worker_id == user_id).delete()
-        except ImportError:
-            pass  # WorkTask가 없으면 건너뛰기
-        
-        # ✅ 3. PostSchedule 삭제 (있다면)
+        except Exception:
+            pass
+
+        # ✅ 6. PostSchedule 삭제 (있다면)
         try:
             from database import PostSchedule
             db.query(PostSchedule).filter(PostSchedule.worker_id == user_id).delete()
-        except ImportError:
-            pass  # PostSchedule이 없으면 건너뛰기
-        
-        # ✅ 4. 다른 외래 키 관계가 있다면 여기에 추가
-        # 예: Comment, Reference 등에서 user_id 참조하는 경우
-        
-        # ✅ 5. 마지막으로 User 삭제
+        except Exception:
+            pass
+
+        # ✅ 7. 마지막으로 User 삭제
         db.delete(user)
         db.commit()
         
