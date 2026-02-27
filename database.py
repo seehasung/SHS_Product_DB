@@ -12,10 +12,10 @@ import math
 
 KST = pytz.timezone('Asia/Seoul')
 
-# 한국 시간 반환 함수
+# 한국 시간 반환 함수 (naive KST - timezone 정보 없이 KST 시각을 그대로 저장)
 def get_kst_now():
-    """현재 한국 시간 반환"""
-    return datetime.now(KST) 
+    """현재 한국 시간 반환 (naive datetime, KST 기준)"""
+    return datetime.now(KST).replace(tzinfo=None)
 
 load_dotenv()
 DATABASE_URL = os.environ.get("DATABASE_URL")
@@ -1535,6 +1535,23 @@ class AIGeneratedPost(Base):
     
     
 
+class ScheduleLog(Base):
+    """스케줄 실행 로그"""
+    __tablename__ = "schedule_logs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    schedule_type = Column(String(20), nullable=False)   # 'draft' | 'ai'
+    schedule_id = Column(Integer, nullable=False, index=True)
+    schedule_name = Column(String(255), nullable=True)   # 스케줄 이름 스냅샷
+
+    # 실행 결과
+    status = Column(String(20), default='success')       # 'success' | 'partial' | 'error'
+    tasks_created = Column(Integer, default=0)           # 생성된 작업 수
+    message = Column(Text, nullable=True)                # 상세 메시지 / 오류 내용
+
+    executed_at = Column(DateTime, default=get_kst_now, index=True)
+
+
 class DraftCreationSchedule(Base):
     """신규발행(인사글) 자동 스케줄 관리"""
     __tablename__ = "draft_creation_schedules"
@@ -1604,4 +1621,6 @@ __all__ = [
     "AIPrompt", "AIMarketingSchedule", "AIGeneratedPost",
     # ⭐ 신규발행 자동 스케줄
     "DraftCreationSchedule",
+    # ⭐ 스케줄 실행 로그
+    "ScheduleLog",
 ]

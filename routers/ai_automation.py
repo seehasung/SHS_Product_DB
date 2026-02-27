@@ -1376,6 +1376,104 @@ async def delete_schedule_json(
         return JSONResponse({"success": False, "error": str(e)}, status_code=500)
 
 
+@router.post("/api/schedules/{schedule_id}/toggle")
+async def toggle_ai_schedule(
+    schedule_id: int,
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    """AI 스케줄 활성/비활성 토글"""
+    current_user = get_current_user(request, db)
+    if not current_user:
+        return JSONResponse({"success": False, "error": "로그인이 필요합니다"}, status_code=401)
+    try:
+        s = db.query(AIMarketingSchedule).filter(AIMarketingSchedule.id == schedule_id).first()
+        if not s:
+            return JSONResponse({"success": False, "error": "스케줄을 찾을 수 없습니다"}, status_code=404)
+        s.is_active = not s.is_active
+        # 활성화 시 next_run_at 재계산
+        if s.is_active and (not s.next_run_at or s.next_run_at < get_kst_now()):
+            s.next_run_at = _calc_next_run(s.scheduled_hour, s.scheduled_minute, s.repeat_type, s.repeat_days)
+        db.commit()
+        return JSONResponse({"success": True, "is_active": s.is_active})
+    except Exception as e:
+        db.rollback()
+        return JSONResponse({"success": False, "error": str(e)}, status_code=500)
+
+
+@router.put("/api/schedules/{schedule_id}")
+async def update_ai_schedule(
+    schedule_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    scheduled_hour: int = Form(9),
+    scheduled_minute: int = Form(0),
+    repeat_type: str = Form('daily'),
+    repeat_days: str = Form(None),
+    posts_per_account: int = Form(1),
+):
+    """AI 스케줄 수정"""
+    current_user = get_current_user(request, db)
+    if not current_user:
+        return JSONResponse({"success": False, "error": "로그인이 필요합니다"}, status_code=401)
+    try:
+        s = db.query(AIMarketingSchedule).filter(AIMarketingSchedule.id == schedule_id).first()
+        if not s:
+            return JSONResponse({"success": False, "error": "스케줄을 찾을 수 없습니다"}, status_code=404)
+        s.scheduled_hour = scheduled_hour
+        s.scheduled_minute = scheduled_minute
+        s.repeat_type = repeat_type
+        s.repeat_days = repeat_days
+        s.posts_per_account = posts_per_account
+        s.next_run_at = _calc_next_run(scheduled_hour, scheduled_minute, repeat_type, repeat_days)
+        db.commit()
+        return JSONResponse({"success": True})
+    except Exception as e:
+        db.rollback()
+        return JSONResponse({"success": False, "error": str(e)}, status_code=500)
+
+
+@router.get("/api/schedule-logs/{schedule_type}/{schedule_id}")
+async def get_schedule_logs(
+    schedule_type: str,
+    schedule_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    date_filter: str = Query(None)   # 'YYYY-MM-DD'
+):
+    """스케줄 실행 로그 조회"""
+    current_user = get_current_user(request, db)
+    if not current_user:
+        return JSONResponse({"success": False, "error": "로그인이 필요합니다"}, status_code=401)
+    try:
+        from database import ScheduleLog
+        query = db.query(ScheduleLog).filter(
+            ScheduleLog.schedule_type == schedule_type,
+            ScheduleLog.schedule_id == schedule_id
+        )
+        if date_filter:
+            from sqlalchemy import func as _func
+            query = query.filter(
+                _func.date(ScheduleLog.executed_at) == date_filter
+            )
+        logs = query.order_by(ScheduleLog.executed_at.desc()).limit(100).all()
+        return JSONResponse({
+            "success": True,
+            "logs": [
+                {
+                    "id": l.id,
+                    "status": l.status,
+                    "tasks_created": l.tasks_created,
+                    "message": l.message,
+                    "executed_at": (l.executed_at.strftime('%Y-%m-%dT%H:%M:%S') + '+09:00') if l.executed_at else None,
+                }
+                for l in logs
+            ]
+        })
+    except Exception as e:
+        return JSONResponse({"success": False, "error": str(e)}, status_code=500)
+
+
 # ============================================
 # 7. 연동 관리 (AI 전용 - 별개)
 # ============================================
@@ -2976,7 +3074,15 @@ async def get_ai_schedules(
                     'end_date': s.end_date.isoformat() if s.end_date else None,
                     'daily_post_count': s.daily_post_count,
                     'expected_total_posts': s.expected_total_posts,
-                    'status': s.status
+                    'status': s.status,
+                    'is_active': s.is_active,
+                    'scheduled_hour': s.scheduled_hour,
+                    'scheduled_minute': s.scheduled_minute,
+                    'repeat_type': s.repeat_type,
+                    'repeat_days': s.repeat_days,
+                    'posts_per_account': s.posts_per_account,
+                    'last_run_at': (s.last_run_at.strftime('%Y-%m-%dT%H:%M:%S') + '+09:00') if s.last_run_at else None,
+                    'next_run_at': (s.next_run_at.strftime('%Y-%m-%dT%H:%M:%S') + '+09:00') if s.next_run_at else None,
                 })
         
         return JSONResponse({
@@ -3223,9 +3329,9 @@ async def list_draft_schedules(db: Session = Depends(_get_db_draft)):
             'repeat_days': s.repeat_days,
             'target_pcs': s.target_pcs,
             'is_active': s.is_active,
-            'last_run_at': s.last_run_at.isoformat() if s.last_run_at else None,
-            'next_run_at': s.next_run_at.isoformat() if s.next_run_at else None,
-            'created_at': s.created_at.isoformat() if s.created_at else None,
+            'last_run_at': (s.last_run_at.strftime('%Y-%m-%dT%H:%M:%S') + '+09:00') if s.last_run_at else None,
+            'next_run_at': (s.next_run_at.strftime('%Y-%m-%dT%H:%M:%S') + '+09:00') if s.next_run_at else None,
+            'created_at': (s.created_at.strftime('%Y-%m-%dT%H:%M:%S') + '+09:00') if s.created_at else None,
         })
     return JSONResponse({'success': True, 'schedules': result})
 
@@ -3449,6 +3555,25 @@ async def _execute_draft_schedule(schedule_id: int, db: Session) -> dict:
         s.next_run_at = None
     else:
         s.next_run_at = _calc_next_run(s.scheduled_hour, s.scheduled_minute, s.repeat_type, s.repeat_days)
+
+    # 실행 로그 저장
+    try:
+        from database import ScheduleLog
+        log_msg_parts = [f"생성된 작업: {len(tasks_created)}개"]
+        if skipped:
+            log_msg_parts.append(f"스킵: {'; '.join(skipped[:5])}")
+        log_entry = ScheduleLog(
+            schedule_type='draft',
+            schedule_id=s.id,
+            schedule_name=s.name,
+            status='success' if tasks_created else 'partial',
+            tasks_created=len(tasks_created),
+            message='\n'.join(log_msg_parts)
+        )
+        db.add(log_entry)
+    except Exception as le:
+        print(f"  ⚠️ 로그 저장 실패: {le}")
+
     db.commit()
 
     return {
@@ -3595,6 +3720,26 @@ async def _execute_ai_schedule(schedule_id: int, db: Session) -> dict:
             schedule.scheduled_hour, schedule.scheduled_minute,
             schedule.repeat_type, schedule.repeat_days
         )
+
+    # 실행 로그 저장
+    try:
+        from database import ScheduleLog
+        product_name = schedule.ai_product.product_name if schedule.ai_product else str(schedule_id)
+        log_msg_parts = [f"생성된 작업: {len(tasks_created)}개"]
+        if skipped:
+            log_msg_parts.append(f"스킵: {'; '.join(skipped[:5])}")
+        log_entry = ScheduleLog(
+            schedule_type='ai',
+            schedule_id=schedule.id,
+            schedule_name=product_name,
+            status='success' if tasks_created else 'partial',
+            tasks_created=len(tasks_created),
+            message='\n'.join(log_msg_parts)
+        )
+        db.add(log_entry)
+    except Exception as le:
+        print(f"  ⚠️ AI 스케줄 로그 저장 실패: {le}")
+
     db.commit()
 
     return {
