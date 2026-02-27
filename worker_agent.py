@@ -1440,6 +1440,8 @@ class NaverCafeWorker:
                         self.driver.switch_to.default_content()
                     continue
 
+                import re as _re
+
                 # 버튼 클릭 (이미 페이지 이동한 경우 skip)
                 if write_btn is not True:
                     write_btn.click()
@@ -1628,23 +1630,6 @@ class NaverCafeWorker:
                     except Exception:
                         pass
 
-                # ★ 등록 전 — 현재 카페의 최신 articleid 기록 (URL 정확도 향상)
-                pre_max_article_id = 0
-                import re as _re
-                try:
-                    all_links = self.driver.find_elements(By.XPATH, "//a[contains(@href,'articleid=')]")
-                    for lnk in all_links:
-                        href = lnk.get_attribute('href') or ''
-                        m = _re.search(r'articleid=(\d+)', href, _re.IGNORECASE)
-                        if m:
-                            aid = int(m.group(1))
-                            if aid > pre_max_article_id:
-                                pre_max_article_id = aid
-                    if pre_max_article_id:
-                        print(f"  📌 등록 전 최신 articleid: {pre_max_article_id}")
-                except Exception:
-                    pass
-
                 # 등록 버튼 클릭
                 self.random_delay(2, 3)
                 submit_success = False
@@ -1681,67 +1666,42 @@ class NaverCafeWorker:
                 except Exception:
                     pass
 
-                # ★ URL 캡처 — 등록 후 정확히 내 글 URL 찾기
-                self.random_delay(3, 5)
+                # ★ URL 캡처 — 등록 후 자동으로 열리는 내 글 페이지의 URL 사용
+                # 네이버 카페는 등록 완료 후 해당 글 페이지로 자동 redirect 됨
                 post_url = None
                 try:
-                    # 1단계: 현재 URL에 articleid가 있으면 바로 사용
-                    current = self.driver.current_url
-                    m = _re.search(r'articleid=(\d+)', current, _re.IGNORECASE)
-                    if m and int(m.group(1)) > pre_max_article_id:
-                        post_url = current
-                        print(f"  ✅ 내 글 URL 확인 (redirect URL): articleid={m.group(1)}")
+                    # 최대 15초 동안 현재 탭 URL이 articleid 포함 URL로 바뀌길 기다림
+                    deadline = time.time() + 15
+                    while time.time() < deadline:
+                        current = self.driver.current_url
+                        m = _re.search(r'articleid=(\d+)', current, _re.IGNORECASE)
+                        if m:
+                            post_url = current
+                            print(f"  ✅ 내 글 URL 캡처 (redirect): articleid={m.group(1)}")
+                            break
+                        time.sleep(1)
 
-                    # 2단계: 페이지의 링크에서 pre_max_article_id 보다 큰 ID 탐색
+                    # fallback: 새 창이 열렸을 경우 새 창 URL 확인
                     if not post_url:
                         try:
-                            if not new_window:
-                                self.driver.switch_to.default_content()
-                                try:
-                                    fi = self.driver.find_element(By.ID, "cafe_main")
-                                    self.driver.switch_to.frame(fi)
-                                except Exception:
-                                    pass
-                            new_max_id = 0
-                            new_url = None
-                            all_links = self.driver.find_elements(By.XPATH, "//a[contains(@href,'articleid=')]")
-                            for lnk in all_links:
-                                href = lnk.get_attribute('href') or ''
-                                m2 = _re.search(r'articleid=(\d+)', href, _re.IGNORECASE)
-                                if m2:
-                                    aid = int(m2.group(1))
-                                    if aid > pre_max_article_id and aid > new_max_id:
-                                        new_max_id = aid
-                                        new_url = href
-                            if new_url:
-                                post_url = new_url
-                                print(f"  ✅ 내 글 URL 확인 (새 articleid={new_max_id}): {post_url[:80]}")
-                        except Exception:
-                            pass
-
-                    # 3단계: 제목으로 내 글 검색
-                    if not post_url:
-                        try:
-                            title_links = self.driver.find_elements(
-                                By.XPATH, f"//a[contains(text(), '{post_title[:10]}')]"
-                            )
-                            for lnk in title_links:
-                                href = lnk.get_attribute('href') or ''
-                                if 'articleid=' in href.lower():
-                                    post_url = href
-                                    print(f"  ✅ 내 글 URL 확인 (제목 매칭): {post_url[:80]}")
+                            for handle in self.driver.window_handles:
+                                self.driver.switch_to.window(handle)
+                                url = self.driver.current_url
+                                m = _re.search(r'articleid=(\d+)', url, _re.IGNORECASE)
+                                if m:
+                                    post_url = url
+                                    print(f"  ✅ 내 글 URL 캡처 (새 탭): articleid={m.group(1)}")
                                     break
                         except Exception:
                             pass
 
-                    # 4단계: fallback — 현재 URL 그대로 사용
                     if not post_url:
-                        post_url = current
-                        print(f"  ⚠️  URL fallback (정확도 낮음): {post_url[:80]}")
+                        print(f"  ❌ URL 캡처 실패 — articleid를 찾지 못함 (현재: {self.driver.current_url[:80]})")
 
-                    print(f"  ✅ 글 URL 캡처 완료: {post_url[:80]}...")
+                    if post_url:
+                        print(f"  ✅ 글 URL 캡처 완료: {post_url[:80]}...")
                 except Exception as e:
-                    print(f"  ❌ URL 캡처 실패: {e}")
+                    print(f"  ❌ URL 캡처 오류: {e}")
 
                 # 창 정리
                 try:
