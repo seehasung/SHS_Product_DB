@@ -530,7 +530,7 @@ async def get_keyword_publish_history(
                 'task_id': t.id,
                 'account_id': acc.account_id if acc else '',
                 'cafe_name': cafe.name if cafe else '',
-                'cafe_url': cafe.cafe_url if cafe else '',
+                'cafe_url': cafe.url if cafe else '',
                 'post_url': t.post_url or '',
                 'draft_url': draft_url or '',
                 'completed_at': (t.completed_at.strftime('%Y-%m-%dT%H:%M:%S') + '+09:00') if t.completed_at else None,
