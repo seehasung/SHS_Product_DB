@@ -636,17 +636,57 @@ class NaverCafeWorker:
         try:
             import requests as req
             import tempfile
-            response = req.get(image_url, timeout=30, verify=False)
+            # fal.ai / CDN 403 방지: 브라우저처럼 보이는 헤더 추가
+            headers = {
+                'User-Agent': (
+                    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
+                    'AppleWebKit/537.36 (KHTML, like Gecko) '
+                    'Chrome/120.0.0.0 Safari/537.36'
+                ),
+                'Accept': 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
+                'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7',
+                'Referer': 'https://cafe.naver.com/',
+                'sec-ch-ua': '"Not_A Brand";v="8", "Chromium";v="120"',
+                'sec-ch-ua-mobile': '?0',
+                'sec-fetch-dest': 'image',
+                'sec-fetch-mode': 'no-cors',
+                'sec-fetch-site': 'cross-site',
+            }
+            print(f"   🔗 이미지 다운로드 시도: {image_url[:80]}...")
+            response = req.get(image_url, headers=headers, timeout=60, verify=False, allow_redirects=True)
             if response.status_code == 200:
                 temp_dir = tempfile.gettempdir()
-                filename = f"cafe_img_{int(time.time() * 1000)}.jpg"
+                # 확장자 추론
+                content_type = response.headers.get('Content-Type', 'image/jpeg')
+                ext = 'jpg'
+                if 'png' in content_type:
+                    ext = 'png'
+                elif 'webp' in content_type:
+                    ext = 'webp'
+                filename = f"cafe_img_{int(time.time() * 1000)}.{ext}"
                 temp_path = os.path.join(temp_dir, filename)
                 with open(temp_path, 'wb') as f:
                     f.write(response.content)
-                print(f"   ✅ 이미지 다운로드 완료: {filename}")
+                print(f"   ✅ 이미지 다운로드 완료: {filename} ({len(response.content)//1024}KB)")
                 return temp_path
             else:
-                print(f"   ❌ 이미지 다운로드 실패 (HTTP {response.status_code})")
+                print(f"   ❌ 이미지 다운로드 실패 (HTTP {response.status_code}): {image_url[:80]}")
+                # 403인 경우 Referer 없이 재시도
+                if response.status_code == 403:
+                    print(f"   🔄 403 오류 - Referer 없이 재시도...")
+                    headers2 = {k: v for k, v in headers.items() if k not in ('Referer', 'sec-fetch-site')}
+                    headers2['sec-fetch-site'] = 'none'
+                    response2 = req.get(image_url, headers=headers2, timeout=60, verify=False, allow_redirects=True)
+                    if response2.status_code == 200:
+                        temp_dir = tempfile.gettempdir()
+                        filename = f"cafe_img_{int(time.time() * 1000)}.jpg"
+                        temp_path = os.path.join(temp_dir, filename)
+                        with open(temp_path, 'wb') as f:
+                            f.write(response2.content)
+                        print(f"   ✅ 재시도 다운로드 완료: {filename}")
+                        return temp_path
+                    else:
+                        print(f"   ❌ 재시도도 실패 (HTTP {response2.status_code})")
                 return None
         except Exception as e:
             print(f"   ❌ 이미지 다운로드 오류: {e}")
@@ -861,10 +901,14 @@ class NaverCafeWorker:
         print(f"\n{'='*60}")
         print(f"🔄 글 수정 발행 시작")
         print(f"{'='*60}")
-        print(f"URL: {draft_url}")
-        print(f"제목: {title}")
-        print(f"본문: {content[:100]}...")
-        print(f"게시판: {target_board or '변경 없음'}")
+        print(f"URL      : {draft_url}")
+        print(f"제목     : {title}")
+        print(f"본문 길이: {len(content)}자")
+        print(f"본문 앞부분:")
+        print(f"  {content[:300]}{'...' if len(content) > 300 else ''}")
+        print(f"게시판   : {target_board or '변경 없음'}")
+        print(f"키워드   : {keyword or '없음'}")
+        print(f"이미지 수: {len(image_urls) if image_urls else 0}장")
         print(f"{'='*60}\n")
         
         # 현재 탭 저장 (네이버 홈 탭)
@@ -974,66 +1018,109 @@ class NaverCafeWorker:
                 self.random_delay(0.5, 1)
                 title_elem.send_keys(Keys.CONTROL + 'a', Keys.DELETE)
                 self.random_delay(0.5, 1)
-                
-                # ⭐ 사람처럼 한 글자씩 타이핑
-                print("   → 사람처럼 타이핑 중...")
                 self.human_type(title_elem, title)
                 self.random_delay(0.5, 1)
-                
-                # Tab키로 본문으로 이동
-                title_elem.send_keys(Keys.TAB)
-                self.random_delay(1, 2)
-                print("   ✅ 제목 입력 완료, 본문으로 이동")
+                # ⚠️ Tab 키 사용 안 함 - 공지사항 있는 카페에서 잘못된 곳으로 포커스 이동됨
+                print("   ✅ 제목 입력 완료")
             except Exception as e:
                 print(f"   ⚠️  제목 입력 실패: {e}")
             
-            # 본문 수정
-            print("📝 본문 입력 시도...")
-            print(f"   본문 길이: {len(content)}자")
-            
+            self.random_delay(1, 2)
+
+            # 본문 수정 (3단계 방식 - .se-content 내부 paragraph 직접 타겟)
+            print(f"\n📝 본문 입력 시도... (총 {len(content)}자)")
             content_success = False
-            
-            # 직접 타이핑 방식 (Tab으로 이동한 상태)
+
+            # 방법 1: .se-content 안의 p.se-text-paragraph 직접 클릭 후 JS로 커서 배치 → 타이핑
+            # (Tab 방식 대신 직접 본문 영역을 찾아서 클릭 - 공지사항 있는 카페 대응)
             try:
-                print("   직접 타이핑 방식으로 본문 입력...")
-                
-                # Tab으로 이동한 active element 사용
+                # se-content 안에 있는 본문 paragraph만 선택 (공지사항 paragraph 제외)
+                paragraph = self.driver.find_element(
+                    By.CSS_SELECTOR,
+                    "div.se-content p.se-text-paragraph, .se-module-text p.se-text-paragraph"
+                )
+                self.driver.execute_script("arguments[0].scrollIntoView({block:'center'});", paragraph)
+                self.random_delay(0.5, 1)
+                # JS로 클릭 + 포커스 (일반 click()은 공지사항 클릭 위험 있음)
+                self.driver.execute_script("arguments[0].click(); arguments[0].focus();", paragraph)
+                self.random_delay(0.5, 1)
                 active = self.driver.switch_to.active_element
-                self.random_delay(0.5, 1)
-                
-                # 기존 내용 전체 삭제
-                print("      → 기존 내용 삭제 중...")
-                active.send_keys(Keys.CONTROL, 'a')  # 전체 선택
+                # 기존 내용 모두 선택 후 새 내용 입력
+                active.send_keys(Keys.CONTROL + 'a')
                 self.random_delay(0.2, 0.3)
-                active.send_keys(Keys.DELETE)  # 삭제
+                active.send_keys(content)
                 self.random_delay(0.5, 1)
-                
-                # ⭐ 새 내용 입력 (사람처럼 한 글자씩)
-                print("      → 사람처럼 타이핑 중...")
-                self.human_type(active, content)
-                self.random_delay(0.5, 1)
-                
-                # 입력 확인
-                check_script = """
-                    var span = document.querySelector('span.__se-node');
-                    if (span && span.textContent.length > 0) {
-                        return true;
-                    }
-                    return false;
-                """
-                if self.driver.execute_script(check_script):
+                check = self.driver.execute_script(
+                    "var s=document.querySelector('div.se-content span.__se-node'); return s && s.textContent.length > 0;"
+                )
+                if check:
                     content_success = True
-                    print("✅ 본문 입력 완료")
+                    print("   ✅ 본문 입력 완료 (방법1: 직접입력)")
                 else:
-                    print("   ⚠️ 입력 확인 실패")
-                
+                    print("   ℹ️  방법1: 입력 확인 실패, 다음 방법 시도")
             except Exception as e:
-                print(f"   ❌ 본문 입력 실패: {e}")
-            
-            # 최종 확인
+                print(f"   ℹ️  방법1 실패: {e}")
+
+            # 방법 2: JavaScript로 span.__se-node에 직접 텍스트 주입
             if not content_success:
-                print("❌ 본문 입력 실패")
-                print("   수동으로 본문을 입력해주세요!")
+                try:
+                    result = self.driver.execute_script("""
+                        var content = arguments[0];
+                        // se-content 내부의 본문 모듈만 타겟
+                        var seContent = document.querySelector('div.se-content');
+                        if (!seContent) seContent = document;
+                        
+                        var placeholder = seContent.querySelector('.se-placeholder');
+                        if (placeholder) { placeholder.style.display='none'; }
+                        
+                        var textNode = seContent.querySelector('span.__se-node');
+                        var paragraph = seContent.querySelector('p.se-text-paragraph');
+                        
+                        if (!textNode && paragraph) {
+                            textNode = document.createElement('span');
+                            textNode.className = 'se-ff-system se-fs15 __se-node';
+                            textNode.style.color = 'rgb(0,0,0)';
+                            paragraph.appendChild(textNode);
+                        }
+                        if (textNode) {
+                            textNode.textContent = content;
+                            var module = seContent.querySelector('.se-module');
+                            if (module) module.classList.remove('se-is-empty');
+                            if (paragraph) {
+                                paragraph.dispatchEvent(new Event('input', {bubbles:true}));
+                                paragraph.dispatchEvent(new Event('change', {bubbles:true}));
+                                paragraph.click(); paragraph.focus();
+                            }
+                            return textNode.textContent.length > 0;
+                        }
+                        return false;
+                    """, content)
+                    if result:
+                        content_success = True
+                        print("   ✅ 본문 입력 완료 (방법2: JavaScript 주입)")
+                except Exception as e:
+                    print(f"   ℹ️  방법2 실패: {e}")
+
+            # 방법 3: 클립보드 붙여넣기
+            if not content_success:
+                try:
+                    import pyperclip
+                    paragraph = self.driver.find_element(
+                        By.CSS_SELECTOR,
+                        "div.se-content p.se-text-paragraph, .se-module-text p.se-text-paragraph"
+                    )
+                    self.driver.execute_script("arguments[0].click(); arguments[0].focus();", paragraph)
+                    self.random_delay(0.5, 1)
+                    pyperclip.copy(content)
+                    self.driver.switch_to.active_element.send_keys(Keys.CONTROL + 'v')
+                    self.random_delay(1, 2)
+                    content_success = True
+                    print("   ✅ 본문 입력 완료 (방법3: 클립보드 붙여넣기)")
+                except Exception as e:
+                    print(f"   ℹ️  방법3 실패: {e}")
+
+            if not content_success:
+                print("   ⚠️ 본문 입력 실패 - 등록 계속 시도")
             
             self.random_delay(2, 3)
             
@@ -2024,10 +2111,26 @@ class NaverCafeWorker:
                 # draft_url이 있으면 수정 발행, 없으면 새 글
                 draft_url = task.get('draft_url')
                 
+                # 수신된 task 내용 상세 로그
+                print(f"\n📋 [Task 수신 데이터]")
+                print(f"   task_id     : {task_id}")
+                print(f"   task_type   : {task_type}")
+                print(f"   draft_url   : {task.get('draft_url', '없음')}")
+                print(f"   title       : {task.get('title', '없음')}")
+                _raw_content = task.get('content', '')
+                print(f"   content 길이: {len(_raw_content)}자")
+                if _raw_content:
+                    print(f"   content 앞부분: {_raw_content[:200]}{'...' if len(_raw_content) > 200 else ''}")
+                else:
+                    print(f"   ⚠️  content가 비어있음!")
+                print(f"   keyword     : {task.get('keyword', '없음')}")
+                print(f"   image_urls  : {task.get('image_urls', [])}")
+                print(f"   target_board: {task.get('target_board', '없음')}")
+                
                 # ⭐ run_in_executor: Selenium(동기)을 스레드에서 실행 → event loop 살림
                 loop = asyncio.get_event_loop()
                 if draft_url:
-                    print(f"🔄 수정 발행: {draft_url[:50]}...")
+                    print(f"\n🔄 수정 발행: {draft_url[:50]}...")
                     _image_urls = task.get('image_urls') or []
                     _keyword = task.get('keyword') or None
                     if _image_urls:

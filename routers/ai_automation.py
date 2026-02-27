@@ -3813,6 +3813,29 @@ async def _generate_ai_content_internal(
         if not api_key:
             return {'success': False, 'error': 'ANTHROPIC_API_KEY 환경변수 없음'}
 
+        # ── 상세 로그 (test_generate_content와 동일) ──────────────
+        print("\n" + "="*80)
+        print("🔍 [AI생성] Claude API 호출 - 프롬프트 확인")
+        print("="*80)
+        print(f"  [Model]       : claude-opus-4-5")
+        print(f"  [Temperature] : {prompt.temperature}")
+        print(f"  [Max Tokens]  : {prompt.max_tokens}")
+        print(f"  [키워드]      : {keyword}")
+        print(f"  [카페명]      : {cafe_name}")
+        print(f"  [카페 특성]   : {cafe_characteristics}")
+        print(f"  [상품명]      : {product.product_name}")
+        print(f"  [이미지 생성] : {prompt.generate_images}")
+        if prompt.generate_images:
+            print(f"  [제품 이미지 수] : {getattr(prompt, 'product_image_count', 1)}")
+            print(f"  [어그로 이미지 수]: {getattr(prompt, 'attract_image_count', 2)}")
+        print("\n" + "-"*80)
+        print("[System Prompt]")
+        print(system_prompt)
+        print("\n" + "-"*80)
+        print("[User Prompt]")
+        print(user_prompt)
+        print("\n" + "="*80 + "\n")
+
         client = anthropic.Anthropic(api_key=api_key)
         response = client.messages.create(
             model='claude-opus-4-5',
@@ -3822,7 +3845,13 @@ async def _generate_ai_content_internal(
             messages=[{'role': 'user', 'content': user_prompt}]
         )
         raw = response.content[0].text
-        print(f'  [AI생성] 키워드={keyword} / 길이={len(raw)}자')
+
+        print("\n" + "="*80)
+        print("📝 [AI생성] Claude 응답 원문")
+        print("="*80)
+        print(raw)
+        print("="*80)
+        print(f"  → 총 {len(raw)}자 생성됨\n")
 
         # 제목/본문/댓글 분리 (test_generate_content와 동일 로직)
         def _split(text):
@@ -3861,6 +3890,18 @@ async def _generate_ai_content_internal(
 
         title, body, comments = _split(raw)
 
+        # 분리 결과 로그
+        print("\n" + "-"*80)
+        print("✂️ [AI생성] 제목/본문/댓글 분리 결과")
+        print(f"  [제목] {title}")
+        print(f"  [본문] {len(body)}자")
+        if body:
+            print(f"  [본문 미리보기] {body[:200]}{'...' if len(body) > 200 else ''}")
+        print(f"  [댓글] {len(comments)}자")
+        if comments:
+            print(f"  [댓글 미리보기] {comments[:300]}{'...' if len(comments) > 300 else ''}")
+        print("-"*80 + "\n")
+
         # 이미지 생성 (prompt 설정에 따라)
         image_urls = []
         if prompt.generate_images:
@@ -3876,28 +3917,48 @@ async def _generate_ai_content_internal(
                     except Exception:
                         attract_pool = [p.strip() for p in attract_pool_raw.split('\n') if p.strip()]
 
+                print(f"\n🎨 [AI생성] 이미지 생성 시작")
+                print(f"  제품 이미지: {n_product}장, 어그로 이미지: {n_attract}장")
+                print(f"  어그로 풀: {len(attract_pool)}개 프롬프트")
+
                 import random as _rnd
-                # 제품 이미지 프롬프트 (Claude로 생성)
-                for _ in range(n_product):
+                # 제품 이미지 프롬프트
+                for i in range(n_product):
                     prod_prompt_text = (
                         f"Professional product photography of {product.product_name}. "
                         f"{product.core_value}. High quality, clean background, "
                         f"natural lighting, 4K resolution."
                     )
+                    print(f"\n  📦 제품이미지 {i+1}/{n_product} 프롬프트:")
+                    print(f"     {prod_prompt_text}")
                     url = await generate_images_with_imagen(prod_prompt_text, 1)
                     if url:
                         image_urls.extend(url if isinstance(url, list) else [url])
+                        print(f"     ✅ 생성 완료: {url if isinstance(url, list) else [url]}")
+                    else:
+                        print(f"     ❌ 생성 실패")
 
                 # 어그로 이미지
-                for _ in range(n_attract):
+                for i in range(n_attract):
                     if attract_pool:
                         ap = _rnd.choice(attract_pool)
                         tail = ", slight lens distortion, minor motion blur, not perfectly composed, natural imperfections, no AI look"
-                        url = await generate_images_with_imagen(ap + tail, 1)
+                        full_prompt = ap + tail
+                        print(f"\n  🍖 어그로이미지 {i+1}/{n_attract} 프롬프트:")
+                        print(f"     {full_prompt[:200]}...")
+                        url = await generate_images_with_imagen(full_prompt, 1)
                         if url:
                             image_urls.extend(url if isinstance(url, list) else [url])
+                            print(f"     ✅ 생성 완료: {url if isinstance(url, list) else [url]}")
+                        else:
+                            print(f"     ❌ 생성 실패")
+
+                print(f"\n  🎨 이미지 생성 완료: 총 {len(image_urls)}장")
+                for idx_img, img_url in enumerate(image_urls):
+                    print(f"     [{idx_img+1}] {img_url}")
             except Exception as img_err:
                 print(f'  ⚠️ 이미지 생성 오류 (무시): {img_err}')
+                import traceback; traceback.print_exc()
 
         return {
             'success': True,
@@ -3940,7 +4001,19 @@ async def _run_ai_group(group_info: dict, schedule_id: int, db) -> int | None:
     now         = group_info['now']
 
     # ── AI 글/댓글/이미지 생성 ─────────────────────────────────
-    print(f"\n  🤖 [AI그룹] 생성 중... PC#{pc_number} / 키워드={keyword_str} / cafe_id={cafe_id}")
+    print(f"\n{'='*80}")
+    print(f"🤖 [AI그룹] 실행 시작")
+    print(f"{'='*80}")
+    print(f"  PC번호      : #{pc_number}")
+    print(f"  계정ID      : {account_id}")
+    print(f"  카페ID      : {cafe_id}")
+    print(f"  초안 URL    : {draft_url}")
+    print(f"  타겟 키워드 : {keyword_str}")
+    print(f"  상품명      : {product_name}")
+    print(f"  프롬프트 ID : {prompt_id}")
+    print(f"  스케줄 ID   : {schedule_id}")
+    print(f"{'='*80}")
+
     ai_result = await _generate_ai_content_internal(prompt_id, keyword_str or product_name, cafe_id, db)
     if not ai_result.get('success'):
         print(f"  ❌ AI 생성 실패: {ai_result.get('error')}")
@@ -3951,6 +4024,12 @@ async def _run_ai_group(group_info: dict, schedule_id: int, db) -> int | None:
     ai_comments_text = ai_result.get('comments', '')
     ai_image_urls    = ai_result.get('image_urls', [])
     image_urls_json  = _j.dumps(ai_image_urls) if ai_image_urls else None
+
+    print(f"\n  📊 [AI그룹] 생성 결과 요약")
+    print(f"     제목     : {ai_title}")
+    print(f"     본문 길이: {len(ai_body)}자")
+    print(f"     댓글 길이: {len(ai_comments_text)}자")
+    print(f"     이미지 수: {len(ai_image_urls)}장")
 
     # ── post task 생성 ─────────────────────────────────────────
     account = db.query(AutomationAccount).get(account_id)
@@ -3964,7 +4043,7 @@ async def _run_ai_group(group_info: dict, schedule_id: int, db) -> int | None:
     )
     db.add(post_task)
     db.flush()
-    print(f"  ✅ post Task #{post_task.id} (제목: {ai_title[:30]}...)")
+    print(f"\n  ✅ post Task #{post_task.id} 생성 (제목: {ai_title[:50]})")
 
     # ── 댓글/대댓글 task 생성 ──────────────────────────────────
     from database import CafeAccountLink as _Cal

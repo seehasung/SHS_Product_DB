@@ -435,7 +435,19 @@ async def send_task_to_worker(pc_number: int, task: AutomationTask, db: Session)
             except Exception:
                 pass
         
-        # Task 데이터
+        # Task 데이터 (전송 전 로그)
+        _content_val = task.content or ''
+        print(f"\n📤 [send_task] Task #{task.id} ({task.task_type}) → PC#{pc_number}")
+        print(f"   제목       : {task.title or '없음'}")
+        print(f"   content 길이: {len(_content_val)}자")
+        if _content_val:
+            print(f"   content 앞부분: {_content_val[:200]}{'...' if len(_content_val) > 200 else ''}")
+        else:
+            print(f"   ⚠️  content가 비어있음! (DB 값: {repr(task.content)})")
+        print(f"   draft_url  : {draft_url or '없음'}")
+        print(f"   keyword    : {task.keyword or '없음'}")
+        print(f"   image_urls : {len(image_urls)}장")
+
         task_data = {
             'type': 'new_task',
             'task': {
