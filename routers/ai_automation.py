@@ -2609,6 +2609,15 @@ async def test_generate_content(
             body = ""
             comments = ""
             
+            # ── 제목 정리 헬퍼: 첫 번째 유효한 줄만, 마크다운/불필요 텍스트 제거
+            def _clean_t(raw: str) -> str:
+                skip = {'Menu', '---', 'Title', '제목', 'menu', 'title'}
+                for line in raw.split('\n'):
+                    line = line.strip()
+                    if line and line not in skip:
+                        return line.strip('*').strip('#').strip()
+                return raw.split('\n')[0].strip().strip('*').strip('#').strip()
+
             # 1. --- 구분자로 섹션 분리
             sections = text.split('---')
             
@@ -2618,20 +2627,16 @@ async def test_generate_content(
                 body_section = sections[1].strip()
                 comments_section = sections[2].strip()
                 
-                # 제목 추출 (헤더 제거)
+                # 제목 추출 (헤더 제거 후 첫 줄만)
                 if title_section.startswith('# 제목'):
-                    title = title_section.replace('# 제목', '', 1).strip()
+                    title = _clean_t(title_section.replace('# 제목', '', 1).strip())
                 elif title_section.startswith('**제목:**'):
-                    title = title_section.replace('**제목:**', '', 1).strip()
+                    title = _clean_t(title_section.replace('**제목:**', '', 1).strip())
                 elif title_section.startswith('**제목**'):
-                    title = title_section.replace('**제목**', '', 1).strip()
+                    title = _clean_t(title_section.replace('**제목**', '', 1).strip())
                 else:
-                    # 첫 줄만 제목
                     lines = title_section.split('\n')
-                    if lines[0].startswith('#'):
-                        title = lines[0].replace('#', '').strip()
-                    else:
-                        title = lines[0].strip()
+                    title = _clean_t(lines[0].replace('#', '').strip())
                 
                 # 본문 추출 (헤더 제거)
                 if body_section.startswith('# 본문'):
@@ -2661,10 +2666,10 @@ async def test_generate_content(
                 body_section = sections[1].strip()
                 
                 if title_section.startswith('# 제목'):
-                    title = title_section.replace('# 제목', '', 1).strip()
+                    title = _clean_t(title_section.replace('# 제목', '', 1).strip())
                 else:
                     lines = title_section.split('\n')
-                    title = lines[0].replace('#', '').strip() if lines[0].startswith('#') else lines[0].strip()
+                    title = _clean_t(lines[0].replace('#', '').strip())
                 
                 if body_section.startswith('# 본문'):
                     body = body_section.replace('# 본문', '', 1).strip()
@@ -2675,7 +2680,7 @@ async def test_generate_content(
                 # --- 없는 경우: 전체를 본문으로
                 lines = text.strip().split('\n')
                 if lines and lines[0].startswith('#'):
-                    title = lines[0].replace('#', '').strip()
+                    title = _clean_t(lines[0].replace('#', '').strip())
                     body = '\n'.join(lines[1:]).strip()
                 else:
                     body = text.strip()
@@ -3854,6 +3859,20 @@ async def _generate_ai_content_internal(
         print(f"  → 총 {len(raw)}자 생성됨\n")
 
         # 제목/본문/댓글 분리 (test_generate_content와 동일 로직)
+        def _clean_title(raw_title: str) -> str:
+            """제목에서 첫 번째 유효한 줄만 추출하고 마크다운/불필요 텍스트 제거"""
+            # 줄 단위로 분리 후 비어있지 않은 첫 줄만 사용
+            # (Claude가 제목 섹션에 여러 줄 생성하는 경우 대응 - e.g. "Title\nMenu")
+            skip_words = {'Menu', '---', 'Title', '제목', 'menu', 'title'}
+            for line in raw_title.split('\n'):
+                line = line.strip()
+                if line and line not in skip_words:
+                    # 남은 마크다운 기호 제거 (**bold**, ## heading)
+                    line = line.strip('*').strip('#').strip()
+                    if line:
+                        return line
+            return raw_title.split('\n')[0].strip().strip('*').strip('#').strip()
+
         def _split(text):
             title = body = comments = ''
             sections = text.split('---')
@@ -3861,10 +3880,10 @@ async def _generate_ai_content_internal(
                 t, b, c = sections[0].strip(), sections[1].strip(), sections[2].strip()
                 for prefix in ['# 제목', '**제목:**', '**제목**']:
                     if t.startswith(prefix):
-                        title = t.replace(prefix, '', 1).strip(); break
+                        title = _clean_title(t.replace(prefix, '', 1).strip()); break
                 else:
                     lines = t.split('\n')
-                    title = lines[0].replace('#', '').strip()
+                    title = _clean_title(lines[0].replace('#', '').strip())
                 for prefix in ['# 본문', '## 본문', '**본문:**', '**본문**']:
                     if b.startswith(prefix):
                         body = b.replace(prefix, '', 1).strip(); break
@@ -3877,12 +3896,15 @@ async def _generate_ai_content_internal(
                     comments = c
             elif len(sections) == 2:
                 t, b = sections[0].strip(), sections[1].strip()
-                title = t.replace('# 제목', '', 1).strip() if t.startswith('# 제목') else t.split('\n')[0].replace('#', '').strip()
+                title = _clean_title(
+                    t.replace('# 제목', '', 1).strip() if t.startswith('# 제목')
+                    else t.split('\n')[0].replace('#', '').strip()
+                )
                 body = b.replace('# 본문', '', 1).strip() if b.startswith('# 본문') else b
             else:
                 lines = text.strip().split('\n')
                 if lines and lines[0].startswith('#'):
-                    title = lines[0].replace('#', '').strip()
+                    title = _clean_title(lines[0].replace('#', '').strip())
                     body = '\n'.join(lines[1:]).strip()
                 else:
                     body = text.strip()
@@ -4019,7 +4041,13 @@ async def _run_ai_group(group_info: dict, schedule_id: int, db) -> int | None:
         print(f"  ❌ AI 생성 실패: {ai_result.get('error')}")
         return None
 
-    ai_title = ai_result['title'] or keyword_str or product_name
+    _raw_title = ai_result['title'] or keyword_str or product_name
+    # 네이버 제목 200byte(한글 100자) 제한 적용
+    _title_encoded = _raw_title.encode('utf-8')
+    if len(_title_encoded) > 190:
+        _raw_title = _title_encoded[:190].decode('utf-8', errors='ignore')
+        print(f"  ⚠️  제목 자동 축약 (byte초과): {_raw_title}")
+    ai_title = _raw_title
     ai_body  = ai_result['body']
     ai_comments_text = ai_result.get('comments', '')
     ai_image_urls    = ai_result.get('image_urls', [])

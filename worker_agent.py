@@ -485,7 +485,33 @@ class NaverCafeWorker:
     def random_delay(self, min_sec: float = 0.1, max_sec: float = 0.3):
         """랜덤 지연 - 동기 버전 (Selenium 내부에서 사용)"""
         time.sleep(random.uniform(min_sec, max_sec))
-    
+
+    def dismiss_alert(self, accept: bool = True) -> str | None:
+        """Alert/Confirm 다이얼로그가 열려 있으면 닫고 텍스트 반환, 없으면 None"""
+        try:
+            from selenium.webdriver.support.ui import WebDriverWait
+            alert = WebDriverWait(self.driver, 1).until(EC.alert_is_present())
+            text = alert.text
+            if accept:
+                alert.accept()
+            else:
+                alert.dismiss()
+            print(f"   ⚠️  Alert 닫힘: {text}")
+            return text
+        except Exception:
+            return None
+
+    @staticmethod
+    def _truncate_title(title: str, max_bytes: int = 190) -> str:
+        """제목을 byte 길이 기준으로 잘라서 반환 (네이버 제한: 200byte)"""
+        encoded = title.encode('utf-8')
+        if len(encoded) <= max_bytes:
+            return title
+        # 바이트 수 기준으로 자르되 완전한 문자(유니코드)만 포함
+        truncated = encoded[:max_bytes].decode('utf-8', errors='ignore')
+        print(f"   ⚠️  제목 자동 축약: {len(title)}자 → {len(truncated)}자 (byte초과)")
+        return truncated
+
     async def async_delay(self, min_sec: float = 0.1, max_sec: float = 0.3):
         """랜덤 지연 - 비동기 버전 (이벤트 루프 살림, 긴 대기 시 사용)"""
         await asyncio.sleep(random.uniform(min_sec, max_sec))
@@ -1011,45 +1037,61 @@ class NaverCafeWorker:
                     print(f"   ⚠️  게시판 변경 실패: {e} (계속 진행)")
             
             # 제목 수정
-            print(f"\n✍️ 제목 입력: {title}")
+            # ① \n 제거: Claude 응답이 "제목\nMenu" 형태로 오는 경우, \n을 human_type이 Enter키로 입력
+            #    → Naver가 "줄바꿈 금지" 형식 오류를 "200byte 초과" 메시지로 표시
+            # ② Tab 키 제거: 공지사항 있는 카페에서 잘못된 곳으로 포커스 이동됨
+            clean_title = title.split('\n')[0].strip().strip('*').strip('#').strip()
+            if clean_title != title:
+                print(f"   ℹ️  제목 정리 (\\n 제거): '{title[:60]}' → '{clean_title}'")
+            safe_title = self._truncate_title(clean_title, max_bytes=190)
+            print(f"\n✍️ 제목 입력: {safe_title}")
             try:
                 title_elem = self.driver.find_element(By.CSS_SELECTOR, 'textarea.textarea_input')
                 title_elem.click()
                 self.random_delay(0.5, 1)
-                title_elem.send_keys(Keys.CONTROL + 'a', Keys.DELETE)
+
+                # JS로 기존 내용 초기화 (Ctrl+A+Delete 방식은 전체 페이지 선택될 위험 있음)
+                self.driver.execute_script("""
+                    var el = arguments[0];
+                    el.value = '';
+                    el.dispatchEvent(new Event('input', {bubbles:true}));
+                    el.dispatchEvent(new Event('change', {bubbles:true}));
+                """, title_elem)
+                self.random_delay(0.3, 0.5)
+
+                # 새 제목 타이핑 (줄바꿈 없는 순수 텍스트)
+                self.human_type(title_elem, safe_title)
                 self.random_delay(0.5, 1)
-                self.human_type(title_elem, title)
-                self.random_delay(0.5, 1)
-                # ⚠️ Tab 키 사용 안 함 - 공지사항 있는 카페에서 잘못된 곳으로 포커스 이동됨
                 print("   ✅ 제목 입력 완료")
             except Exception as e:
                 print(f"   ⚠️  제목 입력 실패: {e}")
-            
+
+            # 제목 입력 후 혹시라도 Alert이 열려 있으면 즉시 닫기
+            self.dismiss_alert(accept=True)
             self.random_delay(1, 2)
 
             # 본문 수정 (3단계 방식 - .se-content 내부 paragraph 직접 타겟)
             print(f"\n📝 본문 입력 시도... (총 {len(content)}자)")
             content_success = False
 
-            # 방법 1: .se-content 안의 p.se-text-paragraph 직접 클릭 후 JS로 커서 배치 → 타이핑
-            # (Tab 방식 대신 직접 본문 영역을 찾아서 클릭 - 공지사항 있는 카페 대응)
+            # 방법 1: .se-content 안의 p.se-text-paragraph 직접 클릭 (JS) → 타이핑
+            # Tab 방식 제거 - 공지사항 있는 카페에서 잘못된 곳으로 포커스 이동 방지
             try:
-                # se-content 안에 있는 본문 paragraph만 선택 (공지사항 paragraph 제외)
+                self.dismiss_alert()  # 혹시 남아있는 Alert 먼저 닫기
                 paragraph = self.driver.find_element(
                     By.CSS_SELECTOR,
                     "div.se-content p.se-text-paragraph, .se-module-text p.se-text-paragraph"
                 )
                 self.driver.execute_script("arguments[0].scrollIntoView({block:'center'});", paragraph)
                 self.random_delay(0.5, 1)
-                # JS로 클릭 + 포커스 (일반 click()은 공지사항 클릭 위험 있음)
                 self.driver.execute_script("arguments[0].click(); arguments[0].focus();", paragraph)
                 self.random_delay(0.5, 1)
                 active = self.driver.switch_to.active_element
-                # 기존 내용 모두 선택 후 새 내용 입력
                 active.send_keys(Keys.CONTROL + 'a')
                 self.random_delay(0.2, 0.3)
                 active.send_keys(content)
                 self.random_delay(0.5, 1)
+                self.dismiss_alert()  # 입력 중 Alert 발생 시 닫기
                 check = self.driver.execute_script(
                     "var s=document.querySelector('div.se-content span.__se-node'); return s && s.textContent.length > 0;"
                 )
@@ -1059,23 +1101,21 @@ class NaverCafeWorker:
                 else:
                     print("   ℹ️  방법1: 입력 확인 실패, 다음 방법 시도")
             except Exception as e:
+                self.dismiss_alert()
                 print(f"   ℹ️  방법1 실패: {e}")
 
             # 방법 2: JavaScript로 span.__se-node에 직접 텍스트 주입
             if not content_success:
                 try:
+                    self.dismiss_alert()
                     result = self.driver.execute_script("""
                         var content = arguments[0];
-                        // se-content 내부의 본문 모듈만 타겟
                         var seContent = document.querySelector('div.se-content');
                         if (!seContent) seContent = document;
-                        
                         var placeholder = seContent.querySelector('.se-placeholder');
                         if (placeholder) { placeholder.style.display='none'; }
-                        
                         var textNode = seContent.querySelector('span.__se-node');
                         var paragraph = seContent.querySelector('p.se-text-paragraph');
-                        
                         if (!textNode && paragraph) {
                             textNode = document.createElement('span');
                             textNode.className = 'se-ff-system se-fs15 __se-node';
@@ -1095,15 +1135,18 @@ class NaverCafeWorker:
                         }
                         return false;
                     """, content)
+                    self.dismiss_alert()
                     if result:
                         content_success = True
                         print("   ✅ 본문 입력 완료 (방법2: JavaScript 주입)")
                 except Exception as e:
+                    self.dismiss_alert()
                     print(f"   ℹ️  방법2 실패: {e}")
 
             # 방법 3: 클립보드 붙여넣기
             if not content_success:
                 try:
+                    self.dismiss_alert()
                     import pyperclip
                     paragraph = self.driver.find_element(
                         By.CSS_SELECTOR,
@@ -1114,14 +1157,18 @@ class NaverCafeWorker:
                     pyperclip.copy(content)
                     self.driver.switch_to.active_element.send_keys(Keys.CONTROL + 'v')
                     self.random_delay(1, 2)
+                    self.dismiss_alert()
                     content_success = True
                     print("   ✅ 본문 입력 완료 (방법3: 클립보드 붙여넣기)")
                 except Exception as e:
+                    self.dismiss_alert()
                     print(f"   ℹ️  방법3 실패: {e}")
 
             if not content_success:
                 print("   ⚠️ 본문 입력 실패 - 등록 계속 시도")
-            
+
+            # 이후 모든 단계 전에 Alert 완전 정리
+            self.dismiss_alert()
             self.random_delay(2, 3)
             
             # ⭐ 이미지 업로드 (image_urls가 있는 경우)
@@ -1151,14 +1198,17 @@ class NaverCafeWorker:
             if keyword:
                 print(f"\n🏷️ 태그 입력: {keyword}")
                 try:
+                    self.dismiss_alert()  # 태그 입력 전 Alert 정리
                     tag_input = self.driver.find_element(By.CSS_SELECTOR, 'input.tag_input')
                     tag_input.click()
                     self.random_delay(0.5, 1)
                     self.human_type(tag_input, keyword)
                     tag_input.send_keys(Keys.ENTER)
                     self.random_delay(0.5, 1)
+                    self.dismiss_alert()
                     print("   ✅ 태그 입력 완료")
                 except Exception as e:
+                    self.dismiss_alert()
                     print(f"   ⚠️  태그 입력 실패: {e} (계속 진행)")
             
             # ⭐ 댓글 허용 체크박스 확인 및 설정
@@ -1213,6 +1263,8 @@ class NaverCafeWorker:
             except Exception as e:
                 print(f"   ⚠️  댓글 설정 오류: {e} (계속 진행)")
             
+            # 등록 버튼 클릭 전 Alert 완전 정리
+            self.dismiss_alert()
             self.random_delay(1, 2)
             
             # ⭐ 등록 버튼 자동 클릭 (다중 방법 시도)
