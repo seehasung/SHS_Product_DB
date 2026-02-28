@@ -1070,36 +1070,83 @@ class NaverCafeWorker:
             self.dismiss_alert(accept=True)
             self.random_delay(1, 2)
 
-            # 본문 수정 (3단계 방식 - .se-content 내부 paragraph 직접 타겟)
+            # ── 본문 입력 ──────────────────────────────────────────────
+            # ⚠️ 핵심 문제: 제목 입력 후 제목 textarea에 포커스가 남아 있으면
+            #    본문을 클릭해도 active_element가 textarea → 본문이 제목란에 입력됨
+            # 해결: ① 제목 포커스 강제 해제 ② ActionChains 실제 클릭 ③ 클립보드 붙여넣기 우선
             print(f"\n📝 본문 입력 시도... (총 {len(content)}자)")
             content_success = False
 
-            # 방법 1: .se-content 안의 p.se-text-paragraph 직접 클릭 (JS) → 타이핑
-            # Tab 방식 제거 - 공지사항 있는 카페에서 잘못된 곳으로 포커스 이동 방지
-            try:
-                self.dismiss_alert()  # 혹시 남아있는 Alert 먼저 닫기
-                paragraph = self.driver.find_element(
+            # 공통: 제목란 포커스 강제 해제 후 본문 paragraph 찾기
+            def _focus_body_editor():
+                """본문 편집 영역에 포커스를 이동하고 paragraph 요소 반환"""
+                # 1) 현재 포커스된 요소가 textarea(제목란)이면 강제 blur
+                self.driver.execute_script("""
+                    var el = document.activeElement;
+                    if (el && (el.tagName === 'TEXTAREA' || el.tagName === 'INPUT')) {
+                        el.blur();
+                    }
+                """)
+                self.random_delay(0.3, 0.5)
+
+                # 2) 본문 paragraph 찾기
+                para = self.driver.find_element(
                     By.CSS_SELECTOR,
                     "div.se-content p.se-text-paragraph, .se-module-text p.se-text-paragraph"
                 )
-                self.driver.execute_script("arguments[0].scrollIntoView({block:'center'});", paragraph)
+                self.driver.execute_script("arguments[0].scrollIntoView({block:'center'});", para)
+                self.random_delay(0.3, 0.5)
+
+                # 3) ActionChains로 실제 마우스 클릭 (JS click()은 Smart Editor 이벤트 미작동)
+                ActionChains(self.driver).move_to_element(para).click().perform()
                 self.random_delay(0.5, 1)
-                self.driver.execute_script("arguments[0].click(); arguments[0].focus();", paragraph)
-                self.random_delay(0.5, 1)
+
+                # 4) 클릭 후 active element 확인
                 active = self.driver.switch_to.active_element
-                active.send_keys(Keys.CONTROL + 'a')
-                self.random_delay(0.2, 0.3)
-                active.send_keys(content)
-                self.random_delay(0.5, 1)
-                self.dismiss_alert()  # 입력 중 Alert 발생 시 닫기
-                check = self.driver.execute_script(
-                    "var s=document.querySelector('div.se-content span.__se-node'); return s && s.textContent.length > 0;"
-                )
-                if check:
-                    content_success = True
-                    print("   ✅ 본문 입력 완료 (방법1: 직접입력)")
+                tag = (active.tag_name or '').lower()
+                print(f"   → 클릭 후 active element: <{tag}>")
+
+                # 5) 여전히 textarea(제목)에 포커스 → 본문 span 직접 JS focus
+                if tag in ('textarea', 'input'):
+                    print("   ⚠️  여전히 제목란에 포커스 → JS로 본문 강제 포커스")
+                    self.driver.execute_script("""
+                        var para = document.querySelector('div.se-content p.se-text-paragraph');
+                        if (para) {
+                            para.click();
+                            var span = para.querySelector('span.__se-node');
+                            if (span) { span.click(); }
+                        }
+                    """)
+                    self.random_delay(0.5, 1)
+                    active = self.driver.switch_to.active_element
+                    tag = (active.tag_name or '').lower()
+                    print(f"   → 재시도 후 active element: <{tag}>")
+                return para, active, tag
+
+            # 방법 1 (우선순위): 클립보드 붙여넣기 - 포커스 위치에 무관하게 안전
+            try:
+                import pyperclip
+                self.dismiss_alert()
+                para, active, tag = _focus_body_editor()
+
+                if tag not in ('textarea', 'input'):
+                    # 포커스가 본문 쪽에 있음 → 클립보드 붙여넣기
+                    pyperclip.copy(content)
+                    active.send_keys(Keys.CONTROL + 'a')  # 기존 내용 전체 선택
+                    self.random_delay(0.2, 0.3)
+                    active.send_keys(Keys.CONTROL + 'v')  # 붙여넣기
+                    self.random_delay(1, 2)
+                    self.dismiss_alert()
+                    check = self.driver.execute_script(
+                        "var s=document.querySelector('div.se-content span.__se-node'); return s && s.textContent.length > 0;"
+                    )
+                    if check:
+                        content_success = True
+                        print("   ✅ 본문 입력 완료 (방법1: 클립보드 붙여넣기)")
+                    else:
+                        print("   ℹ️  방법1: 붙여넣기 확인 실패, 다음 방법 시도")
                 else:
-                    print("   ℹ️  방법1: 입력 확인 실패, 다음 방법 시도")
+                    print("   ℹ️  방법1: 포커스가 제목란에 남아 있어 건너뜀")
             except Exception as e:
                 self.dismiss_alert()
                 print(f"   ℹ️  방법1 실패: {e}")
@@ -1129,7 +1176,6 @@ class NaverCafeWorker:
                             if (paragraph) {
                                 paragraph.dispatchEvent(new Event('input', {bubbles:true}));
                                 paragraph.dispatchEvent(new Event('change', {bubbles:true}));
-                                paragraph.click(); paragraph.focus();
                             }
                             return textNode.textContent.length > 0;
                         }
@@ -1138,28 +1184,31 @@ class NaverCafeWorker:
                     self.dismiss_alert()
                     if result:
                         content_success = True
-                        print("   ✅ 본문 입력 완료 (방법2: JavaScript 주입)")
+                        print("   ✅ 본문 입력 완료 (방법2: JavaScript 직접 주입)")
                 except Exception as e:
                     self.dismiss_alert()
                     print(f"   ℹ️  방법2 실패: {e}")
 
-            # 방법 3: 클립보드 붙여넣기
+            # 방법 3: ActionChains 클릭 후 직접 타이핑 (폴백)
             if not content_success:
                 try:
                     self.dismiss_alert()
                     import pyperclip
+                    # 제목 포커스 해제 후 ActionChains 클릭
+                    self.driver.execute_script("if(document.activeElement) document.activeElement.blur();")
+                    self.random_delay(0.3, 0.5)
                     paragraph = self.driver.find_element(
                         By.CSS_SELECTOR,
                         "div.se-content p.se-text-paragraph, .se-module-text p.se-text-paragraph"
                     )
-                    self.driver.execute_script("arguments[0].click(); arguments[0].focus();", paragraph)
-                    self.random_delay(0.5, 1)
+                    ActionChains(self.driver).move_to_element(paragraph).click().perform()
+                    self.random_delay(0.8, 1.2)
                     pyperclip.copy(content)
                     self.driver.switch_to.active_element.send_keys(Keys.CONTROL + 'v')
                     self.random_delay(1, 2)
                     self.dismiss_alert()
                     content_success = True
-                    print("   ✅ 본문 입력 완료 (방법3: 클립보드 붙여넣기)")
+                    print("   ✅ 본문 입력 완료 (방법3: ActionChains+클립보드)")
                 except Exception as e:
                     self.dismiss_alert()
                     print(f"   ℹ️  방법3 실패: {e}")

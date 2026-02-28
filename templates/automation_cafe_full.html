@@ -114,7 +114,12 @@
     .status-badge.offline { background: #f8d7da; color: #721c24; }
     .status-badge.active { background: #d4edda; color: #155724; }
     .status-badge.suspended { background: #f8d7da; color: #721c24; }
-    
+
+    /* spin 애니메이션 */
+    @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+    .spin { animation: spin 1s linear infinite; display: inline-block; }
+    .btn-xs { padding: 2px 6px; font-size: .75rem; }
+
     /* 빈 상태 */
     .empty-state {
         text-align: center;
@@ -221,38 +226,56 @@
                 <!-- 작업 큐 탭 -->
                 <ul class="nav nav-tabs mb-3" role="tablist">
                     <li class="nav-item">
-                        <a class="nav-link active" data-bs-toggle="tab" href="#pending-tasks">
+                        <a class="nav-link active" data-bs-toggle="tab" href="#pending-tasks" onclick="loadTasksByStatus('pending','pendingTasksBody')">
                             <i class="bi bi-hourglass-split"></i> 대기 중
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" data-bs-toggle="tab" href="#in-progress-tasks">
+                        <a class="nav-link" data-bs-toggle="tab" href="#in-progress-tasks" onclick="loadTasksByStatus('in_progress','inProgressTasksBody')">
                             <i class="bi bi-arrow-repeat"></i> 진행 중
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" data-bs-toggle="tab" href="#completed-tasks">
+                        <a class="nav-link" data-bs-toggle="tab" href="#completed-tasks" onclick="loadTasksByStatus('completed','completedTasksBody')">
                             <i class="bi bi-check-circle"></i> 완료
                         </a>
                     </li>
                 </ul>
+
+                <style>
+                .task-group-root td { background: #f8f9fa; font-weight: 600; cursor: pointer; }
+                .task-group-root:hover td { background: #e9ecef; }
+                .task-child-row td { background: #fff; padding-left: 2rem !important; font-size: 0.85rem; color: #555; }
+                .task-child-row.d-none { display: none !important; }
+                .task-expand-icon { transition: transform 0.2s; display: inline-block; margin-right: 4px; }
+                .task-expand-icon.open { transform: rotate(90deg); }
+                .badge-post  { background:#6f42c1; color:#fff; padding:2px 7px; border-radius:4px; font-size:.75rem; }
+                .badge-comment { background:#0dcaf0; color:#000; padding:2px 7px; border-radius:4px; font-size:.75rem; }
+                .badge-reply   { background:#adb5bd; color:#000; padding:2px 7px; border-radius:4px; font-size:.75rem; }
+                .badge-create_draft { background:#fd7e14; color:#fff; padding:2px 7px; border-radius:4px; font-size:.75rem; }
+                .st-pending    { color:#f59e0b; font-weight:600; }
+                .st-assigned   { color:#3b82f6; font-weight:600; }
+                .st-in_progress{ color:#10b981; font-weight:600; }
+                .st-completed  { color:#6366f1; font-weight:600; }
+                .st-failed     { color:#ef4444; font-weight:600; }
+                </style>
                 
                 <div class="tab-content">
                     <!-- 대기 중 -->
                     <div class="tab-pane fade show active" id="pending-tasks">
                         <div class="table-responsive">
-                            <table class="data-table">
+                            <table class="data-table" id="pendingTable">
                                 <thead>
                                     <tr>
+                                        <th style="width:40px"></th>
                                         <th>ID</th>
                                         <th>모드</th>
-                                        <th>타입</th>
                                         <th>카페</th>
                                         <th>상품</th>
                                         <th>키워드</th>
                                         <th>상태</th>
-                                        <th>PC</th>
-                                        <th>계정</th>
+                                        <th>PC / 계정</th>
+                                        <th>내용</th>
                                     </tr>
                                 </thead>
                                 <tbody id="pendingTasksBody">
@@ -265,19 +288,22 @@
                     <!-- 진행 중 -->
                     <div class="tab-pane fade" id="in-progress-tasks">
                         <div class="table-responsive">
-                            <table class="data-table">
+                            <table class="data-table" id="inProgressTable">
                                 <thead>
                                     <tr>
+                                        <th style="width:40px"></th>
                                         <th>ID</th>
                                         <th>모드</th>
                                         <th>카페</th>
-                                        <th>PC</th>
-                                        <th>계정</th>
-                                        <th>시작 시간</th>
+                                        <th>상품</th>
+                                        <th>키워드</th>
+                                        <th>상태</th>
+                                        <th>PC / 계정</th>
+                                        <th>내용</th>
                                     </tr>
                                 </thead>
                                 <tbody id="inProgressTasksBody">
-                                    <tr><td colspan="6" class="text-center text-muted">로딩 중...</td></tr>
+                                    <tr><td colspan="9" class="text-center text-muted">로딩 중...</td></tr>
                                 </tbody>
                             </table>
                         </div>
@@ -286,21 +312,38 @@
                     <!-- 완료 -->
                     <div class="tab-pane fade" id="completed-tasks">
                         <div class="table-responsive">
-                            <table class="data-table">
+                            <table class="data-table" id="completedTable">
                                 <thead>
                                     <tr>
+                                        <th style="width:40px"></th>
                                         <th>ID</th>
                                         <th>모드</th>
                                         <th>카페</th>
                                         <th>상품</th>
+                                        <th>키워드</th>
+                                        <th>상태</th>
                                         <th>완료 시간</th>
-                                        <th>URL</th>
+                                        <th>내용 / URL</th>
                                     </tr>
                                 </thead>
                                 <tbody id="completedTasksBody">
-                                    <tr><td colspan="6" class="text-center text-muted">로딩 중...</td></tr>
+                                    <tr><td colspan="9" class="text-center text-muted">로딩 중...</td></tr>
                                 </tbody>
                             </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 작업 내용 미리보기 모달 -->
+                <div class="modal fade" id="taskContentModal" tabindex="-1">
+                    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title"><i class="bi bi-eye"></i> 작업 내용 미리보기</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                            </div>
+                            <div class="modal-body" id="taskContentModalBody">
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -1328,97 +1371,224 @@ async function loadAllData() {
 
 async function loadTasks() {
     await loadTasksByStatus('pending', 'pendingTasksBody');
-    await loadTasksByStatus('in_progress', 'inProgressTasksBody');
-    await loadTasksByStatus('completed', 'completedTasksBody');
+    // 진행 중 / 완료 탭은 클릭 시 로드 (탭 onclick 연결됨)
 }
 
 async function loadTasksByStatus(status, tbodyId) {
+    const tbody = document.getElementById(tbodyId);
+    if (!tbody) return;
+    tbody.innerHTML = `<tr><td colspan="9" class="text-center text-muted"><i class="bi bi-arrow-repeat spin"></i> 로딩 중...</td></tr>`;
     try {
         const response = await fetch(`/automation/api/tasks/list?status=${status}`);
         const data = await response.json();
-        
         if (data.success) {
-            displayTasks(data.tasks, tbodyId, status);
+            displayTasksGrouped(data.tasks, tbodyId, status);
+        } else {
+            tbody.innerHTML = `<tr><td colspan="9" class="text-center text-danger">오류: ${data.message || '알 수 없음'}</td></tr>`;
         }
     } catch (error) {
         console.error(`Task 로드 오류 (${status}):`, error);
+        tbody.innerHTML = `<tr><td colspan="9" class="text-center text-danger">네트워크 오류</td></tr>`;
     }
 }
 
-function displayTasks(tasks, tbodyId, status) {
+/* ────────────── 태스크 그룹화 렌더링 ────────────── */
+function displayTasksGrouped(tasks, tbodyId, status) {
     const tbody = document.getElementById(tbodyId);
-    
-    if (tasks.length === 0) {
-        const colSpan = status === 'completed' ? 6 : status === 'in_progress' ? 6 : 9;
-        tbody.innerHTML = `
-            <tr>
-                <td colspan="${colSpan}" class="text-center text-muted">
-                    ${status === 'pending' ? '대기 중인' : status === 'in_progress' ? '진행 중인' : '완료된'} 작업이 없습니다
-                </td>
-            </tr>
-        `;
+    const labelMap = { pending: '대기 중인', in_progress: '진행 중인', completed: '완료된' };
+
+    if (!tasks || tasks.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="9" class="text-center text-muted">${labelMap[status] || ''} 작업이 없습니다</td></tr>`;
         return;
     }
-    
-    let html = '';
-    
-    tasks.forEach(task => {
-        const modeIcon = task.mode === 'human' ? '👤' : '🤖';
-        const typeIcon = task.task_type === 'post' ? '📝' : '💬';
-        
-        if (status === 'pending') {
-            const commentBtn = task.task_type === 'post' ? 
-                `<button class="btn btn-sm btn-info" onclick="showCommentScriptModal(${task.id})" title="댓글 원고 관리">
-                    <i class="bi bi-chat-dots"></i>
-                </button>` : '';
-            
-            html += `
-                <tr>
-                    <td><strong>#${task.id}</strong></td>
-                    <td><span class="task-badge ${task.mode}">${modeIcon} ${task.mode}</span></td>
-                    <td>${typeIcon} ${task.task_type}</td>
-                    <td>${task.cafe_name || '-'}</td>
-                    <td>${task.product_name || '-'}</td>
-                    <td><span class="badge bg-primary">${task.keyword_text || '-'}</span></td>
-                    <td><span class="status-badge ${task.status}">${task.status}</span></td>
-                    <td>${task.assigned_pc ? 'PC #' + task.assigned_pc : '-'}</td>
-                    <td>${task.assigned_account || '-'} ${commentBtn}</td>
-                </tr>
-            `;
-        } else if (status === 'in_progress') {
-            html += `
-                <tr>
-                    <td><strong>#${task.id}</strong></td>
-                    <td><span class="task-badge ${task.mode}">${modeIcon}</span></td>
-                    <td>${task.cafe_name || '-'}</td>
-                    <td>PC #${task.assigned_pc || '-'}</td>
-                    <td>${task.assigned_account || '-'}</td>
-                    <td>${task.started_at || '-'}</td>
-                </tr>
-            `;
-        } else if (status === 'completed') {
-            const commentBtn = task.task_type === 'post' && task.post_url ? 
-                `<button class="btn btn-sm btn-success" onclick="createCommentTasks(${task.id})" title="댓글 Task 생성">
-                    <i class="bi bi-plus-circle"></i> 댓글
-                </button>` : '';
-            
-            html += `
-                <tr>
-                    <td><strong>#${task.id}</strong></td>
-                    <td><span class="task-badge ${task.mode}">${modeIcon}</span></td>
-                    <td>${task.cafe_name || '-'}</td>
-                    <td>${task.product_name || '-'}</td>
-                    <td>${task.completed_at || '-'}</td>
-                    <td>
-                        ${task.post_url ? `<a href="${task.post_url}" target="_blank">보기</a>` : '-'}
-                        ${commentBtn}
-                    </td>
-                </tr>
-            `;
+
+    // 부모-자식 트리 구성
+    const byId = {};
+    tasks.forEach(t => { byId[t.id] = t; t._children = []; });
+    const roots = [];
+    tasks.forEach(t => {
+        if (t.parent_task_id && byId[t.parent_task_id]) {
+            byId[t.parent_task_id]._children.push(t);
+        } else {
+            roots.push(t);
         }
     });
-    
+    // order_sequence 정렬
+    roots.sort((a, b) => b.id - a.id);
+    roots.forEach(r => r._children.sort((a, b) => (a.order_sequence || 0) - (b.order_sequence || 0)));
+
+    let html = '';
+    roots.forEach(task => {
+        const hasChildren = task._children.length > 0;
+        const gid = `grp-${tbodyId}-${task.id}`;
+        html += renderRootRow(task, hasChildren, gid, status);
+        task._children.forEach(child => {
+            html += renderChildRow(child, gid, status);
+        });
+    });
+
     tbody.innerHTML = html;
+}
+
+function statusBadge(st) {
+    const labels = { pending: '대기', assigned: '할당', in_progress: '진행중', completed: '완료', failed: '실패' };
+    return `<span class="st-${st}">${labels[st] || st}</span>`;
+}
+
+function typeBadge(tt) {
+    const map = { post: '📝 발행', comment: '💬 댓글', reply: '↩ 대댓글', create_draft: '📄 신규발행' };
+    return `<span class="badge-${tt}">${map[tt] || tt}</span>`;
+}
+
+function renderRootRow(task, hasChildren, gid, status) {
+    const expandBtn = hasChildren
+        ? `<span class="task-expand-icon" id="icon-${gid}" onclick="toggleGroup('${gid}')">▶</span>`
+        : `<span style="display:inline-block;width:18px"></span>`;
+
+    const modeIcon = task.mode === 'human' ? '👤' : '🤖';
+    const pcAcc = [task.assigned_pc ? 'PC#' + task.assigned_pc : '', task.assigned_account || ''].filter(Boolean).join(' / ') || '-';
+
+    let lastCol = '';
+    if (status === 'completed') {
+        lastCol = `<td>
+            ${task.post_url ? `<a href="${task.post_url}" target="_blank" class="btn btn-xs btn-outline-success" style="font-size:.75rem;padding:2px 6px">🔗 URL</a> ` : ''}
+            <button class="btn btn-xs btn-outline-secondary" style="font-size:.75rem;padding:2px 6px" onclick="showTaskContent(${task.id})">👁 내용</button>
+        </td>`;
+    } else {
+        lastCol = `<td>
+            <button class="btn btn-xs btn-outline-secondary" style="font-size:.75rem;padding:2px 6px" onclick="showTaskContent(${task.id})">👁 내용</button>
+        </td>`;
+    }
+
+    const timeCol = status === 'completed'
+        ? `<td style="font-size:.8rem">${task.completed_at || '-'}</td>`
+        : `<td>${statusBadge(task.status)}</td>`;
+
+    return `
+        <tr class="task-group-root" onclick="toggleGroup('${gid}')">
+            <td>${expandBtn}</td>
+            <td><strong>#${task.id}</strong></td>
+            <td>${modeIcon} ${typeBadge(task.task_type)}</td>
+            <td>${task.cafe_name || '-'}</td>
+            <td style="max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${task.product_name || '-'}</td>
+            <td>${task.keyword_text ? `<span class="badge bg-primary">${task.keyword_text}</span>` : '-'}</td>
+            ${timeCol}
+            <td style="font-size:.8rem">${pcAcc}</td>
+            ${lastCol}
+        </tr>`;
+}
+
+function renderChildRow(task, gid, status) {
+    const modeIcon = task.mode === 'human' ? '👤' : '🤖';
+    const pcAcc = [task.assigned_pc ? 'PC#' + task.assigned_pc : '', task.assigned_account || ''].filter(Boolean).join(' / ') || '-';
+
+    let lastCol = '';
+    if (status === 'completed') {
+        lastCol = `<td>${task.post_url ? `<a href="${task.post_url}" target="_blank" style="font-size:.75rem">🔗</a>` : (task.content ? task.content.slice(0, 30) + '…' : '-')}</td>`;
+    } else {
+        lastCol = `<td style="font-size:.75rem;color:#777">${task.content ? task.content.slice(0, 40) + '…' : '-'}</td>`;
+    }
+
+    const timeCol = status === 'completed'
+        ? `<td style="font-size:.75rem">${task.completed_at || '-'}</td>`
+        : `<td>${statusBadge(task.status)}</td>`;
+
+    return `
+        <tr class="task-child-row d-none" data-group="${gid}">
+            <td style="padding-left:24px">└</td>
+            <td style="font-size:.82rem">#${task.id}</td>
+            <td>${modeIcon} ${typeBadge(task.task_type)}</td>
+            <td colspan="2" style="font-size:.82rem">${task.cafe_name || '-'}</td>
+            <td>${task.keyword_text ? `<span class="badge bg-secondary" style="font-size:.7rem">${task.keyword_text}</span>` : '-'}</td>
+            ${timeCol}
+            <td style="font-size:.75rem">${pcAcc}</td>
+            ${lastCol}
+        </tr>`;
+}
+
+function toggleGroup(gid) {
+    const children = document.querySelectorAll(`[data-group="${gid}"]`);
+    const icon = document.getElementById('icon-' + gid);
+    const isOpen = icon && icon.classList.contains('open');
+    children.forEach(r => r.classList.toggle('d-none', isOpen));
+    if (icon) icon.classList.toggle('open', !isOpen);
+}
+
+/* ────────────── 작업 내용 미리보기 ────────────── */
+async function showTaskContent(taskId) {
+    const modal = new bootstrap.Modal(document.getElementById('taskContentModal'));
+    const body = document.getElementById('taskContentModalBody');
+    body.innerHTML = '<div class="text-center py-4"><i class="bi bi-arrow-repeat spin"></i> 불러오는 중...</div>';
+    modal.show();
+    try {
+        // 전체 목록에서 해당 태스크 + 자식 검색 (이미 로드된 데이터 재사용 불가 → API 재호출)
+        const res = await fetch(`/automation/api/tasks/list?status=all`);
+        const data = await res.json();
+        if (!data.success) throw new Error(data.message);
+
+        const byId = {};
+        data.tasks.forEach(t => { byId[t.id] = t; });
+        const root = byId[taskId];
+        if (!root) { body.innerHTML = '<p class="text-muted text-center">Task를 찾을 수 없습니다.</p>'; return; }
+
+        const children = data.tasks.filter(t => t.parent_task_id === taskId);
+        const comments = children.filter(t => t.task_type === 'comment');
+        const replies  = children.filter(t => t.task_type === 'reply');
+
+        let html = `<div class="mb-3">
+            <h6 class="text-muted mb-1">📋 제목</h6>
+            <p class="mb-0 fw-semibold">${root.title || '-'}</p>
+        </div>`;
+
+        if (root.content) {
+            html += `<div class="mb-3">
+                <h6 class="text-muted mb-1">📄 본문 (앞 500자)</h6>
+                <div style="background:#f8f9fa;border-radius:6px;padding:12px;font-size:.85rem;white-space:pre-wrap;max-height:200px;overflow-y:auto">${escHtml(root.content)}</div>
+            </div>`;
+        }
+
+        if (root.image_urls && root.image_urls.length > 0) {
+            html += `<div class="mb-3">
+                <h6 class="text-muted mb-1">🖼 이미지 (${root.image_urls.length}장)</h6>
+                <div class="d-flex flex-wrap gap-2">
+                    ${root.image_urls.map(u => `<img src="${u}" style="height:90px;border-radius:6px;object-fit:cover" onerror="this.style.display='none'">`).join('')}
+                </div>
+            </div>`;
+        }
+
+        if (root.keyword_text) {
+            html += `<div class="mb-2"><h6 class="text-muted mb-1">🔑 키워드</h6>
+                <span class="badge bg-primary">${root.keyword_text}</span></div>`;
+        }
+
+        if (comments.length > 0) {
+            html += `<div class="mb-2"><h6 class="text-muted mb-1">💬 댓글 (${comments.length}개)</h6><ol style="padding-left:1.2rem">`;
+            comments.forEach(c => {
+                html += `<li style="font-size:.85rem;margin-bottom:4px">${statusBadge(c.status)} ${escHtml(c.content || '-')}</li>`;
+            });
+            html += '</ol></div>';
+        }
+
+        if (replies.length > 0) {
+            html += `<div class="mb-2"><h6 class="text-muted mb-1">↩ 대댓글 (${replies.length}개)</h6><ol style="padding-left:1.2rem">`;
+            replies.forEach(r => {
+                html += `<li style="font-size:.85rem;margin-bottom:4px">${statusBadge(r.status)} ${escHtml(r.content || '-')}</li>`;
+            });
+            html += '</ol></div>';
+        }
+
+        if (root.post_url) {
+            html += `<div class="mt-3"><a href="${root.post_url}" target="_blank" class="btn btn-sm btn-outline-primary">🔗 발행 URL 열기</a></div>`;
+        }
+
+        body.innerHTML = html;
+    } catch(e) {
+        body.innerHTML = `<p class="text-danger">오류: ${e.message}</p>`;
+    }
+}
+
+function escHtml(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 
 async function loadPCs() {

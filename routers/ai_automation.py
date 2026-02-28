@@ -2896,6 +2896,18 @@ async def publish_test(
         if task_image_urls:
             print(f"   📸 이미지 {len(task_image_urls)}장 Task에 포함")
         
+        # product_name 조회 (대시보드 표시용)
+        _product_name = None
+        try:
+            from database import AIMarketingProduct as _AMP
+            _prompt_obj = db.query(AIPrompt).get(prompt_id)
+            if _prompt_obj and _prompt_obj.ai_product_id:
+                _ai_prod = db.query(_AMP).get(_prompt_obj.ai_product_id)
+                if _ai_prod:
+                    _product_name = _ai_prod.product_name
+        except Exception:
+            pass
+
         post_task = AutomationTask(
             task_type='post',
             mode='ai',
@@ -2908,8 +2920,9 @@ async def publish_test(
             assigned_account_id=assigned_account_id,
             status='pending',
             priority=10,
-            image_urls=image_urls_json,  # ⭐ 이미지 URL 저장
-            keyword=keyword  # ⭐ 타겟 키워드 (태그 자동 입력용)
+            image_urls=image_urls_json,
+            keyword=keyword,
+            product_name=_product_name,
         )
         
         # 수정 발행 URL 추가 (간단하게)
@@ -4076,6 +4089,7 @@ async def _run_ai_group(group_info: dict, schedule_id: int, db) -> int | None:
         title=ai_title, content=ai_body,
         error_message=f"MODIFY_URL:{draft_url}",
         keyword=keyword_str, image_urls=image_urls_json,
+        product_name=product_name,  # 대시보드 표시용
     )
     db.add(post_task)
     db.flush()

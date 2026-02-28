@@ -732,11 +732,30 @@ async def list_tasks(
     """Task 목록 조회"""
     try:
         query = db.query(AutomationTask)
-        
-        if status:
-            query = query.filter(AutomationTask.status == status)
-        
-        tasks = query.order_by(AutomationTask.id.desc()).limit(50).all()
+
+        if status == 'all' or not status:
+            # 전체 조회: 최근 200개
+            tasks = query.order_by(AutomationTask.id.desc()).limit(200).all()
+        else:
+            # 특정 상태: 해당 상태의 root task와 그 자식들을 같이 반환
+            root_tasks = query.filter(
+                AutomationTask.status == status,
+                AutomationTask.parent_task_id == None
+            ).order_by(AutomationTask.id.desc()).limit(80).all()
+
+            root_ids = [t.id for t in root_tasks]
+            child_tasks = db.query(AutomationTask).filter(
+                AutomationTask.parent_task_id.in_(root_ids)
+            ).order_by(AutomationTask.id.asc()).all() if root_ids else []
+
+            # 추가: 완료된 task의 하위 항목도 포함
+            extra_children = db.query(AutomationTask).filter(
+                AutomationTask.status == status,
+                AutomationTask.parent_task_id != None,
+                AutomationTask.parent_task_id.notin_(root_ids)
+            ).order_by(AutomationTask.id.desc()).limit(30).all()
+
+            tasks = root_tasks + child_tasks + extra_children
         
         task_list = []
         for task in tasks:
@@ -749,42 +768,69 @@ async def list_tasks(
                 
                 product_name = None
                 keyword_text = None
+
+                # 1) task 자체에 product_name 저장된 경우 (AI 스케줄 태스크)
+                if hasattr(task, 'product_name') and task.product_name:
+                    product_name = task.product_name
+
+                # 2) schedule_id 있는 경우 → schedule → marketing_product
                 if task.schedule_id:
                     schedule = db.query(AutomationSchedule).get(task.schedule_id)
                     if schedule:
                         keyword_text = schedule.keyword_text
-                        if schedule.marketing_product_id:
+                        if not product_name and schedule.marketing_product_id:
                             mp = db.query(MarketingProduct).options(
                                 joinedload(MarketingProduct.product)
                             ).get(schedule.marketing_product_id)
                             if mp and mp.product:
                                 product_name = mp.product.name
-                
+
+                # 3) keyword_text 폴백: task.keyword
+                if not keyword_text and task.keyword:
+                    keyword_text = task.keyword
+
                 assigned_pc_num = None
                 if task.assigned_pc_id:
-                    pc = db.query(AutomationWorkerPC).get(task.assigned_pc_id)
-                    assigned_pc_num = pc.pc_number if pc else None
-                
-                assigned_account_id = None
+                    # pc_id는 DB ID 또는 pc_number 둘 다 가능 → 양쪽 조회
+                    pc = db.query(AutomationWorkerPC).filter(
+                        (AutomationWorkerPC.id == task.assigned_pc_id) |
+                        (AutomationWorkerPC.pc_number == task.assigned_pc_id)
+                    ).first()
+                    assigned_pc_num = pc.pc_number if pc else task.assigned_pc_id
+
+                assigned_account_str = None
                 if task.assigned_account_id:
                     acc = db.query(AutomationAccount).get(task.assigned_account_id)
-                    assigned_account_id = acc.account_id if acc else None
-                
+                    assigned_account_str = acc.account_id if acc else None
+
+                # 이미지 URL 파싱
+                import json as _json
+                image_urls_list = []
+                if task.image_urls:
+                    try:
+                        image_urls_list = _json.loads(task.image_urls)
+                    except Exception:
+                        pass
+
                 task_list.append({
                     'id': task.id,
                     'task_type': task.task_type,
                     'mode': task.mode,
                     'title': task.title,
+                    'content': (task.content or '')[:500],  # 미리보기용 500자
                     'cafe_name': cafe_name,
                     'product_name': product_name,
                     'keyword_text': keyword_text,
                     'status': task.status,
                     'assigned_pc': assigned_pc_num,
-                    'assigned_account': assigned_account_id,
+                    'assigned_account': assigned_account_str,
                     'scheduled_time': task.scheduled_time.strftime('%Y-%m-%d %H:%M') if task.scheduled_time else None,
                     'started_at': task.started_at.strftime('%Y-%m-%d %H:%M:%S') if task.started_at else None,
                     'completed_at': task.completed_at.strftime('%Y-%m-%d %H:%M:%S') if task.completed_at else None,
-                    'post_url': task.post_url
+                    'post_url': task.post_url,
+                    'parent_task_id': task.parent_task_id,
+                    'order_sequence': task.order_sequence,
+                    'image_urls': image_urls_list,
                 })
             except Exception as e:
                 print(f"Task {task.id} 파싱 오류: {e}")
