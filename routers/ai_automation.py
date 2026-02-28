@@ -3945,60 +3945,98 @@ async def _generate_ai_content_internal(
             print(f"  [댓글 미리보기] {comments[:300]}{'...' if len(comments) > 300 else ''}")
         print("-"*80 + "\n")
 
-        # 이미지 생성 (prompt 설정에 따라)
+        # 이미지 생성 (prompt 설정에 따라) - Fal.ai FLUX 사용 (test_generate_content와 동일)
         image_urls = []
         if prompt.generate_images:
             try:
-                n_product = getattr(prompt, 'product_image_count', 1) or 1
-                n_attract = getattr(prompt, 'attract_image_count', 2) or 2
-                attract_pool_raw = getattr(prompt, 'attract_image_prompts', None)
-                attract_pool = []
-                if attract_pool_raw:
-                    import json as _j
-                    try:
-                        attract_pool = _j.loads(attract_pool_raw)
-                    except Exception:
-                        attract_pool = [p.strip() for p in attract_pool_raw.split('\n') if p.strip()]
-
-                print(f"\n🎨 [AI생성] 이미지 생성 시작")
-                print(f"  제품 이미지: {n_product}장, 어그로 이미지: {n_attract}장")
-                print(f"  어그로 풀: {len(attract_pool)}개 프롬프트")
-
+                import fal_client as _fal
                 import random as _rnd
-                # 제품 이미지 프롬프트
-                for i in range(n_product):
-                    prod_prompt_text = (
-                        f"Professional product photography of {product.product_name}. "
-                        f"{product.core_value}. High quality, clean background, "
-                        f"natural lighting, 4K resolution."
-                    )
-                    print(f"\n  📦 제품이미지 {i+1}/{n_product} 프롬프트:")
-                    print(f"     {prod_prompt_text}")
-                    url = await generate_images_with_imagen(prod_prompt_text, 1)
-                    if url:
-                        image_urls.extend(url if isinstance(url, list) else [url])
-                        print(f"     ✅ 생성 완료: {url if isinstance(url, list) else [url]}")
-                    else:
-                        print(f"     ❌ 생성 실패")
 
-                # 어그로 이미지
-                for i in range(n_attract):
-                    if attract_pool:
+                fal_key = os.environ.get('FAL_KEY')
+                if not fal_key:
+                    print("⚠️  FAL_KEY 없음 - 이미지 생성 건너뜀")
+                else:
+                    os.environ['FAL_KEY'] = fal_key
+                    REALISM_SUFFIX = ", slight lens distortion, minor motion blur, not perfectly composed, natural imperfections, no AI look"
+
+                    async def _flux_img(img_prompt: str, portrait: bool = False) -> str | None:
+                        try:
+                            full_p = img_prompt + REALISM_SUFFIX
+                            img_size = {"width": 1024, "height": 1536} if portrait else {"width": 1024, "height": 1024}
+                            print(f"   🎨 FLUX 생성 중 ({img_size['width']}×{img_size['height']}): {img_prompt[:70]}...")
+                            result = await _fal.run_async(
+                                "fal-ai/flux-pro/v1.1",
+                                arguments={
+                                    "prompt": full_p,
+                                    "image_size": img_size,
+                                    "num_inference_steps": 28,
+                                    "guidance_scale": 3.5,
+                                    "num_images": 1,
+                                    "safety_tolerance": "2",
+                                    "output_format": "jpeg",
+                                }
+                            )
+                            url = result['images'][0]['url']
+                            print(f"      ✅ 완료: {url[:70]}...")
+                            return url
+                        except Exception as fe:
+                            print(f"      ❌ FLUX 실패: {fe}")
+                            return None
+
+                    n_product = getattr(prompt, 'num_product_images', None) or getattr(prompt, 'product_image_count', 1) or 1
+                    n_attract = getattr(prompt, 'num_attract_images', None) or getattr(prompt, 'attract_image_count', 2) or 2
+                    attract_pool_raw = getattr(prompt, 'attract_image_prompts', None) or ''
+                    attract_pool = [p.strip() for p in attract_pool_raw.split('\n') if p.strip()] if attract_pool_raw else []
+                    if not attract_pool:
+                        attract_pool = KOREAN_FOOD_ATTRACT_POOL
+
+                    print(f"\n🎨 [AI생성] 이미지 생성 시작 (Fal.ai FLUX)")
+                    print(f"  제품 이미지: {n_product}장, 어그로 이미지: {n_attract}장")
+
+                    # ── 제품 이미지 ──
+                    if n_product > 0:
+                        style_hint = getattr(prompt, 'product_image_style', '') or 'lifestyle, photorealistic, shot on Sony A7III 50mm f1.8, shallow depth of field'
+                        try:
+                            claude_resp = client.messages.create(
+                                model="claude-opus-4-5",
+                                max_tokens=400,
+                                messages=[{
+                                    "role": "user",
+                                    "content": f"""다음 제품을 FLUX AI 이미지 생성기에 넣을 영어 프롬프트를 만들어줘.
+제품명: {product.product_name}
+핵심 특징: {product.core_value or ''}
+스타일 힌트: {style_hint}
+규칙:
+- 영어로만 작성
+- 실제 사진처럼 보이는 자연스러운 생활 장면
+- 반드시 위 제품이 실제로 사용되는 모습을 묘사 (음식이나 관계없는 장면 절대 금지)
+- 카메라 기종, 렌즈, 조명 정보 포함
+- 200자 이내
+- 프롬프트 텍스트만 출력"""
+                                }]
+                            )
+                            prod_prompt_text = claude_resp.content[0].text.strip()
+                            print(f"   📦 제품 프롬프트 (Claude): {prod_prompt_text[:100]}...")
+                        except Exception as ce:
+                            prod_prompt_text = f"photorealistic lifestyle photo of Korean person using {product.product_name}, natural lighting, Sony A7III 50mm f1.8"
+                            print(f"   ⚠️  Claude 프롬프트 생성 실패 → 기본값 사용: {ce}")
+
+                        for i in range(n_product):
+                            url = await _flux_img(prod_prompt_text, portrait=False)
+                            if url:
+                                image_urls.append(url)
+
+                    # ── 어그로 이미지 ──
+                    for i in range(n_attract):
                         ap = _rnd.choice(attract_pool)
-                        tail = ", slight lens distortion, minor motion blur, not perfectly composed, natural imperfections, no AI look"
-                        full_prompt = ap + tail
-                        print(f"\n  🍖 어그로이미지 {i+1}/{n_attract} 프롬프트:")
-                        print(f"     {full_prompt[:200]}...")
-                        url = await generate_images_with_imagen(full_prompt, 1)
+                        url = await _flux_img(ap, portrait=True)
                         if url:
-                            image_urls.extend(url if isinstance(url, list) else [url])
-                            print(f"     ✅ 생성 완료: {url if isinstance(url, list) else [url]}")
-                        else:
-                            print(f"     ❌ 생성 실패")
+                            image_urls.append(url)
 
-                print(f"\n  🎨 이미지 생성 완료: 총 {len(image_urls)}장")
-                for idx_img, img_url in enumerate(image_urls):
-                    print(f"     [{idx_img+1}] {img_url}")
+                    print(f"\n  🎨 이미지 생성 완료: 총 {len(image_urls)}장")
+                    for idx_img, img_url in enumerate(image_urls):
+                        print(f"     [{idx_img+1}] {img_url[:80]}...")
+
             except Exception as img_err:
                 print(f'  ⚠️ 이미지 생성 오류 (무시): {img_err}')
                 import traceback; traceback.print_exc()

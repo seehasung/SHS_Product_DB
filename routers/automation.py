@@ -1122,19 +1122,26 @@ async def _dispatch_next_task_bg(task_id: int, task_type: str, parent_task_id, o
                 print(f"   ⚠️  [BG] 댓글 없음 (총 {total}개) → 다음 AI 그룹 확인")
 
             if first_comment and first_comment.assigned_pc_id:
-                if first_comment.assigned_pc_id not in worker_connections:
-                    print(f"   ⏳ [BG] PC #{first_comment.assigned_pc_id} 연결 대기 중... (최대 90초)")
+                # DB ID → pc_number 변환
+                _pc_rec = db.query(AutomationWorkerPC).filter(
+                    (AutomationWorkerPC.id == first_comment.assigned_pc_id) |
+                    (AutomationWorkerPC.pc_number == first_comment.assigned_pc_id)
+                ).first()
+                _pc_num = _pc_rec.pc_number if _pc_rec else first_comment.assigned_pc_id
+
+                if _pc_num not in worker_connections:
+                    print(f"   ⏳ [BG] PC #{_pc_num} 연결 대기 중... (최대 90초)")
                     for i in range(90):
                         await asyncio.sleep(1)
-                        if first_comment.assigned_pc_id in worker_connections:
-                            print(f"   ✅ [BG] PC #{first_comment.assigned_pc_id} 연결됨! ({i+1}초)")
+                        if _pc_num in worker_connections:
+                            print(f"   ✅ [BG] PC #{_pc_num} 연결됨! ({i+1}초)")
                             break
                     else:
-                        print(f"   ⚠️  [BG] 타임아웃: PC #{first_comment.assigned_pc_id} 미연결")
+                        print(f"   ⚠️  [BG] 타임아웃: PC #{_pc_num} 미연결")
                         return
 
-                print(f"   📨 [BG] 첫 댓글 Task #{first_comment.id} → PC #{first_comment.assigned_pc_id}")
-                await send_task_to_worker(first_comment.assigned_pc_id, first_comment, db)
+                print(f"   📨 [BG] 첫 댓글 Task #{first_comment.id} → PC #{_pc_num}")
+                await send_task_to_worker(_pc_num, first_comment, db)
             else:
                 # 댓글 없는 경우 → 다음 AI 그룹 즉시 실행
                 try:
@@ -1179,19 +1186,26 @@ async def _dispatch_next_task_bg(task_id: int, task_type: str, parent_task_id, o
                         break
 
                 if next_comment and next_comment.assigned_pc_id:
-                    if next_comment.assigned_pc_id not in worker_connections:
-                        print(f"   ⏳ [BG] PC #{next_comment.assigned_pc_id} 연결 대기 중... (최대 90초)")
+                    # DB ID → pc_number 변환
+                    _pc_rec2 = db.query(AutomationWorkerPC).filter(
+                        (AutomationWorkerPC.id == next_comment.assigned_pc_id) |
+                        (AutomationWorkerPC.pc_number == next_comment.assigned_pc_id)
+                    ).first()
+                    _pc_num2 = _pc_rec2.pc_number if _pc_rec2 else next_comment.assigned_pc_id
+
+                    if _pc_num2 not in worker_connections:
+                        print(f"   ⏳ [BG] PC #{_pc_num2} 연결 대기 중... (최대 90초)")
                         for i in range(90):
                             await asyncio.sleep(1)
-                            if next_comment.assigned_pc_id in worker_connections:
-                                print(f"   ✅ [BG] PC #{next_comment.assigned_pc_id} 연결됨! ({i+1}초)")
+                            if _pc_num2 in worker_connections:
+                                print(f"   ✅ [BG] PC #{_pc_num2} 연결됨! ({i+1}초)")
                                 break
                         else:
-                            print(f"   ⚠️  [BG] 타임아웃: PC #{next_comment.assigned_pc_id} 미연결")
+                            print(f"   ⚠️  [BG] 타임아웃: PC #{_pc_num2} 미연결")
                             return
 
-                    print(f"   📨 [BG] 다음 댓글 Task #{next_comment.id} (순서:{next_comment.order_sequence}) → PC #{next_comment.assigned_pc_id}")
-                    await send_task_to_worker(next_comment.assigned_pc_id, next_comment, db)
+                    print(f"   📨 [BG] 다음 댓글 Task #{next_comment.id} (순서:{next_comment.order_sequence}) → PC #{_pc_num2}")
+                    await send_task_to_worker(_pc_num2, next_comment, db)
 
                 else:
                     # ★ 마지막 댓글 완료 → 다음 AI 그룹 실행 (순차)
@@ -1222,40 +1236,21 @@ async def complete_task(
     cafe_comment_id: str = Form(None),
     db: Session = Depends(get_db)
 ):
-    """Task 완료 보고 (HTTP API) - 즉시 응답 후 다음 Task 백그라운드 처리"""
-    # ⭐ 전역 락 획득 (완료 처리만 직렬화, 대기 로직은 백그라운드로 분리)
-    async with task_completion_lock:
-        try:
-            task = db.query(AutomationTask).get(task_id)
-            if not task:
-                return JSONResponse({'success': False, 'error': 'Task not found'}, status_code=404)
-            
-            # 이전 sequence Task들이 모두 완료되었는지 확인
-            if task.order_sequence is not None and task.order_sequence > 0:
-                # 같은 본문의 이전 Task들 확인
-                root_task = db.query(AutomationTask).get(task.parent_task_id)
-                while root_task and root_task.task_type != 'post':
-                    root_task = db.query(AutomationTask).get(root_task.parent_task_id) if root_task.parent_task_id else None
-                
-                if root_task:
-                    prev_incomplete = db.query(AutomationTask).filter(
-                        AutomationTask.parent_task_id == root_task.id,
-                        AutomationTask.order_sequence < task.order_sequence,
-                        AutomationTask.status != 'completed'
-                    ).count()
-                    
-                    if prev_incomplete > 0:
-                        print(f"⚠️ Task #{task_id}: 이전 {prev_incomplete}개 Task 미완료, 완료만 처리하고 전송 보류")
-                        task.status = 'completed'
-                        task.completed_at = get_kst_now()
-                        if post_url:
-                            task.post_url = post_url
-                        if cafe_comment_id:
-                            task.error_message = f"cafe_comment_id:{cafe_comment_id}"
-                            print(f"  📌 카페 댓글 ID 저장: {cafe_comment_id}")
-                        db.commit()
-                        return JSONResponse({'success': True, 'message': 'pending'})
-            
+    """Task 완료 보고 (HTTP API) - DB 저장 즉시 완료 후 백그라운드로 다음 Task 처리"""
+    # ⚠️ task_completion_lock 범위를 최소화 → DB 저장만 직렬화, 나머지는 락 밖에서 처리
+    # 기존: 락 내부에서 모든 처리 → 다수 PC 동시 완료 시 30초+ 대기 → Read timed out 발생
+    _task_type = _parent_id = _order_seq = _cafe_id = None
+    try:
+        # ── 1단계: 락 없이 DB 조회 (읽기는 동시성 문제 없음) ──
+        task = db.query(AutomationTask).get(task_id)
+        if not task:
+            return JSONResponse({'success': False, 'error': 'Task not found'}, status_code=404)
+
+        # ── 2단계: 최소 범위 락으로 DB 업데이트만 직렬화 ──
+        async with task_completion_lock:
+            # 재조회 (락 획득 후 최신 상태 반영)
+            db.refresh(task)
+
             task.status = 'completed'
             task.completed_at = get_kst_now()
             if post_url:
@@ -1279,16 +1274,11 @@ async def complete_task(
                         m = _re.search(r'articleid=(\d+)', post_url, _re.IGNORECASE)
                         if m:
                             article_id = m.group(1)
-                        # 중복 방지: 같은 URL이 이미 저장되어 있으면 skip
-                        existing = db.query(DraftPost).filter(
-                            DraftPost.draft_url == post_url
-                        ).first()
+                        existing = db.query(DraftPost).filter(DraftPost.draft_url == post_url).first()
                         if not existing:
                             draft_post_new = DraftPost(
-                                link_id=link.id,
-                                draft_url=post_url,
-                                article_id=article_id,
-                                status='available'
+                                link_id=link.id, draft_url=post_url,
+                                article_id=article_id, status='available'
                             )
                             db.add(draft_post_new)
                             link.draft_post_count = (link.draft_post_count or 0) + 1
@@ -1296,46 +1286,42 @@ async def complete_task(
                         else:
                             print(f"  ℹ️  DraftPost 이미 존재: {post_url[:60]}...")
                     else:
-                        print(f"  ⚠️  CafeAccountLink 없음 (cafe_id={task.cafe_id}, account_id={task.assigned_account_id})")
+                        print(f"  ⚠️  CafeAccountLink 없음 (cafe_id={task.cafe_id})")
                 except Exception as dp_err:
                     print(f"  ⚠️ DraftPost 저장 실패: {dp_err}")
 
-            # ★ post 완료 시 DraftPost를 '사용됨'으로 업데이트
+            # ★ post 완료 시 DraftPost '사용됨' 업데이트
             if (task.task_type == 'post'
                     and task.error_message
                     and 'MODIFY_URL:' in task.error_message
                     and post_url):
                 try:
-                    draft_url = task.error_message.split('MODIFY_URL:')[1].strip()
-                    draft_post = db.query(DraftPost).filter(
-                        DraftPost.draft_url == draft_url
-                    ).first()
+                    draft_url_val = task.error_message.split('MODIFY_URL:')[1].strip()
+                    draft_post = db.query(DraftPost).filter(DraftPost.draft_url == draft_url_val).first()
                     if draft_post:
                         draft_post.modified_url = post_url
                         draft_post.status = 'used'
                         draft_post.used_at = get_kst_now()
-                        print(f"  ✅ DraftPost #{draft_post.id} → status='used', modified_url 저장")
+                        print(f"  ✅ DraftPost #{draft_post.id} → status='used'")
                 except Exception as dp_err:
                     print(f"  ⚠️ DraftPost 업데이트 실패: {dp_err}")
 
             db.commit()
-            print(f"✅ Task #{task_id} 완료 (HTTP, sequence:{task.order_sequence}, post_url: {task.post_url})")
-        
-        except Exception as e:
-            return JSONResponse({'success': False, 'error': str(e)}, status_code=500)
-    
-    # ⭐ 완료된 Task 정보 저장 (락 해제 후 백그라운드에서 사용)
-    completed_task = db.query(AutomationTask).get(task_id)
-    if completed_task:
-        _task_type = completed_task.task_type
-        _parent_id = completed_task.parent_task_id
-        _order_seq = completed_task.order_sequence
-        _cafe_id = completed_task.cafe_id
-    else:
-        _task_type = _parent_id = _order_seq = _cafe_id = None
+            print(f"✅ Task #{task_id} 완료 (HTTP, type:{task.task_type}, seq:{task.order_sequence})")
 
-    # ⭐ 즉시 응답 (Worker 타임아웃 방지!)
-    # 다음 Task 전송은 백그라운드에서 처리 (90초 대기가 있어도 Worker는 이미 응답 받음)
+            # 락 해제 전 필요한 정보만 추출
+            _task_type = task.task_type
+            _parent_id = task.parent_task_id
+            _order_seq = task.order_sequence
+            _cafe_id = task.cafe_id
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return JSONResponse({'success': False, 'error': str(e)}, status_code=500)
+
+    # ── 3단계: 즉시 응답 (락 완전 해제 후) ──
+    # 백그라운드 Task 생성은 응답 반환 뒤에 처리되므로 Worker 절대 타임아웃 없음
     if _task_type:
         asyncio.create_task(
             _dispatch_next_task_bg(
