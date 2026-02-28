@@ -226,17 +226,17 @@
                 <!-- 작업 큐 탭 -->
                 <ul class="nav nav-tabs mb-3" role="tablist">
                     <li class="nav-item">
-                        <a class="nav-link active" data-bs-toggle="tab" href="#pending-tasks" onclick="loadTasksByStatus('pending','pendingTasksBody')">
+                        <a class="nav-link active" data-bs-toggle="tab" href="#pending-tasks">
                             <i class="bi bi-hourglass-split"></i> 대기 중
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" data-bs-toggle="tab" href="#in-progress-tasks" onclick="loadTasksByStatus('in_progress','inProgressTasksBody')">
+                        <a class="nav-link" data-bs-toggle="tab" href="#in-progress-tasks">
                             <i class="bi bi-arrow-repeat"></i> 진행 중
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" data-bs-toggle="tab" href="#completed-tasks" onclick="loadTasksByStatus('completed','completedTasksBody')">
+                        <a class="nav-link" data-bs-toggle="tab" href="#completed-tasks">
                             <i class="bi bi-check-circle"></i> 완료
                         </a>
                     </li>
@@ -1369,61 +1369,104 @@ async function loadAllData() {
     await loadTasks();
 }
 
+// 전체 태스크 캐시 (한 번 로드 후 탭마다 재사용)
+let _allTasksCache = null;
+let _allTasksLoadedAt = 0;
+
 async function loadTasks() {
-    await loadTasksByStatus('pending', 'pendingTasksBody');
-    // 진행 중 / 완료 탭은 클릭 시 로드 (탭 onclick 연결됨)
+    await _loadAllTasksAndRender();
 }
 
 async function loadTasksByStatus(status, tbodyId) {
-    const tbody = document.getElementById(tbodyId);
-    if (!tbody) return;
-    tbody.innerHTML = `<tr><td colspan="9" class="text-center text-muted"><i class="bi bi-arrow-repeat spin"></i> 로딩 중...</td></tr>`;
+    // 탭 클릭 시 캐시가 있으면 바로 렌더, 없으면 로드
+    if (_allTasksCache) {
+        _renderTabFromCache(status, tbodyId);
+    } else {
+        await _loadAllTasksAndRender();
+    }
+}
+
+async function _loadAllTasksAndRender() {
+    // 세 탭 모두 로딩 표시
+    ['pendingTasksBody','inProgressTasksBody','completedTasksBody'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.innerHTML = `<tr><td colspan="9" class="text-center text-muted"><i class="bi bi-arrow-repeat spin"></i> 로딩 중...</td></tr>`;
+    });
     try {
-        const response = await fetch(`/automation/api/tasks/list?status=${status}`);
+        // status 파라미터 없이 전체 로드 (서버에서 최근 300개 반환)
+        const response = await fetch(`/automation/api/tasks/list`);
         const data = await response.json();
-        if (data.success) {
-            displayTasksGrouped(data.tasks, tbodyId, status);
-        } else {
-            tbody.innerHTML = `<tr><td colspan="9" class="text-center text-danger">오류: ${data.message || '알 수 없음'}</td></tr>`;
-        }
+        if (!data.success) throw new Error(data.message || '로드 실패');
+
+        _allTasksCache = data.tasks;
+        _allTasksLoadedAt = Date.now();
+
+        _renderTabFromCache('pending', 'pendingTasksBody');
+        _renderTabFromCache('in_progress', 'inProgressTasksBody');
+        _renderTabFromCache('completed', 'completedTasksBody');
     } catch (error) {
-        console.error(`Task 로드 오류 (${status}):`, error);
-        tbody.innerHTML = `<tr><td colspan="9" class="text-center text-danger">네트워크 오류</td></tr>`;
+        console.error('Task 로드 오류:', error);
+        ['pendingTasksBody','inProgressTasksBody','completedTasksBody'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.innerHTML = `<tr><td colspan="9" class="text-center text-danger">로드 오류: ${error.message}</td></tr>`;
+        });
     }
 }
 
 /* ────────────── 태스크 그룹화 렌더링 ────────────── */
-function displayTasksGrouped(tasks, tbodyId, status) {
+function _renderTabFromCache(status, tbodyId) {
+    const tasks = _allTasksCache || [];
     const tbody = document.getElementById(tbodyId);
-    const labelMap = { pending: '대기 중인', in_progress: '진행 중인', completed: '완료된' };
+    if (!tbody) return;
 
-    if (!tasks || tasks.length === 0) {
+    // 1. 전체 task를 id → obj 맵으로 구성 (모든 상태 포함)
+    const byId = {};
+    tasks.forEach(t => { byId[t.id] = t; t._children = []; });
+
+    // 2. 부모-자식 연결 (parent_task_id 기준)
+    const allRoots = [];
+    tasks.forEach(t => {
+        if (t.parent_task_id && byId[t.parent_task_id]) {
+            byId[t.parent_task_id]._children.push(t);
+        } else if (!t.parent_task_id) {
+            allRoots.push(t);
+        }
+    });
+
+    // 3. 탭 필터: root task의 상태로 분류
+    //    pending 탭: root.status in ['pending', 'assigned']
+    //    in_progress 탭: root.status == 'in_progress'
+    //    completed 탭: root.status == 'completed' or 'failed'
+    const tabFilter = {
+        'pending':     r => ['pending', 'assigned'].includes(r.status),
+        'in_progress': r => r.status === 'in_progress',
+        'completed':   r => ['completed', 'failed'].includes(r.status),
+    };
+    const filter = tabFilter[status] || (() => false);
+    const roots = allRoots.filter(filter);
+
+    roots.sort((a, b) => b.id - a.id);
+    roots.forEach(r => r._children.sort((a, b) => (a.order_sequence || 0) - (b.order_sequence || 0)));
+
+    const labelMap = { pending: '대기 중인', in_progress: '진행 중인', completed: '완료된' };
+    if (roots.length === 0) {
         tbody.innerHTML = `<tr><td colspan="9" class="text-center text-muted">${labelMap[status] || ''} 작업이 없습니다</td></tr>`;
         return;
     }
 
-    // 부모-자식 트리 구성
-    const byId = {};
-    tasks.forEach(t => { byId[t.id] = t; t._children = []; });
-    const roots = [];
-    tasks.forEach(t => {
-        if (t.parent_task_id && byId[t.parent_task_id]) {
-            byId[t.parent_task_id]._children.push(t);
-        } else {
-            roots.push(t);
-        }
-    });
-    // order_sequence 정렬
-    roots.sort((a, b) => b.id - a.id);
-    roots.forEach(r => r._children.sort((a, b) => (a.order_sequence || 0) - (b.order_sequence || 0)));
-
     let html = '';
     roots.forEach(task => {
-        const hasChildren = task._children.length > 0;
         const gid = `grp-${tbodyId}-${task.id}`;
-        html += renderRootRow(task, hasChildren, gid, status);
+        html += renderRootRow(task, task._children.length > 0, gid, status);
         task._children.forEach(child => {
             html += renderChildRow(child, gid, status);
+            // 대댓글 (손자)
+            if (child._children && child._children.length > 0) {
+                child._children.sort((a, b) => (a.order_sequence || 0) - (b.order_sequence || 0));
+                child._children.forEach(gc => {
+                    html += renderChildRow(gc, gid, status, true);
+                });
+            }
         });
     });
 
@@ -1478,15 +1521,17 @@ function renderRootRow(task, hasChildren, gid, status) {
         </tr>`;
 }
 
-function renderChildRow(task, gid, status) {
+function renderChildRow(task, gid, status, isGrandchild = false) {
     const modeIcon = task.mode === 'human' ? '👤' : '🤖';
     const pcAcc = [task.assigned_pc ? 'PC#' + task.assigned_pc : '', task.assigned_account || ''].filter(Boolean).join(' / ') || '-';
+    const indent = isGrandchild ? 'padding-left:40px' : 'padding-left:20px';
+    const prefix = isGrandchild ? '↳' : '└';
 
     let lastCol = '';
     if (status === 'completed') {
-        lastCol = `<td>${task.post_url ? `<a href="${task.post_url}" target="_blank" style="font-size:.75rem">🔗</a>` : (task.content ? task.content.slice(0, 30) + '…' : '-')}</td>`;
+        lastCol = `<td>${task.post_url ? `<a href="${task.post_url}" target="_blank" style="font-size:.75rem">🔗</a>` : (task.content ? escHtml(task.content.slice(0, 30)) + '…' : '-')}</td>`;
     } else {
-        lastCol = `<td style="font-size:.75rem;color:#777">${task.content ? task.content.slice(0, 40) + '…' : '-'}</td>`;
+        lastCol = `<td style="font-size:.75rem;color:#777">${task.content ? escHtml(task.content.slice(0, 40)) + '…' : '-'}</td>`;
     }
 
     const timeCol = status === 'completed'
@@ -1495,7 +1540,7 @@ function renderChildRow(task, gid, status) {
 
     return `
         <tr class="task-child-row d-none" data-group="${gid}">
-            <td style="padding-left:24px">└</td>
+            <td style="${indent}">${prefix}</td>
             <td style="font-size:.82rem">#${task.id}</td>
             <td>${modeIcon} ${typeBadge(task.task_type)}</td>
             <td colspan="2" style="font-size:.82rem">${task.cafe_name || '-'}</td>

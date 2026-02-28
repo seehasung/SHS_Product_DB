@@ -733,29 +733,10 @@ async def list_tasks(
     try:
         query = db.query(AutomationTask)
 
-        if status == 'all' or not status:
-            # 전체 조회: 최근 200개
-            tasks = query.order_by(AutomationTask.id.desc()).limit(200).all()
-        else:
-            # 특정 상태: 해당 상태의 root task와 그 자식들을 같이 반환
-            root_tasks = query.filter(
-                AutomationTask.status == status,
-                AutomationTask.parent_task_id == None
-            ).order_by(AutomationTask.id.desc()).limit(80).all()
-
-            root_ids = [t.id for t in root_tasks]
-            child_tasks = db.query(AutomationTask).filter(
-                AutomationTask.parent_task_id.in_(root_ids)
-            ).order_by(AutomationTask.id.asc()).all() if root_ids else []
-
-            # 추가: 완료된 task의 하위 항목도 포함
-            extra_children = db.query(AutomationTask).filter(
-                AutomationTask.status == status,
-                AutomationTask.parent_task_id != None,
-                AutomationTask.parent_task_id.notin_(root_ids)
-            ).order_by(AutomationTask.id.desc()).limit(30).all()
-
-            tasks = root_tasks + child_tasks + extra_children
+        # 항상 전체 로드 후 JS에서 그룹화 (상태별 필터는 JS에서 처리)
+        # 이유: post가 'assigned', 댓글이 'pending'이면 탭 분리 → 그룹화 불가
+        # → 전체를 한 번에 내려주고, JS에서 root task의 status 기준으로 탭 분류
+        tasks = query.order_by(AutomationTask.id.desc()).limit(300).all()
         
         task_list = []
         for task in tasks:
@@ -835,7 +816,19 @@ async def list_tasks(
             except Exception as e:
                 print(f"Task {task.id} 파싱 오류: {e}")
                 continue
-        
+
+        # ── 2nd pass: 자식 task에 부모의 product_name/keyword_text 상속 ──
+        # (댓글/대댓글 task 자체에는 이 값이 없어서 대시보드에 "-" 표시)
+        by_id = {t['id']: t for t in task_list}
+        for t in task_list:
+            if t['parent_task_id'] and (not t['product_name'] or not t['keyword_text']):
+                parent = by_id.get(t['parent_task_id'])
+                if parent:
+                    if not t['product_name']:
+                        t['product_name'] = parent.get('product_name')
+                    if not t['keyword_text']:
+                        t['keyword_text'] = parent.get('keyword_text')
+
         return JSONResponse({
             'success': True,
             'tasks': task_list

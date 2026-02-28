@@ -3864,14 +3864,19 @@ async def _generate_ai_content_internal(
         print(user_prompt)
         print("\n" + "="*80 + "\n")
 
-        client = anthropic.Anthropic(api_key=api_key)
-        response = client.messages.create(
+        # ⚠️ 동기 Claude API를 run_in_executor로 실행 → asyncio 이벤트 루프 블로킹 방지
+        # 기존 동기 호출 시 30초+ 블로킹 → APScheduler missed + 워커 완료 보고 타임아웃 연쇄 발생
+        import asyncio as _aio
+        _client = anthropic.Anthropic(api_key=api_key)
+        _loop = _aio.get_event_loop()
+        _create_fn = lambda: _client.messages.create(
             model='claude-opus-4-5',
             max_tokens=prompt.max_tokens,
             temperature=prompt.temperature,
             system=system_prompt,
             messages=[{'role': 'user', 'content': user_prompt}]
         )
+        response = await _loop.run_in_executor(None, _create_fn)
         raw = response.content[0].text
 
         print("\n" + "="*80)
@@ -3999,7 +4004,8 @@ async def _generate_ai_content_internal(
                     if n_product > 0:
                         style_hint = getattr(prompt, 'product_image_style', '') or 'lifestyle, photorealistic, shot on Sony A7III 50mm f1.8, shallow depth of field'
                         try:
-                            claude_resp = client.messages.create(
+                            _img_prompt_client = anthropic.Anthropic(api_key=api_key)
+                            _img_prompt_fn = lambda: _img_prompt_client.messages.create(
                                 model="claude-opus-4-5",
                                 max_tokens=400,
                                 messages=[{
@@ -4017,6 +4023,7 @@ async def _generate_ai_content_internal(
 - 프롬프트 텍스트만 출력"""
                                 }]
                             )
+                            claude_resp = await _aio.get_event_loop().run_in_executor(None, _img_prompt_fn)
                             prod_prompt_text = claude_resp.content[0].text.strip()
                             print(f"   📦 제품 프롬프트 (Claude): {prod_prompt_text[:100]}...")
                         except Exception as ce:

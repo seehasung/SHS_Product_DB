@@ -422,7 +422,10 @@ def start_scheduler():
         trigger=IntervalTrigger(minutes=1),
         id='check_ai_schedules',
         name='AI 자동화 스케줄 체크',
-        replace_existing=True
+        replace_existing=True,
+        coalesce=True,        # 밀린 실행 하나로 합치기 (missed 누적 방지)
+        max_instances=1,      # 동시 실행 1개만 허용
+        misfire_grace_time=30 # 30초 이내 지연은 실행 허용
     )
 
     scheduler.start()
@@ -436,12 +439,29 @@ def start_scheduler():
 
 async def check_ai_schedules():
     """AI 자동화 스케줄 (신규발행 + 수정발행) 실행 체크 - 1분마다"""
-    from database import AIMarketingSchedule, DraftCreationSchedule
+    from database import AIMarketingSchedule, DraftCreationSchedule, AutomationTask
     from routers.ai_automation import _execute_ai_schedule, _execute_draft_schedule
+    from datetime import timedelta
 
     db = SessionLocal()
     now = get_kst_now()
     try:
+        # ── 고착 태스크 자동 복구 ─────────────────────────────────────
+        # 10분 이상 in_progress/assigned 상태인 post 태스크 → pending 리셋
+        # (워커 완료 보고 타임아웃으로 상태가 변경 안 된 경우 복구)
+        stuck_threshold = now - timedelta(minutes=10)
+        stuck_tasks = db.query(AutomationTask).filter(
+            AutomationTask.status.in_(['in_progress', 'assigned']),
+            AutomationTask.task_type.in_(['post', 'comment', 'reply', 'create_draft']),
+            AutomationTask.updated_at <= stuck_threshold,
+        ).all()
+        for st in stuck_tasks:
+            st.status = 'pending'
+            print(f"🔄 고착 태스크 #{st.id} ({st.task_type}) → pending 리셋 (마지막 업데이트: {st.updated_at})")
+        if stuck_tasks:
+            db.commit()
+            print(f"✅ 고착 태스크 {len(stuck_tasks)}개 복구 완료")
+
         # ── 신규발행(인사글) 스케줄 ──
         draft_schedules = db.query(DraftCreationSchedule).filter(
             DraftCreationSchedule.is_active == True,
@@ -469,6 +489,7 @@ async def check_ai_schedules():
                 print(f"⚠️ AI 수정발행 스케줄 #{s.id} 실행 오류: {e}")
     except Exception as e:
         print(f"⚠️ check_ai_schedules 오류: {e}")
+        import traceback; traceback.print_exc()
     finally:
         db.close()
 
