@@ -2946,40 +2946,42 @@ async def publish_test(
                 
                 # 댓글 구조 파싱 (복잡한 구조 지원)
                 def parse_comment_structure(text):
-                    """댓글 + 대댓글 파싱"""
-                    lines = text.strip().split('\n')
+                    """
+                    두 가지 형식 모두 지원:
+                    - **계정1:** 텍스트  (마크다운 볼드 형식)
+                    - 계정1: 텍스트     (plain 형식, Claude 최신 응답)
+                    대댓글: 앞에 > 붙음
+                    """
+                    import re as _re
                     result = []
-                    
-                    for line in lines:
-                        if not line.strip() or line.startswith('---') or line.startswith('#'):
+                    for raw in text.strip().split('\n'):
+                        raw = raw.strip()
+                        if not raw or raw.startswith('---') or raw.startswith('#'):
                             continue
-                        
-                        # 대댓글 레벨 확인
+                        # > 개수로 level 판정
                         level = 0
-                        original_line = line
-                        while line.startswith('>'):
+                        while raw.startswith('>'):
                             level += 1
-                            line = line[1:].strip()
-                        
-                        # 계정명 추출: **계정:** 형식
-                        if '**' in line and ':**' in line:
+                            raw = raw[1:].strip()
+                        # 형식 1: **계정1:** 텍스트
+                        if '**' in raw:
                             try:
-                                # **계정1:** 댓글 내용
-                                parts = line.split('**')
+                                parts = raw.split('**')
                                 if len(parts) >= 3:
-                                    account_part = parts[1]
-                                    if ':' in account_part:
-                                        account = account_part.split(':')[0].strip()
-                                        content = '**'.join(parts[2:]).strip()
-                                        
-                                        result.append({
-                                            'level': level,
-                                            'account': account,
-                                            'content': content
-                                        })
+                                    acct = parts[1].split(':')[0].strip()
+                                    content = '**'.join(parts[2:]).lstrip(':').strip()
+                                    if acct and content:
+                                        result.append({'level': level, 'account': acct, 'content': content})
+                                        continue
                             except:
-                                continue
-                    
+                                pass
+                        # 형식 2: 계정1: 텍스트  또는  작성자: 텍스트
+                        m = _re.match(r'^([가-힣a-zA-Z0-9]+\d*)\s*:\s*(.+)', raw)
+                        if m:
+                            acct = m.group(1).strip()
+                            content = m.group(2).strip()
+                            if acct and content:
+                                result.append({'level': level, 'account': acct, 'content': content})
                     return result
                 
                 parsed_comments = parse_comment_structure(comments_text)
@@ -4144,19 +4146,38 @@ async def _run_ai_group(group_info: dict, schedule_id: int, db) -> int | None:
     comment_count = 0
     if ai_comments_text and other_accs:
         def _parse(text):
+            """
+            두 가지 형식 모두 지원:
+            - **계정1:** 텍스트  (마크다운 볼드 형식)
+            - 계정1: 텍스트     (plain 형식, Claude 최신 응답)
+            대댓글: 앞에 > 붙음
+            """
+            import re as _re
             res = []
             for line in text.strip().split('\n'):
-                if not line.strip() or line.startswith('---') or line.startswith('#'): continue
+                raw = line.strip()
+                if not raw or raw.startswith('---') or raw.startswith('#'): continue
+                # > 개수로 level 판정
                 lvl = 0
-                while line.startswith('>'): lvl += 1; line = line[1:].strip()
-                if '**' in line and ':**' in line:
+                while raw.startswith('>'): lvl += 1; raw = raw[1:].strip()
+                # 형식 1: **계정1:** 텍스트
+                if '**' in raw:
                     try:
-                        parts = line.split('**')
+                        parts = raw.split('**')
                         if len(parts) >= 3:
                             acct = parts[1].split(':')[0].strip()
-                            content = '**'.join(parts[2:]).strip()
-                            res.append({'level': lvl, 'account': acct, 'content': content})
+                            content = '**'.join(parts[2:]).lstrip(':').strip()
+                            if acct and content:
+                                res.append({'level': lvl, 'account': acct, 'content': content})
+                                continue
                     except: pass
+                # 형식 2: 계정1: 텍스트  또는  작성자: 텍스트
+                m = _re.match(r'^([가-힣a-zA-Z0-9]+\d*)\s*:\s*(.+)', raw)
+                if m:
+                    acct = m.group(1).strip()
+                    content = m.group(2).strip()
+                    if acct and content:
+                        res.append({'level': lvl, 'account': acct, 'content': content})
             return res
 
         parsed = _parse(ai_comments_text)
