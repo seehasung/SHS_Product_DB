@@ -300,12 +300,21 @@ async def worker_websocket(websocket: WebSocket, pc_number: int, db: Session = D
                 # 작업 실패
                 task = db.query(AutomationTask).get(message['task_id'])
                 if task:
+                    _failed_task_type = task.task_type
+                    _failed_task_id = task.id
                     task.status = 'failed'
                     task.error_message = message.get('error')
                     task.retry_count += 1
                     pc.status = 'online'
                     pc.current_task_id = None
                     db.commit()
+                    print(f"❌ Task #{_failed_task_id} 실패 처리 완료 (타입: {_failed_task_type})")
+
+                    # ★ post 타입 실패 → 다음 AI 그룹 실행 (댓글 스킵, 다음 글로)
+                    if _failed_task_type == 'post':
+                        asyncio.create_task(
+                            _dispatch_next_group_on_failure(_failed_task_id)
+                        )
                     
     except WebSocketDisconnect:
         print(f"❌ Worker PC #{pc_number} 연결 해제")
@@ -1090,6 +1099,46 @@ async def create_tasks_from_post(
 # Worker 업데이트 API
 # ============================================
 
+async def _dispatch_next_group_on_failure(failed_task_id: int):
+    """post 타입 Task 실패 시 → 해당 그룹의 댓글들을 모두 cancelled 처리하고 다음 AI 그룹 실행"""
+    from database import SessionLocal
+    db = SessionLocal()
+    try:
+        import random
+        await asyncio.sleep(random.randint(1, 3))
+
+        # 실패한 post task에 연결된 댓글/대댓글을 모두 cancelled 처리
+        child_tasks = db.query(AutomationTask).filter(
+            AutomationTask.parent_task_id == failed_task_id,
+            AutomationTask.status.in_(['pending', 'assigned'])
+        ).all()
+        for ct in child_tasks:
+            ct.status = 'cancelled'
+            print(f"   🚫 [BG] 댓글 Task #{ct.id} → cancelled (부모 실패)")
+        if child_tasks:
+            db.commit()
+            print(f"   ✅ [BG] {len(child_tasks)}개 댓글 Task cancelled 처리 완료")
+
+        # 다음 AI 그룹 실행
+        try:
+            from routers.ai_automation import _execute_next_ai_group, _ai_task_schedule_map
+            schedule_id = _ai_task_schedule_map.get(failed_task_id)
+            if schedule_id is not None:
+                print(f"   🔗 [BG] post 실패 → 다음 AI 그룹 실행 (schedule#{schedule_id})")
+                await _execute_next_ai_group(schedule_id, db)
+            else:
+                print(f"   ℹ️  [BG] schedule 매핑 없음 (task#{failed_task_id}) → 다음 그룹 없음")
+        except Exception as _nge:
+            print(f"   ⚠️ [BG] 다음 AI 그룹 실행 오류: {_nge}")
+
+    except Exception as e:
+        import traceback
+        print(f"❌ [BG] 실패 후 다음 그룹 처리 오류: {e}")
+        traceback.print_exc()
+    finally:
+        db.close()
+
+
 async def _dispatch_next_task_bg(task_id: int, task_type: str, parent_task_id, order_sequence, cafe_id):
     """다음 Task 비동기 전송 (백그라운드) - complete_task 즉시 응답 후 실행"""
     from database import SessionLocal
@@ -1327,6 +1376,40 @@ async def complete_task(
         )
 
     return JSONResponse({'success': True})
+
+
+@router.post("/api/tasks/{task_id}/fail")
+async def fail_task(
+    task_id: int,
+    error: str = Form(None),
+    db: Session = Depends(get_db)
+):
+    """Task 실패 보고 (HTTP API) - WebSocket이 끊겼을 때 백업용"""
+    try:
+        task = db.query(AutomationTask).get(task_id)
+        if not task:
+            return JSONResponse({'success': False, 'error': 'Task not found'}, status_code=404)
+
+        if task.status in ('completed', 'failed', 'cancelled'):
+            return JSONResponse({'success': True, 'message': f'이미 {task.status} 상태'})
+
+        _failed_task_type = task.task_type
+        task.status = 'failed'
+        task.error_message = error or '작업 실패'
+        task.retry_count = (task.retry_count or 0) + 1
+        db.commit()
+        print(f"❌ Task #{task_id} 실패 처리 완료 (HTTP, type:{_failed_task_type})")
+
+        # post 실패 → 다음 AI 그룹
+        if _failed_task_type == 'post':
+            asyncio.create_task(_dispatch_next_group_on_failure(task_id))
+
+        return JSONResponse({'success': True})
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return JSONResponse({'success': False, 'error': str(e)}, status_code=500)
 
 
 @router.get("/api/worker/version")

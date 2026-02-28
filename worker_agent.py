@@ -2344,13 +2344,32 @@ class NaverCafeWorker:
             print(f"✅ 작업 완료: Task #{task_id}")
             
         except Exception as e:
-            # 오류 발생 시 서버에 알림
+            # 오류 발생 시 서버에 알림 (WebSocket + HTTP 이중 보고)
             print(f"❌ 작업 실패: Task #{task_id} - {e}")
-            await self.websocket.send(json.dumps({
-                'type': 'task_failed',
-                'task_id': task_id,
-                'error': str(e)
-            }))
+
+            # 1) WebSocket으로 실패 보고
+            try:
+                await self.websocket.send(json.dumps({
+                    'type': 'task_failed',
+                    'task_id': task_id,
+                    'error': str(e)
+                }))
+                print(f"   📡 WebSocket 실패 보고 완료")
+            except Exception as ws_err:
+                print(f"   ⚠️ WebSocket 실패 보고 불가: {ws_err}")
+
+            # 2) HTTP로도 실패 보고 (post 타입만 - 다음 그룹 트리거 목적)
+            if task_type == 'post':
+                try:
+                    import requests as _req
+                    _fail_url = f"https://{self.server_url}/automation/api/tasks/{task_id}/fail"
+                    _r = _req.post(_fail_url, data={'error': str(e)}, timeout=15, verify=False)
+                    if _r.status_code == 200:
+                        print(f"   ✅ HTTP 실패 보고 완료 (post)")
+                    else:
+                        print(f"   ⚠️ HTTP 실패 보고 응답: {_r.status_code}")
+                except Exception as http_err:
+                    print(f"   ⚠️ HTTP 실패 보고 오류: {http_err}")
             
     async def listen_for_tasks(self):
         """서버로부터 작업 수신"""
