@@ -8,7 +8,7 @@ from alembic import op
 import sqlalchemy as sa
 
 revision = 'add_product_name_to_tasks'
-down_revision = 'add_keyword_to_tasks'
+down_revision = 'add_schedule_logs'
 branch_labels = None
 depends_on = None
 
