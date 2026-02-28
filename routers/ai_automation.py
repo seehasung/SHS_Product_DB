@@ -2195,13 +2195,28 @@ async def get_cafe_connections(
         return JSONResponse({"success": False, "error": "로그인이 필요합니다"}, status_code=401)
     
     try:
-        from database import CafeAccountLink
-        
+        from database import CafeAccountLink, DraftPost
+        from sqlalchemy import func as _func
+
         connections = db.query(CafeAccountLink).options(
             joinedload(CafeAccountLink.cafe),
             joinedload(CafeAccountLink.account)
         ).all()
-        
+
+        # used_post_count를 저장된 컬럼 대신 DraftPost 테이블에서 실시간 집계
+        # (stored counter가 누락된 경우를 대비)
+        used_counts = dict(
+            db.query(DraftPost.link_id, _func.count(DraftPost.id))
+            .filter(DraftPost.status == 'used')
+            .group_by(DraftPost.link_id)
+            .all()
+        )
+        total_counts = dict(
+            db.query(DraftPost.link_id, _func.count(DraftPost.id))
+            .group_by(DraftPost.link_id)
+            .all()
+        )
+
         connections_data = [{
             'id': c.id,
             'cafe_id': c.cafe_id,
@@ -2210,11 +2225,11 @@ async def get_cafe_connections(
             'cafe_characteristics': c.cafe.characteristics if c.cafe else '',
             'account_name': c.account.account_id if c.account else '',
             'status': c.status,
-            'draft_post_count': c.draft_post_count,
-            'used_post_count': c.used_post_count,
+            'draft_post_count': total_counts.get(c.id, 0),
+            'used_post_count': used_counts.get(c.id, 0),
             'is_member': c.is_member
         } for c in connections]
-        
+
         return JSONResponse({'success': True, 'connections': connections_data})
     except ImportError:
         # CafeAccountLink 테이블이 없는 경우

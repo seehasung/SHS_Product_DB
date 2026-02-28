@@ -200,6 +200,25 @@ async def worker_websocket(websocket: WebSocket, pc_number: int, db: Session = D
                             keyword_text=task.schedule.keyword_text if task.schedule else None
                         )
                         db.add(post)
+                        # ★ DraftPost '사용됨' 처리 + used_post_count 증가 (WebSocket 경로)
+                        post_url_ws = message.get('post_url')
+                        if (task.error_message and 'MODIFY_URL:' in task.error_message and post_url_ws):
+                            try:
+                                from database import CafeAccountLink as _CAL_ws, DraftPost as _DP_ws
+                                draft_url_ws = task.error_message.split('MODIFY_URL:')[1].strip()
+                                dp_ws = db.query(_DP_ws).filter(_DP_ws.draft_url == draft_url_ws).first()
+                                if dp_ws:
+                                    was_used_ws = dp_ws.status == 'used'
+                                    dp_ws.modified_url = post_url_ws
+                                    dp_ws.status = 'used'
+                                    dp_ws.used_at = get_kst_now()
+                                    if not was_used_ws and dp_ws.link_id:
+                                        link_ws = db.query(_CAL_ws).get(dp_ws.link_id)
+                                        if link_ws:
+                                            link_ws.used_post_count = (link_ws.used_post_count or 0) + 1
+                                            print(f"  ✅ [WS] used_post_count → {link_ws.used_post_count}")
+                            except Exception as _dp_err:
+                                print(f"  ⚠️ [WS] DraftPost used 업데이트 실패: {_dp_err}")
                     elif task.task_type in ['comment', 'reply']:
                         parent_post_id = None
                         cafe_comment_id = message.get('cafe_comment_id')  # ⭐ 카페 댓글 ID
@@ -1332,19 +1351,27 @@ async def complete_task(
                 except Exception as dp_err:
                     print(f"  ⚠️ DraftPost 저장 실패: {dp_err}")
 
-            # ★ post 완료 시 DraftPost '사용됨' 업데이트
+            # ★ post 완료 시 DraftPost '사용됨' 업데이트 + used_post_count 증가
             if (task.task_type == 'post'
                     and task.error_message
                     and 'MODIFY_URL:' in task.error_message
                     and post_url):
                 try:
+                    from database import CafeAccountLink as _CAL
                     draft_url_val = task.error_message.split('MODIFY_URL:')[1].strip()
                     draft_post = db.query(DraftPost).filter(DraftPost.draft_url == draft_url_val).first()
                     if draft_post:
+                        was_used = draft_post.status == 'used'
                         draft_post.modified_url = post_url
                         draft_post.status = 'used'
                         draft_post.used_at = get_kst_now()
                         print(f"  ✅ DraftPost #{draft_post.id} → status='used'")
+                        # used_post_count 증가 (이미 used가 아닌 경우에만)
+                        if not was_used and draft_post.link_id:
+                            link = db.query(_CAL).get(draft_post.link_id)
+                            if link:
+                                link.used_post_count = (link.used_post_count or 0) + 1
+                                print(f"  ✅ CafeAccountLink #{link.id} used_post_count → {link.used_post_count}")
                 except Exception as dp_err:
                     print(f"  ⚠️ DraftPost 업데이트 실패: {dp_err}")
 
