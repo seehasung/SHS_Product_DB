@@ -1360,6 +1360,63 @@ async def get_worker_version():
     })
 
 
+@router.get("/api/tasks/{task_id}/detail")
+async def get_task_detail(task_id: int, db: Session = Depends(get_db)):
+    """Task 상세 조회 (자식 태스크 전체 포함) - 내용 미리보기 모달용"""
+    import json as _json
+
+    def _serialize(t):
+        image_urls_list = []
+        if t.image_urls:
+            try:
+                image_urls_list = _json.loads(t.image_urls)
+            except Exception:
+                pass
+        return {
+            'id': t.id,
+            'task_type': t.task_type,
+            'mode': t.mode,
+            'status': t.status,
+            'title': t.title,
+            'content': t.content or '',
+            'parent_task_id': t.parent_task_id,
+            'order_sequence': t.order_sequence or 0,
+            'post_url': t.post_url,
+            'keyword': t.keyword,
+            'product_name': t.product_name,
+            'image_urls': image_urls_list,
+            'completed_at': t.completed_at.strftime('%Y-%m-%d %H:%M:%S') if t.completed_at else None,
+        }
+
+    try:
+        root = db.query(AutomationTask).get(task_id)
+        if not root:
+            return JSONResponse({'success': False, 'error': 'Task not found'}, status_code=404)
+
+        # 직접 자식 (댓글)
+        direct_children = db.query(AutomationTask).filter(
+            AutomationTask.parent_task_id == task_id
+        ).order_by(AutomationTask.order_sequence.asc(), AutomationTask.id.asc()).all()
+
+        # 댓글의 자식 (대댓글)
+        child_ids = [c.id for c in direct_children]
+        grandchildren = []
+        if child_ids:
+            grandchildren = db.query(AutomationTask).filter(
+                AutomationTask.parent_task_id.in_(child_ids)
+            ).order_by(AutomationTask.order_sequence.asc(), AutomationTask.id.asc()).all()
+
+        return JSONResponse({
+            'success': True,
+            'root': _serialize(root),
+            'children': [_serialize(c) for c in direct_children],
+            'grandchildren': [_serialize(g) for g in grandchildren],
+        })
+    except Exception as e:
+        import traceback; traceback.print_exc()
+        return JSONResponse({'success': False, 'error': str(e)}, status_code=500)
+
+
 @router.get("/api/worker/download")
 async def download_worker():
     """Worker Agent 파일 다운로드"""
