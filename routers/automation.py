@@ -88,8 +88,10 @@ async def worker_websocket(websocket: WebSocket, pc_number: int, db: Session = D
     print(f"   미할당 Task: {'#' + str(pending_task.id) if pending_task else '없음'}")
     
     # 2. 이 PC에 할당된 Task 중 아직 시작 안 한 것 찾기 (최신 우선!)
+    # ⚠️  assigned_pc_id는 pc.id(DB ID) 또는 pc_number 두 가지 방식으로 저장될 수 있음
+    #     → OR 조건으로 둘 다 검색
     assigned_task = db.query(AutomationTask).filter(
-        AutomationTask.assigned_pc_id == pc.id,
+        AutomationTask.assigned_pc_id.in_([pc.id, pc_number]),
         AutomationTask.status.in_(['pending', 'assigned'])
     ).order_by(
         AutomationTask.priority.desc(),

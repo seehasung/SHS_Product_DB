@@ -3078,33 +3078,41 @@ async def publish_test(
         print(f"✅ 댓글 Task 생성 완료: 총 {len(comment_tasks)}개")
         db.commit()
         
-        # 6. Worker PC에 직접 전송 (계정 유지)
+        # 6. Worker PC에 직접 전송
+        # ⚠️  핵심 수정: account.assigned_pc_id = PC의 DB ID (FK)
+        #               worker_connections 키 = pc_number (1,2,3...)
+        #               → DB ID로 worker_connections 조회하면 항상 False → 90초 타임아웃
         from routers.automation import send_task_to_worker, worker_connections
-        import asyncio
-        
-        # 본문 Task 전송 (최대 90초 대기)
-        print(f"\n📤 본문 Task 전송 준비...")
-        print(f"   assigned_account_id: {assigned_account_id}")
-        print(f"   assigned_pc_id: {assigned_pc_id}")
-        
-        task_sent = False
+        from database import AutomationWorkerPC
+
+        # DB ID → pc_number 변환
+        pc_number_to_use = None
         if assigned_pc_id:
-            if assigned_pc_id in worker_connections:
-                await send_task_to_worker(assigned_pc_id, post_task, db)
-                print(f"✅ Task #{post_task.id} 직접 전송 → PC #{assigned_pc_id}")
+            pc_record = db.query(AutomationWorkerPC).filter(
+                AutomationWorkerPC.id == assigned_pc_id
+            ).first()
+            if pc_record:
+                pc_number_to_use = pc_record.pc_number
+                print(f"\n📤 본문 Task 전송 준비...")
+                print(f"   assigned_account_id : {assigned_account_id}")
+                print(f"   assigned_pc_id (DB) : {assigned_pc_id}")
+                print(f"   pc_number           : {pc_number_to_use}")
+                print(f"   현재 연결된 PC 목록 : {list(worker_connections.keys())}")
+
+        task_sent = False
+        if pc_number_to_use is not None:
+            if pc_number_to_use in worker_connections:
+                await send_task_to_worker(pc_number_to_use, post_task, db)
+                post_task.status = 'assigned'
+                db.commit()
+                print(f"✅ Task #{post_task.id} 직접 전송 → PC #{pc_number_to_use}")
                 task_sent = True
             else:
-                print(f"   ⏳ PC #{assigned_pc_id} 연결 대기 중... (최대 90초)")
-                for i in range(90):
-                    await asyncio.sleep(1)
-                    if assigned_pc_id in worker_connections:
-                        print(f"   ✅ PC #{assigned_pc_id} 연결됨! ({i+1}초 후)")
-                        await send_task_to_worker(assigned_pc_id, post_task, db)
-                        print(f"✅ Task #{post_task.id} 전송 완료 → PC #{assigned_pc_id}")
-                        task_sent = True
-                        break
-                if not task_sent:
-                    print(f"⚠️  90초 대기 후에도 PC #{assigned_pc_id} 미연결 - Task #{post_task.id}는 DB에 저장됨 (Worker 연결 시 자동 처리)")
+                print(f"   ℹ️  PC #{pc_number_to_use} 현재 미연결 → DB 저장 (재연결 시 자동 처리)")
+                # 90초 대기 제거: Render.com 30초 HTTP 타임아웃에 걸려 요청 자체가 끊김
+                # 대신 Worker 재연결 시 worker_websocket 핸들러가 pending task 자동 감지
+        else:
+            print(f"   ⚠️  PC 정보 없음 (assigned_pc_id={assigned_pc_id}) → DB 저장")
         
         # 댓글 Task는 본문 Task 완료 후 자동 할당됨 (task_completed → assign_next_task)
         
