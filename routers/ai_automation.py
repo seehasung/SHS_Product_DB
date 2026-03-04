@@ -2488,13 +2488,14 @@ async def test_generate_content(
         except (AttributeError, Exception):
             cafe_characteristics = "일반적인 톤, 자연스러운 대화체"
         
-        # 레퍼런스 가져오기 (같은 분류)
-        ai_refs = db.query(AIProductReference).options(
+        # 레퍼런스 가져오기 (분류 무관 전체에서 랜덤 3개)
+        import random as _rand_ref
+        all_ai_refs = db.query(AIProductReference).options(
             joinedload(AIProductReference.reference).joinedload(Reference.comments)
         ).filter(
             AIProductReference.ai_product_id == product.id,
-            AIProductReference.reference_type == prompt.keyword_classification
-        ).limit(3).all()
+        ).all()
+        ai_refs = _rand_ref.sample(all_ai_refs, min(3, len(all_ai_refs))) if all_ai_refs else []
         
         # 레퍼런스 텍스트 조합
         reference_text = ""
@@ -3808,13 +3809,14 @@ async def _generate_ai_content_internal(
             else '일반적인 톤, 자연스러운 대화체'
         )
 
-        # 레퍼런스
-        ai_refs = db.query(AIProductReference).options(
+        # 레퍼런스 (분류 무관 전체에서 랜덤 3개)
+        import random as _rand_ref2
+        all_ai_refs = db.query(AIProductReference).options(
             joinedload(AIProductReference.reference).joinedload(Reference.comments)
         ).filter(
             AIProductReference.ai_product_id == product.id,
-            AIProductReference.reference_type == prompt.keyword_classification
-        ).limit(3).all()
+        ).all()
+        ai_refs = _rand_ref2.sample(all_ai_refs, min(3, len(all_ai_refs))) if all_ai_refs else []
 
         reference_text = ''
         for idx, ai_ref in enumerate(ai_refs):

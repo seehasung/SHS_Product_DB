@@ -1669,6 +1669,10 @@ function typeBadge(tt) {
     return `<span class="badge-${tt}">${map[tt] || tt}</span>`;
 }
 
+function escHtml(str) {
+    return (str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
 function renderRootRow(task, hasChildren, gid, status) {
     const expandBtn = hasChildren
         ? `<span class="task-expand-icon" id="icon-${gid}" onclick="toggleGroup('${gid}')">▶</span>`
@@ -1677,14 +1681,25 @@ function renderRootRow(task, hasChildren, gid, status) {
     const modeIcon = task.mode === 'human' ? '👤' : '🤖';
     const pcAcc = [task.assigned_pc ? 'PC#' + task.assigned_pc : '', task.assigned_account || ''].filter(Boolean).join(' / ') || '-';
 
+    // 실패 사유 툴팁 뱃지 (MODIFY_URL 등 내부 값은 제외)
+    const rawErr = (task.status === 'failed' && task.error_message && !task.error_message.startsWith('MODIFY_URL:'))
+        ? task.error_message : null;
+    const failBadge = rawErr
+        ? `<span class="badge bg-danger ms-1" title="${escHtml(rawErr)}" style="cursor:help;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:inline-block;vertical-align:middle;">
+               ⚠ ${escHtml(rawErr.length > 30 ? rawErr.slice(0,30)+'…' : rawErr)}
+           </span>`
+        : '';
+
     let lastCol = '';
     if (status === 'completed') {
         lastCol = `<td>
             ${task.post_url ? `<a href="${task.post_url}" target="_blank" class="btn btn-xs btn-outline-success" style="font-size:.75rem;padding:2px 6px">🔗 URL</a> ` : ''}
+            ${failBadge}
             <button class="btn btn-xs btn-outline-secondary" style="font-size:.75rem;padding:2px 6px" onclick="showTaskContent(${task.id})">👁 내용</button>
         </td>`;
     } else {
         lastCol = `<td>
+            ${failBadge}
             <button class="btn btn-xs btn-outline-secondary" style="font-size:.75rem;padding:2px 6px" onclick="showTaskContent(${task.id})">👁 내용</button>
         </td>`;
     }
@@ -1693,8 +1708,12 @@ function renderRootRow(task, hasChildren, gid, status) {
         ? `<td style="font-size:.8rem">${task.completed_at || '-'}</td>`
         : `<td>${statusBadge(task.status)}</td>`;
 
+    // 실패 행은 배경색 강조
+    const rowClass = task.status === 'failed' ? 'task-group-root' : 'task-group-root';
+    const rowStyle = task.status === 'failed' ? 'style="background:#fff5f5!important;"' : '';
+
     return `
-        <tr class="task-group-root" onclick="toggleGroup('${gid}')">
+        <tr class="${rowClass}" ${rowStyle} onclick="toggleGroup('${gid}')">
             <td>${expandBtn}</td>
             <td><strong>#${task.id}</strong></td>
             <td>${modeIcon} ${typeBadge(task.task_type)}</td>

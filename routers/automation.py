@@ -894,6 +894,7 @@ async def list_completed_tasks(
                     'parent_task_id': None,
                     'order_sequence': task.order_sequence,
                     'image_urls': image_urls_list,
+                    'error_message': (task.error_message if task.status == 'failed' and task.error_message and not task.error_message.startswith('MODIFY_URL:') else None),
                     '_children': children_data,
                 })
             except Exception as _e:
@@ -1000,6 +1001,7 @@ async def list_tasks(
                     'parent_task_id': task.parent_task_id,
                     'order_sequence': task.order_sequence,
                     'image_urls': image_urls_list,
+                    'error_message': (task.error_message if task.status == 'failed' and task.error_message and not task.error_message.startswith('MODIFY_URL:') else None),
                 })
             except Exception as e:
                 print(f"Task {task.id} 파싱 오류: {e}")
