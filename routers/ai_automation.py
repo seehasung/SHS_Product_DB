@@ -2106,8 +2106,11 @@ async def get_post_history(
     account: Optional[int] = Query(None),
     cafe: Optional[int] = Query(None),
     product: Optional[int] = Query(None),
+    date_from: Optional[str] = Query(None),   # 'YYYY-MM-DD'
+    date_to: Optional[str] = Query(None),     # 'YYYY-MM-DD'
+    sort_order: str = Query('desc'),          # 'desc' | 'asc'
     page: int = Query(1),
-    page_size: int = Query(50),
+    page_size: int = Query(20),
     db: Session = Depends(get_db)
 ):
     """수정 발행 이력 조회 (AI 신규발행 탭용)"""
@@ -2132,9 +2135,20 @@ async def get_post_history(
             query = query.filter(AutomationTask.schedule_id.in_(
                 db.query(AIMarketingSchedule.id).filter(AIMarketingSchedule.ai_product_id == product)
             ))
+        if date_from:
+            from datetime import datetime as _dt
+            _df = _dt.strptime(date_from, '%Y-%m-%d')
+            query = query.filter(AutomationTask.completed_at >= _df)
+        if date_to:
+            from datetime import datetime as _dt2, timedelta as _td
+            _dt2_end = _dt2.strptime(date_to, '%Y-%m-%d') + _td(days=1)
+            query = query.filter(AutomationTask.completed_at < _dt2_end)
 
         total = query.count()
-        tasks = query.order_by(_desc(AutomationTask.completed_at)).offset((page - 1) * page_size).limit(page_size).all()
+        if sort_order == 'asc':
+            tasks = query.order_by(AutomationTask.completed_at.asc()).offset((page - 1) * page_size).limit(page_size).all()
+        else:
+            tasks = query.order_by(_desc(AutomationTask.completed_at)).offset((page - 1) * page_size).limit(page_size).all()
 
         result = []
         for t in tasks:
@@ -4252,6 +4266,30 @@ async def _run_ai_group(group_info: dict, schedule_id: int, db) -> int | None:
         draft.status = 'reserved'
         db.commit()
 
+    # ── 오늘의 스케줄 로그에 이 task_id 추가 ─────────────────
+    try:
+        from database import ScheduleLog
+        import json as _jl_update
+        today_start_upd = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        existing_log = db.query(ScheduleLog).filter(
+            ScheduleLog.schedule_type == 'ai',
+            ScheduleLog.schedule_id == schedule_id,
+            ScheduleLog.executed_at >= today_start_upd,
+        ).order_by(ScheduleLog.id.desc()).first()
+        if existing_log:
+            try:
+                msg = _jl_update.loads(existing_log.message) if existing_log.message else {}
+            except Exception:
+                msg = {}
+            task_ids = msg.get('task_ids', [])
+            if post_task.id not in task_ids:
+                task_ids.append(post_task.id)
+                msg['task_ids'] = task_ids
+                existing_log.message = _jl_update.dumps(msg, ensure_ascii=False)
+                db.commit()
+    except Exception as _le:
+        pass
+
     return post_task.id
 
 
@@ -4407,12 +4445,20 @@ async def _execute_ai_schedule(schedule_id: int, db: Session) -> dict:
     try:
         from database import ScheduleLog
         import json as _jl
+        # 오늘 이 스케줄로 생성된 모든 post task ID 수집
+        all_post_task_ids = [
+            t.id for t in db.query(AutomationTask).filter(
+                AutomationTask.task_type == 'post',
+                AutomationTask.scheduled_time >= today_start,
+                AutomationTask.error_message.like(f'%SCHED_ID:{schedule_id}%'),
+            ).all()
+        ]
         log_entry = ScheduleLog(
             schedule_type='ai', schedule_id=schedule.id,
             schedule_name=product_name,
             status='success' if groups else 'partial',
             tasks_created=len(groups),
-            message=_jl.dumps({'task_ids': [], 'skipped': skipped[:10]}, ensure_ascii=False)
+            message=_jl.dumps({'task_ids': all_post_task_ids, 'skipped': skipped[:10]}, ensure_ascii=False)
         )
         db.add(log_entry)
     except Exception as le:

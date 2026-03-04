@@ -738,20 +738,58 @@
                 </div>
 
                 <div class="mb-3">
-                    <div class="row g-2">
-                        <div class="col-md-3">
+                    <div class="row g-2 align-items-end">
+                        <div class="col-md-2">
+                            <label class="form-label form-label-sm mb-1">계정</label>
                             <select class="form-select form-select-sm" id="postAccountFilter" onchange="loadGeneratedPosts()">
                                 <option value="">전체 계정</option>
                             </select>
                         </div>
-                        <div class="col-md-3">
+                        <div class="col-md-2">
+                            <label class="form-label form-label-sm mb-1">카페</label>
                             <select class="form-select form-select-sm" id="postCafeFilter" onchange="loadGeneratedPosts()">
                                 <option value="">전체 카페</option>
                             </select>
                         </div>
-                        <div class="col-md-3">
+                        <div class="col-md-2">
+                            <label class="form-label form-label-sm mb-1">상품</label>
                             <select class="form-select form-select-sm" id="postProductFilter" onchange="loadGeneratedPosts()">
                                 <option value="">전체 상품</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label form-label-sm mb-1">시작일</label>
+                            <input type="date" class="form-control form-control-sm" id="postDateFrom" onchange="loadGeneratedPosts()">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label form-label-sm mb-1">종료일</label>
+                            <input type="date" class="form-control form-control-sm" id="postDateTo" onchange="loadGeneratedPosts()">
+                        </div>
+                        <div class="col-md-2">
+                            <button class="btn btn-sm btn-outline-secondary w-100" onclick="clearPostHistoryFilters()">
+                                <i class="bi bi-x-circle"></i> 필터 초기화
+                            </button>
+                        </div>
+                    </div>
+                    <div class="row g-2 mt-1 align-items-center">
+                        <div class="col-auto">
+                            <label class="form-label form-label-sm mb-0">페이지당 표시:</label>
+                        </div>
+                        <div class="col-auto">
+                            <select class="form-select form-select-sm" id="postPageSize" onchange="loadGeneratedPosts()" style="width:auto;">
+                                <option value="10">10개</option>
+                                <option value="20" selected>20개</option>
+                                <option value="50">50개</option>
+                                <option value="100">100개</option>
+                            </select>
+                        </div>
+                        <div class="col-auto">
+                            <label class="form-label form-label-sm mb-0">발행일시 정렬:</label>
+                        </div>
+                        <div class="col-auto">
+                            <select class="form-select form-select-sm" id="postSortOrder" onchange="loadGeneratedPosts()" style="width:auto;">
+                                <option value="desc" selected>최신순</option>
+                                <option value="asc">오래된순</option>
                             </select>
                         </div>
                     </div>
@@ -3449,12 +3487,18 @@ async function loadGeneratedPosts(page = 1) {
     const accountFilter = document.getElementById('postAccountFilter')?.value || '';
     const cafeFilter = document.getElementById('postCafeFilter')?.value || '';
     const productFilter = document.getElementById('postProductFilter')?.value || '';
+    const dateFrom = document.getElementById('postDateFrom')?.value || '';
+    const dateTo = document.getElementById('postDateTo')?.value || '';
+    const pageSize = parseInt(document.getElementById('postPageSize')?.value || '20');
+    const sortOrder = document.getElementById('postSortOrder')?.value || 'desc';
 
     try {
-        const params = [`page=${page}`, `page_size=50`];
+        const params = [`page=${page}`, `page_size=${pageSize}`, `sort_order=${sortOrder}`];
         if (accountFilter) params.push(`account=${accountFilter}`);
         if (cafeFilter) params.push(`cafe=${cafeFilter}`);
         if (productFilter) params.push(`product=${productFilter}`);
+        if (dateFrom) params.push(`date_from=${dateFrom}`);
+        if (dateTo) params.push(`date_to=${dateTo}`);
         const url = '/ai-automation/api/post-history?' + params.join('&');
 
         const response = await fetch(url);
@@ -3514,19 +3558,36 @@ async function loadGeneratedPosts(page = 1) {
                     </tbody>
                 </table>
             </div>
-            <div class="text-muted small mt-2">총 ${data.total}건</div>
+            <div class="text-muted small mt-2">총 ${data.total}건 (${page}/${Math.ceil(data.total / pageSize)}페이지)</div>
         `;
         container.innerHTML = table;
 
         // 페이지네이션
-        if (paginationEl && data.total > 50) {
-            const totalPages = Math.ceil(data.total / 50);
-            let pg = '<nav><ul class="pagination justify-content-center">';
-            for (let i = 1; i <= totalPages; i++) {
+        if (paginationEl && data.total > pageSize) {
+            const totalPages = Math.ceil(data.total / pageSize);
+            // 현재 페이지 기준 앞뒤 2페이지만 표시 (최대 5개)
+            const startP = Math.max(1, page - 2);
+            const endP = Math.min(totalPages, page + 2);
+            let pg = '<nav><ul class="pagination justify-content-center flex-wrap">';
+            // 처음
+            pg += `<li class="page-item ${page === 1 ? 'disabled' : ''}">
+                <a class="page-link" href="#" onclick="loadGeneratedPosts(1); return false;">«</a></li>`;
+            // 이전
+            pg += `<li class="page-item ${page === 1 ? 'disabled' : ''}">
+                <a class="page-link" href="#" onclick="loadGeneratedPosts(${page - 1}); return false;">‹</a></li>`;
+            if (startP > 1) pg += `<li class="page-item disabled"><span class="page-link">…</span></li>`;
+            for (let i = startP; i <= endP; i++) {
                 pg += `<li class="page-item ${i === page ? 'active' : ''}">
                     <a class="page-link" href="#" onclick="loadGeneratedPosts(${i}); return false;">${i}</a>
                 </li>`;
             }
+            if (endP < totalPages) pg += `<li class="page-item disabled"><span class="page-link">…</span></li>`;
+            // 다음
+            pg += `<li class="page-item ${page === totalPages ? 'disabled' : ''}">
+                <a class="page-link" href="#" onclick="loadGeneratedPosts(${page + 1}); return false;">›</a></li>`;
+            // 마지막
+            pg += `<li class="page-item ${page === totalPages ? 'disabled' : ''}">
+                <a class="page-link" href="#" onclick="loadGeneratedPosts(${totalPages}); return false;">»</a></li>`;
             pg += '</ul></nav>';
             paginationEl.innerHTML = pg;
         }
@@ -3535,6 +3596,17 @@ async function loadGeneratedPosts(page = 1) {
         document.getElementById('generatedPostsList').innerHTML =
             `<div class="alert alert-danger">로드 중 오류: ${error.message}</div>`;
     }
+}
+
+function clearPostHistoryFilters() {
+    document.getElementById('postAccountFilter').value = '';
+    document.getElementById('postCafeFilter').value = '';
+    document.getElementById('postProductFilter').value = '';
+    document.getElementById('postDateFrom').value = '';
+    document.getElementById('postDateTo').value = '';
+    document.getElementById('postPageSize').value = '20';
+    document.getElementById('postSortOrder').value = 'desc';
+    loadGeneratedPosts(1);
 }
 
 async function loadPostHistoryFilters() {
