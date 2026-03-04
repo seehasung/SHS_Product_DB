@@ -779,6 +779,139 @@ async def generate_ai_content(
 # 스케줄 관리 API
 # ============================================
 
+@router.get("/api/tasks/completed")
+async def list_completed_tasks(
+    date_from: Optional[str] = Query(None),    # 'YYYY-MM-DD'
+    date_to: Optional[str] = Query(None),      # 'YYYY-MM-DD'
+    product_name: Optional[str] = Query(None), # 상품명 부분 검색
+    cafe_name: Optional[str] = Query(None),    # 카페명 부분 검색
+    account_name: Optional[str] = Query(None), # 계정 부분 검색
+    sort_order: str = Query('desc'),           # 'desc' | 'asc'
+    page: int = Query(1),
+    page_size: int = Query(20),
+    db: Session = Depends(get_db)
+):
+    """완료 탭 전용 API - 서버사이드 필터/페이지네이션"""
+    try:
+        from datetime import datetime as _dt, timedelta as _td
+        from sqlalchemy import desc as _desc, asc as _asc
+
+        # root post task만 조회 (parent_task_id IS NULL)
+        query = db.query(AutomationTask).filter(
+            AutomationTask.status.in_(['completed', 'failed']),
+            AutomationTask.parent_task_id == None,
+            AutomationTask.task_type.in_(['post', 'create_draft']),
+        )
+
+        if date_from:
+            _df = _dt.strptime(date_from, '%Y-%m-%d')
+            query = query.filter(AutomationTask.completed_at >= _df)
+        if date_to:
+            _dt2_end = _dt.strptime(date_to, '%Y-%m-%d') + _td(days=1)
+            query = query.filter(AutomationTask.completed_at < _dt2_end)
+
+        # product_name 필터 (task.product_name 컬럼)
+        if product_name:
+            query = query.filter(AutomationTask.product_name.ilike(f'%{product_name}%'))
+
+        total = query.count()
+        if sort_order == 'asc':
+            tasks = query.order_by(_asc(AutomationTask.completed_at)).offset((page - 1) * page_size).limit(page_size).all()
+        else:
+            tasks = query.order_by(_desc(AutomationTask.completed_at)).offset((page - 1) * page_size).limit(page_size).all()
+
+        import json as _json
+        task_list = []
+        for task in tasks:
+            try:
+                cafe_obj = db.query(AutomationCafe).get(task.cafe_id) if task.cafe_id else None
+                c_name = cafe_obj.name if cafe_obj else None
+
+                # 카페명 필터 (DB에서 못 거른 경우 파이썬에서)
+                if cafe_name and (not c_name or cafe_name.lower() not in c_name.lower()):
+                    total -= 1
+                    continue
+
+                acc_obj = db.query(AutomationAccount).get(task.assigned_account_id) if task.assigned_account_id else None
+                acc_str = acc_obj.account_id if acc_obj else None
+
+                # 계정명 필터
+                if account_name and (not acc_str or account_name.lower() not in acc_str.lower()):
+                    total -= 1
+                    continue
+
+                pc_rec = db.query(AutomationWorkerPC).filter(
+                    (AutomationWorkerPC.id == task.assigned_pc_id) |
+                    (AutomationWorkerPC.pc_number == task.assigned_pc_id)
+                ).first() if task.assigned_pc_id else None
+                pc_num = pc_rec.pc_number if pc_rec else task.assigned_pc_id
+
+                image_urls_list = []
+                if task.image_urls:
+                    try:
+                        image_urls_list = _json.loads(task.image_urls)
+                    except Exception:
+                        pass
+
+                # 자식 task 수 및 상태 요약
+                children = db.query(AutomationTask).filter(
+                    AutomationTask.parent_task_id == task.id
+                ).order_by(AutomationTask.order_sequence.asc()).all()
+
+                children_data = []
+                for ch in children:
+                    ch_acc = db.query(AutomationAccount).get(ch.assigned_account_id) if ch.assigned_account_id else None
+                    ch_pc_rec = db.query(AutomationWorkerPC).filter(
+                        (AutomationWorkerPC.id == ch.assigned_pc_id) |
+                        (AutomationWorkerPC.pc_number == ch.assigned_pc_id)
+                    ).first() if ch.assigned_pc_id else None
+                    children_data.append({
+                        'id': ch.id,
+                        'task_type': ch.task_type,
+                        'status': ch.status,
+                        'content': (ch.content or '')[:80],
+                        'assigned_pc': ch_pc_rec.pc_number if ch_pc_rec else ch.assigned_pc_id,
+                        'assigned_account': ch_acc.account_id if ch_acc else None,
+                        'order_sequence': ch.order_sequence,
+                        'post_url': ch.post_url,
+                        'completed_at': ch.completed_at.strftime('%Y-%m-%d %H:%M:%S') if ch.completed_at else None,
+                    })
+
+                task_list.append({
+                    'id': task.id,
+                    'task_type': task.task_type,
+                    'mode': task.mode,
+                    'title': task.title,
+                    'content': (task.content or '')[:500],
+                    'cafe_name': c_name,
+                    'product_name': task.product_name or '',
+                    'keyword_text': task.keyword or '',
+                    'status': task.status,
+                    'assigned_pc': pc_num,
+                    'assigned_account': acc_str,
+                    'completed_at': task.completed_at.strftime('%Y-%m-%d %H:%M:%S') if task.completed_at else None,
+                    'post_url': task.post_url,
+                    'parent_task_id': None,
+                    'order_sequence': task.order_sequence,
+                    'image_urls': image_urls_list,
+                    '_children': children_data,
+                })
+            except Exception as _e:
+                print(f"완료 Task {task.id} 파싱 오류: {_e}")
+                continue
+
+        return JSONResponse({
+            'success': True,
+            'tasks': task_list,
+            'total': total,
+            'page': page,
+            'page_size': page_size,
+        })
+    except Exception as e:
+        import traceback; traceback.print_exc()
+        return JSONResponse({'success': False, 'message': str(e)}, status_code=500)
+
+
 @router.get("/api/tasks/list")
 async def list_tasks(
     status: Optional[str] = Query(None),
