@@ -562,7 +562,7 @@ async def recover_orphaned_comment_tasks():
         # ── 2. pending comment/reply task 복구 ─────────────────────────────
         # (부모 post 완료됐는데 첫 댓글이 전송 안 된 케이스)
         stuck_comments = db.query(AutomationTask).filter(
-            AutomationTask.status.in_(['pending', 'assigned']),
+            AutomationTask.status == 'pending',  # assigned는 이미 전송됨, in_progress는 작업중
             AutomationTask.task_type.in_(['comment', 'reply']),
             AutomationTask.assigned_pc_id != None,
         ).order_by(AutomationTask.order_sequence.asc()).all()
@@ -597,6 +597,12 @@ async def recover_orphaned_comment_tasks():
             pc_num = pc_rec.pc_number if pc_rec else task.assigned_pc_id
 
             if pc_num not in worker_connections:
+                skipped += 1
+                continue
+
+            # ★ 전송 직전 DB 상태 재확인 (race condition 방지)
+            db.refresh(task)
+            if task.status != 'pending':
                 skipped += 1
                 continue
 

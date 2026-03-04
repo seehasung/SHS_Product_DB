@@ -528,6 +528,15 @@ async def send_task_to_worker(pc_number: int, task: AutomationTask, db: Session)
         
         await websocket.send_json(task_data)
         print(f"📤 Task #{task.id} 전송 → PC #{pc_number}")
+
+        # ★ 전송 즉시 assigned로 상태 변경 (중복 전송 방지)
+        # pending인 경우만 변경 (이미 assigned/in_progress면 skip)
+        try:
+            if task.status == 'pending':
+                task.status = 'assigned'
+                db.commit()
+        except Exception:
+            db.rollback()
         
     except Exception as e:
         print(f"❌ Task 전송 오류: {e}")
@@ -1140,11 +1149,16 @@ def _is_comment_ready(task, db) -> bool:
     """comment/reply Task가 지금 즉시 실행 가능한지 확인
     
     조건:
-    1. 루트 post task가 completed 또는 failed 상태
+    0. task 자신이 pending 상태여야 함 (assigned/in_progress는 이미 전송됨)
+    1. 루트 post task가 completed 상태
     2. 이 task보다 낮은 order_sequence 중 아직 완료되지 않은 task가 없어야 함
-    3. 현재 in_progress인 sibling task가 없어야 함
+    3. 현재 in_progress 또는 assigned인 sibling task가 없어야 함
     """
     try:
+        # ★ 자신이 이미 전송된 상태라면 복구 불필요
+        if task.status in ('in_progress', 'completed', 'failed', 'cancelled'):
+            return False
+
         # 루트 post task 찾기 (최대 10단계)
         root = task
         for _ in range(10):
@@ -1177,11 +1191,11 @@ def _is_comment_ready(task, db) -> bool:
         if earlier_incomplete:
             return False
 
-        # 현재 in_progress인 다른 댓글이 있으면 대기
+        # 현재 in_progress 또는 assigned인 다른 댓글이 있으면 대기 (중복 전송 방지)
         in_progress = db.query(AutomationTask).filter(
             AutomationTask.parent_task_id == root.id,
             AutomationTask.id != task.id,
-            AutomationTask.status == 'in_progress'
+            AutomationTask.status.in_(['in_progress', 'assigned'])
         ).first()
         if in_progress:
             return False
