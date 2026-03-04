@@ -223,7 +223,7 @@ async def worker_websocket(websocket: WebSocket, pc_number: int, db: Session = D
                         if (task.error_message and 'MODIFY_URL:' in task.error_message and post_url_ws):
                             try:
                                 from database import CafeAccountLink as _CAL_ws, DraftPost as _DP_ws
-                                draft_url_ws = task.error_message.split('MODIFY_URL:')[1].strip()
+                                draft_url_ws = task.error_message.split('MODIFY_URL:')[1].split('|')[0].strip()
                                 dp_ws = db.query(_DP_ws).filter(_DP_ws.draft_url == draft_url_ws).first()
                                 if dp_ws:
                                     was_used_ws = dp_ws.status == 'used'
@@ -446,7 +446,7 @@ async def send_task_to_worker(pc_number: int, task: AutomationTask, db: Session)
         # draft_url 추출 (error_message에서)
         draft_url = None
         if task.error_message and 'MODIFY_URL:' in task.error_message:
-            draft_url = task.error_message.split('MODIFY_URL:')[1].strip()
+            draft_url = task.error_message.split('MODIFY_URL:')[1].split('|')[0].strip()
         
         # 부모 Task의 post_url 가져오기 (댓글/대댓글용만, post task는 불필요)
         post_url = None
@@ -1159,8 +1159,12 @@ def _is_comment_ready(task, db) -> bool:
         if root.task_type != 'post':
             return False
 
-        # 루트 post가 완료/실패여야 댓글 실행 가능
-        if root.status not in ('completed', 'failed'):
+        # 루트 post가 실패한 경우 댓글은 실행 불가 (cancelled 처리되어야 함)
+        if root.status == 'failed':
+            return False
+
+        # 루트 post가 완료여야 댓글 실행 가능
+        if root.status not in ('completed',):
             return False
 
         # 이 task보다 낮은 order_sequence를 가진 미완료 task가 있으면 아직 차례 아님
@@ -1211,6 +1215,18 @@ async def _dispatch_next_group_on_failure(failed_task_id: int):
         try:
             from routers.ai_automation import _execute_next_ai_group, _ai_task_schedule_map
             schedule_id = _ai_task_schedule_map.get(failed_task_id)
+            if schedule_id is None:
+                # 서버 재시작 등으로 in-memory 맵 소실 → DB task error_message에서 SCHED_ID 복구
+                _failed_task = db.query(AutomationTask).get(failed_task_id)
+                if _failed_task and _failed_task.error_message and 'SCHED_ID:' in _failed_task.error_message:
+                    try:
+                        for _part in _failed_task.error_message.split('|'):
+                            if _part.startswith('SCHED_ID:'):
+                                schedule_id = int(_part.split(':')[1].strip())
+                                print(f"   🔄 [BG] schedule_id error_message 복구: {schedule_id} (task#{failed_task_id})")
+                                break
+                    except Exception:
+                        pass
             if schedule_id is not None:
                 print(f"   🔗 [BG] post 실패 → 다음 AI 그룹 실행 (schedule#{schedule_id})")
                 await _execute_next_ai_group(schedule_id, db)
@@ -1277,6 +1293,17 @@ async def _dispatch_next_task_bg(task_id: int, task_type: str, parent_task_id, o
                 try:
                     from routers.ai_automation import _execute_next_ai_group, _ai_task_schedule_map
                     schedule_id = _ai_task_schedule_map.get(task_id)
+                    if schedule_id is None:
+                        _post_task = db.query(AutomationTask).get(task_id)
+                        if _post_task and _post_task.error_message and 'SCHED_ID:' in _post_task.error_message:
+                            try:
+                                for _part in _post_task.error_message.split('|'):
+                                    if _part.startswith('SCHED_ID:'):
+                                        schedule_id = int(_part.split(':')[1].strip())
+                                        print(f"   🔄 [BG] schedule_id error_message 복구: {schedule_id}")
+                                        break
+                            except Exception:
+                                pass
                     if schedule_id is not None:
                         print(f"   🔗 [BG] 댓글 없음 → 다음 AI 그룹 실행 (schedule#{schedule_id})")
                         await _execute_next_ai_group(schedule_id, db)
@@ -1343,6 +1370,17 @@ async def _dispatch_next_task_bg(task_id: int, task_type: str, parent_task_id, o
                         from routers.ai_automation import _execute_next_ai_group, _ai_task_schedule_map
                         if root_task:
                             schedule_id = _ai_task_schedule_map.get(root_task.id)
+                            if schedule_id is None:
+                                # 서버 재시작 등으로 in-memory 맵 소실 → root_task error_message에서 복구
+                                if root_task.error_message and 'SCHED_ID:' in root_task.error_message:
+                                    try:
+                                        for _part in root_task.error_message.split('|'):
+                                            if _part.startswith('SCHED_ID:'):
+                                                schedule_id = int(_part.split(':')[1].strip())
+                                                print(f"   🔄 [BG] schedule_id error_message 복구: {schedule_id} (root#{root_task.id})")
+                                                break
+                                    except Exception:
+                                        pass
                             if schedule_id is not None:
                                 print(f"   🔗 [BG] 마지막 댓글 완료 → 다음 AI 그룹 실행 (schedule#{schedule_id})")
                                 await _execute_next_ai_group(schedule_id, db)
@@ -1427,7 +1465,7 @@ async def complete_task(
                     and post_url):
                 try:
                     from database import CafeAccountLink as _CAL
-                    draft_url_val = task.error_message.split('MODIFY_URL:')[1].strip()
+                    draft_url_val = task.error_message.split('MODIFY_URL:')[1].split('|')[0].strip()
                     draft_post = db.query(DraftPost).filter(DraftPost.draft_url == draft_url_val).first()
                     if draft_post:
                         was_used = draft_post.status == 'used'

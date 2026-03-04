@@ -7,6 +7,37 @@
     예: python worker_agent.py 1
 """
 
+import subprocess
+import sys
+
+# ─────────────────────────────────────────────────────────────
+# 필수 패키지 자동 설치 (최초 실행 시)
+# ─────────────────────────────────────────────────────────────
+def _auto_install(package: str, import_name: str = None):
+    """패키지가 없으면 자동 설치"""
+    name = import_name or package
+    try:
+        __import__(name)
+    except ImportError:
+        print(f"📦 {package} 설치 중...")
+        try:
+            subprocess.check_call(
+                [sys.executable, "-m", "pip", "install", package, "--quiet"],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.STDOUT,
+            )
+            print(f"✅ {package} 설치 완료")
+        except Exception as _e:
+            print(f"⚠️ {package} 자동 설치 실패: {_e}")
+            print(f"   직접 설치: pip install {package}")
+
+_auto_install("undetected-chromedriver", "undetected_chromedriver")
+_auto_install("pyperclip")
+_auto_install("psutil")
+_auto_install("requests")
+_auto_install("websockets")
+_auto_install("selenium")
+
 import asyncio
 import websockets
 import json
@@ -36,8 +67,7 @@ try:
     UNDETECTED_AVAILABLE = True
 except ImportError:
     UNDETECTED_AVAILABLE = False
-    print("⚠️ undetected_chromedriver가 없습니다. 일반 ChromeDriver 사용")
-    print("   설치: pip install undetected-chromedriver")
+    print("⚠️ undetected_chromedriver 로드 실패 - 일반 ChromeDriver 사용")
 import time
 import random
 import requests
@@ -53,7 +83,7 @@ try:
     PYPERCLIP_AVAILABLE = True
 except ImportError:
     PYPERCLIP_AVAILABLE = False
-    print("⚠️ pyperclip이 없습니다. 클립보드 로그인 불가 (설치: pip install pyperclip)")
+    print("⚠️ pyperclip 로드 실패 - 클립보드 로그인 불가")
 
 
 class NaverCafeWorker:

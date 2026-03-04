@@ -525,7 +525,7 @@ async def get_keyword_publish_history(
             cafe = db.query(AutomationCafe).filter(AutomationCafe.id == t.cafe_id).first()
             draft_url = None
             if t.error_message and 'MODIFY_URL:' in t.error_message:
-                draft_url = t.error_message.split('MODIFY_URL:')[1].strip()
+                draft_url = t.error_message.split('MODIFY_URL:')[1].split('|')[0].strip()
             history.append({
                 'task_id': t.id,
                 'account_id': acc.account_id if acc else '',
@@ -1541,7 +1541,7 @@ async def get_schedule_log_detail(
             original_draft_url = None
             if task.task_type == 'post' and task.error_message and 'MODIFY_URL:' in task.error_message:
                 try:
-                    original_draft_url = task.error_message.split('MODIFY_URL:')[1].strip()
+                    original_draft_url = task.error_message.split('MODIFY_URL:')[1].split('|')[0].strip()
                 except Exception:
                     pass
 
@@ -2153,7 +2153,7 @@ async def get_post_history(
             draft_url = None
             draft_status = None
             if t.error_message and 'MODIFY_URL:' in t.error_message:
-                draft_url = t.error_message.split('MODIFY_URL:')[1].strip()
+                draft_url = t.error_message.split('MODIFY_URL:')[1].split('|')[0].strip()
                 dp = db.query(DraftPost).filter(DraftPost.draft_url == draft_url).first()
                 draft_status = dp.status if dp else None
 
@@ -4149,7 +4149,7 @@ async def _run_ai_group(group_info: dict, schedule_id: int, db) -> int | None:
         assigned_pc_id=pc_id, assigned_account_id=account_id,
         cafe_id=cafe_id, scheduled_time=now,
         title=ai_title, content=ai_body,
-        error_message=f"MODIFY_URL:{draft_url}",
+        error_message=f"MODIFY_URL:{draft_url}|SCHED_ID:{schedule_id}",
         keyword=keyword_str, image_urls=image_urls_json,
         product_name=product_name,  # 대시보드 표시용
     )
@@ -4259,6 +4259,21 @@ async def _execute_next_ai_group(schedule_id: int, db) -> bool:
     """큐에서 다음 그룹을 꺼내 실행. 큐가 비면 False 반환."""
     queue = _ai_schedule_queues.get(schedule_id)
     if not queue:
+        # 큐가 비어있음 = 모두 완료되었거나 서버 재시작으로 큐 소실
+        # 스케줄 재실행을 시도해서 아직 처리 안 된 그룹이 있으면 실행
+        schedule = db.query(AIMarketingSchedule).get(schedule_id)
+        if schedule and schedule.is_active:
+            print(f"  ⚠️ [AI스케줄#{schedule_id}] 큐 소실 감지 → 오늘 미처리 그룹 재실행 시도")
+            try:
+                result = await _execute_ai_schedule(schedule_id, db)
+                if result.get('success'):
+                    print(f"  ✅ [AI스케줄#{schedule_id}] 큐 복구 성공: {result.get('message', '')}")
+                    return True
+                else:
+                    print(f"  ✅ [AI스케줄#{schedule_id}] 모든 그룹 처리 완료: {result.get('message', '')}")
+                    return False
+            except Exception as _qe:
+                print(f"  ⚠️ [AI스케줄#{schedule_id}] 큐 복구 실패: {_qe}")
         print(f"  ✅ [AI스케줄#{schedule_id}] 모든 그룹 처리 완료")
         return False
 
@@ -4327,8 +4342,8 @@ async def _execute_ai_schedule(schedule_id: int, db: Session) -> dict:
             done_cafe_ids = {t.cafe_id for t in db.query(AutomationTask).filter(
                 AutomationTask.task_type == 'post',
                 AutomationTask.assigned_account_id == account.id,
-                AutomationTask.status == 'completed',
-                AutomationTask.completed_at >= today_start
+                AutomationTask.status.notin_(['cancelled']),
+                AutomationTask.scheduled_time >= today_start
             ).all()}
 
             eligible = []
