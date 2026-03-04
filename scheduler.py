@@ -560,35 +560,25 @@ async def recover_orphaned_comment_tasks():
                 print(f"   ⚠️ [복구-post] Task #{task.id} 전송 실패: {_e}")
 
         # ── 2. pending comment/reply task 복구 ─────────────────────────────
-        # (부모 post 완료됐는데 첫 댓글이 전송 안 된 케이스)
+        # (부모 post/comment 완료됐는데 다음 task가 전송 안 된 케이스)
         stuck_comments = db.query(AutomationTask).filter(
-            AutomationTask.status == 'pending',  # assigned는 이미 전송됨, in_progress는 작업중
+            AutomationTask.status == 'pending',
             AutomationTask.task_type.in_(['comment', 'reply']),
             AutomationTask.assigned_pc_id != None,
         ).order_by(AutomationTask.order_sequence.asc()).all()
 
-        # root post 기준으로 그룹핑 → 각 그룹에서 하나만 전송 (순서 보장)
-        dispatched_roots = set()
+        # 부모 기준으로 그룹핑 → 각 직계 부모 아래에서 하나만 전송 (순서 보장)
+        dispatched_parents = set()
 
         for task in stuck_comments:
             if not _is_comment_ready(task, db):
                 skipped += 1
                 continue
 
-            # 루트 post id 찾기
-            root = task
-            for _ in range(10):
-                if root.task_type == 'post':
-                    break
-                if not root.parent_task_id:
-                    break
-                root = db.query(AutomationTask).get(root.parent_task_id)
-                if not root:
-                    break
-
-            root_id = root.id if root and root.task_type == 'post' else None
-            if root_id in dispatched_roots:
-                continue  # 같은 그룹은 하나만
+            # 직계 부모 id (comment의 경우 post.id, reply의 경우 comment.id)
+            parent_id = task.parent_task_id
+            if parent_id in dispatched_parents:
+                continue  # 같은 부모 아래에서는 하나만
 
             pc_rec = db.query(AutomationWorkerPC).filter(
                 (AutomationWorkerPC.id == task.assigned_pc_id) |
@@ -607,11 +597,11 @@ async def recover_orphaned_comment_tasks():
                 continue
 
             try:
-                print(f"   🔧 [복구-comment] Task #{task.id} (순서:{task.order_sequence}) → PC #{pc_num}")
+                print(f"   🔧 [복구-comment] Task #{task.id} (순서:{task.order_sequence}, 타입:{task.task_type}) → PC #{pc_num}")
                 await send_task_to_worker(pc_num, task, db)
                 comment_dispatched += 1
-                if root_id:
-                    dispatched_roots.add(root_id)
+                if parent_id:
+                    dispatched_parents.add(parent_id)
             except Exception as _e:
                 print(f"   ⚠️ [복구-comment] Task #{task.id} 전송 실패: {_e}")
 

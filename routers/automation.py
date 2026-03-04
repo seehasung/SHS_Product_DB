@@ -132,6 +132,15 @@ async def worker_websocket(websocket: WebSocket, pc_number: int, db: Session = D
                 print(f"   ❌ Comment Task 즉시 전송 실패: {_e}")
         else:
             print(f"   ℹ️  순차 실행 중: HTTP 완료 보고로만 다음 Task 전송됨")
+    elif pending_task and pending_task.task_type in ('post', 'create_draft'):
+        # 미할당 post 태스크: 이 PC에 할당해서 즉시 전송
+        pending_task.assigned_pc_id = pc.id
+        db.commit()
+        print(f"   📤 미할당 Post Task #{pending_task.id} → PC#{pc_number} 즉시 배정 후 전송")
+        try:
+            await send_task_to_worker(pc_number, pending_task, db)
+        except Exception as _e:
+            print(f"   ❌ 미할당 Post Task 즉시 전송 실패: {_e}")
     else:
         print(f"   ℹ️  대기 중인 Task 없음")
     
@@ -1316,8 +1325,33 @@ def _is_comment_ready(task, db) -> bool:
         if root.status not in ('completed',):
             return False
 
+        # reply 태스크인 경우: 직계 부모(comment)가 completed 상태여야 함
+        if task.task_type == 'reply':
+            parent = db.query(AutomationTask).get(task.parent_task_id) if task.parent_task_id else None
+            if not parent:
+                return False
+            if parent.status != 'completed':
+                return False
+            # 같은 부모를 가진 reply 중 자신보다 낮은 order_sequence가 미완료이면 아직 차례 아님
+            earlier_reply = db.query(AutomationTask).filter(
+                AutomationTask.parent_task_id == task.parent_task_id,
+                AutomationTask.order_sequence < (task.order_sequence or 0),
+                AutomationTask.status.in_(['pending', 'assigned', 'in_progress'])
+            ).first()
+            if earlier_reply:
+                return False
+            # 같은 부모 아래 in_progress/assigned reply가 있으면 대기
+            sibling_active = db.query(AutomationTask).filter(
+                AutomationTask.parent_task_id == task.parent_task_id,
+                AutomationTask.id != task.id,
+                AutomationTask.status.in_(['in_progress', 'assigned'])
+            ).first()
+            if sibling_active:
+                return False
+            return True
+
+        # comment 태스크인 경우: root post 직계 자식 기준으로 체크
         # 이 task보다 낮은 order_sequence를 가진 미완료 task가 있으면 아직 차례 아님
-        # (직계 자식 comment들 기준으로 체크)
         earlier_incomplete = db.query(AutomationTask).filter(
             AutomationTask.parent_task_id == root.id,
             AutomationTask.order_sequence < (task.order_sequence or 0),
