@@ -428,6 +428,18 @@ def start_scheduler():
         misfire_grace_time=30 # 30초 이내 지연은 실행 허용
     )
 
+    # ─── 고아 댓글 Task 복구 (3분마다) ───
+    scheduler.add_job(
+        recover_orphaned_comment_tasks,
+        trigger=IntervalTrigger(minutes=3),
+        id='recover_orphaned_comments',
+        name='고아 댓글 Task 자동 복구',
+        replace_existing=True,
+        coalesce=True,
+        max_instances=1,
+        misfire_grace_time=60
+    )
+
     scheduler.start()
     print("✅ 스케줄러 시작됨")
     print("   - 미완료 업무 알림: 30분마다")
@@ -435,6 +447,7 @@ def start_scheduler():
     print("   - 통관 절차 이상 체크: 매일 13시, 18시")
     print("   - 네이버 송장 흐름 체크: 매일 9시, 13시 30분, 18시 30분")
     print("   - AI 자동화 스케줄 체크: 1분마다")
+    print("   - 고아 댓글 Task 복구: 3분마다")
 
 
 async def check_ai_schedules():
@@ -489,6 +502,78 @@ async def check_ai_schedules():
                 print(f"⚠️ AI 수정발행 스케줄 #{s.id} 실행 오류: {e}")
     except Exception as e:
         print(f"⚠️ check_ai_schedules 오류: {e}")
+        import traceback; traceback.print_exc()
+    finally:
+        db.close()
+
+
+async def recover_orphaned_comment_tasks():
+    """3분마다: 부모 post가 완료됐는데 아직 pending인 댓글 task를 찾아 즉시 전송 (고아 댓글 복구)"""
+    from database import AutomationTask, AutomationWorkerPC
+    from routers.automation import worker_connections, send_task_to_worker, _is_comment_ready
+
+    db = SessionLocal()
+    try:
+        # pending/assigned 상태의 comment/reply task 전체 조회
+        stuck_comments = db.query(AutomationTask).filter(
+            AutomationTask.status.in_(['pending', 'assigned']),
+            AutomationTask.task_type.in_(['comment', 'reply']),
+            AutomationTask.assigned_pc_id != None,
+        ).order_by(AutomationTask.order_sequence.asc()).all()
+
+        if not stuck_comments:
+            return
+
+        dispatched = 0
+        skipped = 0
+
+        for task in stuck_comments:
+            # 이미 처리 중인 task 건너뜀
+            if task.status == 'in_progress':
+                continue
+
+            # 즉시 실행 가능한지 확인
+            if not _is_comment_ready(task, db):
+                skipped += 1
+                continue
+
+            # 할당된 PC의 pc_number 가져오기
+            pc_rec = db.query(AutomationWorkerPC).filter(
+                (AutomationWorkerPC.id == task.assigned_pc_id) |
+                (AutomationWorkerPC.pc_number == task.assigned_pc_id)
+            ).first()
+            pc_num = pc_rec.pc_number if pc_rec else task.assigned_pc_id
+
+            if pc_num not in worker_connections:
+                skipped += 1
+                continue  # PC 미연결 → 스킵 (재연결 시 처리됨)
+
+            try:
+                print(f"   🔧 [복구] Comment Task #{task.id} (순서:{task.order_sequence}) → PC #{pc_num}")
+                await send_task_to_worker(pc_num, task, db)
+                dispatched += 1
+                # 같은 그룹에서 하나씩만 전송 (순서 보장)
+                # 동일 parent의 다음 task는 이 task 완료 후 _dispatch_next_task_bg가 처리
+                break_root_id = None
+                root = task
+                for _ in range(10):
+                    if root.task_type == 'post':
+                        break_root_id = root.id
+                        break
+                    if not root.parent_task_id:
+                        break
+                    root = db.query(AutomationTask).get(root.parent_task_id)
+                    if not root:
+                        break
+                # 같은 root post의 다른 task는 이미 dispatched된 task 완료 후 자동 처리
+            except Exception as _e:
+                print(f"   ⚠️ [복구] Task #{task.id} 전송 실패: {_e}")
+
+        if dispatched > 0 or skipped > 0:
+            print(f"🔧 [고아 댓글 복구] 전송: {dispatched}개, 스킵: {skipped}개 (총 검사: {len(stuck_comments)}개)")
+
+    except Exception as e:
+        print(f"⚠️ recover_orphaned_comment_tasks 오류: {e}")
         import traceback; traceback.print_exc()
     finally:
         db.close()

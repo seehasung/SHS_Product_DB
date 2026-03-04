@@ -106,16 +106,26 @@ async def worker_websocket(websocket: WebSocket, pc_number: int, db: Session = D
     if all_pending:
         print(f"   전체 대기 Task: {', '.join([f'#{t.id}(PC:{t.assigned_pc_id}, 상태:{t.status})' for t in all_pending])}")
     
-    # ⚠️  댓글/대댓글 Task: HTTP 완료 보고로만 다음 Task 전송! (순서 보장)
+    # ⚠️  댓글/대댓글 Task: 기본은 HTTP 완료 보고로만 다음 Task 전송! (순서 보장)
     # ✅  post / create_draft 타입 Task: 연결 즉시 전송 가능 (순서 무관)
+    # ✅  comment / reply 타입 Task: 부모 post 완료 + 이전 순서 모두 완료 시 즉시 전송 (복구)
     if assigned_task and assigned_task.task_type in ('post', 'create_draft'):
         print(f"   📤 Post Task #{assigned_task.id} 즉시 전송 (Worker 재연결 감지)")
         try:
             await send_task_to_worker(pc_number, assigned_task, db)
         except Exception as _e:
             print(f"   ❌ Post Task 즉시 전송 실패: {_e}")
+    elif assigned_task and assigned_task.task_type in ('comment', 'reply'):
+        if _is_comment_ready(assigned_task, db):
+            print(f"   📤 Comment Task #{assigned_task.id} 즉시 전송 (부모 완료 확인, 복구)")
+            try:
+                await send_task_to_worker(pc_number, assigned_task, db)
+            except Exception as _e:
+                print(f"   ❌ Comment Task 즉시 전송 실패: {_e}")
+        else:
+            print(f"   ℹ️  순차 실행 중: HTTP 완료 보고로만 다음 Task 전송됨")
     else:
-        print(f"   ℹ️  순차 실행 중: HTTP 완료 보고로만 다음 Task 전송됨")
+        print(f"   ℹ️  대기 중인 Task 없음")
     
     try:
         while True:
@@ -1117,6 +1127,57 @@ async def create_tasks_from_post(
 # ============================================
 # Worker 업데이트 API
 # ============================================
+
+def _is_comment_ready(task, db) -> bool:
+    """comment/reply Task가 지금 즉시 실행 가능한지 확인
+    
+    조건:
+    1. 루트 post task가 completed 또는 failed 상태
+    2. 이 task보다 낮은 order_sequence 중 아직 완료되지 않은 task가 없어야 함
+    3. 현재 in_progress인 sibling task가 없어야 함
+    """
+    try:
+        # 루트 post task 찾기 (최대 10단계)
+        root = task
+        for _ in range(10):
+            if root.task_type == 'post':
+                break
+            if not root.parent_task_id:
+                return False
+            root = db.query(AutomationTask).get(root.parent_task_id)
+            if not root:
+                return False
+
+        if root.task_type != 'post':
+            return False
+
+        # 루트 post가 완료/실패여야 댓글 실행 가능
+        if root.status not in ('completed', 'failed'):
+            return False
+
+        # 이 task보다 낮은 order_sequence를 가진 미완료 task가 있으면 아직 차례 아님
+        # (직계 자식 comment들 기준으로 체크)
+        earlier_incomplete = db.query(AutomationTask).filter(
+            AutomationTask.parent_task_id == root.id,
+            AutomationTask.order_sequence < (task.order_sequence or 0),
+            AutomationTask.status.in_(['pending', 'assigned', 'in_progress'])
+        ).first()
+        if earlier_incomplete:
+            return False
+
+        # 현재 in_progress인 다른 댓글이 있으면 대기
+        in_progress = db.query(AutomationTask).filter(
+            AutomationTask.parent_task_id == root.id,
+            AutomationTask.id != task.id,
+            AutomationTask.status == 'in_progress'
+        ).first()
+        if in_progress:
+            return False
+
+        return True
+    except Exception:
+        return False
+
 
 async def _dispatch_next_group_on_failure(failed_task_id: int):
     """post 타입 Task 실패 시 → 해당 그룹의 댓글들을 모두 cancelled 처리하고 다음 AI 그룹 실행"""
