@@ -4412,12 +4412,13 @@ async def _execute_next_ai_group(schedule_id: int, db) -> bool:
 # ─────────────────────────────────────────────────────────────
 # AI 수정발행 스케줄 실행 함수
 # ─────────────────────────────────────────────────────────────
-async def _execute_ai_schedule(schedule_id: int, db: Session) -> dict:
+async def _execute_ai_schedule(schedule_id: int, db: Session, force: bool = False) -> dict:
     """
     AI 수정발행 스케줄 실행 (완전 순차).
     1) 전체 실행 계획(그룹 목록)을 빌드하여 메모리 큐에 저장
     2) 첫 번째 그룹만 즉시 AI 생성 → task 생성 → 전송
     3) 이후 그룹들은 _dispatch_next_task_bg 가 마지막 댓글 완료 시 하나씩 꺼내 실행
+    force=True: 오늘 이미 실행한 계정/카페도 무시하고 강제 실행
     """
     import random as _random
 
@@ -4464,12 +4465,16 @@ async def _execute_ai_schedule(schedule_id: int, db: Session) -> dict:
         ).all()
 
         for account in accounts:
-            done_cafe_ids = {t.cafe_id for t in db.query(AutomationTask).filter(
-                AutomationTask.task_type == 'post',
-                AutomationTask.assigned_account_id == account.id,
-                AutomationTask.status.notin_(['cancelled']),
-                AutomationTask.scheduled_time >= today_start
-            ).all()}
+            # force=True 이면 오늘 이미 실행한 계정/카페 체크 생략
+            if force:
+                done_cafe_ids = set()
+            else:
+                done_cafe_ids = {t.cafe_id for t in db.query(AutomationTask).filter(
+                    AutomationTask.task_type == 'post',
+                    AutomationTask.assigned_account_id == account.id,
+                    AutomationTask.status.notin_(['cancelled']),
+                    AutomationTask.scheduled_time >= today_start
+                ).all()}
 
             eligible = []
             for link in db.query(CafeAccountLink).filter(
@@ -4477,6 +4482,7 @@ async def _execute_ai_schedule(schedule_id: int, db: Session) -> dict:
                 CafeAccountLink.status == 'active'
             ).all():
                 if link.cafe_id in done_cafe_ids:
+                    skipped.append(f"PC#{pc.pc_number}/{account.account_id}/{link.cafe_id}: 오늘 이미 실행")
                     continue
                 draft = db.query(DraftPost).filter(
                     DraftPost.link_id == link.id,
@@ -4484,9 +4490,10 @@ async def _execute_ai_schedule(schedule_id: int, db: Session) -> dict:
                 ).first()
                 if draft:
                     eligible.append((link, draft))
+                else:
+                    skipped.append(f"PC#{pc.pc_number}/{account.account_id}: available DraftPost 없음")
 
             if not eligible:
-                skipped.append(f"PC#{pc.pc_number}/{account.account_id}: DraftPost 없음")
                 continue
 
             n = min(schedule.posts_per_account or 1, len(eligible))
@@ -4506,7 +4513,8 @@ async def _execute_ai_schedule(schedule_id: int, db: Session) -> dict:
                 })
 
     if not groups:
-        return {'success': False, 'message': '실행할 그룹 없음', 'skipped': skipped}
+        skip_msg = '; '.join(set(skipped[:5])) if skipped else '활성 계정/연동/DraftPost 없음'
+        return {'success': False, 'message': f'실행할 그룹 없음 ({skip_msg})', 'skipped': skipped}
 
     # ── 큐에 저장 (그룹 1 제외한 나머지) ─────────────────────
     _ai_schedule_queues[schedule_id] = _deque(groups[1:])
@@ -4568,11 +4576,11 @@ async def run_ai_schedule(
     request: Request,
     db: Session = Depends(get_db)
 ):
-    """AI 수정발행 스케줄 즉시 실행"""
+    """AI 수정발행 스케줄 즉시 실행 (force=True: 오늘 이미 실행한 계정도 포함)"""
     current_user = get_current_user(request, db)
     if not current_user:
         return JSONResponse({"success": False, "error": "로그인이 필요합니다"}, status_code=401)
-    result = await _execute_ai_schedule(schedule_id, db)
+    result = await _execute_ai_schedule(schedule_id, db, force=True)
     return JSONResponse(result)
 
 
