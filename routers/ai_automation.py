@@ -2217,11 +2217,17 @@ async def get_cafe_connections(
             joinedload(CafeAccountLink.account)
         ).all()
 
-        # used_post_count를 저장된 컬럼 대신 DraftPost 테이블에서 실시간 집계
-        # (stored counter가 누락된 경우를 대비)
+        # DraftPost 테이블에서 실시간 집계
         used_counts = dict(
             db.query(DraftPost.link_id, _func.count(DraftPost.id))
             .filter(DraftPost.status == 'used')
+            .group_by(DraftPost.link_id)
+            .all()
+        )
+        # 신규발행 글 = 아직 수정발행하지 않은 available 수만
+        available_counts = dict(
+            db.query(DraftPost.link_id, _func.count(DraftPost.id))
+            .filter(DraftPost.status == 'available')
             .group_by(DraftPost.link_id)
             .all()
         )
@@ -2239,8 +2245,9 @@ async def get_cafe_connections(
             'cafe_characteristics': c.cafe.characteristics if c.cafe else '',
             'account_name': c.account.account_id if c.account else '',
             'status': c.status,
-            'draft_post_count': total_counts.get(c.id, 0),
+            'draft_post_count': available_counts.get(c.id, 0),   # 미사용(available) 수만
             'used_post_count': used_counts.get(c.id, 0),
+            'total_post_count': total_counts.get(c.id, 0),       # 전체 수 (통계용)
             'is_member': c.is_member
         } for c in connections]
 
@@ -2248,6 +2255,84 @@ async def get_cafe_connections(
     except ImportError:
         # CafeAccountLink 테이블이 없는 경우
         return JSONResponse({'success': True, 'connections': []})
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return JSONResponse({'success': False, 'error': str(e)}, status_code=500)
+
+
+@router.get("/api/connections/stats")
+async def get_connection_stats(
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    """계정별 신규발행 글 통계 (신규발행/사용된 글 수)"""
+    current_user = get_current_user(request, db)
+    if not current_user:
+        return JSONResponse({"success": False, "error": "로그인이 필요합니다"}, status_code=401)
+
+    try:
+        from database import CafeAccountLink, DraftPost, AutomationAccount
+        from sqlalchemy import func as _func
+
+        # 계정별 집계
+        accounts = db.query(AutomationAccount).all()
+        acc_map = {a.id: a.account_id for a in accounts}
+
+        # 연동 ID → account_id 매핑
+        links = db.query(CafeAccountLink).all()
+        link_to_acc = {l.id: l.account_id for l in links}
+
+        # DraftPost 집계
+        available_rows = (
+            db.query(DraftPost.link_id, _func.count(DraftPost.id))
+            .filter(DraftPost.status == 'available')
+            .group_by(DraftPost.link_id)
+            .all()
+        )
+        used_rows = (
+            db.query(DraftPost.link_id, _func.count(DraftPost.id))
+            .filter(DraftPost.status == 'used')
+            .group_by(DraftPost.link_id)
+            .all()
+        )
+
+        # 계정별 합산
+        acc_available: dict = {}
+        acc_used: dict = {}
+        for link_id, cnt in available_rows:
+            acc_id = link_to_acc.get(link_id)
+            if acc_id:
+                acc_available[acc_id] = acc_available.get(acc_id, 0) + cnt
+        for link_id, cnt in used_rows:
+            acc_id = link_to_acc.get(link_id)
+            if acc_id:
+                acc_used[acc_id] = acc_used.get(acc_id, 0) + cnt
+
+        # 데이터가 있는 계정만 반환
+        all_acc_ids = set(acc_available.keys()) | set(acc_used.keys())
+        stats = []
+        for acc_id in sorted(all_acc_ids):
+            av = acc_available.get(acc_id, 0)
+            us = acc_used.get(acc_id, 0)
+            stats.append({
+                'account_id': acc_id,
+                'account_name': acc_map.get(acc_id, f'계정#{acc_id}'),
+                'available': av,
+                'used': us,
+                'total': av + us,
+            })
+
+        # 전체 합계
+        total_available = sum(s['available'] for s in stats)
+        total_used = sum(s['used'] for s in stats)
+
+        return JSONResponse({
+            'success': True,
+            'stats': stats,
+            'total_available': total_available,
+            'total_used': total_used,
+        })
     except Exception as e:
         import traceback
         traceback.print_exc()

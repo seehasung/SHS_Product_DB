@@ -874,18 +874,25 @@
                 
                 <!-- 필터 -->
                 <div class="mb-3">
-                    <div class="row">
-                        <div class="col-md-4">
+                    <div class="row g-3 align-items-end">
+                        <div class="col-md-3">
                             <label class="form-label">카페 필터</label>
                             <select class="form-select" id="connectionCafeFilter" onchange="loadConnections()">
                                 <option value="">전체 카페</option>
                             </select>
                         </div>
-                        <div class="col-md-4">
+                        <div class="col-md-3">
                             <label class="form-label">계정 필터</label>
                             <select class="form-select" id="connectionAccountFilter" onchange="loadConnections()">
                                 <option value="">전체 계정</option>
                             </select>
+                        </div>
+                        <!-- 계정별 통계 패널 -->
+                        <div class="col-md-6">
+                            <label class="form-label">계정별 신규발행 글 현황</label>
+                            <div id="connectionStatsPanel" style="background:#f8f9fa;border:1px solid #dee2e6;border-radius:6px;padding:8px 12px;max-height:120px;overflow-y:auto;">
+                                <span class="text-muted small">로딩 중...</span>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -4780,6 +4787,52 @@ async function loadConnectionFilters() {
     }
 }
 
+// 계정별 통계 패널 갱신
+async function loadConnectionStats() {
+    const panel = document.getElementById('connectionStatsPanel');
+    if (!panel) return;
+    try {
+        const res = await fetch('/ai-automation/api/connections/stats');
+        const data = await res.json();
+        if (!data.success) { panel.innerHTML = '<span class="text-danger small">통계 로드 실패</span>'; return; }
+
+        const stats = data.stats || [];
+        if (stats.length === 0) {
+            panel.innerHTML = '<span class="text-muted small">등록된 신규발행 글이 없습니다</span>';
+            return;
+        }
+
+        // 각 계정 칩 형태로 표시
+        let html = '<div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;">';
+        stats.forEach(s => {
+            const pct = s.total > 0 ? Math.round(s.used / s.total * 100) : 0;
+            const barColor = pct >= 80 ? '#dc3545' : pct >= 50 ? '#fd7e14' : '#198754';
+            html += `<div style="background:#fff;border:1px solid #ced4da;border-radius:6px;padding:4px 10px;font-size:.78rem;min-width:130px;">
+                <div style="font-weight:600;margin-bottom:2px;">${s.account_name}</div>
+                <div style="display:flex;gap:8px;align-items:center;">
+                    <span style="color:#0d6efd;" title="미사용">📄 ${s.available}개</span>
+                    <span style="color:#6c757d;" title="사용됨">✅ ${s.used}개</span>
+                </div>
+                <div style="background:#e9ecef;border-radius:3px;height:4px;margin-top:3px;">
+                    <div style="background:${barColor};width:${pct}%;height:100%;border-radius:3px;"></div>
+                </div>
+            </div>`;
+        });
+        // 전체 합계
+        html += `<div style="background:#e8f4fd;border:1px solid #bee3f8;border-radius:6px;padding:4px 10px;font-size:.78rem;min-width:110px;">
+            <div style="font-weight:600;color:#0d6efd;margin-bottom:2px;">전체 합계</div>
+            <div style="display:flex;gap:8px;">
+                <span style="color:#0d6efd;">📄 ${data.total_available}개</span>
+                <span style="color:#6c757d;">✅ ${data.total_used}개</span>
+            </div>
+        </div>`;
+        html += '</div>';
+        panel.innerHTML = html;
+    } catch (e) {
+        panel.innerHTML = '<span class="text-danger small">통계 오류: ' + e.message + '</span>';
+    }
+}
+
 // 연동 관리 로드
 async function loadConnections() {
     // 필터 로드 (처음 한 번만)
@@ -4787,6 +4840,9 @@ async function loadConnections() {
     if (cafeFilter && cafeFilter.options.length <= 1) {
         await loadConnectionFilters();
     }
+    
+    // 통계 패널 갱신
+    loadConnectionStats();
     
     // 필터 값 가져오기
     const cafeFilterValue = document.getElementById('connectionCafeFilter')?.value || '';
@@ -4830,7 +4886,7 @@ async function loadConnections() {
                                 <th>계정</th>
                                 <th>가입 여부</th>
                                 <th>상태</th>
-                                <th>신규발행 글</th>
+                                <th>미사용 글</th>
                                 <th>사용된 글</th>
                                 <th>관리</th>
                             </tr>
@@ -4850,7 +4906,10 @@ async function loadConnections() {
                                             ${c.status === 'active' ? '활성' : '정지'}
                                         </span>
                                     </td>
-                                    <td><span class="badge bg-primary">${c.draft_post_count}개</span></td>
+                                    <td>
+                                        <span class="badge bg-primary" title="수정발행하지 않은 글 수">${c.draft_post_count}개</span>
+                                        ${c.total_post_count > 0 ? `<span class="text-muted" style="font-size:.75rem;"> / ${c.total_post_count}개</span>` : ''}
+                                    </td>
                                     <td><span class="badge bg-info">${c.used_post_count}개</span></td>
                                     <td>
                                         <div class="btn-group btn-group-sm">
