@@ -87,17 +87,25 @@ async def worker_websocket(websocket: WebSocket, pc_number: int, db: Session = D
     ).first()
     print(f"   미할당 Task: {'#' + str(pending_task.id) if pending_task else '없음'}")
     
-    # 2. 이 PC에 할당된 Task 중 아직 시작 안 한 것 찾기 (최신 우선!)
-    # ⚠️  assigned_pc_id는 pc.id(DB ID) 또는 pc_number 두 가지 방식으로 저장될 수 있음
-    #     → OR 조건으로 둘 다 검색
-    assigned_task = db.query(AutomationTask).filter(
+    # 2-A. 이 PC에 할당된 post/create_draft Task 우선 찾기 (오래된 순 → 밀린 것부터 처리)
+    # ⭐ post 타입은 무조건 즉시 전송 가능하므로 comment보다 먼저 찾아야 함
+    assigned_post_task = db.query(AutomationTask).filter(
         AutomationTask.assigned_pc_id.in_([pc.id, pc_number]),
-        AutomationTask.status.in_(['pending', 'assigned'])
-    ).order_by(
-        AutomationTask.priority.desc(),
-        AutomationTask.id.desc()  # 최신 Task 우선!
-    ).first()
-    print(f"   할당된 Task (PC #{pc_number}): {'#' + str(assigned_task.id) if assigned_task else '없음'}")
+        AutomationTask.status.in_(['pending', 'assigned']),
+        AutomationTask.task_type.in_(['post', 'create_draft'])
+    ).order_by(AutomationTask.id.asc()).first()
+
+    # 2-B. post 없으면 comment/reply Task 찾기 (최신 순)
+    assigned_comment_task = None
+    if not assigned_post_task:
+        assigned_comment_task = db.query(AutomationTask).filter(
+            AutomationTask.assigned_pc_id.in_([pc.id, pc_number]),
+            AutomationTask.status.in_(['pending', 'assigned']),
+            AutomationTask.task_type.in_(['comment', 'reply'])
+        ).order_by(AutomationTask.order_sequence.asc()).first()
+
+    assigned_task = assigned_post_task or assigned_comment_task
+    print(f"   할당된 Task (PC #{pc_number}): {'#' + str(assigned_task.id) + ' (' + assigned_task.task_type + ')' if assigned_task else '없음'}")
     
     # 3. 모든 pending/assigned Task 확인 (디버깅)
     all_pending = db.query(AutomationTask).filter(
@@ -109,17 +117,17 @@ async def worker_websocket(websocket: WebSocket, pc_number: int, db: Session = D
     # ⚠️  댓글/대댓글 Task: 기본은 HTTP 완료 보고로만 다음 Task 전송! (순서 보장)
     # ✅  post / create_draft 타입 Task: 연결 즉시 전송 가능 (순서 무관)
     # ✅  comment / reply 타입 Task: 부모 post 완료 + 이전 순서 모두 완료 시 즉시 전송 (복구)
-    if assigned_task and assigned_task.task_type in ('post', 'create_draft'):
-        print(f"   📤 Post Task #{assigned_task.id} 즉시 전송 (Worker 재연결 감지)")
+    if assigned_post_task:
+        print(f"   📤 Post Task #{assigned_post_task.id} 즉시 전송 (Worker 재연결 감지)")
         try:
-            await send_task_to_worker(pc_number, assigned_task, db)
+            await send_task_to_worker(pc_number, assigned_post_task, db)
         except Exception as _e:
             print(f"   ❌ Post Task 즉시 전송 실패: {_e}")
-    elif assigned_task and assigned_task.task_type in ('comment', 'reply'):
-        if _is_comment_ready(assigned_task, db):
-            print(f"   📤 Comment Task #{assigned_task.id} 즉시 전송 (부모 완료 확인, 복구)")
+    elif assigned_comment_task:
+        if _is_comment_ready(assigned_comment_task, db):
+            print(f"   📤 Comment Task #{assigned_comment_task.id} 즉시 전송 (부모 완료 확인, 복구)")
             try:
-                await send_task_to_worker(pc_number, assigned_task, db)
+                await send_task_to_worker(pc_number, assigned_comment_task, db)
             except Exception as _e:
                 print(f"   ❌ Comment Task 즉시 전송 실패: {_e}")
         else:
