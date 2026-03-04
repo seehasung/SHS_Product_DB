@@ -474,6 +474,8 @@ async def check_ai_schedules():
         if stuck_tasks:
             db.commit()
             print(f"✅ 고착 태스크 {len(stuck_tasks)}개 복구 완료")
+            # ⭐ 리셋 직후 복구 잡 즉시 실행 (3분 주기 기다리지 않고 바로 재전송)
+            asyncio.create_task(recover_orphaned_comment_tasks())
 
         # ── 신규발행(인사글) 스케줄 ──
         draft_schedules = db.query(DraftCreationSchedule).filter(
@@ -508,36 +510,29 @@ async def check_ai_schedules():
 
 
 async def recover_orphaned_comment_tasks():
-    """3분마다: 부모 post가 완료됐는데 아직 pending인 댓글 task를 찾아 즉시 전송 (고아 댓글 복구)"""
+    """3분마다: pending 상태로 방치된 모든 task(post/comment/reply) 자동 복구 및 전송
+    - post/create_draft: PC 연결 + idle이면 즉시 전송 (서버 재시작 후 리셋된 케이스 복구)
+    - comment/reply: 부모 post 완료 + 순서 맞으면 즉시 전송 (체인 단절 복구)
+    """
     from database import AutomationTask, AutomationWorkerPC
     from routers.automation import worker_connections, send_task_to_worker, _is_comment_ready
 
     db = SessionLocal()
     try:
-        # pending/assigned 상태의 comment/reply task 전체 조회
-        stuck_comments = db.query(AutomationTask).filter(
-            AutomationTask.status.in_(['pending', 'assigned']),
-            AutomationTask.task_type.in_(['comment', 'reply']),
-            AutomationTask.assigned_pc_id != None,
-        ).order_by(AutomationTask.order_sequence.asc()).all()
-
-        if not stuck_comments:
-            return
-
-        dispatched = 0
+        post_dispatched = 0
+        comment_dispatched = 0
         skipped = 0
 
-        for task in stuck_comments:
-            # 이미 처리 중인 task 건너뜀
-            if task.status == 'in_progress':
-                continue
+        # ── 1. pending post/create_draft task 복구 ─────────────────────────
+        # (서버 재시작 or 스케줄러 리셋 후 PC가 이미 연결된 상태라 재연결 핸들러가 안 도는 케이스)
+        pending_posts = db.query(AutomationTask).filter(
+            AutomationTask.status.in_(['pending', 'assigned']),
+            AutomationTask.task_type.in_(['post', 'create_draft']),
+            AutomationTask.assigned_pc_id != None,
+        ).order_by(AutomationTask.id.asc()).all()
 
-            # 즉시 실행 가능한지 확인
-            if not _is_comment_ready(task, db):
-                skipped += 1
-                continue
-
-            # 할당된 PC의 pc_number 가져오기
+        for task in pending_posts:
+            # 할당된 PC의 pc_number 조회
             pc_rec = db.query(AutomationWorkerPC).filter(
                 (AutomationWorkerPC.id == task.assigned_pc_id) |
                 (AutomationWorkerPC.pc_number == task.assigned_pc_id)
@@ -546,31 +541,77 @@ async def recover_orphaned_comment_tasks():
 
             if pc_num not in worker_connections:
                 skipped += 1
-                continue  # PC 미연결 → 스킵 (재연결 시 처리됨)
+                continue  # PC 미연결 → 재연결 시 처리됨
+
+            # 이 PC에 현재 in_progress인 task가 있으면 스킵 (작업 중)
+            in_progress_check = db.query(AutomationTask).filter(
+                AutomationTask.assigned_pc_id.in_([task.assigned_pc_id, pc_num]),
+                AutomationTask.status == 'in_progress',
+            ).first()
+            if in_progress_check:
+                skipped += 1
+                continue
 
             try:
-                print(f"   🔧 [복구] Comment Task #{task.id} (순서:{task.order_sequence}) → PC #{pc_num}")
+                print(f"   🔧 [복구-post] Task #{task.id} ({task.task_type}) → PC #{pc_num}")
                 await send_task_to_worker(pc_num, task, db)
-                dispatched += 1
-                # 같은 그룹에서 하나씩만 전송 (순서 보장)
-                # 동일 parent의 다음 task는 이 task 완료 후 _dispatch_next_task_bg가 처리
-                break_root_id = None
-                root = task
-                for _ in range(10):
-                    if root.task_type == 'post':
-                        break_root_id = root.id
-                        break
-                    if not root.parent_task_id:
-                        break
-                    root = db.query(AutomationTask).get(root.parent_task_id)
-                    if not root:
-                        break
-                # 같은 root post의 다른 task는 이미 dispatched된 task 완료 후 자동 처리
+                post_dispatched += 1
             except Exception as _e:
-                print(f"   ⚠️ [복구] Task #{task.id} 전송 실패: {_e}")
+                print(f"   ⚠️ [복구-post] Task #{task.id} 전송 실패: {_e}")
 
-        if dispatched > 0 or skipped > 0:
-            print(f"🔧 [고아 댓글 복구] 전송: {dispatched}개, 스킵: {skipped}개 (총 검사: {len(stuck_comments)}개)")
+        # ── 2. pending comment/reply task 복구 ─────────────────────────────
+        # (부모 post 완료됐는데 첫 댓글이 전송 안 된 케이스)
+        stuck_comments = db.query(AutomationTask).filter(
+            AutomationTask.status.in_(['pending', 'assigned']),
+            AutomationTask.task_type.in_(['comment', 'reply']),
+            AutomationTask.assigned_pc_id != None,
+        ).order_by(AutomationTask.order_sequence.asc()).all()
+
+        # root post 기준으로 그룹핑 → 각 그룹에서 하나만 전송 (순서 보장)
+        dispatched_roots = set()
+
+        for task in stuck_comments:
+            if not _is_comment_ready(task, db):
+                skipped += 1
+                continue
+
+            # 루트 post id 찾기
+            root = task
+            for _ in range(10):
+                if root.task_type == 'post':
+                    break
+                if not root.parent_task_id:
+                    break
+                root = db.query(AutomationTask).get(root.parent_task_id)
+                if not root:
+                    break
+
+            root_id = root.id if root and root.task_type == 'post' else None
+            if root_id in dispatched_roots:
+                continue  # 같은 그룹은 하나만
+
+            pc_rec = db.query(AutomationWorkerPC).filter(
+                (AutomationWorkerPC.id == task.assigned_pc_id) |
+                (AutomationWorkerPC.pc_number == task.assigned_pc_id)
+            ).first()
+            pc_num = pc_rec.pc_number if pc_rec else task.assigned_pc_id
+
+            if pc_num not in worker_connections:
+                skipped += 1
+                continue
+
+            try:
+                print(f"   🔧 [복구-comment] Task #{task.id} (순서:{task.order_sequence}) → PC #{pc_num}")
+                await send_task_to_worker(pc_num, task, db)
+                comment_dispatched += 1
+                if root_id:
+                    dispatched_roots.add(root_id)
+            except Exception as _e:
+                print(f"   ⚠️ [복구-comment] Task #{task.id} 전송 실패: {_e}")
+
+        total = post_dispatched + comment_dispatched
+        if total > 0 or skipped > 0:
+            print(f"🔧 [Task 복구] post:{post_dispatched} comment:{comment_dispatched} 전송 / 스킵:{skipped}")
 
     except Exception as e:
         print(f"⚠️ recover_orphaned_comment_tasks 오류: {e}")
