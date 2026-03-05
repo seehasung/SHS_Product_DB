@@ -2055,7 +2055,7 @@ async def fail_task(
 async def get_worker_version():
     """Worker 버전 정보 제공"""
     return JSONResponse({
-        "version": "1.3.0",
+        "version": "1.4.0",
         "release_date": "2026-01-25",
         "download_url": "/automation/api/worker/download",
         "changelog": [
@@ -2069,7 +2069,8 @@ async def get_worker_version():
             "undetected-chromedriver + pyperclip 자동 설치",
             "등록 버튼 클릭 전후 alert 팝업 자동 처리",
             "글쓰기 버튼 클릭 후 활동정지 팝업 5초 감지 → 실패 사유 대시보드 표시",
-            "create_draft 실패 시 HTTP 실패 보고 + 다음 태스크 자동 전송"
+            "create_draft 실패 시 HTTP 실패 보고 + 다음 태스크 자동 전송",
+            "에디터 진입 후 네이버 HTML 모달 팝업 감지 → 탭 닫기 + 실패 사유 보고"
         ],
         "required_packages": {
             "selenium": "4.15.2",

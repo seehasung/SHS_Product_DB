@@ -89,7 +89,7 @@ except ImportError:
 class NaverCafeWorker:
     """네이버 카페 자동 작성 Worker"""
     
-    VERSION = "1.3.0" # 현재 버전
+    VERSION = "1.4.0" # 현재 버전
     
     def __init__(self, pc_number: int, server_url: str = "scorp274.com"):
         self.pc_number = pc_number
@@ -1791,6 +1791,52 @@ class NaverCafeWorker:
                 except Exception:
                     pass  # iframe 없으면 일반 페이지로 진행
 
+                # ⭐ 제목 입력 전 네이버 HTML 모달 팝업 확인
+                # (글쓰기 불가 안내 등 네이버 자체 모달은 selenium alert가 아닌 HTML 요소)
+                try:
+                    _modal_selectors = [
+                        '.cafe-modal-wrap',      # 네이버 카페 모달 래퍼
+                        '.AlertModal',           # 알림 모달
+                        '.error-message-wrap',   # 에러 메시지
+                        '[class*="modal"][class*="alert"]',
+                        '[class*="Modal"]',
+                        '.se-popup-background',  # 에디터 팝업 배경
+                        '.popup_wrap',
+                        '.layer_popup',
+                        '.dialog_wrap',
+                    ]
+                    _modal_text = None
+                    for _msel in _modal_selectors:
+                        try:
+                            _modals = self.driver.find_elements(By.CSS_SELECTOR, _msel)
+                            for _m in _modals:
+                                if _m.is_displayed():
+                                    _txt = _m.text.strip()
+                                    if _txt and len(_txt) > 5:
+                                        _modal_text = _txt[:200]
+                                        break
+                            if _modal_text:
+                                break
+                        except Exception:
+                            continue
+
+                    if _modal_text:
+                        print(f"  ❌ 네이버 모달 팝업 감지: {_modal_text[:80]}")
+                        # 탭 닫기
+                        try:
+                            self.driver.switch_to.default_content()
+                            current_handles = self.driver.window_handles
+                            for _h in current_handles[1:]:
+                                self.driver.switch_to.window(_h)
+                                self.driver.close()
+                            self.driver.switch_to.window(current_handles[0])
+                            print("  ✅ 팝업 탭 닫기 완료")
+                        except Exception as _ce:
+                            print(f"  ⚠️ 탭 닫기 실패: {_ce}")
+                        return f"ALERT:{_modal_text}"
+                except Exception as _me:
+                    pass  # 모달 체크 실패 시 무시하고 계속
+
                 # 제목 입력 (다양한 방법 시도)
                 title_success = False
 
@@ -1857,15 +1903,38 @@ class NaverCafeWorker:
                         pass
 
                 if not title_success:
-                    print("  ❌ 제목 입력 실패 - 작업 중단")
+                    # 제목 입력 실패 시 모달 팝업이 뒤늦게 떴는지 재확인
+                    _late_modal = None
                     try:
-                        self.driver.switch_to.default_content()
-                        if new_window and len(self.driver.window_handles) > 1:
-                            self.driver.close()
-                            self.driver.switch_to.window(windows[0])
+                        for _msel in ['.cafe-modal-wrap', '.AlertModal', '[class*="Modal"]', '.popup_wrap', '.layer_popup']:
+                            try:
+                                _modals = self.driver.find_elements(By.CSS_SELECTOR, _msel)
+                                for _m in _modals:
+                                    if _m.is_displayed():
+                                        _txt = _m.text.strip()
+                                        if _txt and len(_txt) > 5:
+                                            _late_modal = _txt[:200]
+                                            break
+                                if _late_modal:
+                                    break
+                            except Exception:
+                                continue
                     except Exception:
                         pass
-                    return None
+
+                    _fail_reason = f"[팝업 오류] {_late_modal[:80]}" if _late_modal else "제목 입력 실패"
+                    print(f"  ❌ 제목 입력 실패 - 작업 중단 (사유: {_fail_reason})")
+                    try:
+                        self.driver.switch_to.default_content()
+                        current_handles = self.driver.window_handles
+                        for _h in current_handles[1:]:
+                            self.driver.switch_to.window(_h)
+                            self.driver.close()
+                        self.driver.switch_to.window(current_handles[0])
+                        print("  ✅ 탭 닫기 완료")
+                    except Exception:
+                        pass
+                    return f"ALERT:{_fail_reason}" if _late_modal else None
 
                 # 본문 입력 (3가지 방법 시도)
                 self.random_delay(1, 2)
