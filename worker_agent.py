@@ -89,7 +89,7 @@ except ImportError:
 class NaverCafeWorker:
     """네이버 카페 자동 작성 Worker"""
     
-    VERSION = "1.6.0" # 현재 버전
+    VERSION = "1.7.0" # 현재 버전
     
     def __init__(self, pc_number: int, server_url: str = "scorp274.com"):
         self.pc_number = pc_number
@@ -1784,33 +1784,29 @@ class NaverCafeWorker:
                     write_btn.click()
                 self.random_delay(0.5, 1)
 
-                # ⭐ 글쓰기 버튼 클릭 후 alert 팝업 최대 5초 반복 확인
-                # 네이버 활동 정지 팝업은 클릭 후 1~4초 사이에 뜸
+                # ⭐ 글쓰기 버튼 클릭 후 반드시 3초 대기하면서 JS confirm 팝업 체크
+                # 팝업은 에디터 URL로 이동한 후에도 뜨므로 URL 조건으로 빠져나오면 안 됨
                 import time as _ta_draft
                 _alert_text = None
-                for _chk in range(5):
+                for _chk in range(3):
                     _ta_draft.sleep(1)
                     _alert_text = self.dismiss_alert(accept=True)
                     if _alert_text:
-                        print(f"  ❌ 글쓰기 버튼 클릭 후 Alert 발생 ({_chk+1}초): {_alert_text}")
-                        break
-                    # 새 창이 열리거나 에디터 페이지로 이동 시작하면 정상 → 반복 중단
-                    try:
-                        if len(self.driver.window_handles) > 1:
-                            print(f"  ✅ 새 창 열림 → alert 없음")
-                            break
-                        cur_url = self.driver.current_url
-                        if 'ArticleWrite' in cur_url or 'write' in cur_url.lower() or 'editor' in cur_url.lower():
-                            print(f"  ✅ 에디터 페이지 이동 확인 → alert 없음")
-                            break
-                    except Exception:
+                        print(f"  ❌ 글쓰기 버튼 클릭 후 JS confirm 팝업 발생 ({_chk+1}초): {_alert_text}")
                         break
 
                 if _alert_text:
-                    print(f"  ❌ 글쓰기 팝업 오류 → 즉시 실패 처리: {_alert_text}")
-                    if iframe_found:
+                    print(f"  ❌ JS confirm 팝업 → 즉시 실패 처리: {_alert_text}")
+                    try:
                         self.driver.switch_to.default_content()
-                    # alert 내용을 실패 사유로 반환
+                        _all_h = self.driver.window_handles
+                        for _h in _all_h[1:]:
+                            self.driver.switch_to.window(_h)
+                            self.driver.close()
+                        self.driver.switch_to.window(_all_h[0])
+                        print("  ✅ 팝업 탭 닫기 완료")
+                    except Exception:
+                        pass
                     return f"ALERT:{_alert_text}"
 
                 # 새 창 처리
