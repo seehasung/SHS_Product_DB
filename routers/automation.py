@@ -859,12 +859,12 @@ async def recover_stuck_tasks(
         assigned_new = 0
 
         # 1. PC:None 미할당 post/create_draft 태스크 → 연결된 PC에 배정
-        unassigned = db.query(AutomationTask).filter(
+        unassigned_posts = db.query(AutomationTask).filter(
             AutomationTask.status == 'pending',
             AutomationTask.assigned_pc_id == None,
             AutomationTask.task_type.in_(['post', 'create_draft'])
         ).all()
-        for task in unassigned:
+        for task in unassigned_posts:
             if worker_connections:
                 pc_num = next(iter(worker_connections))
                 pc_rec = db.query(AutomationWorkerPC).filter(
@@ -879,6 +879,74 @@ async def recover_stuck_tasks(
                         assigned_new += 1
                     except Exception:
                         pass
+
+        # 1-b. PC:None 미할당 comment/reply 태스크 중 루트가 completed인 것
+        #      → 형제 태스크 중 가장 낮은 order_sequence에 해당하는 PC를 찾아 배정
+        unassigned_comments = db.query(AutomationTask).filter(
+            AutomationTask.status == 'pending',
+            AutomationTask.assigned_pc_id == None,
+            AutomationTask.task_type.in_(['comment', 'reply'])
+        ).order_by(AutomationTask.order_sequence.asc()).all()
+
+        for task in unassigned_comments:
+            # 루트 post 찾기
+            root = task
+            for _ in range(10):
+                if root.task_type == 'post':
+                    break
+                if not root.parent_task_id:
+                    root = None
+                    break
+                root = db.query(AutomationTask).get(root.parent_task_id)
+                if not root:
+                    break
+
+            if not root or root.status != 'completed':
+                continue
+
+            # 같은 루트의 형제 태스크에서 PC 번호 파악 (이미 배정된 것 참고)
+            siblings = db.query(AutomationTask).filter(
+                AutomationTask.parent_task_id == task.parent_task_id,
+                AutomationTask.assigned_pc_id != None
+            ).first()
+
+            target_pc_id = None
+            if siblings:
+                target_pc_id = siblings.assigned_pc_id
+            elif worker_connections:
+                # 형제도 없으면 아무 연결된 PC에 배정
+                pc_num_fallback = next(iter(worker_connections))
+                pc_rec_f = db.query(AutomationWorkerPC).filter(
+                    AutomationWorkerPC.pc_number == pc_num_fallback
+                ).first()
+                if pc_rec_f:
+                    target_pc_id = pc_rec_f.id
+
+            if not target_pc_id:
+                continue
+
+            task.assigned_pc_id = target_pc_id
+            db.commit()
+            assigned_new += 1
+
+            # 즉시 전송 가능 여부 확인
+            if _is_comment_ready(task, db):
+                pc_rec2 = db.query(AutomationWorkerPC).filter(
+                    (AutomationWorkerPC.id == target_pc_id) |
+                    (AutomationWorkerPC.pc_number == target_pc_id)
+                ).first()
+                pc_num2 = pc_rec2.pc_number if pc_rec2 else target_pc_id
+                if pc_num2 in worker_connections:
+                    db.refresh(task)
+                    if task.status == 'pending':
+                        try:
+                            await send_task_to_worker(pc_num2, task, db)
+                            sent += 1
+                            print(f"🔧 [강제복구] PC:None comment Task #{task.id} → PC #{pc_num2} 배정+전송")
+                        except Exception:
+                            pass
+            else:
+                print(f"🔧 [강제복구] PC:None comment Task #{task.id} → PC #{target_pc_id} 배정 완료 (아직 전송 불가)")
 
         # 2. 30분 이상 in_progress 상태인 태스크 → pending 리셋
         stuck_cutoff = now - _td(minutes=30)
