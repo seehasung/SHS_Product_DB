@@ -1857,8 +1857,8 @@ function renderRootRow(task, hasChildren, gid, status) {
     const rawErr = (task.status === 'failed' && task.error_message && !task.error_message.startsWith('MODIFY_URL:'))
         ? task.error_message : null;
     const failBadge = rawErr
-        ? `<span class="badge bg-danger ms-1" title="${escHtml(rawErr)}" style="cursor:help;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:inline-block;vertical-align:middle;">
-               ⚠ ${escHtml(rawErr.length > 30 ? rawErr.slice(0,30)+'…' : rawErr)}
+        ? `<span class="badge bg-danger ms-1" title="${escHtml(rawErr)}" style="cursor:help;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:inline-block;vertical-align:middle;">
+               ⚠ ${escHtml(rawErr.length > 40 ? rawErr.slice(0,40)+'…' : rawErr)}
            </span>`
         : '';
 

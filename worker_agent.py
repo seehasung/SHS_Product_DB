@@ -89,7 +89,7 @@ except ImportError:
 class NaverCafeWorker:
     """네이버 카페 자동 작성 Worker"""
     
-    VERSION = "1.1.0" # 현재 버전
+    VERSION = "1.3.0" # 현재 버전
     
     def __init__(self, pc_number: int, server_url: str = "scorp274.com"):
         self.pc_number = pc_number
@@ -1054,7 +1054,21 @@ class NaverCafeWorker:
                     EC.element_to_be_clickable((By.XPATH, '//a[.//span[text()="수정"]]'))
                 )
                 edit_btn.click()
-                self.random_delay(5, 7)
+                self.random_delay(1, 2)
+
+                # ⭐ 수정 버튼 클릭 후 alert 팝업 최대 3초 반복 확인 (활동 정지 등 오류 팝업)
+                import time as _ta_mod
+                _alert_mod = None
+                for _chk_mod in range(3):
+                    _ta_mod.sleep(1)
+                    _alert_mod = self.dismiss_alert(accept=True)
+                    if _alert_mod:
+                        break
+                if _alert_mod:
+                    print(f"❌ 수정 버튼 클릭 후 Alert 발생: {_alert_mod}")
+                    raise Exception(f"[팝업 오류] {_alert_mod}")
+
+                self.random_delay(3, 5)
                 print("✅ 수정 버튼 클릭 완료")
             except Exception as e:
                 print(f"❌ 수정 버튼 클릭 실패: {e}")
@@ -1384,8 +1398,12 @@ class NaverCafeWorker:
             except Exception as e:
                 print(f"   ⚠️  댓글 설정 오류: {e} (계속 진행)")
             
-            # 등록 버튼 클릭 전 Alert 완전 정리
-            self.dismiss_alert()
+            # 등록 버튼 클릭 전 Alert 완전 정리 (여러 번 시도)
+            for _ in range(3):
+                dismissed = self.dismiss_alert(accept=True)
+                if dismissed is None:
+                    break
+                self.random_delay(0.5, 1)
             self.random_delay(1, 2)
             
             # ⭐ 등록 버튼 자동 클릭 (다중 방법 시도)
@@ -1438,7 +1456,13 @@ class NaverCafeWorker:
                     try:
                         print(f"   🖱️  {method_name} 시도...")
                         click_func()
-                        self.random_delay(2, 3)
+                        # ⭐ 클릭 직후 alert 팝업 처리 (오류 팝업 뜨면 즉시 닫기)
+                        import time as _ta
+                        _ta.sleep(1)
+                        alert_text = self.dismiss_alert(accept=True)
+                        if alert_text:
+                            print(f"   ⚠️  클릭 후 Alert 발생: {alert_text} → 닫고 계속 진행")
+                        self.random_delay(1, 2)
                         
                         # 클릭 성공 확인 (URL 변경 또는 페이지 변화 확인)
                         current_url = self.driver.current_url
@@ -1451,6 +1475,8 @@ class NaverCafeWorker:
                             
                     except Exception as e:
                         print(f"   ⚠️  {method_name} 실패: {e}")
+                        # ⭐ 예외 발생 시에도 alert 처리 시도
+                        self.dismiss_alert(accept=True)
                         continue
                 
                 if clicked:
@@ -1461,6 +1487,10 @@ class NaverCafeWorker:
                     import time
                     for i in range(15):  # 최대 15초
                         time.sleep(1)
+                        # 대기 중 alert 팝업 즉시 처리
+                        alert_text = self.dismiss_alert(accept=True)
+                        if alert_text:
+                            print(f"   ⚠️  리다이렉트 대기 중 Alert: {alert_text} → 닫음")
                         current = self.driver.current_url
                         
                         # /modify가 없고 /articles/가 있으면 실제 글 URL
@@ -1486,6 +1516,10 @@ class NaverCafeWorker:
                         import time
                         for i in range(15):
                             time.sleep(1)
+                            # 대기 중 alert 팝업 즉시 처리
+                            alert_text = self.dismiss_alert(accept=True)
+                            if alert_text:
+                                print(f"   ⚠️  리다이렉트 대기 중 Alert: {alert_text} → 닫음")
                             current = self.driver.current_url
                             if '/modify' not in current and ('/articles/' in current or '/ArticleRead' in current):
                                 print(f"   ✅ 실제 글 URL 확인: {current[:80]}...")
@@ -1705,7 +1739,36 @@ class NaverCafeWorker:
                 # 버튼 클릭 (이미 페이지 이동한 경우 skip)
                 if write_btn is not True:
                     write_btn.click()
-                self.random_delay(3, 5)
+                self.random_delay(0.5, 1)
+
+                # ⭐ 글쓰기 버튼 클릭 후 alert 팝업 최대 5초 반복 확인
+                # 네이버 활동 정지 팝업은 클릭 후 1~4초 사이에 뜸
+                import time as _ta_draft
+                _alert_text = None
+                for _chk in range(5):
+                    _ta_draft.sleep(1)
+                    _alert_text = self.dismiss_alert(accept=True)
+                    if _alert_text:
+                        print(f"  ❌ 글쓰기 버튼 클릭 후 Alert 발생 ({_chk+1}초): {_alert_text}")
+                        break
+                    # 새 창이 열리거나 에디터 페이지로 이동 시작하면 정상 → 반복 중단
+                    try:
+                        if len(self.driver.window_handles) > 1:
+                            print(f"  ✅ 새 창 열림 → alert 없음")
+                            break
+                        cur_url = self.driver.current_url
+                        if 'ArticleWrite' in cur_url or 'write' in cur_url.lower() or 'editor' in cur_url.lower():
+                            print(f"  ✅ 에디터 페이지 이동 확인 → alert 없음")
+                            break
+                    except Exception:
+                        break
+
+                if _alert_text:
+                    print(f"  ❌ 글쓰기 팝업 오류 → 즉시 실패 처리: {_alert_text}")
+                    if iframe_found:
+                        self.driver.switch_to.default_content()
+                    # alert 내용을 실패 사유로 반환
+                    return f"ALERT:{_alert_text}"
 
                 # 새 창 처리
                 windows = self.driver.window_handles
@@ -2346,11 +2409,11 @@ class NaverCafeWorker:
                         )
                     )
                 else:
-                    print(f"📝 새 글 작성: {task['cafe_url']}")
-                    post_url = await loop.run_in_executor(
-                        None,
-                        lambda: self.write_post(task['cafe_url'], task['title'], task['content'])
-                    )
+                    # draft_url이 없으면 수정 발행 불가 → 즉시 실패 처리
+                    print(f"❌ draft_url이 없습니다. 수정 발행 URL이 서버에서 전달되지 않았습니다.")
+                    print(f"   cafe_url: {task.get('cafe_url')}")
+                    print(f"   이 작업은 반드시 기존 글 URL(draft_url)이 있어야 수행 가능합니다.")
+                    raise Exception("draft_url 없음: 수정 발행할 URL이 지정되지 않았습니다. 서버에서 MODIFY_URL이 설정되지 않은 상태입니다.")
                 
                 if post_url:
                     # ⭐ 공통 완료 보고 함수 사용 (실패 시 큐에 저장)
@@ -2385,6 +2448,11 @@ class NaverCafeWorker:
                 )
 
                 if post_url:
+                    # ⭐ ALERT: 접두사 = 팝업 오류 발생 (활동 정지 등)
+                    if isinstance(post_url, str) and post_url.startswith('ALERT:'):
+                        alert_msg = post_url[len('ALERT:'):]
+                        print(f"  ❌ 글쓰기 팝업 오류: {alert_msg}")
+                        raise Exception(f"[팝업 오류] {alert_msg}")
                     await self.report_task_complete(task_id, post_url=post_url)
                     try:
                         await self.websocket.send(json.dumps({
@@ -2458,18 +2526,36 @@ class NaverCafeWorker:
             except Exception as ws_err:
                 print(f"   ⚠️ WebSocket 실패 보고 불가: {ws_err}")
 
-            # 2) HTTP로도 실패 보고 (post 타입만 - 다음 그룹 트리거 목적)
-            if task_type == 'post':
+            # 2) HTTP로도 실패 보고 (post 타입 + create_draft 타입 - 다음 그룹 트리거 목적)
+            if task_type in ('post', 'create_draft'):
                 try:
                     import requests as _req
                     _fail_url = f"https://{self.server_url}/automation/api/tasks/{task_id}/fail"
                     _r = _req.post(_fail_url, data={'error': str(e)}, timeout=15, verify=False)
                     if _r.status_code == 200:
-                        print(f"   ✅ HTTP 실패 보고 완료 (post)")
+                        print(f"   ✅ HTTP 실패 보고 완료 ({task_type})")
                     else:
                         print(f"   ⚠️ HTTP 실패 보고 응답: {_r.status_code}")
                 except Exception as http_err:
                     print(f"   ⚠️ HTTP 실패 보고 오류: {http_err}")
+
+            # ⭐ 실패 후 브라우저 생존 확인 → 죽었으면 자동 재시작
+            err_str = str(e).lower()
+            is_browser_dead = (
+                'no such window' in err_str or
+                'target window already closed' in err_str or
+                'invalid session id' in err_str or
+                'session deleted' in err_str or
+                'web view not found' in err_str or
+                not self._is_browser_alive()
+            )
+            if is_browser_dead:
+                print(f"   ⚠️  브라우저 세션 사망 감지 → 자동 재시작 시도...")
+                recovered = self._restart_browser_and_login()
+                if recovered:
+                    print(f"   ✅ 브라우저 복구 완료 → 다음 작업 대기")
+                else:
+                    print(f"   ❌ 브라우저 복구 실패 → 수동 재시작 필요")
             
     async def listen_for_tasks(self):
         """서버로부터 작업 수신"""
@@ -2515,8 +2601,34 @@ class NaverCafeWorker:
                                 task['account_pw']
                             )
                     
-                    # 작업 처리
-                    await self.process_task(task)
+                    # 작업 처리 (예외가 나도 루프가 멈추지 않도록 try/except로 감쌈)
+                    try:
+                        await self.process_task(task)
+                    except Exception as pt_err:
+                        print(f"❌ process_task 처리 중 예상치 못한 오류: {pt_err}")
+                        # 브라우저 죽었으면 재시작
+                        if not self._is_browser_alive():
+                            print("   ⚠️  브라우저 사망 → 자동 재시작 시도...")
+                            self._restart_browser_and_login()
+                        # 서버에 실패 보고
+                        try:
+                            await self.websocket.send(json.dumps({
+                                'type': 'task_failed',
+                                'task_id': task.get('id'),
+                                'error': str(pt_err)
+                            }))
+                        except Exception:
+                            pass
+                        # HTTP 실패 보고 (post 타입)
+                        if task.get('task_type') == 'post':
+                            try:
+                                import requests as _req2
+                                _req2.post(
+                                    f"https://{self.server_url}/automation/api/tasks/{task.get('id')}/fail",
+                                    data={'error': str(pt_err)}, timeout=15, verify=False
+                                )
+                            except Exception:
+                                pass
                     
                 elif data.get('type') == 'start_comment':
                     # 댓글 시작 신호 (순차 실행)

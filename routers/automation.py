@@ -348,18 +348,25 @@ async def worker_websocket(websocket: WebSocket, pc_number: int, db: Session = D
                 if task:
                     _failed_task_type = task.task_type
                     _failed_task_id = task.id
+                    _failed_pc_id = task.assigned_pc_id
                     task.status = 'failed'
                     task.error_message = message.get('error')
                     task.retry_count += 1
                     pc.status = 'online'
                     pc.current_task_id = None
                     db.commit()
-                    print(f"❌ Task #{_failed_task_id} 실패 처리 완료 (타입: {_failed_task_type})")
+                    _err_preview = (message.get('error') or '')[:80]
+                    print(f"❌ Task #{_failed_task_id} 실패 처리 완료 (타입: {_failed_task_type}, 사유: {_err_preview})")
 
                     # ★ post 타입 실패 → 다음 AI 그룹 실행 (댓글 스킵, 다음 글로)
                     if _failed_task_type == 'post':
                         asyncio.create_task(
                             _dispatch_next_group_on_failure(_failed_task_id)
+                        )
+                    # ★ create_draft 실패 → 해당 PC 다음 대기 태스크 전송
+                    elif _failed_task_type == 'create_draft' and _failed_pc_id:
+                        asyncio.create_task(
+                            _try_send_next_pending_task(_failed_pc_id)
                         )
                     
     except WebSocketDisconnect:
@@ -455,7 +462,14 @@ async def send_task_to_worker(pc_number: int, task: AutomationTask, db: Session)
         # draft_url 추출 (error_message에서)
         draft_url = None
         if task.error_message and 'MODIFY_URL:' in task.error_message:
-            draft_url = task.error_message.split('MODIFY_URL:')[1].split('|')[0].strip()
+            extracted = task.error_message.split('MODIFY_URL:')[1].split('|')[0].strip()
+            draft_url = extracted if extracted else None  # 빈 문자열도 None 처리
+        
+        # post 타입 태스크에서 draft_url이 없으면 오류 로그 출력
+        if task.task_type == 'post' and not draft_url:
+            print(f"⚠️  [경고] Task #{task.id} (post) → draft_url 없음!")
+            print(f"   error_message: {repr(task.error_message)}")
+            print(f"   MODIFY_URL이 error_message에 저장되지 않은 상태입니다.")
         
         # 부모 Task의 post_url 가져오기 (댓글/대댓글용만, post task는 불필요)
         post_url = None
@@ -1650,6 +1664,33 @@ def _is_comment_ready(task, db) -> bool:
         return False
 
 
+async def _try_send_next_pending_task(pc_id: int, db=None):
+    """create_draft 실패 후 해당 PC에 다음 대기 태스크 전송"""
+    from database import SessionLocal, AutomationTask, AutomationPC
+    _own_db = db is None
+    if _own_db:
+        db = SessionLocal()
+    try:
+        await asyncio.sleep(2)
+        pc = db.query(AutomationPC).get(pc_id)
+        if not pc:
+            return
+        pc_number = pc.pc_number
+        # 해당 PC에 할당된 pending 태스크 찾기
+        next_task = db.query(AutomationTask).filter(
+            AutomationTask.assigned_pc_id == pc_id,
+            AutomationTask.status == 'pending'
+        ).order_by(AutomationTask.id.asc()).first()
+        if next_task and pc_number in worker_connections:
+            await send_task_to_worker(pc_number, next_task, db)
+            print(f"📤 [create_draft 실패 후] 다음 Task #{next_task.id} → PC #{pc_number}")
+    except Exception as e:
+        print(f"⚠️  _try_send_next_pending_task 오류: {e}")
+    finally:
+        if _own_db:
+            db.close()
+
+
 async def _dispatch_next_group_on_failure(failed_task_id: int):
     """post 타입 Task 실패 시 → 해당 그룹의 댓글들을 모두 cancelled 처리하고 다음 AI 그룹 실행"""
     from database import SessionLocal
@@ -1991,11 +2032,16 @@ async def fail_task(
         task.error_message = error or '작업 실패'
         task.retry_count = (task.retry_count or 0) + 1
         db.commit()
-        print(f"❌ Task #{task_id} 실패 처리 완료 (HTTP, type:{_failed_task_type})")
+        print(f"❌ Task #{task_id} 실패 처리 완료 (HTTP, type:{_failed_task_type}, 사유: {(error or '')[:80]})")
 
         # post 실패 → 다음 AI 그룹
         if _failed_task_type == 'post':
             asyncio.create_task(_dispatch_next_group_on_failure(task_id))
+        # create_draft 실패 → 해당 PC에 다음 대기 태스크 전송
+        elif _failed_task_type == 'create_draft':
+            _pc_id = task.assigned_pc_id
+            if _pc_id:
+                asyncio.create_task(_try_send_next_pending_task(_pc_id, db))
 
         return JSONResponse({'success': True})
 
@@ -2009,7 +2055,7 @@ async def fail_task(
 async def get_worker_version():
     """Worker 버전 정보 제공"""
     return JSONResponse({
-        "version": "1.0.9",
+        "version": "1.3.0",
         "release_date": "2026-01-25",
         "download_url": "/automation/api/worker/download",
         "changelog": [
@@ -2017,7 +2063,13 @@ async def get_worker_version():
             "Heartbeat 실패 시 자동 재연결",
             "완료 신호 5분 재시도 + 큐 보관",
             "게시판 자동 변경 기능 추가",
-            "FLUX 이미지 자동 다운로드 + 에디터 업로드 기능 추가"
+            "FLUX 이미지 자동 다운로드 + 에디터 업로드 기능 추가",
+            "draft_url 없을 때 즉시 실패 처리",
+            "NoSuchWindowException 발생 시 브라우저 자동 재시작",
+            "undetected-chromedriver + pyperclip 자동 설치",
+            "등록 버튼 클릭 전후 alert 팝업 자동 처리",
+            "글쓰기 버튼 클릭 후 활동정지 팝업 5초 감지 → 실패 사유 대시보드 표시",
+            "create_draft 실패 시 HTTP 실패 보고 + 다음 태스크 자동 전송"
         ],
         "required_packages": {
             "selenium": "4.15.2",
@@ -3910,9 +3962,9 @@ async def test_generation(request: Request, db: Session = Depends(get_db)):
 # Worker Agent 버전 관리 API
 # ============================================
 
-@router.get("/api/worker/version")
-async def get_worker_version(db: Session = Depends(get_db)):
-    """Worker 최신 버전 정보"""
+@router.get("/api/worker/version/db")
+async def get_worker_version_db(db: Session = Depends(get_db)):
+    """Worker 최신 버전 정보 (DB 기반, 관리자용)"""
     try:
         latest = db.query(WorkerVersion).filter(
             WorkerVersion.is_active == True
@@ -3920,7 +3972,7 @@ async def get_worker_version(db: Session = Depends(get_db)):
         
         if not latest:
             return {
-                "version": "1.0.0",
+                "version": "1.2.0",
                 "changelog": []
             }
         
@@ -3932,7 +3984,7 @@ async def get_worker_version(db: Session = Depends(get_db)):
         }
     except Exception as e:
         return {
-            "version": "1.0.0",
+            "version": "1.2.0",
             "changelog": []
         }
 

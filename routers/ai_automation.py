@@ -4637,7 +4637,9 @@ async def _execute_ai_schedule(schedule_id: int, db: Session, force: bool = Fals
                     continue
                 draft = db.query(DraftPost).filter(
                     DraftPost.link_id == link.id,
-                    DraftPost.status == 'available'
+                    DraftPost.status == 'available',
+                    DraftPost.draft_url != None,
+                    DraftPost.draft_url != '',
                 ).first()
                 if draft:
                     eligible.append((link, draft))
