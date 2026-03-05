@@ -1692,10 +1692,14 @@ function escHtml(str) {
 }
 
 async function retryTask(taskId) {
+    console.log('[재시도] Task #' + taskId + ' 클릭됨');
     if (!confirm(`Task #${taskId}을 재시도/재전송하시겠습니까?`)) return;
     try {
+        console.log('[재시도] API 호출 중...');
         const res = await fetch(`/automation/api/tasks/${taskId}/retry`, { method: 'POST' });
+        console.log('[재시도] 응답:', res.status);
         const data = await res.json();
+        console.log('[재시도] 결과:', data);
         if (data.success) {
             showToast('success', data.message || `Task #${taskId} 재시도 완료`);
             setTimeout(() => loadTasks(), 1000);
@@ -1703,6 +1707,7 @@ async function retryTask(taskId) {
             showToast('error', data.message || '재시도 실패');
         }
     } catch(e) {
+        console.error('[재시도] 오류:', e);
         showToast('error', '재시도 요청 오류: ' + e.message);
     }
 }
@@ -1860,19 +1865,19 @@ function renderRootRow(task, hasChildren, gid, status) {
     let lastCol = '';
     if (status === 'completed') {
         const retryBtn = task.status === 'failed'
-            ? `<button class="btn btn-xs btn-outline-danger ms-1" style="font-size:.75rem;padding:2px 6px" onclick="event.stopPropagation();retryTask(${task.id})">🔄 재실행</button>`
+            ? `<button class="btn btn-sm btn-outline-danger ms-1" style="font-size:.75rem;padding:2px 6px" onclick="retryTask(${task.id})">🔄 재실행</button>`
             : '';
-        lastCol = `<td>
-            ${task.post_url ? `<a href="${task.post_url}" target="_blank" class="btn btn-xs btn-outline-success" style="font-size:.75rem;padding:2px 6px">🔗 URL</a> ` : ''}
+        lastCol = `<td onclick="event.stopPropagation()">
+            ${task.post_url ? `<a href="${task.post_url}" target="_blank" class="btn btn-sm btn-outline-success" style="font-size:.75rem;padding:2px 6px">🔗 URL</a> ` : ''}
             ${failBadge}
-            <button class="btn btn-xs btn-outline-secondary" style="font-size:.75rem;padding:2px 6px" onclick="event.stopPropagation();showTaskContent(${task.id})">👁 내용</button>
+            <button class="btn btn-sm btn-outline-secondary" style="font-size:.75rem;padding:2px 6px" onclick="showTaskContent(${task.id})">👁 내용</button>
             ${retryBtn}
         </td>`;
     } else {
-        const retryBtn = `<button class="btn btn-xs btn-outline-warning ms-1" style="font-size:.75rem;padding:2px 6px" onclick="event.stopPropagation();retryTask(${task.id})">🔄 재전송</button>`;
-        lastCol = `<td>
+        const retryBtn = `<button class="btn btn-sm btn-outline-warning ms-1" style="font-size:.75rem;padding:2px 6px" onclick="retryTask(${task.id})">🔄 재전송</button>`;
+        lastCol = `<td onclick="event.stopPropagation()">
             ${failBadge}
-            <button class="btn btn-xs btn-outline-secondary" style="font-size:.75rem;padding:2px 6px" onclick="event.stopPropagation();showTaskContent(${task.id})">👁 내용</button>
+            <button class="btn btn-sm btn-outline-secondary" style="font-size:.75rem;padding:2px 6px" onclick="showTaskContent(${task.id})">👁 내용</button>
             ${retryBtn}
         </td>`;
     }
