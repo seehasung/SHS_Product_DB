@@ -89,7 +89,7 @@ except ImportError:
 class NaverCafeWorker:
     """네이버 카페 자동 작성 Worker"""
     
-    VERSION = "1.9.0" # 현재 버전
+    VERSION = "2.2.0" # 현재 버전
     
     def __init__(self, pc_number: int, server_url: str = "scorp274.com"):
         self.pc_number = pc_number
@@ -1784,79 +1784,32 @@ class NaverCafeWorker:
                     write_btn.click()
                     print("  ✅ 글쓰기 버튼 클릭 완료")
 
-                # ⭐ 클릭 직후 JS confirm 팝업 즉시 체크 (3초간)
-                import time as _ta_draft
-                _alert_text = None
-                print("  🔍 JS confirm 팝업 체크 시작...")
-                for _chk in range(3):
-                    _ta_draft.sleep(1)
-                    print(f"  🔍 팝업 체크 {_chk+1}초...")
-                    try:
-                        _alert_obj = self.driver.switch_to.alert
-                        _alert_text = _alert_obj.text  # 텍스트 먼저 저장
-                        print(f"  ❌ 팝업 감지! 텍스트: {_alert_text[:60]}")
-                    except Exception:
-                        _alert_text = None
-                    
-                    if _alert_text is not None:
-                        # accept는 별도 try로 (실패해도 상관없음)
-                        try:
-                            self.driver.switch_to.alert.accept()
-                            print(f"  ✅ 팝업 확인 버튼 클릭")
-                        except Exception as _ae:
-                            print(f"  ⚠️ 팝업 accept 실패(무시): {_ae}")
-                        break
-                    print(f"  ✅ {_chk+1}초: 팝업 없음")
-
-                if _alert_text is not None:
-                    print(f"  ❌ JS confirm 팝업 → 즉시 실패 처리: {_alert_text}")
-                    try:
-                        self.driver.switch_to.default_content()
-                    except Exception:
-                        pass
-                    try:
-                        _all_h = self.driver.window_handles
-                        for _h in _all_h[1:]:
-                            self.driver.switch_to.window(_h)
-                            self.driver.close()
-                        self.driver.switch_to.window(_all_h[0])
-                        print("  ✅ 팝업 탭 닫기 완료")
-                    except Exception:
-                        pass
-                    return f"ALERT:{_alert_text}"
-
-                print("  ✅ JS confirm 팝업 없음 → 정상 진행")
+                # 페이지 로딩 완료 대기 (최대 30초) → 완료 후 추가 2초 대기
+                print("  ⏳ 에디터 페이지 로딩 대기 중...")
+                try:
+                    WebDriverWait(self.driver, 30).until(
+                        lambda d: d.execute_script("return document.readyState") == "complete"
+                    )
+                    print("  ✅ 페이지 로딩 완료")
+                except Exception:
+                    print("  ⚠️ 페이지 로딩 타임아웃 (계속 진행)")
+                self.random_delay(2, 3)
 
                 # 새 창 처리
                 windows = self.driver.window_handles
                 new_window = len(windows) > 1
                 if new_window:
                     self.driver.switch_to.window(windows[-1])
-                    self.random_delay(2, 3)
-
-                # ⭐ iframe switch 전 (default_content 상태에서) 네이버 HTML 모달 확인
-                # 활동 정지 등 팝업은 메인 페이지(iframe 밖)에 렌더링됨
-                try:
-                    self.driver.switch_to.default_content()
-                except Exception:
-                    pass
-
-                _modal_text = self._check_naver_modal()
-                if _modal_text:
-                    print(f"  ❌ 네이버 모달 팝업 감지 → 즉시 실패: {_modal_text[:80]}")
+                    # 새 창도 로딩 완료 대기
                     try:
-                        _all_handles = self.driver.window_handles
-                        for _h in _all_handles[1:]:
-                            self.driver.switch_to.window(_h)
-                            self.driver.close()
-                        self.driver.switch_to.window(_all_handles[0])
-                        print("  ✅ 팝업 탭 닫기 완료")
+                        WebDriverWait(self.driver, 30).until(
+                            lambda d: d.execute_script("return document.readyState") == "complete"
+                        )
                     except Exception:
                         pass
-                    return f"ALERT:{_modal_text}"
+                    self.random_delay(1, 2)
 
-                # ★ 에디터 페이지 iframe 전환 시도
-                # 글쓰기 버튼 클릭 후 이동한 에디터 페이지도 iframe 안에 있을 수 있음
+                # iframe 전환 시도
                 editor_iframe_found = False
                 try:
                     self.driver.switch_to.default_content()
@@ -1867,22 +1820,7 @@ class NaverCafeWorker:
                     editor_iframe_found = True
                     print("  ✅ 에디터 iframe 전환 성공")
                 except Exception:
-                    pass  # iframe 없으면 일반 페이지로 진행
-
-                # ⭐ iframe 안에서도 모달 재확인 (일부 카페는 iframe 안에 모달 렌더링)
-                _modal_text2 = self._check_naver_modal()
-                if _modal_text2:
-                    print(f"  ❌ 에디터 내 모달 팝업 감지 → 즉시 실패: {_modal_text2[:80]}")
-                    try:
-                        self.driver.switch_to.default_content()
-                        _all_handles = self.driver.window_handles
-                        for _h in _all_handles[1:]:
-                            self.driver.switch_to.window(_h)
-                            self.driver.close()
-                        self.driver.switch_to.window(_all_handles[0])
-                    except Exception:
-                        pass
-                    return f"ALERT:{_modal_text2}"
+                    pass
 
                 # 제목 입력 (다양한 방법 시도)
                 title_success = False
@@ -1950,31 +1888,7 @@ class NaverCafeWorker:
                         pass
 
                 if not title_success:
-                    # 제목 입력 실패 시 JS confirm 팝업 재확인 (뒤늦게 뜬 경우)
-                    _late_alert = None
-                    try:
-                        _late_alert2 = self.driver.switch_to.alert
-                        _late_alert = _late_alert2.text
-                        _late_alert2.accept()
-                        print(f"  ❌ 제목 입력 실패 후 JS confirm 팝업 발견: {_late_alert}")
-                    except Exception:
-                        pass
-
-                    # HTML 모달 재확인
-                    _late_modal = None
-                    if not _late_alert:
-                        try:
-                            self.driver.switch_to.default_content()
-                            _late_modal = self._check_naver_modal()
-                        except Exception:
-                            pass
-
-                    _fail_reason = (
-                        f"[팝업 오류] {_late_alert[:80]}" if _late_alert
-                        else f"[팝업 오류] {_late_modal[:80]}" if _late_modal
-                        else "제목 입력 실패"
-                    )
-                    print(f"  ❌ 제목 입력 실패 - 작업 중단 (사유: {_fail_reason})")
+                    print(f"  ❌ 제목 입력 실패 - 탭 닫고 다음 작업 대기")
                     try:
                         self.driver.switch_to.default_content()
                         current_handles = self.driver.window_handles
@@ -1985,7 +1899,7 @@ class NaverCafeWorker:
                         print("  ✅ 탭 닫기 완료")
                     except Exception:
                         pass
-                    return f"ALERT:{_fail_reason}"
+                    return None
 
                 # 본문 입력 (3가지 방법 시도)
                 self.random_delay(1, 2)
