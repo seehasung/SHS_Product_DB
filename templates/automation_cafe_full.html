@@ -2565,10 +2565,10 @@ async function updateCafe() {
             bootstrap.Modal.getInstance(document.getElementById('editCafeModal')).hide();
             loadCafes();
         } else {
-            alert('오류: ' + data.message);
+            alert('오류: ' + (data.message || '알 수 없는 오류'));
         }
     } catch (error) {
-        alert('수정 중 오류가 발생했습니다.');
+        alert('수정 중 오류가 발생했습니다: ' + error.message);
     }
 }
 

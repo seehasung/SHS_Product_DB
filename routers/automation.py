@@ -2531,20 +2531,34 @@ async def update_cafe(
     db: Session = Depends(get_db)
 ):
     """카페 수정"""
-    cafe = db.query(AutomationCafe).filter(AutomationCafe.id == cafe_id).first()
-    
-    if not cafe:
-        return JSONResponse({'success': False, 'message': '카페를 찾을 수 없습니다'}, status_code=404)
-    
-    cafe.name = cafe_name
-    cafe.url = cafe_url
-    cafe.characteristics = characteristics
-    cafe.target_board = target_board
-    cafe.status = status
-    
-    db.commit()
-    
-    return JSONResponse({'success': True, 'message': '카페가 수정되었습니다'})
+    try:
+        cafe = db.query(AutomationCafe).filter(AutomationCafe.id == cafe_id).first()
+        
+        if not cafe:
+            return JSONResponse({'success': False, 'message': '카페를 찾을 수 없습니다'}, status_code=404)
+        
+        # URL 중복 확인 (자기 자신 제외)
+        existing = db.query(AutomationCafe).filter(
+            AutomationCafe.url == cafe_url,
+            AutomationCafe.id != cafe_id
+        ).first()
+        if existing:
+            return JSONResponse({'success': False, 'message': f'이미 등록된 URL입니다: {existing.name}'})
+        
+        cafe.name = cafe_name
+        cafe.url = cafe_url
+        cafe.characteristics = characteristics
+        cafe.target_board = target_board
+        cafe.status = status
+        
+        db.commit()
+        
+        return JSONResponse({'success': True, 'message': '카페가 수정되었습니다'})
+    except Exception as e:
+        db.rollback()
+        import traceback
+        traceback.print_exc()
+        return JSONResponse({'success': False, 'message': f'수정 오류: {str(e)}'}, status_code=500)
 
 
 @router.post("/api/prompts/add")
