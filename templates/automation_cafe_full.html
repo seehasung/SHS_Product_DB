@@ -218,9 +218,15 @@
             <div class="content-card">
                 <div class="card-header-custom">
                     <h4><i class="bi bi-speedometer2"></i> 실시간 대시보드</h4>
-                    <div class="d-flex gap-2">
+                    <div class="d-flex gap-2 flex-wrap">
                         <button class="btn btn-sm btn-outline-warning" onclick="recoverStuckTasks()" title="막혀있는 태스크를 강제로 복구/재전송합니다">
                             <i class="bi bi-wrench"></i> 막힌 작업 강제 복구
+                        </button>
+                        <button class="btn btn-sm btn-outline-danger" onclick="cancelOldPendingTasks()" title="7일 이상 된 태스크 및 부모가 실패한 고아 태스크를 취소합니다">
+                            <i class="bi bi-trash"></i> 오래된 태스크 정리
+                        </button>
+                        <button class="btn btn-sm btn-outline-info" onclick="diagnoseTasks()" title="PC:None 태스크 및 막힌 태스크 현황을 확인합니다">
+                            <i class="bi bi-search"></i> 진단
                         </button>
                         <button class="btn btn-sm btn-outline-primary" onclick="loadTasks()">
                             <i class="bi bi-arrow-clockwise"></i> 새로고침
@@ -1720,6 +1726,88 @@ async function recoverStuckTasks() {
     } finally {
         btn.disabled = false;
         btn.innerHTML = origHtml;
+    }
+}
+
+async function cancelOldPendingTasks() {
+    if (!confirm('7일 이상 된 태스크 및 부모가 실패/취소된 고아 태스크를 일괄 취소합니다.\n계속하시겠습니까?')) return;
+    const btn = event.target.closest('button');
+    const origHtml = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<i class="bi bi-hourglass-split"></i> 정리 중...';
+    try {
+        const res = await fetch('/automation/api/tasks/cancel-old-pending', { method: 'POST' });
+        const data = await res.json();
+        if (data.success) {
+            showToast('success', data.message || '정리 완료');
+            setTimeout(() => loadTasks(), 1500);
+        } else {
+            showToast('error', data.message || '정리 실패');
+        }
+    } catch(e) {
+        showToast('error', '정리 요청 오류: ' + e.message);
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = origHtml;
+    }
+}
+
+async function diagnoseTasks() {
+    try {
+        const res = await fetch('/automation/api/tasks/diagnose');
+        const data = await res.json();
+        if (!data.success) { showToast('error', data.message); return; }
+
+        const counts = data.status_counts || {};
+        const unassigned = data.unassigned_tasks || [];
+        const connectedPcs = data.connected_pcs || [];
+
+        let html = `<div style="font-size:.9rem">
+            <p><strong>연결된 PC:</strong> ${connectedPcs.length > 0 ? connectedPcs.map(p => 'PC#'+p).join(', ') : '없음'}</p>
+            <p><strong>태스크 상태 현황:</strong></p>
+            <ul>`;
+        Object.entries(counts).forEach(([s, c]) => { html += `<li>${s}: <strong>${c}개</strong></li>`; });
+        html += `</ul>`;
+
+        if (unassigned.length > 0) {
+            html += `<p><strong>PC 미할당 태스크 (${unassigned.length}개):</strong></p><ul>`;
+            unassigned.forEach(t => {
+                const rootInfo = t.root_status ? ` (루트: ${t.root_status})` : '';
+                html += `<li>#${t.id} [${t.type}]${rootInfo} - ${t.created_at || '?'}</li>`;
+            });
+            html += `</ul>`;
+        } else {
+            html += `<p>✅ PC 미할당 태스크 없음</p>`;
+        }
+        html += `</div>`;
+
+        // 기존 진단 모달이 있으면 재사용, 없으면 생성
+        let modal = document.getElementById('diagnosisModal');
+        if (!modal) {
+            modal = document.createElement('div');
+            modal.id = 'diagnosisModal';
+            modal.className = 'modal fade';
+            modal.innerHTML = `
+                <div class="modal-dialog modal-lg">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">🔍 태스크 진단</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body" id="diagnosisBody"></div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-warning btn-sm" onclick="recoverStuckTasks()">🔧 강제 복구</button>
+                            <button type="button" class="btn btn-danger btn-sm" onclick="cancelOldPendingTasks()">🗑 오래된 태스크 정리</button>
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">닫기</button>
+                        </div>
+                    </div>
+                </div>`;
+            document.body.appendChild(modal);
+        }
+        document.getElementById('diagnosisBody').innerHTML = html;
+        new bootstrap.Modal(modal).show();
+    } catch(e) {
+        showToast('error', '진단 오류: ' + e.message);
     }
 }
 

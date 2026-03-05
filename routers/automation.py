@@ -934,6 +934,109 @@ async def recover_stuck_tasks(
         return JSONResponse({'success': False, 'message': str(e)}, status_code=500)
 
 
+@router.post("/api/tasks/cancel-old-pending")
+async def cancel_old_pending_tasks(
+    db: Session = Depends(get_db)
+):
+    """
+    오래된 pending 태스크 일괄 취소:
+    - 부모 post가 failed/cancelled 인 comment/reply → cancelled
+    - 부모가 없는 고아 comment/reply → cancelled
+    - 7일 이상 된 pending 태스크 → cancelled
+    """
+    try:
+        from datetime import datetime as _dt, timedelta as _td
+        cancelled = 0
+        now = datetime.now()
+        cutoff_7d = now - _td(days=7)
+
+        # 1. 부모 post가 failed/cancelled인 comment/reply 취소
+        orphan_comments = db.query(AutomationTask).filter(
+            AutomationTask.status == 'pending',
+            AutomationTask.task_type.in_(['comment', 'reply']),
+            AutomationTask.parent_task_id != None
+        ).all()
+        for task in orphan_comments:
+            # 루트 post 찾기
+            root = task
+            for _ in range(10):
+                if root.task_type == 'post':
+                    break
+                if not root.parent_task_id:
+                    root = None
+                    break
+                root = db.query(AutomationTask).get(root.parent_task_id)
+                if not root:
+                    break
+            if root is None or (root.status in ('failed', 'cancelled')):
+                task.status = 'cancelled'
+                cancelled += 1
+
+        # 2. 7일 이상 된 pending 태스크 취소
+        old_tasks = db.query(AutomationTask).filter(
+            AutomationTask.status == 'pending',
+            AutomationTask.created_at < cutoff_7d
+        ).all()
+        for task in old_tasks:
+            task.status = 'cancelled'
+            cancelled += 1
+
+        db.commit()
+        msg = f"{cancelled}개 오래된/고아 태스크 취소 완료"
+        print(f"🧹 [정리] {msg}")
+        return JSONResponse({'success': True, 'message': msg, 'cancelled': cancelled})
+
+    except Exception as e:
+        import traceback; traceback.print_exc()
+        return JSONResponse({'success': False, 'message': str(e)}, status_code=500)
+
+
+@router.get("/api/tasks/diagnose")
+async def diagnose_tasks(
+    db: Session = Depends(get_db)
+):
+    """
+    태스크 상태 진단 - PC:None 태스크 및 막힌 태스크 현황 반환
+    """
+    try:
+        # PC:None pending 태스크
+        unassigned = db.query(AutomationTask).filter(
+            AutomationTask.status == 'pending',
+            AutomationTask.assigned_pc_id == None
+        ).order_by(AutomationTask.id.asc()).all()
+
+        unassigned_list = []
+        for t in unassigned:
+            root_status = None
+            if t.parent_task_id:
+                root = t
+                for _ in range(10):
+                    if root.task_type == 'post': break
+                    if not root.parent_task_id: root = None; break
+                    root = db.query(AutomationTask).get(root.parent_task_id)
+                    if not root: break
+                root_status = root.status if root else 'unknown'
+            unassigned_list.append({
+                'id': t.id,
+                'type': t.task_type,
+                'status': t.status,
+                'root_status': root_status,
+                'created_at': t.created_at.strftime('%Y-%m-%d %H:%M') if t.created_at else None,
+            })
+
+        # 상태별 카운트
+        from sqlalchemy import func as _func
+        status_counts = db.query(AutomationTask.status, _func.count(AutomationTask.id)).group_by(AutomationTask.status).all()
+
+        return JSONResponse({
+            'success': True,
+            'unassigned_tasks': unassigned_list,
+            'status_counts': {s: c for s, c in status_counts},
+            'connected_pcs': list(worker_connections.keys()),
+        })
+    except Exception as e:
+        return JSONResponse({'success': False, 'message': str(e)}, status_code=500)
+
 @router.get("/api/tasks/completed")
 async def list_completed_tasks(
     date_from: Optional[str] = Query(None),    # 'YYYY-MM-DD'
