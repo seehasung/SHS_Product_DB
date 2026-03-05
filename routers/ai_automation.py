@@ -642,6 +642,113 @@ async def update_reference_classification(
     return JSONResponse({"success": True})
 
 
+@router.post("/api/references/create-with-comments")
+async def create_reference_with_comments(
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    """
+    레퍼런스 + 댓글/대댓글 통합 생성 후 AI 상품에 연결.
+    Body(JSON):
+    {
+        "ai_product_id": int,
+        "title": str,
+        "content": str,
+        "reference_type": str,   # alternative | informational | unclassified
+        "comments": [
+            {
+                "account_sequence": int,   # 계정 번호
+                "text": str,               # 댓글 내용
+                "replies": [               # 대댓글 목록 (선택)
+                    {"account_sequence": int, "text": str}
+                ]
+            }
+        ]
+    }
+    """
+    current_user = get_current_user(request, db)
+    if not current_user:
+        return JSONResponse({"success": False, "error": "로그인이 필요합니다"}, status_code=401)
+
+    try:
+        body = await request.json()
+        ai_product_id = body.get('ai_product_id')
+        title = (body.get('title') or '').strip()
+        content = (body.get('content') or '').strip()
+        reference_type = body.get('reference_type', 'unclassified')
+        comments_data = body.get('comments', [])
+
+        if not title or not content:
+            return JSONResponse({"success": False, "error": "제목과 본문을 입력해주세요"}, status_code=400)
+        if not ai_product_id:
+            return JSONResponse({"success": False, "error": "상품 ID가 없습니다"}, status_code=400)
+
+        from database import Reference, Comment, AIProductReference
+
+        # 제목 중복 체크
+        existing = db.query(Reference).filter(Reference.title == title).first()
+        if existing:
+            return JSONResponse({"success": False, "error": f"이미 같은 제목의 레퍼런스가 있습니다: '{title}'"}, status_code=400)
+
+        # 1. Reference 생성
+        ref = Reference(
+            title=title,
+            content=content,
+            ref_type='기타',
+            last_modified_by_id=current_user.id
+        )
+        db.add(ref)
+        db.flush()  # id 확보
+
+        # 2. 댓글 + 대댓글 저장
+        for c_data in comments_data:
+            c_text = (c_data.get('text') or '').strip()
+            if not c_text:
+                continue
+            parent_comment = Comment(
+                account_sequence=int(c_data.get('account_sequence') or 0),
+                text=c_text,
+                reference_id=ref.id,
+                parent_id=None
+            )
+            db.add(parent_comment)
+            db.flush()  # id 확보
+
+            for r_data in (c_data.get('replies') or []):
+                r_text = (r_data.get('text') or '').strip()
+                if not r_text:
+                    continue
+                reply = Comment(
+                    account_sequence=int(r_data.get('account_sequence') or 0),
+                    text=r_text,
+                    reference_id=ref.id,
+                    parent_id=parent_comment.id
+                )
+                db.add(reply)
+
+        # 3. AIProductReference 연결
+        # 중복 체크
+        ai_ref_existing = db.query(AIProductReference).filter(
+            AIProductReference.ai_product_id == ai_product_id,
+            AIProductReference.reference_id == ref.id
+        ).first()
+        if not ai_ref_existing:
+            ai_ref = AIProductReference(
+                ai_product_id=ai_product_id,
+                reference_id=ref.id,
+                reference_type=reference_type
+            )
+            db.add(ai_ref)
+
+        db.commit()
+        return JSONResponse({"success": True, "reference_id": ref.id})
+
+    except Exception as e:
+        db.rollback()
+        import traceback; traceback.print_exc()
+        return JSONResponse({"success": False, "error": str(e)}, status_code=500)
+
+
 @router.post("/references/add/{ai_product_id}")
 async def add_ai_reference(
     ai_product_id: int,
@@ -2581,6 +2688,7 @@ async def test_generate_content(
             AIProductReference.ai_product_id == product.id,
         ).all()
         ai_refs = _rand_ref.sample(all_ai_refs, min(3, len(all_ai_refs))) if all_ai_refs else []
+        print(f"📚 [레퍼런스] 전체 {len(all_ai_refs)}개 중 {len(ai_refs)}개 랜덤 선택: {[r.reference.title[:20] if r.reference else '?' for r in ai_refs]}")
         
         # 레퍼런스 텍스트 조합
         reference_text = ""
@@ -3902,6 +4010,7 @@ async def _generate_ai_content_internal(
             AIProductReference.ai_product_id == product.id,
         ).all()
         ai_refs = _rand_ref2.sample(all_ai_refs, min(3, len(all_ai_refs))) if all_ai_refs else []
+        print(f"📚 [레퍼런스] 전체 {len(all_ai_refs)}개 중 {len(ai_refs)}개 랜덤 선택: {[r.reference.title[:20] if r.reference else '?' for r in ai_refs]}")
 
         reference_text = ''
         for idx, ai_ref in enumerate(ai_refs):

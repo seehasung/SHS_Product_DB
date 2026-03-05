@@ -5528,6 +5528,8 @@ async function updateReferenceContent() {
 // 레퍼런스 추가 폼 표시/숨김
 function showAddReferenceForm() {
     document.getElementById('addReferenceForm').style.display = 'block';
+    document.getElementById('refCommentList').innerHTML = '';
+    _refCommentIdx = 0;
 }
 
 function hideAddReferenceForm() {
@@ -5535,6 +5537,103 @@ function hideAddReferenceForm() {
     document.getElementById('newRefTitle').value = '';
     document.getElementById('newRefContent').value = '';
     document.getElementById('newRefType').value = 'unclassified';
+    document.getElementById('refCommentList').innerHTML = '';
+    _refCommentIdx = 0;
+}
+
+let _refCommentIdx = 0;
+
+function addRefComment(parentIdx = null) {
+    const list = document.getElementById('refCommentList');
+    const idx = _refCommentIdx++;
+
+    if (parentIdx === null) {
+        // 최상위 댓글
+        const div = document.createElement('div');
+        div.id = `refComment_${idx}`;
+        div.style.cssText = 'background:#f8f9fa;border:1px solid #dee2e6;border-radius:6px;padding:10px;';
+        div.innerHTML = `
+            <div class="d-flex gap-2 align-items-start">
+                <div style="min-width:80px;">
+                    <label class="form-label" style="font-size:.8rem;margin-bottom:2px;">계정번호</label>
+                    <input type="number" class="form-control form-control-sm" id="refCmt_acc_${idx}" min="1" max="10" value="" placeholder="1~10">
+                </div>
+                <div style="flex:1;">
+                    <label class="form-label" style="font-size:.8rem;margin-bottom:2px;">댓글 내용</label>
+                    <textarea class="form-control form-control-sm" id="refCmt_txt_${idx}" rows="2" placeholder="댓글 내용 입력..."></textarea>
+                </div>
+                <div style="display:flex;flex-direction:column;gap:4px;padding-top:20px;">
+                    <button type="button" class="btn btn-xs btn-outline-secondary" style="font-size:.75rem;padding:2px 6px;" onclick="addRefComment(${idx})">↩ 대댓글</button>
+                    <button type="button" class="btn btn-xs btn-outline-danger" style="font-size:.75rem;padding:2px 6px;" onclick="removeRefComment(${idx})">✕</button>
+                </div>
+            </div>
+            <div id="refReplies_${idx}" style="margin-top:6px;margin-left:20px;display:flex;flex-direction:column;gap:6px;"></div>
+        `;
+        list.appendChild(div);
+    } else {
+        // 대댓글 (부모 댓글의 replies 컨테이너에 추가)
+        const repliesContainer = document.getElementById(`refReplies_${parentIdx}`);
+        if (!repliesContainer) return;
+        const div = document.createElement('div');
+        div.id = `refComment_${idx}`;
+        div.dataset.parentIdx = parentIdx;
+        div.style.cssText = 'background:#fff;border:1px solid #c3cfd9;border-radius:4px;padding:8px;';
+        div.innerHTML = `
+            <div class="d-flex gap-2 align-items-start">
+                <span style="font-size:.8rem;color:#6c757d;padding-top:22px;">↩</span>
+                <div style="min-width:80px;">
+                    <label class="form-label" style="font-size:.75rem;margin-bottom:2px;">계정번호</label>
+                    <input type="number" class="form-control form-control-sm" id="refCmt_acc_${idx}" min="1" max="10" value="" placeholder="1~10">
+                </div>
+                <div style="flex:1;">
+                    <label class="form-label" style="font-size:.75rem;margin-bottom:2px;">대댓글 내용</label>
+                    <textarea class="form-control form-control-sm" id="refCmt_txt_${idx}" rows="2" placeholder="대댓글 내용 입력..."></textarea>
+                </div>
+                <button type="button" class="btn btn-xs btn-outline-danger" style="font-size:.75rem;padding:2px 6px;margin-top:20px;" onclick="removeRefComment(${idx})">✕</button>
+            </div>
+        `;
+        repliesContainer.appendChild(div);
+    }
+}
+
+function removeRefComment(idx) {
+    const el = document.getElementById(`refComment_${idx}`);
+    if (el) el.remove();
+}
+
+function _collectRefComments() {
+    // 댓글 트리 수집: 최상위 댓글 → replies
+    const list = document.getElementById('refCommentList');
+    const topComments = list.querySelectorAll(':scope > div[id^="refComment_"]');
+    const result = [];
+    topComments.forEach(commentDiv => {
+        const cidx = commentDiv.id.replace('refComment_', '');
+        const accEl = document.getElementById(`refCmt_acc_${cidx}`);
+        const txtEl = document.getElementById(`refCmt_txt_${cidx}`);
+        const text = txtEl ? txtEl.value.trim() : '';
+        if (!text) return;
+        const replies = [];
+        const repliesContainer = document.getElementById(`refReplies_${cidx}`);
+        if (repliesContainer) {
+            repliesContainer.querySelectorAll(':scope > div[id^="refComment_"]').forEach(replyDiv => {
+                const ridx = replyDiv.id.replace('refComment_', '');
+                const rAccEl = document.getElementById(`refCmt_acc_${ridx}`);
+                const rTxtEl = document.getElementById(`refCmt_txt_${ridx}`);
+                const rText = rTxtEl ? rTxtEl.value.trim() : '';
+                if (!rText) return;
+                replies.push({
+                    account_sequence: parseInt(rAccEl?.value || '0') || 0,
+                    text: rText
+                });
+            });
+        }
+        result.push({
+            account_sequence: parseInt(accEl?.value || '0') || 0,
+            text,
+            replies
+        });
+    });
+    return result;
 }
 
 // 새 레퍼런스 저장
@@ -5548,41 +5647,29 @@ async function saveNewReference() {
         alert('제목과 내용을 입력해주세요.');
         return;
     }
+
+    const comments = _collectRefComments();
     
     try {
-        // 먼저 Reference 생성 (마케팅)
-        const refResponse = await fetch('/marketing/api/reference/add', {
+        const res = await fetch('/ai-automation/api/references/create-with-comments', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({
-                title: title,
-                content: content,
-                ref_type: '기타'
+                ai_product_id: parseInt(productId),
+                title,
+                content,
+                reference_type: refType,
+                comments
             })
         });
-        const refData = await refResponse.json();
+        const data = await res.json();
         
-        if (refData.success) {
-            // AIProductReference에 추가
-            const formData = new FormData();
-            formData.append('reference_id', refData.id);
-            formData.append('reference_type', refType);
-            
-            const aiRefResponse = await fetch(`/ai-automation/references/add/${productId}`, {
-                method: 'POST',
-                body: formData
-            });
-            const aiRefData = await aiRefResponse.json();
-            
-            if (aiRefData.success) {
-                alert('레퍼런스가 추가되었습니다.');
-                hideAddReferenceForm();
-                await loadReferences(productId);
-            } else {
-                alert('AI 레퍼런스 연결 실패: ' + aiRefData.error);
-            }
+        if (data.success) {
+            alert('레퍼런스가 추가되었습니다.');
+            hideAddReferenceForm();
+            await loadReferences(productId);
         } else {
-            alert('레퍼런스 생성 실패: ' + refData.error);
+            alert('저장 실패: ' + (data.error || '알 수 없는 오류'));
         }
     } catch (error) {
         console.error('레퍼런스 추가 오류:', error);
@@ -7016,6 +7103,21 @@ async function deployWorkerVersion(event) {
                                 <label class="form-label">본문 내용 <span class="text-danger">*</span></label>
                                 <textarea class="form-control" id="newRefContent" rows="8" required></textarea>
                             </div>
+
+                            <!-- 댓글 섹션 -->
+                            <div class="mb-3">
+                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                    <label class="form-label mb-0 fw-bold">💬 댓글 목록 <span class="text-muted" style="font-size:.85rem;">(선택)</span></label>
+                                    <button type="button" class="btn btn-sm btn-outline-primary" onclick="addRefComment()">
+                                        <i class="bi bi-plus"></i> 댓글 추가
+                                    </button>
+                                </div>
+                                <div id="refCommentList" style="display:flex;flex-direction:column;gap:8px;">
+                                    <!-- 댓글 행은 JS로 추가 -->
+                                </div>
+                                <small class="text-muted">💡 계정번호는 AI 글에서 사용하는 계정 순번 (1~5)입니다. 대댓글은 각 댓글 행의 [+ 대댓글] 버튼으로 추가합니다.</small>
+                            </div>
+
                             <div class="d-flex gap-2">
                                 <button type="submit" class="btn btn-primary">저장</button>
                                 <button type="button" class="btn btn-secondary" onclick="hideAddReferenceForm()">취소</button>
