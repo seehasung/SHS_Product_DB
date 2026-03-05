@@ -553,11 +553,14 @@ async def send_task_to_worker(pc_number: int, task: AutomationTask, db: Session)
         print(f"📤 Task #{task.id} 전송 → PC #{pc_number}")
 
         # ★ 전송 즉시 assigned로 상태 변경 (중복 전송 방지)
-        # pending인 경우만 변경 (이미 assigned/in_progress면 skip)
+        # pending인 경우만 변경 (이미 assigned/in_progress/completed면 skip → 중복 전송 방지)
         try:
+            db.refresh(task)  # 최신 상태 재조회 (타이밍 문제 방지)
             if task.status == 'pending':
                 task.status = 'assigned'
                 db.commit()
+            elif task.status in ['completed', 'failed', 'cancelled']:
+                print(f"⚠️  Task #{task.id} 이미 {task.status} 상태 → 전송했지만 상태 변경 없음 (중복 전송 의심!)")
         except Exception:
             db.rollback()
         
@@ -1776,18 +1779,24 @@ async def _dispatch_next_task_bg(task_id: int, task_type: str, parent_task_id, o
                 _pc_num = _pc_rec.pc_number if _pc_rec else first_comment.assigned_pc_id
 
                 if _pc_num not in worker_connections:
-                    print(f"   ⏳ [BG] PC #{_pc_num} 연결 대기 중... (최대 90초)")
-                    for i in range(90):
-                        await asyncio.sleep(1)
-                        if _pc_num in worker_connections:
-                            print(f"   ✅ [BG] PC #{_pc_num} 연결됨! ({i+1}초)")
-                            break
-                    else:
-                        print(f"   ⚠️  [BG] 타임아웃: PC #{_pc_num} 미연결")
+                        print(f"   ⏳ [BG] PC #{_pc_num} 연결 대기 중... (최대 90초)")
+                        for i in range(90):
+                            await asyncio.sleep(1)
+                            if _pc_num in worker_connections:
+                                print(f"   ✅ [BG] PC #{_pc_num} 연결됨! ({i+1}초)")
+                                break
+                        else:
+                            print(f"   ⚠️  [BG] 타임아웃: PC #{_pc_num} 미연결")
+                            return
+
+                    # ★ 전송 직전 상태 재확인 (중복 전송 방지)
+                    db.refresh(first_comment)
+                    if first_comment.status != 'pending':
+                        print(f"   ⚠️  [BG] 첫 댓글 Task #{first_comment.id} 이미 {first_comment.status} → 전송 건너뜀")
                         return
 
-                print(f"   📨 [BG] 첫 댓글 Task #{first_comment.id} → PC #{_pc_num}")
-                await send_task_to_worker(_pc_num, first_comment, db)
+                    print(f"   📨 [BG] 첫 댓글 Task #{first_comment.id} → PC #{_pc_num}")
+                    await send_task_to_worker(_pc_num, first_comment, db)
             else:
                 # 댓글 없는 경우 → 다음 AI 그룹 즉시 실행
                 try:
@@ -1838,7 +1847,8 @@ async def _dispatch_next_task_bg(task_id: int, task_type: str, parent_task_id, o
 
                 next_comment = None
                 for t in sorted(related_tasks, key=lambda x: x.order_sequence):
-                    if t.order_sequence > order_sequence and t.status in ['pending', 'assigned']:
+                    # ★ 중복 전송 방지: pending 상태만 선택 (assigned/completed는 이미 처리됨)
+                    if t.order_sequence > order_sequence and t.status == 'pending':
                         next_comment = t
                         break
 
@@ -1860,6 +1870,12 @@ async def _dispatch_next_task_bg(task_id: int, task_type: str, parent_task_id, o
                         else:
                             print(f"   ⚠️  [BG] 타임아웃: PC #{_pc_num2} 미연결")
                             return
+
+                    # ★ 전송 직전 상태 재확인 (타이밍으로 인한 중복 전송 방지)
+                    db.refresh(next_comment)
+                    if next_comment.status != 'pending':
+                        print(f"   ⚠️  [BG] Task #{next_comment.id} 이미 {next_comment.status} → 전송 건너뜀 (중복 방지)")
+                        return
 
                     print(f"   📨 [BG] 다음 댓글 Task #{next_comment.id} (순서:{next_comment.order_sequence}) → PC #{_pc_num2}")
                     await send_task_to_worker(_pc_num2, next_comment, db)
@@ -2055,12 +2071,12 @@ async def fail_task(
 async def get_worker_version():
     """Worker 버전 정보 제공"""
     return JSONResponse({
-        "version": "2.5.0",
-        "release_date": "2026-01-25",
+        "version": "2.6.0",
+        "release_date": "2026-01-24",
         "download_url": "/automation/api/worker/download",
         "changelog": [
-            "Selenium을 스레드에서 실행 (연결 끊김 근본 해결)",
-            "Heartbeat 실패 시 자동 재연결",
+            "중복 Task 실행 방지 (이미 처리된 task_id 재수신 시 건너뜀)",
+            "서버: 다음 댓글 전송 전 pending 상태 재확인으로 중복 전송 방지",
             "완료 신호 5분 재시도 + 큐 보관",
             "게시판 자동 변경 기능 추가",
             "FLUX 이미지 자동 다운로드 + 에디터 업로드 기능 추가",

@@ -797,7 +797,7 @@
             <div class="content-card">
                 <div class="card-header-custom d-flex justify-content-between align-items-center">
                     <h4><i class="bi bi-check2-circle"></i> 수정 발행 이력</h4>
-                    <button class="btn btn-sm btn-outline-secondary" onclick="loadGeneratedPosts()">
+                    <button class="btn btn-sm btn-outline-secondary" onclick="document.getElementById('postProductStatsPanel').dataset.loaded=''; loadGeneratedPosts()">
                         <i class="bi bi-arrow-clockwise"></i> 새로고침
                     </button>
                 </div>
@@ -3862,17 +3862,19 @@ async function loadGeneratedPosts(page = 1) {
         container.innerHTML = '';
         if (paginationEl) paginationEl.innerHTML = '';
 
-        // ⭐ 상품별 통계 패널 업데이트
+        // ⭐ 상품별 통계 패널 - 처음 한 번만 업데이트 (깜빡임 방지)
         const statsPanel = document.getElementById('postProductStatsPanel');
-        if (statsPanel && data.product_stats && data.product_stats.length > 0) {
+        if (statsPanel && data.product_stats && data.product_stats.length > 0 && statsPanel.dataset.loaded !== 'true') {
             statsPanel.innerHTML = data.product_stats.map(s =>
                 `<span class="me-3 d-inline-flex align-items-center gap-1" style="font-size:0.82rem;">
                     <span class="badge bg-primary" style="cursor:pointer;" onclick="document.getElementById('postProductFilter').value='${s.product_id}'; loadGeneratedPosts();">${s.product_name}</span>
                     <span class="badge bg-secondary">${s.total}건</span>
                 </span>`
             ).join('');
-        } else if (statsPanel) {
+            statsPanel.dataset.loaded = 'true';
+        } else if (statsPanel && (!data.product_stats || data.product_stats.length === 0) && statsPanel.dataset.loaded !== 'true') {
             statsPanel.innerHTML = '<span class="text-muted small">상품 없음</span>';
+            statsPanel.dataset.loaded = 'true';
         }
 
         if (!data.success) {

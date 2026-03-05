@@ -2300,10 +2300,11 @@ async def get_post_history(
             schedule = db.query(AIMarketingSchedule).get(t.schedule_id) if t.schedule_id else None
             product_obj = db.query(AIMarketingProduct).get(schedule.ai_product_id) if schedule else None
 
-            # 상품명: schedule 링크가 없으면 task.title에서 폴백
+            # 상품명: task.product_name 우선 → schedule 링크 → 없으면 빈값 (제목 표시 안 함)
             resolved_product_name = (
-                product_obj.product_name if product_obj
-                else (t.title or '')
+                t.product_name if t.product_name
+                else product_obj.product_name if product_obj
+                else ''
             )
 
             # DraftPost 상태 조회

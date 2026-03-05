@@ -89,7 +89,7 @@ except ImportError:
 class NaverCafeWorker:
     """네이버 카페 자동 작성 Worker"""
     
-    VERSION = "2.5.0" # 현재 버전
+    VERSION = "2.6.0" # 현재 버전
     
     def __init__(self, pc_number: int, server_url: str = "scorp274.com"):
         self.pc_number = pc_number
@@ -2641,6 +2641,8 @@ class NaverCafeWorker:
             
     async def listen_for_tasks(self):
         """서버로부터 작업 수신"""
+        # ★ 중복 실행 방지: 최근 처리한 task ID 집합 (set은 순서 없으므로 OrderedDict 유사 처리)
+        _recently_completed_task_ids = set()
         while self.is_running:
             try:
                 message = await asyncio.wait_for(
@@ -2673,6 +2675,15 @@ class NaverCafeWorker:
                         continue
                     
                     print(f"\n📥 새 작업 수신: Task #{task['id']}")
+                    
+                    # ★ 중복 실행 방지: 최근 완료/처리한 task ID 확인
+                    _task_id_rcv = task['id']
+                    if _task_id_rcv in _recently_completed_task_ids:
+                        print(f"⚠️  Task #{_task_id_rcv} 이미 처리된 작업 → 건너뜀 (중복 방지)")
+                        continue
+                    _recently_completed_task_ids.add(_task_id_rcv)
+                    if len(_recently_completed_task_ids) > 100:
+                        _recently_completed_task_ids.discard(min(_recently_completed_task_ids))
                     
                     # 계정 로그인 확인
                     if task.get('account_id') and task['account_id'] != self.current_account:
