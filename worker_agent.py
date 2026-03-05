@@ -89,7 +89,7 @@ except ImportError:
 class NaverCafeWorker:
     """네이버 카페 자동 작성 Worker"""
     
-    VERSION = "1.5.0" # 현재 버전
+    VERSION = "1.6.0" # 현재 버전
     
     def __init__(self, pc_number: int, server_url: str = "scorp274.com"):
         self.pc_number = pc_number
@@ -527,7 +527,8 @@ class NaverCafeWorker:
             return False
 
     async def send_heartbeat(self):
-        """주기적으로 서버에 상태 전송 (10초마다)"""
+        """주기적으로 서버에 상태 전송 (10초마다) + 브라우저 생존 감시"""
+        _browser_check_counter = 0
         while self.is_running:
             try:
                 status = {
@@ -540,9 +541,21 @@ class NaverCafeWorker:
                     'ip_address': self.get_local_ip()
                 }
                 await self.websocket.send(json.dumps(status))
+
+                # ⭐ 30초마다 브라우저 생존 확인 (매 3번째 heartbeat = 30초)
+                _browser_check_counter += 1
+                if _browser_check_counter >= 3:
+                    _browser_check_counter = 0
+                    if not self._is_browser_alive():
+                        print("⚠️  [Heartbeat] 브라우저 사망 감지 → 자동 재시작...")
+                        recovered = self._restart_browser_and_login()
+                        if recovered:
+                            print("✅ [Heartbeat] 브라우저 복구 완료")
+                        else:
+                            print("❌ [Heartbeat] 브라우저 복구 실패 - 30초 후 재시도")
+
                 await asyncio.sleep(10)
             except websockets.exceptions.ConnectionClosed:
-                # ⭐ Heartbeat 실패 시 재연결 시도
                 print(f"❌ Heartbeat 전송 실패 (연결 끊김) → 재연결 시도...")
                 await asyncio.sleep(3)
                 try:
