@@ -97,6 +97,8 @@ class NaverCafeWorker:
         self.driver = None
         self.websocket = None
         self.current_account = None
+        self._saved_account_id = None   # 브라우저 복구 시 재로그인용
+        self._saved_account_pw = None   # 브라우저 복구 시 재로그인용
         self.is_running = False
         self.pending_completions = []  # ⭐ 미전송 완료 신호 큐 (연결 끊겨도 유실 방지)
         
@@ -483,7 +485,47 @@ class NaverCafeWorker:
         self.driver.set_window_size(1400, 900)
         
         print("✅ 브라우저 준비 완료")
-        
+
+    def _is_browser_alive(self) -> bool:
+        """브라우저 세션이 살아있는지 확인"""
+        try:
+            _ = self.driver.window_handles
+            return True
+        except Exception:
+            return False
+
+    def _restart_browser_and_login(self) -> bool:
+        """브라우저 창이 닫혔거나 세션이 죽은 경우 브라우저 재시작 + 재로그인"""
+        print("🔄 브라우저 세션 오류 감지 → 브라우저 재시작 중...")
+        try:
+            try:
+                self.driver.quit()
+            except Exception:
+                pass
+            self.driver = None
+
+            import time as _t
+            _t.sleep(2)
+
+            self.init_selenium()
+            print("✅ 브라우저 재시작 완료")
+
+            if self._saved_account_id and self._saved_account_pw:
+                print(f"🔐 재로그인 시도: {self._saved_account_id}")
+                login_ok = self.login_naver(self._saved_account_id, self._saved_account_pw)
+                if login_ok:
+                    print(f"✅ 재로그인 완료: {self._saved_account_id}")
+                    return True
+                else:
+                    print(f"❌ 재로그인 실패: {self._saved_account_id}")
+                    return False
+            else:
+                print("⚠️  저장된 계정 정보 없음 - 로그인 생략")
+                return False
+        except Exception as _e:
+            print(f"❌ 브라우저 재시작 실패: {_e}")
+            return False
+
     async def send_heartbeat(self):
         """주기적으로 서버에 상태 전송 (10초마다)"""
         while self.is_running:
@@ -1982,13 +2024,33 @@ class NaverCafeWorker:
                 print(f"  ❌ 신규발행 오류 (시도 {attempt+1}): {e}")
                 import traceback
                 traceback.print_exc()
-                try:
-                    if len(self.driver.window_handles) > 1:
-                        self.driver.close()
-                        self.driver.switch_to.window(self.driver.window_handles[0])
-                    self.driver.switch_to.default_content()
-                except Exception:
-                    pass
+
+                # ★ 브라우저 창이 닫히거나 세션이 죽은 경우 → 재시작 후 재시도
+                err_str = str(e).lower()
+                is_browser_dead = (
+                    'no such window' in err_str or
+                    'target window already closed' in err_str or
+                    'web view not found' in err_str or
+                    'invalid session id' in err_str or
+                    'session deleted' in err_str or
+                    not self._is_browser_alive()
+                )
+                if is_browser_dead:
+                    print("  ⚠️  브라우저 세션 사망 감지 → 재시작 시도...")
+                    recovered = self._restart_browser_and_login()
+                    if recovered:
+                        print("  ✅ 브라우저 복구 완료 → 재시도합니다")
+                    else:
+                        print("  ❌ 브라우저 복구 실패 → 작업 중단")
+                        break
+                else:
+                    try:
+                        if len(self.driver.window_handles) > 1:
+                            self.driver.close()
+                            self.driver.switch_to.window(self.driver.window_handles[0])
+                        self.driver.switch_to.default_content()
+                    except Exception:
+                        pass
                 if attempt < max_retries - 1:
                     self.random_delay(3, 5)
 
@@ -2227,6 +2289,14 @@ class NaverCafeWorker:
         task_type = task['task_type']
         
         try:
+            # ★ 작업 시작 전 브라우저 생존 확인 (NoSuchWindowException 사전 방어)
+            if not self._is_browser_alive():
+                print(f"⚠️  Task #{task_id} 시작 전 브라우저 세션 사망 감지 → 복구 시도...")
+                recovered = self._restart_browser_and_login()
+                if not recovered:
+                    raise Exception("브라우저 복구 실패 - 작업 중단")
+                print(f"✅ 브라우저 복구 완료 → 작업 재개")
+
             # 서버에 작업 시작 알림
             await self.websocket.send(json.dumps({
                 'type': 'task_started',
@@ -2523,6 +2593,8 @@ class NaverCafeWorker:
                 print(f"✅ {account_id} 로그인 완료!")
                 print(f"🏠 네이버 홈 탭 유지 (이 탭은 닫지 마세요)")
                 self.current_account = account_id
+                self._saved_account_id = account_id   # 복구용 저장
+                self._saved_account_pw = account_pw   # 복구용 저장
             else:
                 print(f"❌ 로그인 실패 - 수동으로 로그인이 필요합니다")
         else:
