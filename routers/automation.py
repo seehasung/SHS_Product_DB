@@ -2055,7 +2055,7 @@ async def fail_task(
 async def get_worker_version():
     """Worker 버전 정보 제공"""
     return JSONResponse({
-        "version": "2.2.0",
+        "version": "2.4.0",
         "release_date": "2026-01-25",
         "download_url": "/automation/api/worker/download",
         "changelog": [

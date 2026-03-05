@@ -89,7 +89,7 @@ except ImportError:
 class NaverCafeWorker:
     """네이버 카페 자동 작성 Worker"""
     
-    VERSION = "2.2.0" # 현재 버전
+    VERSION = "2.4.0" # 현재 버전
     
     def __init__(self, pc_number: int, server_url: str = "scorp274.com"):
         self.pc_number = pc_number
@@ -1787,12 +1787,21 @@ class NaverCafeWorker:
                 # 페이지 로딩 완료 대기 (최대 30초) → 완료 후 추가 2초 대기
                 print("  ⏳ 에디터 페이지 로딩 대기 중...")
                 try:
-                    WebDriverWait(self.driver, 30).until(
-                        lambda d: d.execute_script("return document.readyState") == "complete"
-                    )
-                    print("  ✅ 페이지 로딩 완료")
+                    import time as _tload
+                    _load_start = _tload.time()
+                    while _tload.time() - _load_start < 30:
+                        state = self.driver.execute_script("return document.readyState")
+                        if state == "complete":
+                            break
+                        elapsed = int(_tload.time() - _load_start)
+                        if elapsed % 5 == 0 and elapsed > 0:
+                            print(f"  ⏳ 로딩 중... ({elapsed}초 경과)")
+                        _tload.sleep(1)
+                    else:
+                        print("  ⚠️ 페이지 로딩 30초 타임아웃 (계속 진행)")
+                    print(f"  ✅ 페이지 로딩 완료 ({int(_tload.time() - _load_start)}초 소요)")
                 except Exception:
-                    print("  ⚠️ 페이지 로딩 타임아웃 (계속 진행)")
+                    print("  ⚠️ 페이지 로딩 확인 실패 (계속 진행)")
                 self.random_delay(2, 3)
 
                 # 새 창 처리
@@ -1802,9 +1811,16 @@ class NaverCafeWorker:
                     self.driver.switch_to.window(windows[-1])
                     # 새 창도 로딩 완료 대기
                     try:
-                        WebDriverWait(self.driver, 30).until(
-                            lambda d: d.execute_script("return document.readyState") == "complete"
-                        )
+                        _load_start2 = _tload.time()
+                        while _tload.time() - _load_start2 < 30:
+                            state2 = self.driver.execute_script("return document.readyState")
+                            if state2 == "complete":
+                                break
+                            elapsed2 = int(_tload.time() - _load_start2)
+                            if elapsed2 % 5 == 0 and elapsed2 > 0:
+                                print(f"  ⏳ 새 창 로딩 중... ({elapsed2}초 경과)")
+                            _tload.sleep(1)
+                        print(f"  ✅ 새 창 로딩 완료")
                     except Exception:
                         pass
                     self.random_delay(1, 2)
@@ -2435,13 +2451,28 @@ class NaverCafeWorker:
                         print(f"   📸 이미지 {len(_image_urls)}장 포함")
                     if _keyword:
                         print(f"   🏷️  태그 키워드: {_keyword}")
-                    post_url = await loop.run_in_executor(
-                        None,
-                        lambda: self.modify_post(
-                            draft_url, task['title'], task['content'],
-                            task.get('target_board'), _image_urls, _keyword
+                    try:
+                        post_url = await asyncio.wait_for(
+                            loop.run_in_executor(
+                                None,
+                                lambda: self.modify_post(
+                                    draft_url, task['title'], task['content'],
+                                    task.get('target_board'), _image_urls, _keyword
+                                )
+                            ),
+                            timeout=180  # 최대 3분
                         )
-                    )
+                    except asyncio.TimeoutError:
+                        print(f"❌ 수정발행 타임아웃 (3분 초과) → 강제 실패 처리")
+                        try:
+                            _all_h = self.driver.window_handles
+                            for _h in _all_h[1:]:
+                                self.driver.switch_to.window(_h)
+                                self.driver.close()
+                            self.driver.switch_to.window(_all_h[0])
+                        except Exception:
+                            pass
+                        raise Exception("수정발행 타임아웃 (활동정지 팝업 또는 로딩 지연)")
                 else:
                     # draft_url이 없으면 수정 발행 불가 → 즉시 실패 처리
                     print(f"❌ draft_url이 없습니다. 수정 발행 URL이 서버에서 전달되지 않았습니다.")
@@ -2476,10 +2507,27 @@ class NaverCafeWorker:
                 print(f"   제목: {draft_title}")
 
                 loop = asyncio.get_event_loop()
-                post_url = await loop.run_in_executor(
-                    None,
-                    lambda: self.create_draft_post(cafe_url, draft_title, draft_body)
-                )
+                try:
+                    post_url = await asyncio.wait_for(
+                        loop.run_in_executor(
+                            None,
+                            lambda: self.create_draft_post(cafe_url, draft_title, draft_body)
+                        ),
+                        timeout=120  # 최대 2분 → 초과 시 강제 실패
+                    )
+                except asyncio.TimeoutError:
+                    print(f"  ❌ 신규발행 타임아웃 (2분 초과) → 강제 실패 처리")
+                    # 브라우저 탭 강제 닫기
+                    try:
+                        _all_h = self.driver.window_handles
+                        for _h in _all_h[1:]:
+                            self.driver.switch_to.window(_h)
+                            self.driver.close()
+                        self.driver.switch_to.window(_all_h[0])
+                        print("  ✅ 타임아웃 탭 닫기 완료")
+                    except Exception:
+                        pass
+                    raise Exception("신규발행 타임아웃 (활동정지 팝업 또는 로딩 지연)")
 
                 if post_url:
                     # ⭐ ALERT: 접두사 = 팝업 오류 발생 (활동 정지 등)
