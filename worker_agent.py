@@ -89,7 +89,7 @@ except ImportError:
 class NaverCafeWorker:
     """네이버 카페 자동 작성 Worker"""
     
-    VERSION = "1.8.0" # 현재 버전
+    VERSION = "1.9.0" # 현재 버전
     
     def __init__(self, pc_number: int, server_url: str = "scorp274.com"):
         self.pc_number = pc_number
@@ -1791,30 +1791,30 @@ class NaverCafeWorker:
                 for _chk in range(3):
                     _ta_draft.sleep(1)
                     print(f"  🔍 팝업 체크 {_chk+1}초...")
-                    # 방법1: WebDriverWait으로 alert 체크
                     try:
-                        from selenium.webdriver.support.ui import WebDriverWait as _WDW
-                        _alert = _WDW(self.driver, 0.5).until(EC.alert_is_present())
-                        _alert_text = _alert.text
-                        _alert.accept()
-                        print(f"  ❌ JS confirm 팝업 감지 ({_chk+1}초): {_alert_text}")
-                        break
+                        _alert_obj = self.driver.switch_to.alert
+                        _alert_text = _alert_obj.text  # 텍스트 먼저 저장
+                        print(f"  ❌ 팝업 감지! 텍스트: {_alert_text[:60]}")
                     except Exception:
-                        pass
-                    # 방법2: switch_to.alert 직접 시도
-                    try:
-                        _alert2 = self.driver.switch_to.alert
-                        _alert_text = _alert2.text
-                        _alert2.accept()
-                        print(f"  ❌ switch_to.alert 팝업 감지 ({_chk+1}초): {_alert_text}")
+                        _alert_text = None
+                    
+                    if _alert_text is not None:
+                        # accept는 별도 try로 (실패해도 상관없음)
+                        try:
+                            self.driver.switch_to.alert.accept()
+                            print(f"  ✅ 팝업 확인 버튼 클릭")
+                        except Exception as _ae:
+                            print(f"  ⚠️ 팝업 accept 실패(무시): {_ae}")
                         break
-                    except Exception:
-                        pass
+                    print(f"  ✅ {_chk+1}초: 팝업 없음")
 
-                if _alert_text:
+                if _alert_text is not None:
                     print(f"  ❌ JS confirm 팝업 → 즉시 실패 처리: {_alert_text}")
                     try:
                         self.driver.switch_to.default_content()
+                    except Exception:
+                        pass
+                    try:
                         _all_h = self.driver.window_handles
                         for _h in _all_h[1:]:
                             self.driver.switch_to.window(_h)
