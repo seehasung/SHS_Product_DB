@@ -2207,6 +2207,42 @@ async def get_generated_posts_list(
         return JSONResponse({'success': False, 'error': str(e)}, status_code=500)
 
 
+def _build_product_stats(db) -> list:
+    """수정 발행 이력 탭용 상품별 통계 (완료된 post 태스크 기준)"""
+    try:
+        from database import AIMarketingProduct, AIMarketingSchedule
+        products = db.query(AIMarketingProduct).order_by(AIMarketingProduct.id).all()
+        stats = []
+        for prod in products:
+            # 해당 상품의 스케줄 ID 목록
+            sched_ids = [s.id for s in db.query(AIMarketingSchedule).filter(
+                AIMarketingSchedule.ai_product_id == prod.id
+            ).all()]
+            if not sched_ids:
+                total_count = 0
+            else:
+                total_count = db.query(AutomationTask).filter(
+                    AutomationTask.task_type == 'post',
+                    AutomationTask.status == 'completed',
+                    AutomationTask.schedule_id.in_(sched_ids)
+                ).count()
+            # product_name 컬럼으로 직접 조회 (schedule 없이 저장된 경우 포함)
+            direct_count = db.query(AutomationTask).filter(
+                AutomationTask.task_type == 'post',
+                AutomationTask.status == 'completed',
+                AutomationTask.product_name == prod.product_name,
+                AutomationTask.schedule_id == None
+            ).count()
+            stats.append({
+                'product_id': prod.id,
+                'product_name': prod.product_name,
+                'total': total_count + direct_count,
+            })
+        return stats
+    except Exception:
+        return []
+
+
 @router.get("/api/post-history")
 async def get_post_history(
     request: Request,
@@ -2298,6 +2334,7 @@ async def get_post_history(
             'total': total,
             'page': page,
             'page_size': page_size,
+            'product_stats': _build_product_stats(db),
         })
     except Exception as e:
         import traceback

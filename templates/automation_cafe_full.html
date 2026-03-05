@@ -860,6 +860,14 @@
                     </div>
                 </div>
 
+                <!-- 상품별 글 현황 패널 -->
+                <div class="mb-3">
+                    <label class="form-label form-label-sm mb-1"><i class="bi bi-bar-chart-fill"></i> 상품별 수정발행 현황</label>
+                    <div id="postProductStatsPanel" style="background:#f8f9fa;border:1px solid #dee2e6;border-radius:6px;padding:8px 12px;">
+                        <span class="text-muted small">로딩 중...</span>
+                    </div>
+                </div>
+
                 <div id="generatedPostsList">
                     <!-- JavaScript로 로드 -->
                 </div>
@@ -3853,6 +3861,19 @@ async function loadGeneratedPosts(page = 1) {
         const paginationEl = document.getElementById('postHistoryPagination');
         container.innerHTML = '';
         if (paginationEl) paginationEl.innerHTML = '';
+
+        // ⭐ 상품별 통계 패널 업데이트
+        const statsPanel = document.getElementById('postProductStatsPanel');
+        if (statsPanel && data.product_stats && data.product_stats.length > 0) {
+            statsPanel.innerHTML = data.product_stats.map(s =>
+                `<span class="me-3 d-inline-flex align-items-center gap-1" style="font-size:0.82rem;">
+                    <span class="badge bg-primary" style="cursor:pointer;" onclick="document.getElementById('postProductFilter').value='${s.product_id}'; loadGeneratedPosts();">${s.product_name}</span>
+                    <span class="badge bg-secondary">${s.total}건</span>
+                </span>`
+            ).join('');
+        } else if (statsPanel) {
+            statsPanel.innerHTML = '<span class="text-muted small">상품 없음</span>';
+        }
 
         if (!data.success) {
             container.innerHTML = `<div class="alert alert-danger">${data.error}</div>`;
