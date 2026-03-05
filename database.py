@@ -21,7 +21,14 @@ load_dotenv()
 DATABASE_URL = os.environ.get("DATABASE_URL")
 if not DATABASE_URL:
     raise ValueError("DATABASE_URL 환경 변수가 설정되지 않았습니다.")
-engine = create_engine(DATABASE_URL)
+engine = create_engine(
+    DATABASE_URL,
+    pool_size=20,          # 기본 5 → 20으로 증가 (PC 6대 + 백그라운드 작업 동시 처리)
+    max_overflow=30,       # 기본 10 → 30으로 증가 (순간 부하 대응)
+    pool_timeout=60,       # 기본 30초 → 60초로 연장 (완료 보고 타임아웃 방지)
+    pool_recycle=1800,     # 30분마다 연결 재활용 (PostgreSQL 유휴 연결 끊김 방지)
+    pool_pre_ping=True,    # 연결 유효성 사전 확인 (죽은 연결 자동 제거)
+)
 SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
 Base = declarative_base()
 
