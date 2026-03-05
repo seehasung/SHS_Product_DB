@@ -218,9 +218,14 @@
             <div class="content-card">
                 <div class="card-header-custom">
                     <h4><i class="bi bi-speedometer2"></i> 실시간 대시보드</h4>
-                    <button class="btn btn-sm btn-outline-primary" onclick="loadTasks()">
-                        <i class="bi bi-arrow-clockwise"></i> 새로고침
-                    </button>
+                    <div class="d-flex gap-2">
+                        <button class="btn btn-sm btn-outline-warning" onclick="recoverStuckTasks()" title="막혀있는 태스크를 강제로 복구/재전송합니다">
+                            <i class="bi bi-wrench"></i> 막힌 작업 강제 복구
+                        </button>
+                        <button class="btn btn-sm btn-outline-primary" onclick="loadTasks()">
+                            <i class="bi bi-arrow-clockwise"></i> 새로고침
+                        </button>
+                    </div>
                 </div>
                 
                 <!-- 작업 큐 탭 -->
@@ -1680,6 +1685,63 @@ function escHtml(str) {
     return (str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 }
 
+async function retryTask(taskId) {
+    if (!confirm(`Task #${taskId}을 재시도/재전송하시겠습니까?`)) return;
+    try {
+        const res = await fetch(`/automation/api/tasks/${taskId}/retry`, { method: 'POST' });
+        const data = await res.json();
+        if (data.success) {
+            showToast('success', data.message || `Task #${taskId} 재시도 완료`);
+            setTimeout(() => loadTasks(), 1000);
+        } else {
+            showToast('error', data.message || '재시도 실패');
+        }
+    } catch(e) {
+        showToast('error', '재시도 요청 오류: ' + e.message);
+    }
+}
+
+async function recoverStuckTasks() {
+    const btn = event.target.closest('button');
+    const origHtml = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<i class="bi bi-hourglass-split"></i> 복구 중...';
+    try {
+        const res = await fetch('/automation/api/tasks/recover-stuck', { method: 'POST' });
+        const data = await res.json();
+        if (data.success) {
+            showToast('success', data.message || '강제 복구 완료');
+            setTimeout(() => loadTasks(), 1500);
+        } else {
+            showToast('error', data.message || '복구 실패');
+        }
+    } catch(e) {
+        showToast('error', '복구 요청 오류: ' + e.message);
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = origHtml;
+    }
+}
+
+function showToast(type, message) {
+    // 기존 토스트가 있으면 제거
+    const existing = document.getElementById('globalToast');
+    if (existing) existing.remove();
+    const bg = type === 'success' ? 'bg-success' : type === 'error' ? 'bg-danger' : 'bg-warning';
+    const icon = type === 'success' ? '✅' : type === 'error' ? '❌' : '⚠️';
+    const toast = document.createElement('div');
+    toast.id = 'globalToast';
+    toast.style.cssText = 'position:fixed;top:20px;right:20px;z-index:9999;min-width:300px;max-width:500px;';
+    toast.innerHTML = `
+        <div class="alert ${bg} text-white shadow d-flex align-items-start gap-2 mb-0" style="border-radius:8px;">
+            <span>${icon}</span>
+            <span style="flex:1;word-break:break-word">${escHtml(message)}</span>
+            <button type="button" class="btn-close btn-close-white ms-2" onclick="this.closest('#globalToast').remove()"></button>
+        </div>`;
+    document.body.appendChild(toast);
+    setTimeout(() => { if (toast.parentNode) toast.remove(); }, 5000);
+}
+
 function renderRootRow(task, hasChildren, gid, status) {
     const expandBtn = hasChildren
         ? `<span class="task-expand-icon" id="icon-${gid}" onclick="toggleGroup('${gid}')">▶</span>`
@@ -1699,15 +1761,21 @@ function renderRootRow(task, hasChildren, gid, status) {
 
     let lastCol = '';
     if (status === 'completed') {
+        const retryBtn = task.status === 'failed'
+            ? `<button class="btn btn-xs btn-outline-danger ms-1" style="font-size:.75rem;padding:2px 6px" onclick="event.stopPropagation();retryTask(${task.id})">🔄 재실행</button>`
+            : '';
         lastCol = `<td>
             ${task.post_url ? `<a href="${task.post_url}" target="_blank" class="btn btn-xs btn-outline-success" style="font-size:.75rem;padding:2px 6px">🔗 URL</a> ` : ''}
             ${failBadge}
-            <button class="btn btn-xs btn-outline-secondary" style="font-size:.75rem;padding:2px 6px" onclick="showTaskContent(${task.id})">👁 내용</button>
+            <button class="btn btn-xs btn-outline-secondary" style="font-size:.75rem;padding:2px 6px" onclick="event.stopPropagation();showTaskContent(${task.id})">👁 내용</button>
+            ${retryBtn}
         </td>`;
     } else {
+        const retryBtn = `<button class="btn btn-xs btn-outline-warning ms-1" style="font-size:.75rem;padding:2px 6px" onclick="event.stopPropagation();retryTask(${task.id})">🔄 재전송</button>`;
         lastCol = `<td>
             ${failBadge}
-            <button class="btn btn-xs btn-outline-secondary" style="font-size:.75rem;padding:2px 6px" onclick="showTaskContent(${task.id})">👁 내용</button>
+            <button class="btn btn-xs btn-outline-secondary" style="font-size:.75rem;padding:2px 6px" onclick="event.stopPropagation();showTaskContent(${task.id})">👁 내용</button>
+            ${retryBtn}
         </td>`;
     }
 
@@ -5089,50 +5157,86 @@ async function loadKeywords(productId) {
                 return;
             }
             
+            // 전체 데이터 캐시
+            window._kwAllRows = data.keywords;
+            
             data.keywords.forEach(kw => {
-                const publishCount = kw.publish_count || 0;
-                const maxPublish = kw.max_publish || 6;
-                const pct = Math.min(100, Math.round(publishCount / maxPublish * 100));
-                const barColor = publishCount >= maxPublish ? 'bg-danger' : publishCount >= 4 ? 'bg-warning' : 'bg-success';
-
-                const row = `
-                    <tr>
-                        <td><strong>${kw.keyword_text}</strong></td>
-                        <td>
-                            <select class="form-select form-select-sm" onchange="updateKeywordType(${kw.id}, this.value)">
-                                <option value="unclassified" ${kw.keyword_type === 'unclassified' ? 'selected' : ''}>미분류</option>
-                                <option value="alternative" ${kw.keyword_type === 'alternative' ? 'selected' : ''}>대안성</option>
-                                <option value="informational" ${kw.keyword_type === 'informational' ? 'selected' : ''}>정보성</option>
-                            </select>
-                        </td>
-                        <td>
-                            <span class="badge ${kw.is_active ? 'bg-success' : 'bg-secondary'}">
-                                ${kw.is_active ? '활성' : '비활성'}
-                            </span>
-                        </td>
-                        <td>
-                            <button class="btn btn-sm btn-link p-0 text-decoration-none" onclick="showKeywordPublishHistory(${kw.id}, '${kw.keyword_text.replace(/'/g, "\\'")}')" title="수정발행 내역 보기">
-                                <div class="d-flex align-items-center gap-1">
-                                    <span class="badge ${publishCount >= maxPublish ? 'bg-danger' : 'bg-primary'}">${publishCount}/${maxPublish}</span>
-                                </div>
-                                <div class="progress mt-1" style="height:4px;width:60px;">
-                                    <div class="progress-bar ${barColor}" style="width:${pct}%"></div>
-                                </div>
-                            </button>
-                        </td>
-                        <td>
-                            <button class="btn btn-sm btn-danger" onclick="deleteKeyword(${kw.id})">
-                                <i class="bi bi-trash"></i>
-                            </button>
-                        </td>
-                    </tr>
-                `;
-                tbody.innerHTML += row;
+                tbody.appendChild(_buildKwRow(kw));
             });
         }
     } catch (error) {
         console.error('키워드 로드 오류:', error);
     }
+}
+
+function _buildKwRow(kw) {
+    const publishCount = kw.publish_count || 0;
+    const maxPublish = kw.max_publish || 6;
+    const pct = Math.min(100, Math.round(publishCount / maxPublish * 100));
+    const barColor = publishCount >= maxPublish ? 'bg-danger' : publishCount >= 4 ? 'bg-warning' : 'bg-success';
+    const typeLabel = {'alternative':'대안성','informational':'정보성','unclassified':'미분류'}[kw.keyword_type] || kw.keyword_type;
+
+    const tr = document.createElement('tr');
+    tr.dataset.kwText = (kw.keyword_text || '').toLowerCase();
+    tr.dataset.kwType = kw.keyword_type || '';
+    tr.dataset.kwPublish = publishCount >= maxPublish ? 'full' : 'available';
+    tr.innerHTML = `
+        <td><strong>${kw.keyword_text}</strong></td>
+        <td>
+            <select class="form-select form-select-sm" onchange="updateKeywordType(${kw.id}, this.value)">
+                <option value="unclassified" ${kw.keyword_type === 'unclassified' ? 'selected' : ''}>미분류</option>
+                <option value="alternative" ${kw.keyword_type === 'alternative' ? 'selected' : ''}>대안성</option>
+                <option value="informational" ${kw.keyword_type === 'informational' ? 'selected' : ''}>정보성</option>
+            </select>
+        </td>
+        <td>
+            <span class="badge ${kw.is_active ? 'bg-success' : 'bg-secondary'}">
+                ${kw.is_active ? '활성' : '비활성'}
+            </span>
+        </td>
+        <td>
+            <button class="btn btn-sm btn-link p-0 text-decoration-none" onclick="showKeywordPublishHistory(${kw.id}, '${(kw.keyword_text || '').replace(/'/g, "\\'")}')" title="수정발행 내역 보기">
+                <div class="d-flex align-items-center gap-1">
+                    <span class="badge ${publishCount >= maxPublish ? 'bg-danger' : 'bg-primary'}">${publishCount}/${maxPublish}</span>
+                </div>
+                <div class="progress mt-1" style="height:4px;width:60px;">
+                    <div class="progress-bar ${barColor}" style="width:${pct}%"></div>
+                </div>
+            </button>
+        </td>
+        <td>
+            <button class="btn btn-sm btn-danger" onclick="deleteKeyword(${kw.id})">
+                <i class="bi bi-trash"></i>
+            </button>
+        </td>
+    `;
+    return tr;
+}
+
+function filterKeywordsTable() {
+    const textVal = (document.getElementById('kwFilterText')?.value || '').toLowerCase();
+    const typeVal = document.getElementById('kwFilterType')?.value || '';
+    const publishVal = document.getElementById('kwFilterPublish')?.value || '';
+    const rows = document.querySelectorAll('#keywordsTableBody tr');
+    let visible = 0;
+    rows.forEach(tr => {
+        const kwText = tr.dataset.kwText || '';
+        const kwType = tr.dataset.kwType || '';
+        const kwPublish = tr.dataset.kwPublish || '';
+        const matchText = !textVal || kwText.includes(textVal);
+        const matchType = !typeVal || kwType === typeVal;
+        const matchPublish = !publishVal || kwPublish === publishVal;
+        const show = matchText && matchType && matchPublish;
+        tr.style.display = show ? '' : 'none';
+        if (show) visible++;
+    });
+}
+
+function clearKwFilters() {
+    const t = document.getElementById('kwFilterText'); if(t) t.value = '';
+    const ty = document.getElementById('kwFilterType'); if(ty) ty.value = '';
+    const p = document.getElementById('kwFilterPublish'); if(p) p.value = '';
+    filterKeywordsTable();
 }
 
 async function showKeywordPublishHistory(keywordId, keywordText) {
@@ -5318,50 +5422,79 @@ async function loadReferences(productId) {
             }
             
             data.references.forEach(ref => {
-                const typeClass = ref.reference_type === 'alternative' ? 'success' : 
-                                 ref.reference_type === 'informational' ? 'info' : 'secondary';
-                const typeName = ref.reference_type === 'alternative' ? '대안성' :
-                                ref.reference_type === 'informational' ? '정보성' : '미분류';
-                
-                const refTypeBadge = ref.ref_type ? `<span class="badge bg-secondary">${ref.ref_type}</span>` : '';
-                const contentPreview = ref.content ? ref.content.substring(0, 80) + '...' : '';
-                
-                const row = `
-                    <tr>
-                        <td>
-                            <strong>${ref.title}</strong>
-                            <br><small class="text-muted">ID: ${ref.reference_id}</small>
-                        </td>
-                        <td>
-                            <select class="form-select form-select-sm" onchange="updateReferenceType(${ref.id}, this.value)">
-                                <option value="unclassified" ${ref.reference_type === 'unclassified' ? 'selected' : ''}>미분류</option>
-                                <option value="alternative" ${ref.reference_type === 'alternative' ? 'selected' : ''}>대안성</option>
-                                <option value="informational" ${ref.reference_type === 'informational' ? 'selected' : ''}>정보성</option>
-                            </select>
-                        </td>
-                        <td>${refTypeBadge || '<span class="badge bg-light text-dark">없음</span>'}</td>
-                        <td><small class="text-muted">${contentPreview}</small></td>
-                        <td>
-                            <div class="btn-group btn-group-sm">
-                                <button class="btn btn-info" onclick="viewReferenceDetailFull(${ref.reference_id})" title="상세보기">
-                                    <i class="bi bi-eye"></i>
-                                </button>
-                                <button class="btn btn-warning" onclick="editReference(${ref.id}, ${ref.reference_id})" title="수정">
-                                    <i class="bi bi-pencil"></i>
-                                </button>
-                                <button class="btn btn-danger" onclick="deleteAIReference(${ref.id})" title="삭제">
-                                    <i class="bi bi-trash"></i>
-                                </button>
-                            </div>
-                        </td>
-                    </tr>
-                `;
-                tbody.innerHTML += row;
+                tbody.appendChild(_buildRefRow(ref));
             });
         }
     } catch (error) {
         console.error('레퍼런스 로드 오류:', error);
     }
+}
+
+function _buildRefRow(ref) {
+    const typeClass = ref.reference_type === 'alternative' ? 'success' : 
+                     ref.reference_type === 'informational' ? 'info' : 'secondary';
+    const typeName = ref.reference_type === 'alternative' ? '대안성' :
+                    ref.reference_type === 'informational' ? '정보성' : '미분류';
+    const refTypeBadge = ref.ref_type ? `<span class="badge bg-secondary">${ref.ref_type}</span>` : '';
+    const contentPreview = ref.content ? ref.content.substring(0, 80) + '...' : '';
+    const hasRefType = ref.ref_type ? '있음' : '없음';
+
+    const tr = document.createElement('tr');
+    tr.dataset.refTitle = (ref.title || '').toLowerCase();
+    tr.dataset.refAiType = ref.reference_type || 'unclassified';
+    tr.dataset.refType = hasRefType;
+    tr.innerHTML = `
+        <td>
+            <strong>${ref.title}</strong>
+            <br><small class="text-muted">ID: ${ref.reference_id}</small>
+        </td>
+        <td>
+            <select class="form-select form-select-sm" onchange="updateReferenceType(${ref.id}, this.value)">
+                <option value="unclassified" ${ref.reference_type === 'unclassified' ? 'selected' : ''}>미분류</option>
+                <option value="alternative" ${ref.reference_type === 'alternative' ? 'selected' : ''}>대안성</option>
+                <option value="informational" ${ref.reference_type === 'informational' ? 'selected' : ''}>정보성</option>
+            </select>
+        </td>
+        <td>${refTypeBadge || '<span class="badge bg-light text-dark">없음</span>'}</td>
+        <td><small class="text-muted">${contentPreview}</small></td>
+        <td>
+            <div class="btn-group btn-group-sm">
+                <button class="btn btn-info" onclick="viewReferenceDetailFull(${ref.reference_id})" title="상세보기">
+                    <i class="bi bi-eye"></i>
+                </button>
+                <button class="btn btn-warning" onclick="editReference(${ref.id}, ${ref.reference_id})" title="수정">
+                    <i class="bi bi-pencil"></i>
+                </button>
+                <button class="btn btn-danger" onclick="deleteAIReference(${ref.id})" title="삭제">
+                    <i class="bi bi-trash"></i>
+                </button>
+            </div>
+        </td>
+    `;
+    return tr;
+}
+
+function filterReferencesTable() {
+    const titleVal = (document.getElementById('refFilterTitle')?.value || '').toLowerCase();
+    const aiTypeVal = document.getElementById('refFilterAiType')?.value || '';
+    const refTypeVal = document.getElementById('refFilterRefType')?.value || '';
+    const rows = document.querySelectorAll('#referencesTableBody tr');
+    rows.forEach(tr => {
+        const rTitle = tr.dataset.refTitle || '';
+        const rAiType = tr.dataset.refAiType || '';
+        const rType = tr.dataset.refType || '';
+        const matchTitle = !titleVal || rTitle.includes(titleVal);
+        const matchAiType = !aiTypeVal || rAiType === aiTypeVal;
+        const matchRefType = !refTypeVal || rType === refTypeVal;
+        tr.style.display = (matchTitle && matchAiType && matchRefType) ? '' : 'none';
+    });
+}
+
+function clearRefFilters() {
+    const t = document.getElementById('refFilterTitle'); if(t) t.value = '';
+    const at = document.getElementById('refFilterAiType'); if(at) at.value = '';
+    const rt = document.getElementById('refFilterRefType'); if(rt) rt.value = '';
+    filterReferencesTable();
 }
 
 async function syncReferencesFromMarketing() {
@@ -6970,6 +7103,26 @@ async function deployWorkerVersion(event) {
                                 <th style="width: 16%;">발행 수 <small class="text-muted fw-normal">(최대 6)</small></th>
                                 <th style="width: 12%;">관리</th>
                             </tr>
+                            <tr style="background:#f8f9fa;">
+                                <th><input type="text" class="form-control form-control-sm" id="kwFilterText" placeholder="키워드 검색..." oninput="filterKeywordsTable()"></th>
+                                <th>
+                                    <select class="form-select form-select-sm" id="kwFilterType" onchange="filterKeywordsTable()">
+                                        <option value="">전체</option>
+                                        <option value="alternative">대안성</option>
+                                        <option value="informational">정보성</option>
+                                        <option value="unclassified">미분류</option>
+                                    </select>
+                                </th>
+                                <th></th>
+                                <th>
+                                    <select class="form-select form-select-sm" id="kwFilterPublish" onchange="filterKeywordsTable()">
+                                        <option value="">전체</option>
+                                        <option value="available">사용 가능 (6미만)</option>
+                                        <option value="full">최대 도달 (6)</option>
+                                    </select>
+                                </th>
+                                <th><button class="btn btn-xs btn-outline-secondary w-100" style="font-size:.75rem;padding:2px 4px" onclick="clearKwFilters()">초기화</button></th>
+                            </tr>
                         </thead>
                         <tbody id="keywordsTableBody">
                             <tr><td colspan="4" class="text-center">로딩 중...</td></tr>
@@ -7135,6 +7288,26 @@ async function deployWorkerVersion(event) {
                                 <th style="width: 10%;">원본 타입</th>
                                 <th style="width: 25%;">내용 미리보기</th>
                                 <th style="width: 15%;">관리</th>
+                            </tr>
+                            <tr style="background:#f8f9fa;">
+                                <th><input type="text" class="form-control form-control-sm" id="refFilterTitle" placeholder="제목 검색..." oninput="filterReferencesTable()"></th>
+                                <th>
+                                    <select class="form-select form-select-sm" id="refFilterAiType" onchange="filterReferencesTable()">
+                                        <option value="">전체</option>
+                                        <option value="alternative">대안성</option>
+                                        <option value="informational">정보성</option>
+                                        <option value="unclassified">미분류</option>
+                                    </select>
+                                </th>
+                                <th>
+                                    <select class="form-select form-select-sm" id="refFilterRefType" onchange="filterReferencesTable()">
+                                        <option value="">전체</option>
+                                        <option value="있음">있음</option>
+                                        <option value="없음">없음</option>
+                                    </select>
+                                </th>
+                                <th></th>
+                                <th><button class="btn btn-xs btn-outline-secondary w-100" style="font-size:.75rem;padding:2px 4px" onclick="clearRefFilters()">초기화</button></th>
                             </tr>
                         </thead>
                         <tbody id="referencesTableBody">

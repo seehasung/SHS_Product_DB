@@ -2680,15 +2680,25 @@ async def test_generate_content(
         except (AttributeError, Exception):
             cafe_characteristics = "일반적인 톤, 자연스러운 대화체"
         
-        # 레퍼런스 가져오기 (분류 무관 전체에서 랜덤 3개)
+        # 레퍼런스 가져오기 (프롬프트 분류와 일치하는 타입 우선, 없으면 전체에서 랜덤 3개)
         import random as _rand_ref
-        all_ai_refs = db.query(AIProductReference).options(
+        _ref_type = prompt.keyword_classification  # alternative / informational / None
+        _ref_base_query = db.query(AIProductReference).options(
             joinedload(AIProductReference.reference).joinedload(Reference.comments)
-        ).filter(
-            AIProductReference.ai_product_id == product.id,
-        ).all()
+        ).filter(AIProductReference.ai_product_id == product.id)
+        if _ref_type:
+            _typed = _ref_base_query.filter(AIProductReference.reference_type == _ref_type).all()
+            if _typed:
+                all_ai_refs = _typed
+                print(f"📚 [레퍼런스] '{_ref_type}' 분류 {len(all_ai_refs)}개 조회")
+            else:
+                all_ai_refs = _ref_base_query.all()
+                print(f"📚 [레퍼런스] '{_ref_type}' 분류 없음 → 전체 {len(all_ai_refs)}개 폴백")
+        else:
+            all_ai_refs = _ref_base_query.all()
+            print(f"📚 [레퍼런스] 분류 미지정 → 전체 {len(all_ai_refs)}개")
         ai_refs = _rand_ref.sample(all_ai_refs, min(3, len(all_ai_refs))) if all_ai_refs else []
-        print(f"📚 [레퍼런스] 전체 {len(all_ai_refs)}개 중 {len(ai_refs)}개 랜덤 선택: {[r.reference.title[:20] if r.reference else '?' for r in ai_refs]}")
+        print(f"📚 [레퍼런스] 최종 {len(ai_refs)}개 랜덤 선택: {[r.reference.title[:20] if r.reference else '?' for r in ai_refs]}")
         
         # 레퍼런스 텍스트 조합
         reference_text = ""
@@ -4002,15 +4012,29 @@ async def _generate_ai_content_internal(
             else '일반적인 톤, 자연스러운 대화체'
         )
 
-        # 레퍼런스 (분류 무관 전체에서 랜덤 3개)
+        # 레퍼런스 (프롬프트 분류와 일치하는 타입 우선, 없으면 전체에서 랜덤 3개)
         import random as _rand_ref2
-        all_ai_refs = db.query(AIProductReference).options(
+        ref_type_filter = prompt.keyword_classification  # alternative / informational / None
+        ref_query = db.query(AIProductReference).options(
             joinedload(AIProductReference.reference).joinedload(Reference.comments)
         ).filter(
             AIProductReference.ai_product_id == product.id,
-        ).all()
+        )
+        if ref_type_filter:
+            typed_refs = ref_query.filter(
+                AIProductReference.reference_type == ref_type_filter
+            ).all()
+            if typed_refs:
+                all_ai_refs = typed_refs
+                print(f"📚 [레퍼런스] '{ref_type_filter}' 분류 {len(all_ai_refs)}개 조회")
+            else:
+                all_ai_refs = ref_query.all()
+                print(f"📚 [레퍼런스] '{ref_type_filter}' 분류 없음 → 전체 {len(all_ai_refs)}개 폴백")
+        else:
+            all_ai_refs = ref_query.all()
+            print(f"📚 [레퍼런스] 분류 미지정 → 전체 {len(all_ai_refs)}개")
         ai_refs = _rand_ref2.sample(all_ai_refs, min(3, len(all_ai_refs))) if all_ai_refs else []
-        print(f"📚 [레퍼런스] 전체 {len(all_ai_refs)}개 중 {len(ai_refs)}개 랜덤 선택: {[r.reference.title[:20] if r.reference else '?' for r in ai_refs]}")
+        print(f"📚 [레퍼런스] 최종 {len(ai_refs)}개 랜덤 선택: {[r.reference.title[:20] if r.reference else '?' for r in ai_refs]}")
 
         reference_text = ''
         for idx, ai_ref in enumerate(ai_refs):
@@ -4542,13 +4566,29 @@ async def _execute_ai_schedule(schedule_id: int, db: Session, force: bool = Fals
     if not pcs:
         return {'success': False, 'message': '등록된 Worker PC가 없습니다.'}
 
-    # ── 활성 키워드 한 번만 조회 ──────────────────────────────
+    # ── 프롬프트 분류 확인 (대안성/정보성 → 해당 타입 키워드만 사용) ──
+    prompt_obj = db.query(AIPrompt).filter(AIPrompt.id == schedule.prompt_id).first()
+    prompt_classification = prompt_obj.keyword_classification if prompt_obj else None
+    print(f"🎯 [스케줄#{schedule_id}] 프롬프트 분류: {prompt_classification}")
+
+    # ── 활성 키워드 한 번만 조회 (프롬프트 분류와 일치하는 타입만) ──
     active_kws = []
     if schedule.ai_product:
-        active_kws = db.query(AIProductKeyword).filter(
+        kw_query = db.query(AIProductKeyword).filter(
             AIProductKeyword.ai_product_id == schedule.ai_product_id,
             AIProductKeyword.is_active == True
-        ).all()
+        )
+        if prompt_classification:
+            kw_query = kw_query.filter(AIProductKeyword.keyword_type == prompt_classification)
+        active_kws = kw_query.all()
+        if not active_kws and prompt_classification:
+            # 해당 분류 키워드가 없으면 전체 활성 키워드로 폴백
+            print(f"⚠️ [스케줄#{schedule_id}] '{prompt_classification}' 키워드 없음 → 전체 키워드 사용")
+            active_kws = db.query(AIProductKeyword).filter(
+                AIProductKeyword.ai_product_id == schedule.ai_product_id,
+                AIProductKeyword.is_active == True
+            ).all()
+        print(f"🔑 [스케줄#{schedule_id}] 사용 키워드 풀: {len(active_kws)}개")
 
     def _pick_keyword():
         if not active_kws:
@@ -4559,7 +4599,9 @@ async def _execute_ai_schedule(schedule_id: int, db: Session, force: bool = Fals
             AutomationTask.status == 'completed'
         ).count() < 6]
         pool = eligible if eligible else active_kws
-        return _random.choice(pool).keyword_text
+        chosen = _random.choice(pool)
+        print(f"🔑 [키워드 선택] '{chosen.keyword_text}' (타입: {chosen.keyword_type})")
+        return chosen.keyword_text
 
     product_name = schedule.ai_product.product_name if schedule.ai_product else ''
     groups = []   # 실행 계획

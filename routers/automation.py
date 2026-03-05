@@ -784,9 +784,155 @@ async def generate_ai_content(
         }, status_code=500)
 
 
+
 # ============================================
 # 스케줄 관리 API
 # ============================================
+
+@router.post("/api/tasks/{task_id}/retry")
+async def retry_task(
+    task_id: int,
+    db: Session = Depends(get_db)
+):
+    """
+    태스크 재시도:
+    - failed 태스크: status를 pending으로 리셋 후 해당 PC로 즉시 재전송
+    - pending/assigned 태스크: 해당 PC로 즉시 재전송 (막힌 경우)
+    """
+    try:
+        task = db.query(AutomationTask).get(task_id)
+        if not task:
+            return JSONResponse({'success': False, 'message': f'Task #{task_id} 없음'}, status_code=404)
+
+        if task.status not in ('failed', 'pending', 'assigned'):
+            return JSONResponse({'success': False, 'message': f'재시도 불가 상태: {task.status}'}, status_code=400)
+
+        # PC 번호 확인
+        pc_num = None
+        if task.assigned_pc_id:
+            pc_rec = db.query(AutomationWorkerPC).filter(
+                (AutomationWorkerPC.id == task.assigned_pc_id) |
+                (AutomationWorkerPC.pc_number == task.assigned_pc_id)
+            ).first()
+            pc_num = pc_rec.pc_number if pc_rec else task.assigned_pc_id
+
+        # failed이면 pending으로 리셋
+        if task.status == 'failed':
+            task.status = 'pending'
+            task.error_message = None
+            task.retry_count = (task.retry_count or 0) + 1
+            db.commit()
+            print(f"🔄 [재시도] Task #{task_id} failed → pending 리셋")
+
+        # PC가 연결되어 있으면 즉시 전송
+        if pc_num and pc_num in worker_connections:
+            try:
+                await send_task_to_worker(pc_num, task, db)
+                print(f"📤 [재시도] Task #{task_id} → PC #{pc_num} 즉시 전송")
+                return JSONResponse({'success': True, 'message': f'Task #{task_id} PC #{pc_num}으로 재전송 완료'})
+            except Exception as _e:
+                return JSONResponse({'success': True, 'message': f'Task #{task_id} pending 리셋 완료 (PC 전송 실패: {_e})'})
+        else:
+            pc_str = f"PC #{pc_num}" if pc_num else "미할당"
+            return JSONResponse({'success': True, 'message': f'Task #{task_id} pending 리셋 완료 ({pc_str} 미연결 - 재연결 시 자동 실행)'})
+
+    except Exception as e:
+        import traceback; traceback.print_exc()
+        return JSONResponse({'success': False, 'message': str(e)}, status_code=500)
+
+
+@router.post("/api/tasks/recover-stuck")
+async def recover_stuck_tasks(
+    db: Session = Depends(get_db)
+):
+    """
+    막힌 태스크 강제 복구:
+    1. PC:None 미할당 태스크 → 연결된 PC에 자동 배정 후 전송
+    2. pending 상태인 comment/reply 태스크 중 부모가 completed인 것 → 즉시 전송
+    3. 오래된 in_progress 태스크 → pending으로 리셋
+    """
+    try:
+        from datetime import datetime as _dt, timedelta as _td
+        now = datetime.now()
+        sent = 0
+        reset = 0
+        assigned_new = 0
+
+        # 1. PC:None 미할당 post/create_draft 태스크 → 연결된 PC에 배정
+        unassigned = db.query(AutomationTask).filter(
+            AutomationTask.status == 'pending',
+            AutomationTask.assigned_pc_id == None,
+            AutomationTask.task_type.in_(['post', 'create_draft'])
+        ).all()
+        for task in unassigned:
+            if worker_connections:
+                pc_num = next(iter(worker_connections))
+                pc_rec = db.query(AutomationWorkerPC).filter(
+                    AutomationWorkerPC.pc_number == pc_num
+                ).first()
+                if pc_rec:
+                    task.assigned_pc_id = pc_rec.id
+                    db.commit()
+                    try:
+                        await send_task_to_worker(pc_num, task, db)
+                        sent += 1
+                        assigned_new += 1
+                    except Exception:
+                        pass
+
+        # 2. 30분 이상 in_progress 상태인 태스크 → pending 리셋
+        stuck_cutoff = now - _td(minutes=30)
+        stuck_inprogress = db.query(AutomationTask).filter(
+            AutomationTask.status == 'in_progress',
+            AutomationTask.started_at < stuck_cutoff
+        ).all()
+        for task in stuck_inprogress:
+            task.status = 'pending'
+            reset += 1
+            print(f"⚠️ [강제복구] Task #{task.id} in_progress 30분 초과 → pending 리셋")
+        if reset > 0:
+            db.commit()
+
+        # 3. pending comment/reply 중 즉시 전송 가능한 것
+        stuck_comments = db.query(AutomationTask).filter(
+            AutomationTask.status == 'pending',
+            AutomationTask.task_type.in_(['comment', 'reply']),
+            AutomationTask.assigned_pc_id != None,
+        ).order_by(AutomationTask.order_sequence.asc()).all()
+
+        dispatched_parents = set()
+        for task in stuck_comments:
+            if not _is_comment_ready(task, db):
+                continue
+            parent_id = task.parent_task_id
+            if parent_id in dispatched_parents:
+                continue
+            pc_rec = db.query(AutomationWorkerPC).filter(
+                (AutomationWorkerPC.id == task.assigned_pc_id) |
+                (AutomationWorkerPC.pc_number == task.assigned_pc_id)
+            ).first()
+            pc_num = pc_rec.pc_number if pc_rec else task.assigned_pc_id
+            if pc_num not in worker_connections:
+                continue
+            db.refresh(task)
+            if task.status != 'pending':
+                continue
+            try:
+                await send_task_to_worker(pc_num, task, db)
+                sent += 1
+                if parent_id:
+                    dispatched_parents.add(parent_id)
+            except Exception:
+                pass
+
+        msg = f"복구 완료: {sent}개 전송, {reset}개 리셋, {assigned_new}개 새 배정"
+        print(f"🔧 [강제복구] {msg}")
+        return JSONResponse({'success': True, 'message': msg, 'sent': sent, 'reset': reset, 'assigned': assigned_new})
+
+    except Exception as e:
+        import traceback; traceback.print_exc()
+        return JSONResponse({'success': False, 'message': str(e)}, status_code=500)
+
 
 @router.get("/api/tasks/completed")
 async def list_completed_tasks(
