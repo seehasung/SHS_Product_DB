@@ -89,7 +89,7 @@ except ImportError:
 class NaverCafeWorker:
     """네이버 카페 자동 작성 Worker"""
     
-    VERSION = "2.4.0" # 현재 버전
+    VERSION = "2.5.0" # 현재 버전
     
     def __init__(self, pc_number: int, server_url: str = "scorp274.com"):
         self.pc_number = pc_number
@@ -2460,10 +2460,10 @@ class NaverCafeWorker:
                                     task.get('target_board'), _image_urls, _keyword
                                 )
                             ),
-                            timeout=180  # 최대 3분
+                            timeout=600  # 최대 10분 (이미지 3장 업로드 포함)
                         )
                     except asyncio.TimeoutError:
-                        print(f"❌ 수정발행 타임아웃 (3분 초과) → 강제 실패 처리")
+                        print(f"❌ 수정발행 타임아웃 (10분 초과) → 강제 실패 처리")
                         try:
                             _all_h = self.driver.window_handles
                             for _h in _all_h[1:]:
@@ -2513,10 +2513,10 @@ class NaverCafeWorker:
                             None,
                             lambda: self.create_draft_post(cafe_url, draft_title, draft_body)
                         ),
-                        timeout=120  # 최대 2분 → 초과 시 강제 실패
+                        timeout=180  # 최대 3분 (이미지 없는 단순 글쓰기)
                     )
                 except asyncio.TimeoutError:
-                    print(f"  ❌ 신규발행 타임아웃 (2분 초과) → 강제 실패 처리")
+                    print(f"  ❌ 신규발행 타임아웃 (3분 초과) → 강제 실패 처리")
                     # 브라우저 탭 강제 닫기
                     try:
                         _all_h = self.driver.window_handles
