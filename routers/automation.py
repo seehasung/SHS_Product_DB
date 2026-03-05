@@ -1779,24 +1779,24 @@ async def _dispatch_next_task_bg(task_id: int, task_type: str, parent_task_id, o
                 _pc_num = _pc_rec.pc_number if _pc_rec else first_comment.assigned_pc_id
 
                 if _pc_num not in worker_connections:
-                        print(f"   ⏳ [BG] PC #{_pc_num} 연결 대기 중... (최대 90초)")
-                        for i in range(90):
-                            await asyncio.sleep(1)
-                            if _pc_num in worker_connections:
-                                print(f"   ✅ [BG] PC #{_pc_num} 연결됨! ({i+1}초)")
-                                break
-                        else:
-                            print(f"   ⚠️  [BG] 타임아웃: PC #{_pc_num} 미연결")
-                            return
-
-                    # ★ 전송 직전 상태 재확인 (중복 전송 방지)
-                    db.refresh(first_comment)
-                    if first_comment.status != 'pending':
-                        print(f"   ⚠️  [BG] 첫 댓글 Task #{first_comment.id} 이미 {first_comment.status} → 전송 건너뜀")
+                    print(f"   ⏳ [BG] PC #{_pc_num} 연결 대기 중... (최대 90초)")
+                    for i in range(90):
+                        await asyncio.sleep(1)
+                        if _pc_num in worker_connections:
+                            print(f"   ✅ [BG] PC #{_pc_num} 연결됨! ({i+1}초)")
+                            break
+                    else:
+                        print(f"   ⚠️  [BG] 타임아웃: PC #{_pc_num} 미연결")
                         return
 
-                    print(f"   📨 [BG] 첫 댓글 Task #{first_comment.id} → PC #{_pc_num}")
-                    await send_task_to_worker(_pc_num, first_comment, db)
+                # ★ 전송 직전 상태 재확인 (중복 전송 방지)
+                db.refresh(first_comment)
+                if first_comment.status != 'pending':
+                    print(f"   ⚠️  [BG] 첫 댓글 Task #{first_comment.id} 이미 {first_comment.status} → 전송 건너뜀")
+                    return
+
+                print(f"   📨 [BG] 첫 댓글 Task #{first_comment.id} → PC #{_pc_num}")
+                await send_task_to_worker(_pc_num, first_comment, db)
             else:
                 # 댓글 없는 경우 → 다음 AI 그룹 즉시 실행
                 try:
