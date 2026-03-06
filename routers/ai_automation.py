@@ -2275,9 +2275,22 @@ async def get_post_history(
         if cafe:
             query = query.filter(AutomationTask.cafe_id == cafe)
         if product:
-            query = query.filter(AutomationTask.schedule_id.in_(
-                db.query(AIMarketingSchedule.id).filter(AIMarketingSchedule.ai_product_id == product)
-            ))
+            # schedule_id → AIMarketingSchedule.ai_product_id 경로 OR product_name 직접 매칭
+            product_obj_filter = db.query(AIMarketingProduct).get(product)
+            product_name_for_filter = product_obj_filter.product_name if product_obj_filter else None
+            schedule_ids = [
+                row[0] for row in db.query(AIMarketingSchedule.id).filter(
+                    AIMarketingSchedule.ai_product_id == product
+                ).all()
+            ]
+            from sqlalchemy import or_
+            filter_conditions = []
+            if schedule_ids:
+                filter_conditions.append(AutomationTask.schedule_id.in_(schedule_ids))
+            if product_name_for_filter:
+                filter_conditions.append(AutomationTask.product_name == product_name_for_filter)
+            if filter_conditions:
+                query = query.filter(or_(*filter_conditions))
         if date_from:
             from datetime import datetime as _dt
             _df = _dt.strptime(date_from, '%Y-%m-%d')

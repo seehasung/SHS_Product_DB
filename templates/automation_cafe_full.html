@@ -864,6 +864,7 @@
                 <div class="mb-3">
                     <label class="form-label form-label-sm mb-1"><i class="bi bi-bar-chart-fill"></i> 상품별 수정발행 현황</label>
                     <div id="postProductStatsPanel" style="background:#f8f9fa;border:1px solid #dee2e6;border-radius:6px;padding:8px 12px;">
+                        <style>#postProductStatsPanel .badge{transition:none!important;transform:none!important;animation:none!important;box-shadow:none!important;}</style>
                         <span class="text-muted small">로딩 중...</span>
                     </div>
                 </div>
@@ -1891,7 +1892,9 @@ function renderRootRow(task, hasChildren, gid, status) {
     }
 
     const timeCol = status === 'completed'
-        ? `<td style="font-size:.8rem">${task.completed_at || '-'}</td>`
+        ? `<td style="font-size:.8rem">${task.status === 'failed'
+            ? `<span class="text-danger">${task.updated_at || task.completed_at || '-'}</span>`
+            : (task.completed_at || '-')}</td>`
         : `<td>${statusBadge(task.status)}</td>`;
 
     // 실패 행은 배경색 강조
@@ -1926,7 +1929,9 @@ function renderChildRow(task, gid, status, isGrandchild = false) {
     }
 
     const timeCol = status === 'completed'
-        ? `<td style="font-size:.75rem">${task.completed_at || '-'}</td>`
+        ? `<td style="font-size:.75rem">${task.status === 'failed'
+            ? `<span class="text-danger">${task.updated_at || task.completed_at || '-'}</span>`
+            : (task.completed_at || '-')}</td>`
         : `<td>${statusBadge(task.status)}</td>`;
 
     return `
@@ -3865,10 +3870,11 @@ async function loadGeneratedPosts(page = 1) {
         // ⭐ 상품별 통계 패널 - 처음 한 번만 업데이트 (깜빡임 방지)
         const statsPanel = document.getElementById('postProductStatsPanel');
         if (statsPanel && data.product_stats && data.product_stats.length > 0 && statsPanel.dataset.loaded !== 'true') {
-            statsPanel.innerHTML = data.product_stats.map(s =>
+            const noHoverStyle = `<style>#postProductStatsPanel .badge{transition:none!important;transform:none!important;animation:none!important;}</style>`;
+            statsPanel.innerHTML = noHoverStyle + data.product_stats.map(s =>
                 `<span class="me-3 d-inline-flex align-items-center gap-1" style="font-size:0.82rem;">
-                    <span class="badge bg-primary" style="cursor:pointer;" onclick="document.getElementById('postProductFilter').value='${s.product_id}'; loadGeneratedPosts();">${s.product_name}</span>
-                    <span class="badge bg-secondary">${s.total}건</span>
+                    <span class="badge bg-primary" style="cursor:pointer;transition:none!important;transform:none!important;" onclick="document.getElementById('postProductFilter').value='${s.product_id}'; loadGeneratedPosts();">${s.product_name}</span>
+                    <span class="badge bg-secondary" style="transition:none!important;">${s.total}건</span>
                 </span>`
             ).join('');
             statsPanel.dataset.loaded = 'true';
