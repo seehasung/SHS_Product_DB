@@ -497,6 +497,12 @@ async def send_task_to_worker(pc_number: int, task: AutomationTask, db: Session)
                 
                 print(f"   부모 Task #{parent_task.id} post_url: {post_url}")
         
+        # ★ 댓글/대댓글인데 post_url이 없으면 전송 차단 (잘못된 글에 댓글 방지)
+        if task.task_type in ['comment', 'reply'] and not post_url:
+            print(f"❌ [경고] Task #{task.id} ({task.task_type}) → post_url 없음! 전송 중단 (부모 post_url이 아직 없거나 parent_task_id 오류)")
+            print(f"   parent_task_id: {task.parent_task_id}")
+            return
+
         # 이미지 URL 파싱 (JSON 문자열 → 리스트)
         import json as _json
         image_urls = []
@@ -1796,6 +1802,7 @@ async def _dispatch_next_task_bg(task_id: int, task_type: str, parent_task_id, o
                     return
 
                 print(f"   📨 [BG] 첫 댓글 Task #{first_comment.id} → PC #{_pc_num}")
+                print(f"   📌 [BG] 댓글 대상 글: {root_task.post_url[:80] if root_task and root_task.post_url else 'N/A'}...")
                 await send_task_to_worker(_pc_num, first_comment, db)
             else:
                 # 댓글 없는 경우 → 다음 AI 그룹 즉시 실행
@@ -1825,25 +1832,30 @@ async def _dispatch_next_task_bg(task_id: int, task_type: str, parent_task_id, o
             if not task:
                 return
 
+            # ★ root_task(post task) 찾기: parent_task_id를 따라 올라감
             root_task = db.query(AutomationTask).get(task.parent_task_id)
             while root_task and root_task.task_type != 'post':
                 root_task = db.query(AutomationTask).get(root_task.parent_task_id) if root_task.parent_task_id else None
 
             if root_task:
-                all_comments = db.query(AutomationTask).filter(
-                    AutomationTask.task_type.in_(['comment', 'reply']),
-                    AutomationTask.status.in_(['pending', 'assigned', 'completed']),
-                    AutomationTask.cafe_id == root_task.cafe_id,
-                    AutomationTask.id >= root_task.id
-                ).all()
+                # ★ 핵심 수정: cafe_id 기반 범위 쿼리 대신 parent_task_id로 직접 추적
+                # 이전 방식: cafe_id == root_task.cafe_id → 같은 카페의 다른 글 댓글까지 포함되어 오염됨
+                # 새 방식: root_task에 직접 연결된 comment만, 그리고 reply는 parent comment에 연결된 것만
+                def get_all_children_recursive(parent_id, collected=None):
+                    """parent_task_id를 재귀적으로 탐색해서 관련 task 모두 수집"""
+                    if collected is None:
+                        collected = []
+                    children = db.query(AutomationTask).filter(
+                        AutomationTask.parent_task_id == parent_id,
+                        AutomationTask.task_type.in_(['comment', 'reply'])
+                    ).all()
+                    for child in children:
+                        collected.append(child)
+                        get_all_children_recursive(child.id, collected)
+                    return collected
 
-                related_tasks = []
-                for t in all_comments:
-                    temp = t
-                    while temp and temp.task_type != 'post':
-                        temp = db.query(AutomationTask).get(temp.parent_task_id) if temp.parent_task_id else None
-                    if temp and temp.id == root_task.id:
-                        related_tasks.append(t)
+                related_tasks = get_all_children_recursive(root_task.id)
+                print(f"   🔍 [BG] root_task #{root_task.id} 하위 댓글 {len(related_tasks)}개 탐색")
 
                 next_comment = None
                 for t in sorted(related_tasks, key=lambda x: x.order_sequence):
@@ -1877,7 +1889,17 @@ async def _dispatch_next_task_bg(task_id: int, task_type: str, parent_task_id, o
                         print(f"   ⚠️  [BG] Task #{next_comment.id} 이미 {next_comment.status} → 전송 건너뜀 (중복 방지)")
                         return
 
+                    # ★ post_url 검증: 부모 post_task의 post_url이 있어야 댓글 전송 가능
+                    _parent_of_next = db.query(AutomationTask).get(next_comment.parent_task_id)
+                    _root_of_next = _parent_of_next
+                    while _root_of_next and _root_of_next.task_type != 'post':
+                        _root_of_next = db.query(AutomationTask).get(_root_of_next.parent_task_id) if _root_of_next.parent_task_id else None
+                    if _root_of_next and not _root_of_next.post_url:
+                        print(f"   ⚠️  [BG] Task #{next_comment.id} 부모 post_task #{_root_of_next.id}의 post_url 없음 → 전송 대기 (수정발행 미완료)")
+                        return
+
                     print(f"   📨 [BG] 다음 댓글 Task #{next_comment.id} (순서:{next_comment.order_sequence}) → PC #{_pc_num2}")
+                    print(f"   📌 [BG] 댓글 대상 글: {_root_of_next.post_url[:80] if _root_of_next else 'N/A'}...")
                     await send_task_to_worker(_pc_num2, next_comment, db)
 
                 else:

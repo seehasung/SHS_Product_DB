@@ -460,11 +460,11 @@ async def check_ai_schedules():
     now = get_kst_now()
     try:
         # ── 고착 태스크 자동 복구 ─────────────────────────────────────
-        # 10분 이상 in_progress/assigned 상태인 post 태스크 → pending 리셋
+        # 10분 이상 in_progress 상태인 post 태스크 → pending 리셋
         # (워커 완료 보고 타임아웃으로 상태가 변경 안 된 경우 복구)
         stuck_threshold = now - timedelta(minutes=10)
         stuck_tasks = db.query(AutomationTask).filter(
-            AutomationTask.status.in_(['in_progress', 'assigned']),
+            AutomationTask.status == 'in_progress',
             AutomationTask.task_type.in_(['post', 'comment', 'reply', 'create_draft']),
             AutomationTask.updated_at <= stuck_threshold,
         ).all()
@@ -519,9 +519,24 @@ async def recover_orphaned_comment_tasks():
 
     db = SessionLocal()
     try:
+        from datetime import timedelta
+        now = get_kst_now()
         post_dispatched = 0
         comment_dispatched = 0
         skipped = 0
+
+        # ── 0. 5분 이상 assigned 상태인 task → pending 리셋 (완료 보고 누락 복구) ──
+        assigned_cutoff = now - timedelta(minutes=5)
+        stuck_assigned = db.query(AutomationTask).filter(
+            AutomationTask.status == 'assigned',
+            AutomationTask.updated_at <= assigned_cutoff,
+        ).all()
+        if stuck_assigned:
+            for st in stuck_assigned:
+                st.status = 'pending'
+                print(f"   🔄 [복구] Task #{st.id} ({st.task_type}) assigned→pending 리셋 (5분 초과)")
+            db.commit()
+            print(f"   ✅ assigned 고착 {len(stuck_assigned)}개 리셋 완료")
 
         # ── 1. pending post/create_draft task 복구 ─────────────────────────
         # (서버 재시작 or 스케줄러 리셋 후 PC가 이미 연결된 상태라 재연결 핸들러가 안 도는 케이스)
@@ -550,6 +565,10 @@ async def recover_orphaned_comment_tasks():
             ).first()
             if in_progress_check:
                 skipped += 1
+                continue
+
+            db.refresh(task)
+            if task.status not in ('pending', 'assigned'):
                 continue
 
             try:
@@ -604,6 +623,40 @@ async def recover_orphaned_comment_tasks():
                     dispatched_parents.add(parent_id)
             except Exception as _e:
                 print(f"   ⚠️ [복구-comment] Task #{task.id} 전송 실패: {_e}")
+
+        # ── 3. 부모 post가 오래됐는데 pending/assigned 상태인 경우 → 강제 완료 또는 실패 처리 ──
+        # 30분 이상 된 pending post task의 댓글 그룹 처리
+        old_post_cutoff = now - timedelta(minutes=30)
+        old_pending_posts = db.query(AutomationTask).filter(
+            AutomationTask.status.in_(['pending', 'assigned']),
+            AutomationTask.task_type == 'post',
+            AutomationTask.created_at <= old_post_cutoff,
+        ).all()
+
+        for old_post in old_pending_posts:
+            # 해당 post의 PC가 연결되어 있으면 재전송 시도 (이미 위에서 처리됨)
+            # PC가 없거나 오프라인이면 → 댓글 task들을 cancelled 처리
+            pc_rec = db.query(AutomationWorkerPC).filter(
+                (AutomationWorkerPC.id == old_post.assigned_pc_id) |
+                (AutomationWorkerPC.pc_number == old_post.assigned_pc_id)
+            ).first() if old_post.assigned_pc_id else None
+            pc_num = pc_rec.pc_number if pc_rec else old_post.assigned_pc_id
+
+            if pc_num and pc_num in worker_connections:
+                continue  # PC 연결됨 → 위에서 이미 처리
+
+            # PC 오프라인 + 30분 이상 pending → 해당 그룹 댓글 cancelled
+            child_tasks = db.query(AutomationTask).filter(
+                AutomationTask.parent_task_id == old_post.id,
+                AutomationTask.status.in_(['pending', 'assigned'])
+            ).all()
+            if child_tasks:
+                for ct in child_tasks:
+                    ct.status = 'cancelled'
+                old_post.status = 'failed'
+                old_post.error_message = (old_post.error_message or '') + ' | [자동복구] PC 오프라인 30분 초과로 강제 실패 처리'
+                db.commit()
+                print(f"   🚫 [복구] post Task #{old_post.id} (PC:{pc_num}) 30분 초과 + PC오프라인 → 실패/댓글 cancelled ({len(child_tasks)}개)")
 
         total = post_dispatched + comment_dispatched
         if total > 0 or skipped > 0:
