@@ -353,6 +353,17 @@
                             </div>
                             <div class="row g-2 mt-1 align-items-center">
                                 <div class="col-auto">
+                                    <label class="form-label form-label-sm mb-0">결과:</label>
+                                </div>
+                                <div class="col-auto">
+                                    <select class="form-select form-select-sm" id="cmpResultFilter" onchange="loadCompletedTasks(1)" style="width:auto;">
+                                        <option value="" selected>전체</option>
+                                        <option value="success">✅ 전체 성공</option>
+                                        <option value="partial">⏳ 일부 성공</option>
+                                        <option value="failed">❌ 실패</option>
+                                    </select>
+                                </div>
+                                <div class="col-auto">
                                     <label class="form-label form-label-sm mb-0">페이지당:</label>
                                 </div>
                                 <div class="col-auto">
@@ -1551,6 +1562,7 @@ async function loadCompletedTasks(page = 1) {
     const account    = document.getElementById('cmpAccount')?.value || '';
     const pageSize   = parseInt(document.getElementById('cmpPageSize')?.value || '20');
     const sortOrder  = document.getElementById('cmpSortOrder')?.value || 'desc';
+    const resultFilter = document.getElementById('cmpResultFilter')?.value || '';
 
     const params = [`page=${page}`, `page_size=${pageSize}`, `sort_order=${sortOrder}`];
     if (dateFrom)  params.push(`date_from=${dateFrom}`);
@@ -1558,6 +1570,7 @@ async function loadCompletedTasks(page = 1) {
     if (product)   params.push(`product_name=${encodeURIComponent(product)}`);
     if (cafe)      params.push(`cafe_name=${encodeURIComponent(cafe)}`);
     if (account)   params.push(`account_name=${encodeURIComponent(account)}`);
+    if (resultFilter) params.push(`result_filter=${resultFilter}`);
 
     try {
         const res = await fetch(`/automation/api/tasks/completed?` + params.join('&'));
@@ -1623,6 +1636,8 @@ function clearCompletedFilters() {
     if (ps) ps.value = '20';
     const so = document.getElementById('cmpSortOrder');
     if (so) so.value = 'desc';
+    const rf = document.getElementById('cmpResultFilter');
+    if (rf) rf.value = '';
     loadCompletedTasks(1);
 }
 
@@ -1891,18 +1906,27 @@ function renderRootRow(task, hasChildren, gid, status) {
         </td>`;
     }
 
+    // result_status 뱃지
+    const resultBadge = (() => {
+        if (!task.result_status || status !== 'completed') return '';
+        if (task.result_status === 'success') return '<span class="badge bg-success ms-1" style="font-size:.65rem">전체성공</span>';
+        if (task.result_status === 'partial') return '<span class="badge bg-warning text-dark ms-1" style="font-size:.65rem">일부성공</span>';
+        if (task.result_status === 'failed') return '<span class="badge bg-danger ms-1" style="font-size:.65rem">실패</span>';
+        return '';
+    })();
+
     const timeCol = status === 'completed'
         ? `<td style="font-size:.8rem">${task.status === 'failed'
             ? `<span class="text-danger">${task.updated_at || task.completed_at || '-'}</span>`
-            : (task.completed_at || '-')}</td>`
+            : (task.completed_at || '-')}${resultBadge}</td>`
         : `<td>${statusBadge(task.status)}</td>`;
 
-    // 실패 행은 배경색 강조
-    const rowClass = task.status === 'failed' ? 'task-group-root' : 'task-group-root';
-    const rowStyle = task.status === 'failed' ? 'style="background:#fff5f5!important;"' : '';
+    // 실패/일부성공 행 배경색 강조
+    const rowStyle = task.status === 'failed' ? 'style="background:#fff5f5!important;"'
+        : (task.result_status === 'partial' ? 'style="background:#fffbeb!important;"' : '');
 
     return `
-        <tr class="${rowClass}" ${rowStyle} onclick="toggleGroup('${gid}')">
+        <tr class="task-group-root" ${rowStyle} onclick="toggleGroup('${gid}')">
             <td>${expandBtn}</td>
             <td><strong>#${task.id}</strong></td>
             <td>${modeIcon} ${typeBadge(task.task_type)}</td>

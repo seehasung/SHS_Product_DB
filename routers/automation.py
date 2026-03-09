@@ -916,6 +916,19 @@ async def recover_stuck_tasks(
         if reset > 0:
             db.commit()
 
+        # 2-1. 10분 이상 assigned 상태인 태스크 → pending 리셋
+        assigned_cutoff = now - _td(minutes=10)
+        stuck_assigned = db.query(AutomationTask).filter(
+            AutomationTask.status == 'assigned',
+            AutomationTask.updated_at < assigned_cutoff
+        ).all()
+        for task in stuck_assigned:
+            task.status = 'pending'
+            reset += 1
+            print(f"⚠️ [강제복구] Task #{task.id} assigned 10분 초과 → pending 리셋")
+        if stuck_assigned:
+            db.commit()
+
         # 3. pending comment/reply 중 즉시 전송 가능한 것 (PC 배정 여부 무관)
         stuck_comments = db.query(AutomationTask).filter(
             AutomationTask.status == 'pending',
@@ -1086,6 +1099,7 @@ async def list_completed_tasks(
     product_name: Optional[str] = Query(None), # 상품명 부분 검색
     cafe_name: Optional[str] = Query(None),    # 카페명 부분 검색
     account_name: Optional[str] = Query(None), # 계정 부분 검색
+    result_filter: Optional[str] = Query(None), # 'success' | 'partial' | 'failed'
     sort_order: str = Query('desc'),           # 'desc' | 'asc'
     page: int = Query(1),
     page_size: int = Query(20),
@@ -1098,10 +1112,17 @@ async def list_completed_tasks(
 
         # root post task만 조회 (parent_task_id IS NULL)
         query = db.query(AutomationTask).filter(
-            AutomationTask.status.in_(['completed', 'failed']),
             AutomationTask.parent_task_id == None,
             AutomationTask.task_type.in_(['post', 'create_draft']),
         )
+
+        # result_filter에 따른 상태 필터
+        if result_filter == 'failed':
+            query = query.filter(AutomationTask.status == 'failed')
+        elif result_filter in ('success', 'partial'):
+            query = query.filter(AutomationTask.status == 'completed')
+        else:
+            query = query.filter(AutomationTask.status.in_(['completed', 'failed']))
 
         if date_from:
             _df = _dt.strptime(date_from, '%Y-%m-%d')
@@ -1114,11 +1135,35 @@ async def list_completed_tasks(
         if product_name:
             query = query.filter(AutomationTask.product_name.ilike(f'%{product_name}%'))
 
-        total = query.count()
-        if sort_order == 'asc':
-            tasks = query.order_by(_asc(AutomationTask.completed_at)).offset((page - 1) * page_size).limit(page_size).all()
+        # success/partial 필터는 자식 상태를 봐야 하므로 전체 조회 후 파이썬 필터
+        need_child_filter = result_filter in ('success', 'partial')
+
+        if need_child_filter:
+            if sort_order == 'asc':
+                all_tasks = query.order_by(_asc(AutomationTask.completed_at)).all()
+            else:
+                all_tasks = query.order_by(_desc(AutomationTask.completed_at)).all()
+
+            filtered_tasks = []
+            for t in all_tasks:
+                children = db.query(AutomationTask).filter(
+                    AutomationTask.parent_task_id == t.id,
+                    AutomationTask.task_type.in_(['comment', 'reply'])
+                ).all()
+                all_children_completed = all(c.status == 'completed' for c in children) if children else True
+                if result_filter == 'success' and all_children_completed:
+                    filtered_tasks.append(t)
+                elif result_filter == 'partial' and not all_children_completed:
+                    filtered_tasks.append(t)
+
+            total = len(filtered_tasks)
+            tasks = filtered_tasks[(page - 1) * page_size: page * page_size]
         else:
-            tasks = query.order_by(_desc(AutomationTask.completed_at)).offset((page - 1) * page_size).limit(page_size).all()
+            total = query.count()
+            if sort_order == 'asc':
+                tasks = query.order_by(_asc(AutomationTask.completed_at)).offset((page - 1) * page_size).limit(page_size).all()
+            else:
+                tasks = query.order_by(_desc(AutomationTask.completed_at)).offset((page - 1) * page_size).limit(page_size).all()
 
         import json as _json
         task_list = []
@@ -1177,6 +1222,14 @@ async def list_completed_tasks(
                         'completed_at': ch.completed_at.strftime('%Y-%m-%d %H:%M:%S') if ch.completed_at else None,
                     })
 
+                # result_status 계산: 전체성공/일부성공/실패
+                if task.status == 'failed':
+                    _result_status = 'failed'
+                else:
+                    _comment_children = [ch for ch in children if ch.task_type in ('comment', 'reply')]
+                    _all_done = all(ch.status == 'completed' for ch in _comment_children) if _comment_children else True
+                    _result_status = 'success' if _all_done else 'partial'
+
                 task_list.append({
                     'id': task.id,
                     'task_type': task.task_type,
@@ -1187,6 +1240,7 @@ async def list_completed_tasks(
                     'product_name': task.product_name or '',
                     'keyword_text': task.keyword or '',
                     'status': task.status,
+                    'result_status': _result_status,
                     'assigned_pc': pc_num,
                     'assigned_account': acc_str,
                     'completed_at': task.completed_at.strftime('%Y-%m-%d %H:%M:%S') if task.completed_at else None,
@@ -1760,7 +1814,7 @@ async def _dispatch_next_task_bg(task_id: int, task_type: str, parent_task_id, o
     db = SessionLocal()
     try:
         import random
-        wait_time = random.randint(2, 5)
+        wait_time = random.randint(40, 70)
         print(f"⏳ [BG] 다음 작업 대기 중... ({wait_time}초)")
         await asyncio.sleep(wait_time)
 
@@ -1787,14 +1841,14 @@ async def _dispatch_next_task_bg(task_id: int, task_type: str, parent_task_id, o
                 _pc_num = _pc_rec.pc_number if _pc_rec else first_comment.assigned_pc_id
 
                 if _pc_num not in worker_connections:
-                    print(f"   ⏳ [BG] PC #{_pc_num} 연결 대기 중... (최대 90초)")
-                    for i in range(90):
+                    print(f"   ⏳ [BG] PC #{_pc_num} 연결 대기 중... (최대 120초)")
+                    for i in range(120):
                         await asyncio.sleep(1)
                         if _pc_num in worker_connections:
                             print(f"   ✅ [BG] PC #{_pc_num} 연결됨! ({i+1}초)")
                             break
                     else:
-                        print(f"   ⚠️  [BG] 타임아웃: PC #{_pc_num} 미연결")
+                        print(f"   ⚠️  [BG] 타임아웃: PC #{_pc_num} 미연결 → Task #{first_comment.id} pending 유지 (recover-stuck에서 재시도)")
                         return
 
                 # ★ 전송 직전 상태 재확인 (중복 전송 방지)
@@ -1804,7 +1858,8 @@ async def _dispatch_next_task_bg(task_id: int, task_type: str, parent_task_id, o
                     return
 
                 print(f"   📨 [BG] 첫 댓글 Task #{first_comment.id} → PC #{_pc_num}")
-                print(f"   📌 [BG] 댓글 대상 글: {root_task.post_url[:80] if root_task and root_task.post_url else 'N/A'}...")
+                _post_task_for_log = db.query(AutomationTask).get(task_id)
+                print(f"   📌 [BG] 댓글 대상 글: {_post_task_for_log.post_url[:80] if _post_task_for_log and _post_task_for_log.post_url else 'N/A'}...")
                 await send_task_to_worker(_pc_num, first_comment, db)
             else:
                 # 댓글 없는 경우 → 다음 AI 그룹 즉시 실행
@@ -1875,14 +1930,14 @@ async def _dispatch_next_task_bg(task_id: int, task_type: str, parent_task_id, o
                     _pc_num2 = _pc_rec2.pc_number if _pc_rec2 else next_comment.assigned_pc_id
 
                     if _pc_num2 not in worker_connections:
-                        print(f"   ⏳ [BG] PC #{_pc_num2} 연결 대기 중... (최대 90초)")
-                        for i in range(90):
+                        print(f"   ⏳ [BG] PC #{_pc_num2} 연결 대기 중... (최대 120초)")
+                        for i in range(120):
                             await asyncio.sleep(1)
                             if _pc_num2 in worker_connections:
                                 print(f"   ✅ [BG] PC #{_pc_num2} 연결됨! ({i+1}초)")
                                 break
                         else:
-                            print(f"   ⚠️  [BG] 타임아웃: PC #{_pc_num2} 미연결")
+                            print(f"   ⚠️  [BG] 타임아웃: PC #{_pc_num2} 미연결 → Task #{next_comment.id} pending 유지 (recover-stuck에서 재시도)")
                             return
 
                     # ★ 전송 직전 상태 재확인 (타이밍으로 인한 중복 전송 방지)
