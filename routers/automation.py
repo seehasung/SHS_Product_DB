@@ -870,9 +870,11 @@ async def recover_stuck_tasks(
 ):
     """
     막힌 태스크 강제 복구:
-    1. PC:None 미할당 태스크 → 연결된 PC에 자동 배정 후 전송
-    2. pending 상태인 comment/reply 태스크 중 부모가 completed인 것 → 즉시 전송
-    3. 오래된 in_progress 태스크 → pending으로 리셋
+    1. assigned 태스크 즉시 pending 리셋 (강제 모드)
+    2. in_progress 태스크 → pending 리셋
+    3. PC:None 미할당 태스크 → 연결된 PC에 자동 배정 후 전송
+    4. pending post/create_draft → 연결된 PC에 즉시 전송
+    5. pending comment/reply 중 부모 완료된 것 → 즉시 전송
     """
     try:
         from datetime import datetime as _dt, timedelta as _td
@@ -881,7 +883,31 @@ async def recover_stuck_tasks(
         reset = 0
         assigned_new = 0
 
-        # 1. PC:None 미할당 post/create_draft 태스크 → 연결된 PC에 배정
+        # 1. assigned 상태 즉시 리셋 (강제 복구이므로 시간 조건 없음)
+        stuck_assigned = db.query(AutomationTask).filter(
+            AutomationTask.status == 'assigned',
+        ).all()
+        for task in stuck_assigned:
+            task.status = 'pending'
+            reset += 1
+            print(f"⚠️ [강제복구] Task #{task.id} assigned → pending 리셋")
+        if stuck_assigned:
+            db.commit()
+
+        # 2. 10분 이상 in_progress 상태인 태스크 → pending 리셋
+        stuck_cutoff = now - _td(minutes=10)
+        stuck_inprogress = db.query(AutomationTask).filter(
+            AutomationTask.status == 'in_progress',
+            AutomationTask.updated_at < stuck_cutoff
+        ).all()
+        for task in stuck_inprogress:
+            task.status = 'pending'
+            reset += 1
+            print(f"⚠️ [강제복구] Task #{task.id} in_progress → pending 리셋")
+        if stuck_inprogress:
+            db.commit()
+
+        # 3. PC:None 미할당 post/create_draft 태스크 → 연결된 PC에 배정
         unassigned_posts = db.query(AutomationTask).filter(
             AutomationTask.status == 'pending',
             AutomationTask.assigned_pc_id == None,
@@ -903,33 +929,31 @@ async def recover_stuck_tasks(
                     except Exception:
                         pass
 
-        # 2. 30분 이상 in_progress 상태인 태스크 → pending 리셋
-        stuck_cutoff = now - _td(minutes=30)
-        stuck_inprogress = db.query(AutomationTask).filter(
-            AutomationTask.status == 'in_progress',
-            AutomationTask.started_at < stuck_cutoff
-        ).all()
-        for task in stuck_inprogress:
-            task.status = 'pending'
-            reset += 1
-            print(f"⚠️ [강제복구] Task #{task.id} in_progress 30분 초과 → pending 리셋")
-        if reset > 0:
-            db.commit()
+        # 4. PC 할당된 pending post/create_draft → 즉시 전송
+        pending_posts = db.query(AutomationTask).filter(
+            AutomationTask.status == 'pending',
+            AutomationTask.assigned_pc_id != None,
+            AutomationTask.task_type.in_(['post', 'create_draft'])
+        ).order_by(AutomationTask.id.asc()).all()
+        for task in pending_posts:
+            pc_rec = db.query(AutomationWorkerPC).filter(
+                (AutomationWorkerPC.id == task.assigned_pc_id) |
+                (AutomationWorkerPC.pc_number == task.assigned_pc_id)
+            ).first()
+            pc_num = pc_rec.pc_number if pc_rec else task.assigned_pc_id
+            if pc_num not in worker_connections:
+                continue
+            db.refresh(task)
+            if task.status != 'pending':
+                continue
+            try:
+                await send_task_to_worker(pc_num, task, db)
+                sent += 1
+                print(f"🔧 [강제복구] post Task #{task.id} → PC #{pc_num} 전송")
+            except Exception:
+                pass
 
-        # 2-1. 10분 이상 assigned 상태인 태스크 → pending 리셋
-        assigned_cutoff = now - _td(minutes=10)
-        stuck_assigned = db.query(AutomationTask).filter(
-            AutomationTask.status == 'assigned',
-            AutomationTask.updated_at < assigned_cutoff
-        ).all()
-        for task in stuck_assigned:
-            task.status = 'pending'
-            reset += 1
-            print(f"⚠️ [강제복구] Task #{task.id} assigned 10분 초과 → pending 리셋")
-        if stuck_assigned:
-            db.commit()
-
-        # 3. pending comment/reply 중 즉시 전송 가능한 것 (PC 배정 여부 무관)
+        # 5. pending comment/reply 중 즉시 전송 가능한 것
         stuck_comments = db.query(AutomationTask).filter(
             AutomationTask.status == 'pending',
             AutomationTask.task_type.in_(['comment', 'reply']),
@@ -943,7 +967,6 @@ async def recover_stuck_tasks(
             if parent_id in dispatched_parents:
                 continue
 
-            # PC가 미배정인 경우 → 형제 태스크에서 PC 파악 또는 아무 PC 배정
             if not task.assigned_pc_id:
                 sibling = db.query(AutomationTask).filter(
                     AutomationTask.parent_task_id == task.parent_task_id,
@@ -1814,7 +1837,7 @@ async def _dispatch_next_task_bg(task_id: int, task_type: str, parent_task_id, o
     db = SessionLocal()
     try:
         import random
-        wait_time = random.randint(40, 70)
+        wait_time = random.randint(20, 40)
         print(f"⏳ [BG] 다음 작업 대기 중... ({wait_time}초)")
         await asyncio.sleep(wait_time)
 
