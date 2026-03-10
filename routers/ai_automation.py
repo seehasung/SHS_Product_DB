@@ -466,13 +466,14 @@ async def get_product_keywords(
             AIProductKeyword.ai_product_id == product_id
         ).order_by(AIProductKeyword.keyword_text).all()
 
-        # 키워드별 수정발행 완료 횟수 계산 (keyword 컬럼 기준)
+        # 키워드별 수정발행 완료 횟수 계산 (keyword 컬럼 기준, 실제 발행된 것만)
         publish_counts = {}
         for kw in keywords:
             cnt = db.query(AutomationTask).filter(
                 AutomationTask.task_type == 'post',
                 AutomationTask.keyword == kw.keyword_text,
-                AutomationTask.status == 'completed'
+                AutomationTask.status == 'completed',
+                AutomationTask.post_url != None,
             ).count()
             publish_counts[kw.id] = cnt
 
@@ -4652,7 +4653,8 @@ async def _execute_ai_schedule(schedule_id: int, db: Session, force: bool = Fals
         eligible = [k for k in active_kws if db.query(AutomationTask).filter(
             AutomationTask.task_type == 'post',
             AutomationTask.keyword == k.keyword_text,
-            AutomationTask.status == 'completed'
+            AutomationTask.status == 'completed',
+            AutomationTask.post_url != None,
         ).count() < 6]
         pool = eligible if eligible else active_kws
         chosen = _random.choice(pool)

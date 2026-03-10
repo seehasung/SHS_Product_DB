@@ -384,6 +384,11 @@
                                     </select>
                                 </div>
                                 <div class="col-auto ms-2 text-muted small" id="cmpTotalInfo"></div>
+                                <div class="col-auto ms-auto">
+                                    <button class="btn btn-sm btn-outline-danger" onclick="deleteAllFailedTasks()">
+                                        <i class="bi bi-trash"></i> 실패 기록 전체 삭제
+                                    </button>
+                                </div>
                             </div>
                         </div>
                         <div class="table-responsive">
@@ -1736,6 +1741,38 @@ async function retryTask(taskId) {
     }
 }
 
+async function deleteTask(taskId) {
+    if (!confirm(`Task #${taskId} 및 하위 댓글을 삭제하시겠습니까?`)) return;
+    try {
+        const res = await fetch(`/automation/api/tasks/${taskId}`, { method: 'DELETE' });
+        const data = await res.json();
+        if (data.success) {
+            showToast('success', data.message || '삭제 완료');
+            setTimeout(() => loadCompletedTasks(1), 500);
+        } else {
+            showToast('error', data.message || '삭제 실패');
+        }
+    } catch(e) {
+        showToast('error', '삭제 요청 오류: ' + e.message);
+    }
+}
+
+async function deleteAllFailedTasks() {
+    if (!confirm('실패한 작업 기록을 전체 삭제하시겠습니까?\n(하위 댓글 포함 모두 삭제됩니다)')) return;
+    try {
+        const res = await fetch('/automation/api/tasks/failed/all', { method: 'DELETE' });
+        const data = await res.json();
+        if (data.success) {
+            showToast('success', data.message || '실패 기록 전체 삭제 완료');
+            setTimeout(() => loadTasks(), 500);
+        } else {
+            showToast('error', data.message || '삭제 실패');
+        }
+    } catch(e) {
+        showToast('error', '삭제 요청 오류: ' + e.message);
+    }
+}
+
 async function recoverStuckTasks(btnEl) {
     const btn = btnEl || null;
     const origHtml = btn ? btn.innerHTML : '';
@@ -1891,11 +1928,14 @@ function renderRootRow(task, hasChildren, gid, status) {
         const retryBtn = task.status === 'failed'
             ? `<button class="btn btn-sm btn-outline-danger ms-1" style="font-size:.75rem;padding:2px 6px" onclick="retryTask(${task.id})">🔄 재실행</button>`
             : '';
+        const deleteBtn = task.status === 'failed'
+            ? `<button class="btn btn-sm btn-outline-secondary ms-1" style="font-size:.75rem;padding:2px 6px" onclick="deleteTask(${task.id})">🗑</button>`
+            : '';
         lastCol = `<td onclick="event.stopPropagation()">
             ${task.post_url ? `<a href="${task.post_url}" target="_blank" class="btn btn-sm btn-outline-success" style="font-size:.75rem;padding:2px 6px">🔗 URL</a> ` : ''}
             ${failBadge}
             <button class="btn btn-sm btn-outline-secondary" style="font-size:.75rem;padding:2px 6px" onclick="showTaskContent(${task.id})">👁 내용</button>
-            ${retryBtn}
+            ${retryBtn}${deleteBtn}
         </td>`;
     } else {
         const retryBtn = `<button class="btn btn-sm btn-outline-warning ms-1" style="font-size:.75rem;padding:2px 6px" onclick="retryTask(${task.id})">🔄 재전송</button>`;

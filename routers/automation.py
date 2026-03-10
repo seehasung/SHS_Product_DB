@@ -2195,6 +2195,73 @@ async def fail_task(
         return JSONResponse({'success': False, 'error': str(e)}, status_code=500)
 
 
+@router.delete("/api/tasks/failed/all")
+async def delete_all_failed_tasks(db: Session = Depends(get_db)):
+    """실패한 Task 전체 삭제"""
+    try:
+        failed_root_ids = [t.id for t in db.query(AutomationTask).filter(
+            AutomationTask.status == 'failed',
+            AutomationTask.parent_task_id == None,
+            AutomationTask.task_type.in_(['post', 'create_draft'])
+        ).all()]
+
+        total_deleted = 0
+        for root_id in failed_root_ids:
+            children = db.query(AutomationTask).filter(AutomationTask.parent_task_id == root_id).all()
+            child_ids = [c.id for c in children]
+            for cid in child_ids:
+                grandchildren = db.query(AutomationTask).filter(AutomationTask.parent_task_id == cid).all()
+                gc_ids = [gc.id for gc in grandchildren]
+                if gc_ids:
+                    db.query(AutomationTask).filter(AutomationTask.id.in_(gc_ids)).delete(synchronize_session=False)
+                    total_deleted += len(gc_ids)
+            if child_ids:
+                db.query(AutomationTask).filter(AutomationTask.id.in_(child_ids)).delete(synchronize_session=False)
+                total_deleted += len(child_ids)
+            db.query(AutomationTask).filter(AutomationTask.id == root_id).delete(synchronize_session=False)
+            total_deleted += 1
+
+        db.commit()
+        print(f"🗑️ 실패 작업 전체 삭제: {total_deleted}개 (root {len(failed_root_ids)}개)")
+        return JSONResponse({'success': True, 'message': f'실패 작업 {total_deleted}개 삭제 완료', 'deleted': total_deleted})
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return JSONResponse({'success': False, 'error': str(e)}, status_code=500)
+
+
+@router.delete("/api/tasks/{task_id}")
+async def delete_task(task_id: int, db: Session = Depends(get_db)):
+    """실패/완료된 Task 단건 삭제 (하위 댓글 포함)"""
+    try:
+        task = db.query(AutomationTask).get(task_id)
+        if not task:
+            return JSONResponse({'success': False, 'error': 'Task not found'}, status_code=404)
+        if task.status in ('pending', 'assigned', 'in_progress'):
+            return JSONResponse({'success': False, 'error': '진행 중인 작업은 삭제할 수 없습니다.'}, status_code=400)
+
+        def _collect_children(parent_id):
+            children = db.query(AutomationTask).filter(AutomationTask.parent_task_id == parent_id).all()
+            ids = []
+            for c in children:
+                ids.append(c.id)
+                ids.extend(_collect_children(c.id))
+            return ids
+
+        child_ids = _collect_children(task_id)
+        if child_ids:
+            db.query(AutomationTask).filter(AutomationTask.id.in_(child_ids)).delete(synchronize_session=False)
+        db.delete(task)
+        db.commit()
+        total = 1 + len(child_ids)
+        print(f"🗑️ Task #{task_id} 삭제 완료 (하위 {len(child_ids)}개 포함, 총 {total}개)")
+        return JSONResponse({'success': True, 'message': f'Task #{task_id} 외 {len(child_ids)}개 삭제', 'deleted': total})
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return JSONResponse({'success': False, 'error': str(e)}, status_code=500)
+
+
 @router.get("/api/worker/version")
 async def get_worker_version():
     """Worker 버전 정보 제공"""
