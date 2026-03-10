@@ -4647,17 +4647,40 @@ async def _execute_ai_schedule(schedule_id: int, db: Session, force: bool = Fals
             ).all()
         print(f"🔑 [스케줄#{schedule_id}] 사용 키워드 풀: {len(active_kws)}개")
 
+    _today_used_keywords = set()
+    _today_kw_rows = db.query(AutomationTask.keyword).filter(
+        AutomationTask.task_type == 'post',
+        AutomationTask.keyword != None,
+        AutomationTask.status.in_(['pending', 'assigned', 'in_progress', 'completed']),
+        AutomationTask.created_at >= today_start
+    ).all()
+    for row in _today_kw_rows:
+        if row[0]:
+            _today_used_keywords.add(row[0])
+    if _today_used_keywords:
+        print(f"🔑 [스케줄#{schedule_id}] 오늘 이미 사용/대기 중인 키워드 {len(_today_used_keywords)}개 제외")
+
     def _pick_keyword():
         if not active_kws:
             return None
-        eligible = [k for k in active_kws if db.query(AutomationTask).filter(
-            AutomationTask.task_type == 'post',
-            AutomationTask.keyword == k.keyword_text,
-            AutomationTask.status == 'completed',
-            AutomationTask.post_url != None,
-        ).count() < 6]
-        pool = eligible if eligible else active_kws
-        chosen = _random.choice(pool)
+        # 1차: 전체 6회 미만 + 오늘 미사용
+        eligible = [k for k in active_kws
+                    if k.keyword_text not in _today_used_keywords
+                    and db.query(AutomationTask).filter(
+                        AutomationTask.task_type == 'post',
+                        AutomationTask.keyword == k.keyword_text,
+                        AutomationTask.status == 'completed',
+                        AutomationTask.post_url != None,
+                    ).count() < 6]
+        if not eligible:
+            # 2차 폴백: 오늘 미사용만 (6회 제한 무시)
+            eligible = [k for k in active_kws if k.keyword_text not in _today_used_keywords]
+        if not eligible:
+            # 3차 폴백: 전체 키워드 (오늘 키워드 소진 시)
+            print(f"  ⚠️  오늘 사용 가능한 키워드 없음 → 전체 키워드 풀에서 선택")
+            eligible = active_kws
+        chosen = _random.choice(eligible)
+        _today_used_keywords.add(chosen.keyword_text)
         print(f"🔑 [키워드 선택] '{chosen.keyword_text}' (타입: {chosen.keyword_type})")
         return chosen.keyword_text
 
