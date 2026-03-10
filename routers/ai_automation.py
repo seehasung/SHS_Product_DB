@@ -3145,6 +3145,11 @@ async def publish_test(
         if not draft_post or not draft_post.link:
             return JSONResponse({"success": False, "error": "초안 URL을 찾을 수 없습니다"}, status_code=404)
         
+        # 당일 신규발행 글은 수정발행 불가 (전날 이전 글만 허용)
+        _today_start = get_kst_now().replace(hour=0, minute=0, second=0, microsecond=0)
+        if draft_post.created_at and draft_post.created_at >= _today_start:
+            return JSONResponse({"success": False, "error": "당일 신규발행 글은 수정발행할 수 없습니다. 전날 이전에 작성된 글만 사용 가능합니다."}, status_code=400)
+        
         # 카페 자동 추출!
         cafe_id = draft_post.link.cafe_id
         assigned_account_id = draft_post.link.account_id
@@ -3930,12 +3935,12 @@ async def _execute_draft_schedule(schedule_id: int, db: Session) -> dict:
                 skipped.append(f"PC#{pc.pc_number}/{account.account_id}: 가입 카페 없음")
                 continue
 
-            # 오늘 이미 create_draft 완료한 카페 제외
+            # 오늘 이미 create_draft 생성/완료한 카페 제외 (하루 1회 제한)
             done_today = db.query(AutomationTask).filter(
                 AutomationTask.task_type == 'create_draft',
                 AutomationTask.assigned_account_id == account.id,
-                AutomationTask.status == 'completed',
-                AutomationTask.completed_at >= today_start
+                AutomationTask.status.in_(['pending', 'assigned', 'in_progress', 'completed']),
+                AutomationTask.created_at >= today_start
             ).all()
             done_cafe_ids = {t.cafe_id for t in done_today}
 
@@ -4691,6 +4696,7 @@ async def _execute_ai_schedule(schedule_id: int, db: Session, force: bool = Fals
                     DraftPost.status == 'available',
                     DraftPost.draft_url != None,
                     DraftPost.draft_url != '',
+                    DraftPost.created_at < today_start,
                 ).first()
                 if draft:
                     eligible.append((link, draft))

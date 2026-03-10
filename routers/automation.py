@@ -227,25 +227,18 @@ async def worker_websocket(websocket: WebSocket, pc_number: int, db: Session = D
                             keyword_text=task.schedule.keyword_text if task.schedule else None
                         )
                         db.add(post)
-                        # ★ DraftPost '사용됨' 처리 + used_post_count 증가 (WebSocket 경로)
+                        # ★ DraftPost modified_url만 저장 (used 처리는 댓글 전체 완료 후)
                         post_url_ws = message.get('post_url')
                         if (task.error_message and 'MODIFY_URL:' in task.error_message and post_url_ws):
                             try:
-                                from database import CafeAccountLink as _CAL_ws, DraftPost as _DP_ws
+                                from database import DraftPost as _DP_ws
                                 draft_url_ws = task.error_message.split('MODIFY_URL:')[1].split('|')[0].strip()
                                 dp_ws = db.query(_DP_ws).filter(_DP_ws.draft_url == draft_url_ws).first()
                                 if dp_ws:
-                                    was_used_ws = dp_ws.status == 'used'
                                     dp_ws.modified_url = post_url_ws
-                                    dp_ws.status = 'used'
-                                    dp_ws.used_at = get_kst_now()
-                                    if not was_used_ws and dp_ws.link_id:
-                                        link_ws = db.query(_CAL_ws).get(dp_ws.link_id)
-                                        if link_ws:
-                                            link_ws.used_post_count = (link_ws.used_post_count or 0) + 1
-                                            print(f"  ✅ [WS] used_post_count → {link_ws.used_post_count}")
+                                    print(f"  📌 [WS] DraftPost #{dp_ws.id} modified_url 저장 (used 처리는 댓글 완료 후)")
                             except Exception as _dp_err:
-                                print(f"  ⚠️ [WS] DraftPost used 업데이트 실패: {_dp_err}")
+                                print(f"  ⚠️ [WS] DraftPost modified_url 저장 실패: {_dp_err}")
                     elif task.task_type in ['comment', 'reply']:
                         parent_post_id = None
                         cafe_comment_id = message.get('cafe_comment_id')  # ⭐ 카페 댓글 ID
@@ -1779,6 +1772,36 @@ async def _try_send_next_pending_task(pc_id: int, db=None):
             db.close()
 
 
+def _mark_draft_post_used(post_task, db):
+    """post task에 연결된 DraftPost를 'used'로 변경 + used_post_count 증가
+    
+    전체 댓글이 completed인 경우에만 호출해야 함.
+    """
+    from database import CafeAccountLink as _CAL, DraftPost as _DP
+    if not (post_task.error_message and 'MODIFY_URL:' in post_task.error_message):
+        return
+    if not post_task.post_url:
+        return
+    try:
+        draft_url_val = post_task.error_message.split('MODIFY_URL:')[1].split('|')[0].strip()
+        draft_post = db.query(_DP).filter(_DP.draft_url == draft_url_val).first()
+        if draft_post and draft_post.status != 'used':
+            draft_post.status = 'used'
+            draft_post.used_at = get_kst_now()
+            if not draft_post.modified_url:
+                draft_post.modified_url = post_task.post_url
+            if draft_post.link_id:
+                link = db.query(_CAL).get(draft_post.link_id)
+                if link:
+                    link.used_post_count = (link.used_post_count or 0) + 1
+                    print(f"  ✅ DraftPost #{draft_post.id} → used, used_post_count → {link.used_post_count}")
+            else:
+                print(f"  ✅ DraftPost #{draft_post.id} → used")
+            db.commit()
+    except Exception as dp_err:
+        print(f"  ⚠️ DraftPost used 처리 실패: {dp_err}")
+
+
 async def _dispatch_next_group_on_failure(failed_task_id: int):
     """post 타입 Task 실패 시 → 해당 그룹의 댓글들을 모두 cancelled 처리하고 다음 AI 그룹 실행"""
     from database import SessionLocal
@@ -1885,7 +1908,10 @@ async def _dispatch_next_task_bg(task_id: int, task_type: str, parent_task_id, o
                 print(f"   📌 [BG] 댓글 대상 글: {_post_task_for_log.post_url[:80] if _post_task_for_log and _post_task_for_log.post_url else 'N/A'}...")
                 await send_task_to_worker(_pc_num, first_comment, db)
             else:
-                # 댓글 없는 경우 → 다음 AI 그룹 즉시 실행
+                # 댓글 없는 경우 → DraftPost used 처리 후 다음 AI 그룹 즉시 실행
+                _post_task_for_used = db.query(AutomationTask).get(task_id)
+                if _post_task_for_used:
+                    _mark_draft_post_used(_post_task_for_used, db)
                 try:
                     from routers.ai_automation import _execute_next_ai_group, _ai_task_schedule_map
                     schedule_id = _ai_task_schedule_map.get(task_id)
@@ -1983,7 +2009,17 @@ async def _dispatch_next_task_bg(task_id: int, task_type: str, parent_task_id, o
                     await send_task_to_worker(_pc_num2, next_comment, db)
 
                 else:
-                    # ★ 마지막 댓글 완료 → 다음 AI 그룹 실행 (순차)
+                    # ★ 마지막 댓글 완료 → 1개라도 성공이면 DraftPost used 처리
+                    if root_task:
+                        all_comments = get_all_children_recursive(root_task.id)
+                        completed_count = sum(1 for t in all_comments if t.status == 'completed')
+                        if completed_count > 0:
+                            _mark_draft_post_used(root_task, db)
+                            print(f"   ✅ [BG] 댓글 {completed_count}/{len(all_comments)}개 성공 → DraftPost used 처리")
+                        else:
+                            print(f"   ⚠️  [BG] 댓글 전체 실패 ({len(all_comments)}개) → DraftPost used 처리 안 함 (재사용 가능)")
+
+                    # 다음 AI 그룹 실행 (순차)
                     try:
                         from routers.ai_automation import _execute_next_ai_group, _ai_task_schedule_map
                         if root_task:
@@ -2076,29 +2112,19 @@ async def complete_task(
                 except Exception as dp_err:
                     print(f"  ⚠️ DraftPost 저장 실패: {dp_err}")
 
-            # ★ post 완료 시 DraftPost '사용됨' 업데이트 + used_post_count 증가
+            # ★ post 완료 시 DraftPost modified_url만 저장 (used 처리는 댓글 전체 완료 후)
             if (task.task_type == 'post'
                     and task.error_message
                     and 'MODIFY_URL:' in task.error_message
                     and post_url):
                 try:
-                    from database import CafeAccountLink as _CAL
                     draft_url_val = task.error_message.split('MODIFY_URL:')[1].split('|')[0].strip()
                     draft_post = db.query(DraftPost).filter(DraftPost.draft_url == draft_url_val).first()
                     if draft_post:
-                        was_used = draft_post.status == 'used'
                         draft_post.modified_url = post_url
-                        draft_post.status = 'used'
-                        draft_post.used_at = get_kst_now()
-                        print(f"  ✅ DraftPost #{draft_post.id} → status='used'")
-                        # used_post_count 증가 (이미 used가 아닌 경우에만)
-                        if not was_used and draft_post.link_id:
-                            link = db.query(_CAL).get(draft_post.link_id)
-                            if link:
-                                link.used_post_count = (link.used_post_count or 0) + 1
-                                print(f"  ✅ CafeAccountLink #{link.id} used_post_count → {link.used_post_count}")
+                        print(f"  📌 DraftPost #{draft_post.id} modified_url 저장 (used 처리는 댓글 완료 후)")
                 except Exception as dp_err:
-                    print(f"  ⚠️ DraftPost 업데이트 실패: {dp_err}")
+                    print(f"  ⚠️ DraftPost modified_url 저장 실패: {dp_err}")
 
             db.commit()
             print(f"✅ Task #{task_id} 완료 (HTTP, type:{task.task_type}, seq:{task.order_sequence})")
