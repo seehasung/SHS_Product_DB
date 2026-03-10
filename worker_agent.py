@@ -2699,6 +2699,7 @@ class NaverCafeWorker:
                         await self.process_task(task)
                     except Exception as pt_err:
                         print(f"❌ process_task 처리 중 예상치 못한 오류: {pt_err}")
+                        _recently_completed_task_ids.discard(_task_id_rcv)
                         # 브라우저 죽었으면 재시작
                         if not self._is_browser_alive():
                             print("   ⚠️  브라우저 사망 → 자동 재시작 시도...")
