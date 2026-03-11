@@ -1760,6 +1760,22 @@ async function deleteTask(taskId) {
     }
 }
 
+async function resumeComments(taskId) {
+    if (!confirm(`Task #${taskId}의 대기 중인 댓글을 재전송하시겠습니까?`)) return;
+    try {
+        const res = await fetch(`/automation/api/tasks/${taskId}/resume-comments`, { method: 'POST' });
+        const data = await res.json();
+        if (data.success) {
+            showToast('success', data.message || '댓글 재전송 완료');
+            setTimeout(() => loadCompletedTasks(1), 1000);
+        } else {
+            showToast('error', data.message || '재전송 실패');
+        }
+    } catch(e) {
+        showToast('error', '재전송 요청 오류: ' + e.message);
+    }
+}
+
 async function deleteAllFailedTasks() {
     if (!confirm('실패한 작업 기록을 전체 삭제하시겠습니까?\n(하위 댓글 포함 모두 삭제됩니다)')) return;
     try {
@@ -1956,11 +1972,14 @@ function renderRootRow(task, hasChildren, gid, status) {
         const deleteBtn = task.status === 'failed'
             ? `<button class="btn btn-sm btn-outline-secondary ms-1" style="font-size:.75rem;padding:2px 6px" onclick="deleteTask(${task.id})">🗑</button>`
             : '';
+        const resumeBtn = (task.result_status === 'partial')
+            ? `<button class="btn btn-sm btn-outline-info ms-1" style="font-size:.75rem;padding:2px 6px" onclick="resumeComments(${task.id})">💬 댓글 재전송</button>`
+            : '';
         lastCol = `<td onclick="event.stopPropagation()">
             ${task.post_url ? `<a href="${task.post_url}" target="_blank" class="btn btn-sm btn-outline-success" style="font-size:.75rem;padding:2px 6px">🔗 URL</a> ` : ''}
             ${failBadge}
             <button class="btn btn-sm btn-outline-secondary" style="font-size:.75rem;padding:2px 6px" onclick="showTaskContent(${task.id})">👁 내용</button>
-            ${retryBtn}${deleteBtn}
+            ${retryBtn}${resumeBtn}${deleteBtn}
         </td>`;
     } else {
         const retryBtn = `<button class="btn btn-sm btn-outline-warning ms-1" style="font-size:.75rem;padding:2px 6px" onclick="retryTask(${task.id})">🔄 재전송</button>`;

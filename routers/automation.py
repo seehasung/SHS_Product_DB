@@ -805,6 +805,49 @@ async def generate_ai_content(
 # 스케줄 관리 API
 # ============================================
 
+@router.post("/api/tasks/{task_id}/resume-comments")
+async def resume_task_comments(task_id: int, db: Session = Depends(get_db)):
+    """특정 post task의 대기 중인 댓글을 순서대로 재전송"""
+    try:
+        task = db.query(AutomationTask).get(task_id)
+        if not task:
+            return JSONResponse({'success': False, 'message': 'Task not found'}, status_code=404)
+        if task.task_type not in ('post',):
+            return JSONResponse({'success': False, 'message': 'post 타입 Task만 가능합니다.'}, status_code=400)
+        if task.status != 'completed':
+            return JSONResponse({'success': False, 'message': 'post가 completed 상태여야 합니다.'}, status_code=400)
+
+        pending_children = db.query(AutomationTask).filter(
+            AutomationTask.parent_task_id == task_id,
+            AutomationTask.task_type.in_(['comment', 'reply']),
+            AutomationTask.status.in_(['pending', 'assigned'])
+        ).order_by(AutomationTask.order_sequence.asc()).all()
+
+        if not pending_children:
+            return JSONResponse({'success': True, 'message': '대기 중인 댓글이 없습니다.', 'sent': 0})
+
+        first = pending_children[0]
+        first.status = 'pending'
+        db.commit()
+
+        pc_rec = db.query(AutomationWorkerPC).filter(
+            (AutomationWorkerPC.id == first.assigned_pc_id) |
+            (AutomationWorkerPC.pc_number == first.assigned_pc_id)
+        ).first()
+        pc_num = pc_rec.pc_number if pc_rec else first.assigned_pc_id
+
+        if pc_num and pc_num in worker_connections:
+            await send_task_to_worker(pc_num, first, db)
+            print(f"📤 [댓글재전송] Task #{first.id} → PC #{pc_num} (부모 #{task_id}, 대기 {len(pending_children)}개)")
+            return JSONResponse({'success': True, 'message': f'댓글 Task #{first.id} 전송 완료 (대기 {len(pending_children)}개)', 'sent': 1})
+        else:
+            return JSONResponse({'success': True, 'message': f'댓글 Task #{first.id} pending 리셋 (PC 미연결 - 복구 시 자동 전송)', 'sent': 0})
+
+    except Exception as e:
+        import traceback; traceback.print_exc()
+        return JSONResponse({'success': False, 'message': str(e)}, status_code=500)
+
+
 @router.post("/api/tasks/{task_id}/retry")
 async def retry_task(
     task_id: int,
