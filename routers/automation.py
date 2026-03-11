@@ -1946,17 +1946,24 @@ async def _dispatch_next_group_on_failure(failed_task_id: int):
         import random
         await asyncio.sleep(random.randint(1, 3))
 
-        # 실패한 post task에 연결된 댓글/대댓글을 모두 cancelled 처리
-        child_tasks = db.query(AutomationTask).filter(
-            AutomationTask.parent_task_id == failed_task_id,
-            AutomationTask.status.in_(['pending', 'assigned'])
-        ).all()
+        # 실패한 post task에 연결된 댓글/대댓글을 재귀적으로 모두 cancelled 처리
+        def _collect_descendants(parent_id):
+            children = db.query(AutomationTask).filter(
+                AutomationTask.parent_task_id == parent_id,
+                AutomationTask.status.in_(['pending', 'assigned'])
+            ).all()
+            result = list(children)
+            for ch in children:
+                result.extend(_collect_descendants(ch.id))
+            return result
+
+        child_tasks = _collect_descendants(failed_task_id)
         for ct in child_tasks:
             ct.status = 'cancelled'
-            print(f"   🚫 [BG] 댓글 Task #{ct.id} → cancelled (부모 실패)")
+            print(f"   🚫 [BG] Task #{ct.id} ({ct.task_type}) → cancelled (부모 실패)")
         if child_tasks:
             db.commit()
-            print(f"   ✅ [BG] {len(child_tasks)}개 댓글 Task cancelled 처리 완료")
+            print(f"   ✅ [BG] {len(child_tasks)}개 하위 Task cancelled 처리 완료 (댓글+대댓글)")
 
         # 다음 AI 그룹 실행
         try:
