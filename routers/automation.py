@@ -95,14 +95,20 @@ async def worker_websocket(websocket: WebSocket, pc_number: int, db: Session = D
         AutomationTask.task_type.in_(['post', 'create_draft'])
     ).order_by(AutomationTask.id.asc()).first()
 
-    # 2-B. post 없으면 comment/reply Task 찾기 (최신 순)
+    # 2-B. post 없으면 comment/reply Task 찾기 (전송 가능한 것 탐색)
     assigned_comment_task = None
     if not assigned_post_task:
-        assigned_comment_task = db.query(AutomationTask).filter(
+        _comment_candidates = db.query(AutomationTask).filter(
             AutomationTask.assigned_pc_id.in_([pc.id, pc_number]),
             AutomationTask.status.in_(['pending', 'assigned']),
             AutomationTask.task_type.in_(['comment', 'reply'])
-        ).order_by(AutomationTask.order_sequence.asc()).first()
+        ).order_by(AutomationTask.order_sequence.asc()).limit(20).all()
+        for _cand in _comment_candidates:
+            if _is_comment_ready_relaxed(_cand, db):
+                assigned_comment_task = _cand
+                break
+        if not assigned_comment_task and _comment_candidates:
+            assigned_comment_task = _comment_candidates[0]
 
     assigned_task = assigned_post_task or assigned_comment_task
     print(f"   할당된 Task (PC #{pc_number}): {'#' + str(assigned_task.id) + ' (' + assigned_task.task_type + ')' if assigned_task else '없음'}")
@@ -114,9 +120,8 @@ async def worker_websocket(websocket: WebSocket, pc_number: int, db: Session = D
     if all_pending:
         print(f"   전체 대기 Task: {', '.join([f'#{t.id}(PC:{t.assigned_pc_id}, 상태:{t.status})' for t in all_pending])}")
     
-    # ⚠️  댓글/대댓글 Task: 기본은 HTTP 완료 보고로만 다음 Task 전송! (순서 보장)
-    # ✅  post / create_draft 타입 Task: 연결 즉시 전송 가능 (순서 무관)
-    # ✅  comment / reply 타입 Task: 부모 post 완료 + 이전 순서 모두 완료 시 즉시 전송 (복구)
+    # ✅ post / create_draft 타입 Task: 연결 즉시 전송 가능
+    # ✅ comment / reply 타입 Task: 부모 완료 확인 후 전송 (완화된 조건)
     if assigned_post_task:
         print(f"   📤 Post Task #{assigned_post_task.id} 즉시 전송 (Worker 재연결 감지)")
         try:
@@ -124,14 +129,14 @@ async def worker_websocket(websocket: WebSocket, pc_number: int, db: Session = D
         except Exception as _e:
             print(f"   ❌ Post Task 즉시 전송 실패: {_e}")
     elif assigned_comment_task:
-        if _is_comment_ready(assigned_comment_task, db):
+        if _is_comment_ready_relaxed(assigned_comment_task, db):
             print(f"   📤 Comment Task #{assigned_comment_task.id} 즉시 전송 (부모 완료 확인, 복구)")
             try:
                 await send_task_to_worker(pc_number, assigned_comment_task, db)
             except Exception as _e:
                 print(f"   ❌ Comment Task 즉시 전송 실패: {_e}")
         else:
-            print(f"   ℹ️  순차 실행 중: HTTP 완료 보고로만 다음 Task 전송됨")
+            print(f"   ℹ️  Comment Task #{assigned_comment_task.id} 대기 중 (부모 미완료, HTTP 완료 보고 후 전송)")
     elif pending_task and pending_task.task_type in ('post', 'create_draft'):
         # 미할당 post 태스크: 이 PC에 할당해서 즉시 전송
         pending_task.assigned_pc_id = pc.id
@@ -807,7 +812,7 @@ async def generate_ai_content(
 
 @router.post("/api/tasks/{task_id}/resume-comments")
 async def resume_task_comments(task_id: int, db: Session = Depends(get_db)):
-    """특정 post task의 대기 중인 댓글을 순서대로 재전송"""
+    """특정 post task의 대기 중인 댓글/대댓글을 재귀적으로 찾아 재전송"""
     try:
         task = db.query(AutomationTask).get(task_id)
         if not task:
@@ -817,31 +822,50 @@ async def resume_task_comments(task_id: int, db: Session = Depends(get_db)):
         if task.status != 'completed':
             return JSONResponse({'success': False, 'message': 'post가 completed 상태여야 합니다.'}, status_code=400)
 
-        pending_children = db.query(AutomationTask).filter(
-            AutomationTask.parent_task_id == task_id,
-            AutomationTask.task_type.in_(['comment', 'reply']),
-            AutomationTask.status.in_(['pending', 'assigned'])
-        ).order_by(AutomationTask.order_sequence.asc()).all()
+        def _find_all_pending_descendants(parent_id):
+            result = []
+            children = db.query(AutomationTask).filter(
+                AutomationTask.parent_task_id == parent_id,
+                AutomationTask.task_type.in_(['comment', 'reply']),
+                AutomationTask.status.in_(['pending', 'assigned'])
+            ).order_by(AutomationTask.order_sequence.asc()).all()
+            result.extend(children)
+            completed_children = db.query(AutomationTask).filter(
+                AutomationTask.parent_task_id == parent_id,
+                AutomationTask.task_type.in_(['comment', 'reply']),
+                AutomationTask.status == 'completed'
+            ).all()
+            for cc in completed_children:
+                result.extend(_find_all_pending_descendants(cc.id))
+            return result
 
-        if not pending_children:
+        all_pending = _find_all_pending_descendants(task_id)
+        if not all_pending:
             return JSONResponse({'success': True, 'message': '대기 중인 댓글이 없습니다.', 'sent': 0})
 
-        first = pending_children[0]
-        first.status = 'pending'
+        sendable = None
+        for p in all_pending:
+            if _is_comment_ready_relaxed(p, db):
+                sendable = p
+                break
+        if not sendable:
+            sendable = all_pending[0]
+
+        sendable.status = 'pending'
         db.commit()
 
         pc_rec = db.query(AutomationWorkerPC).filter(
-            (AutomationWorkerPC.id == first.assigned_pc_id) |
-            (AutomationWorkerPC.pc_number == first.assigned_pc_id)
+            (AutomationWorkerPC.id == sendable.assigned_pc_id) |
+            (AutomationWorkerPC.pc_number == sendable.assigned_pc_id)
         ).first()
-        pc_num = pc_rec.pc_number if pc_rec else first.assigned_pc_id
+        pc_num = pc_rec.pc_number if pc_rec else sendable.assigned_pc_id
 
         if pc_num and pc_num in worker_connections:
-            await send_task_to_worker(pc_num, first, db)
-            print(f"📤 [댓글재전송] Task #{first.id} → PC #{pc_num} (부모 #{task_id}, 대기 {len(pending_children)}개)")
-            return JSONResponse({'success': True, 'message': f'댓글 Task #{first.id} 전송 완료 (대기 {len(pending_children)}개)', 'sent': 1})
+            await send_task_to_worker(pc_num, sendable, db)
+            print(f"📤 [댓글재전송] Task #{sendable.id} ({sendable.task_type}) → PC #{pc_num} (부모 #{task_id}, 대기 {len(all_pending)}개)")
+            return JSONResponse({'success': True, 'message': f'Task #{sendable.id} ({sendable.task_type}) 전송 완료 (대기 {len(all_pending)}개)', 'sent': 1})
         else:
-            return JSONResponse({'success': True, 'message': f'댓글 Task #{first.id} pending 리셋 (PC 미연결 - 복구 시 자동 전송)', 'sent': 0})
+            return JSONResponse({'success': True, 'message': f'Task #{sendable.id} pending 리셋 (PC #{pc_num} 미연결)', 'sent': 0})
 
     except Exception as e:
         import traceback; traceback.print_exc()
@@ -1052,30 +1076,37 @@ async def recover_stuck_tasks(
 async def force_resume_comments(db: Session = Depends(get_db)):
     """
     강제 댓글 체인 복구:
-    - 부모 post가 completed인데 pending/assigned 댓글이 있는 경우
-    - 순서에 관계없이 각 그룹의 첫 번째 미완료 댓글을 강제 전송
-    - 워커의 중복 방지 세트에 걸리는 경우를 위해 task ID를 변경하는 옵션 포함
+    - 부모(post/comment)가 completed인데 pending/assigned 자식 댓글/대댓글이 있는 경우
+    - 각 부모 그룹에서 가장 앞 순서의 미완료 자식을 1개씩 전송
     """
     try:
         sent = 0
         skipped = 0
 
+        # 1. completed post의 직계 자식 comment 중 pending/assigned 것 복구
         completed_posts = db.query(AutomationTask).filter(
             AutomationTask.task_type == 'post',
             AutomationTask.status == 'completed',
         ).all()
 
         for post in completed_posts:
-            all_children = db.query(AutomationTask).filter(
+            pending_children = db.query(AutomationTask).filter(
                 AutomationTask.parent_task_id == post.id,
                 AutomationTask.task_type.in_(['comment', 'reply']),
                 AutomationTask.status.in_(['pending', 'assigned'])
             ).order_by(AutomationTask.order_sequence.asc()).all()
 
-            if not all_children:
+            if not pending_children:
                 continue
 
-            first_pending = all_children[0]
+            in_progress_child = db.query(AutomationTask).filter(
+                AutomationTask.parent_task_id == post.id,
+                AutomationTask.status == 'in_progress'
+            ).first()
+            if in_progress_child:
+                continue
+
+            first_pending = pending_children[0]
             first_pending.status = 'pending'
 
             pc_rec = db.query(AutomationWorkerPC).filter(
@@ -1096,7 +1127,7 @@ async def force_resume_comments(db: Session = Depends(get_db)):
                 print(f"⚠️ [강제댓글복구] Task #{first_pending.id} 전송 실패: {e}")
                 skipped += 1
 
-        # 대댓글(reply)도 복구: 부모 comment가 completed인데 reply가 pending인 경우
+        # 2. completed comment의 직계 자식 reply 중 pending/assigned 것 복구
         completed_comments = db.query(AutomationTask).filter(
             AutomationTask.task_type == 'comment',
             AutomationTask.status == 'completed',
@@ -1110,6 +1141,13 @@ async def force_resume_comments(db: Session = Depends(get_db)):
             ).order_by(AutomationTask.order_sequence.asc()).all()
 
             if not pending_replies:
+                continue
+
+            in_progress_reply = db.query(AutomationTask).filter(
+                AutomationTask.parent_task_id == comment.id,
+                AutomationTask.status == 'in_progress'
+            ).first()
+            if in_progress_reply:
                 continue
 
             first_reply = pending_replies[0]
@@ -1877,6 +1915,70 @@ def _is_comment_ready(task, db) -> bool:
             return False
 
         return True
+    except Exception:
+        return False
+
+
+def _is_comment_ready_relaxed(task, db) -> bool:
+    """완화된 댓글 전송 가능 판단 (워커 재연결/복구 시 사용)
+    
+    엄격 버전(_is_comment_ready)과 달리:
+    - 같은 부모 아래 pending 형제가 있어도 자신이 가장 낮은 order_sequence이면 OK
+    - assigned 상태도 허용 (재전송)
+    """
+    try:
+        if task.status in ('in_progress', 'completed', 'failed', 'cancelled'):
+            return False
+
+        root = task
+        for _ in range(10):
+            if root.task_type == 'post':
+                break
+            if not root.parent_task_id:
+                return False
+            root = db.query(AutomationTask).get(root.parent_task_id)
+            if not root:
+                return False
+
+        if root.task_type != 'post':
+            return False
+        if root.status == 'failed':
+            return False
+        if root.status != 'completed':
+            return False
+
+        if task.task_type == 'reply':
+            parent = db.query(AutomationTask).get(task.parent_task_id) if task.parent_task_id else None
+            if not parent or parent.status != 'completed':
+                return False
+            in_progress_sibling = db.query(AutomationTask).filter(
+                AutomationTask.parent_task_id == task.parent_task_id,
+                AutomationTask.id != task.id,
+                AutomationTask.status == 'in_progress'
+            ).first()
+            if in_progress_sibling:
+                return False
+            earlier_pending = db.query(AutomationTask).filter(
+                AutomationTask.parent_task_id == task.parent_task_id,
+                AutomationTask.order_sequence < (task.order_sequence or 0),
+                AutomationTask.status.in_(['pending', 'assigned'])
+            ).first()
+            return earlier_pending is None
+
+        # comment: root post 완료 + in_progress 없고 + 자기보다 앞 pending 없으면 OK
+        in_progress = db.query(AutomationTask).filter(
+            AutomationTask.parent_task_id == root.id,
+            AutomationTask.id != task.id,
+            AutomationTask.status == 'in_progress'
+        ).first()
+        if in_progress:
+            return False
+        earlier_pending = db.query(AutomationTask).filter(
+            AutomationTask.parent_task_id == root.id,
+            AutomationTask.order_sequence < (task.order_sequence or 0),
+            AutomationTask.status.in_(['pending', 'assigned'])
+        ).first()
+        return earlier_pending is None
     except Exception:
         return False
 
