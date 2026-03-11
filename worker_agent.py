@@ -2681,9 +2681,6 @@ class NaverCafeWorker:
                     if _task_id_rcv in _recently_completed_task_ids:
                         print(f"⚠️  Task #{_task_id_rcv} 이미 처리된 작업 → 건너뜀 (중복 방지)")
                         continue
-                    _recently_completed_task_ids.add(_task_id_rcv)
-                    if len(_recently_completed_task_ids) > 100:
-                        _recently_completed_task_ids.discard(min(_recently_completed_task_ids))
                     
                     # 계정 로그인 확인
                     if task.get('account_id') and task['account_id'] != self.current_account:
@@ -2697,9 +2694,12 @@ class NaverCafeWorker:
                     # 작업 처리 (예외가 나도 루프가 멈추지 않도록 try/except로 감쌈)
                     try:
                         await self.process_task(task)
+                        # ★ 성공한 경우에만 중복 방지 set에 추가
+                        _recently_completed_task_ids.add(_task_id_rcv)
+                        if len(_recently_completed_task_ids) > 100:
+                            _recently_completed_task_ids.discard(min(_recently_completed_task_ids))
                     except Exception as pt_err:
                         print(f"❌ process_task 처리 중 예상치 못한 오류: {pt_err}")
-                        _recently_completed_task_ids.discard(_task_id_rcv)
                         # 브라우저 죽었으면 재시작
                         if not self._is_browser_alive():
                             print("   ⚠️  브라우저 사망 → 자동 재시작 시도...")

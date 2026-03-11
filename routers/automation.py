@@ -1005,6 +1005,99 @@ async def recover_stuck_tasks(
         return JSONResponse({'success': False, 'message': str(e)}, status_code=500)
 
 
+@router.post("/api/tasks/force-resume-comments")
+async def force_resume_comments(db: Session = Depends(get_db)):
+    """
+    강제 댓글 체인 복구:
+    - 부모 post가 completed인데 pending/assigned 댓글이 있는 경우
+    - 순서에 관계없이 각 그룹의 첫 번째 미완료 댓글을 강제 전송
+    - 워커의 중복 방지 세트에 걸리는 경우를 위해 task ID를 변경하는 옵션 포함
+    """
+    try:
+        sent = 0
+        skipped = 0
+
+        completed_posts = db.query(AutomationTask).filter(
+            AutomationTask.task_type == 'post',
+            AutomationTask.status == 'completed',
+        ).all()
+
+        for post in completed_posts:
+            all_children = db.query(AutomationTask).filter(
+                AutomationTask.parent_task_id == post.id,
+                AutomationTask.task_type.in_(['comment', 'reply']),
+                AutomationTask.status.in_(['pending', 'assigned'])
+            ).order_by(AutomationTask.order_sequence.asc()).all()
+
+            if not all_children:
+                continue
+
+            first_pending = all_children[0]
+            first_pending.status = 'pending'
+
+            pc_rec = db.query(AutomationWorkerPC).filter(
+                (AutomationWorkerPC.id == first_pending.assigned_pc_id) |
+                (AutomationWorkerPC.pc_number == first_pending.assigned_pc_id)
+            ).first()
+            pc_num = pc_rec.pc_number if pc_rec else first_pending.assigned_pc_id
+
+            if pc_num not in worker_connections:
+                skipped += 1
+                continue
+
+            try:
+                await send_task_to_worker(pc_num, first_pending, db)
+                sent += 1
+                print(f"🔧 [강제댓글복구] Task #{first_pending.id} (순서:{first_pending.order_sequence}) → PC #{pc_num} (부모 post #{post.id})")
+            except Exception as e:
+                print(f"⚠️ [강제댓글복구] Task #{first_pending.id} 전송 실패: {e}")
+                skipped += 1
+
+        # 대댓글(reply)도 복구: 부모 comment가 completed인데 reply가 pending인 경우
+        completed_comments = db.query(AutomationTask).filter(
+            AutomationTask.task_type == 'comment',
+            AutomationTask.status == 'completed',
+        ).all()
+
+        for comment in completed_comments:
+            pending_replies = db.query(AutomationTask).filter(
+                AutomationTask.parent_task_id == comment.id,
+                AutomationTask.task_type == 'reply',
+                AutomationTask.status.in_(['pending', 'assigned'])
+            ).order_by(AutomationTask.order_sequence.asc()).all()
+
+            if not pending_replies:
+                continue
+
+            first_reply = pending_replies[0]
+            first_reply.status = 'pending'
+
+            pc_rec = db.query(AutomationWorkerPC).filter(
+                (AutomationWorkerPC.id == first_reply.assigned_pc_id) |
+                (AutomationWorkerPC.pc_number == first_reply.assigned_pc_id)
+            ).first()
+            pc_num = pc_rec.pc_number if pc_rec else first_reply.assigned_pc_id
+
+            if pc_num not in worker_connections:
+                skipped += 1
+                continue
+
+            try:
+                await send_task_to_worker(pc_num, first_reply, db)
+                sent += 1
+                print(f"🔧 [강제댓글복구] Reply Task #{first_reply.id} → PC #{pc_num} (부모 comment #{comment.id})")
+            except Exception as e:
+                skipped += 1
+
+        db.commit()
+        msg = f"강제 댓글 복구: {sent}개 전송, {skipped}개 건너뜀 (PC 미연결)"
+        print(f"🔧 {msg}")
+        return JSONResponse({'success': True, 'message': msg, 'sent': sent, 'skipped': skipped})
+    except Exception as e:
+        import traceback; traceback.print_exc()
+        return JSONResponse({'success': False, 'message': str(e)}, status_code=500)
+
+
 @router.post("/api/tasks/cancel-old-pending")
 async def cancel_old_pending_tasks(
     db: Session = Depends(get_db)

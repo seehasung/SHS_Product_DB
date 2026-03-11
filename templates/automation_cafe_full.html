@@ -222,6 +222,9 @@
                         <button class="btn btn-sm btn-outline-warning" onclick="recoverStuckTasks(this)" title="막혀있는 태스크를 강제로 복구/재전송합니다">
                             <i class="bi bi-wrench"></i> 막힌 작업 강제 복구
                         </button>
+                        <button class="btn btn-sm btn-outline-success" onclick="forceResumeComments(this)" title="부모 글이 완료된 pending 댓글을 강제 재전송합니다">
+                            <i class="bi bi-chat-dots"></i> 댓글 체인 복구
+                        </button>
                         <button class="btn btn-sm btn-outline-danger" onclick="cancelOldPendingTasks(this)" title="7일 이상 된 태스크 및 부모가 실패한 고아 태스크를 취소합니다">
                             <i class="bi bi-trash"></i> 오래된 태스크 정리
                         </button>
@@ -1797,6 +1800,27 @@ async function recoverStuckTasks(btnEl) {
     }
 }
 
+async function forceResumeComments(btnEl) {
+    if (!confirm('부모 글이 완료된 pending 댓글을 강제 재전송합니다.\n(워커 PC를 먼저 재시작하는 것을 권장합니다)\n계속하시겠습니까?')) return;
+    const btn = btnEl || null;
+    const origHtml = btn ? btn.innerHTML : '';
+    if (btn) { btn.disabled = true; btn.innerHTML = '<i class="bi bi-hourglass-split"></i> 복구 중...'; }
+    try {
+        const res = await fetch('/automation/api/tasks/force-resume-comments', { method: 'POST' });
+        const data = await res.json();
+        if (data.success) {
+            showToast('success', data.message || '댓글 체인 복구 완료');
+            setTimeout(() => loadTasks(), 1500);
+        } else {
+            showToast('error', data.message || '복구 실패');
+        }
+    } catch(e) {
+        showToast('error', '복구 요청 오류: ' + e.message);
+    } finally {
+        if (btn) { btn.disabled = false; btn.innerHTML = origHtml; }
+    }
+}
+
 async function cancelOldPendingTasks(btnEl) {
     if (!confirm('7일 이상 된 태스크 및 부모가 실패/취소된 고아 태스크를 일괄 취소합니다.\n계속하시겠습니까?')) return;
     const btn = btnEl || null;
@@ -1872,6 +1896,7 @@ async function diagnoseTasks() {
                     <div class="modal-body" id="diagnosisBody"></div>
                     <div class="modal-footer">
                         <button type="button" class="btn btn-warning btn-sm" onclick="recoverStuckTasks(this)">🔧 강제 복구</button>
+                            <button type="button" class="btn btn-success btn-sm" onclick="forceResumeComments(this)">💬 댓글 체인 복구</button>
                             <button type="button" class="btn btn-danger btn-sm" onclick="cancelOldPendingTasks(this)">🗑 오래된 태스크 정리</button>
                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">닫기</button>
                     </div>
