@@ -4535,7 +4535,18 @@ async def _run_ai_group(group_info: dict, schedule_id: int, db) -> int | None:
         post_task.status = 'assigned'; db.commit()
         print(f"  📤 Task #{post_task.id} → PC #{pc_number} 전송")
     else:
-        print(f"  ⏳ PC #{pc_number} 오프라인 - DB 대기")
+        print(f"  ⏳ PC #{pc_number} 오프라인 → 최대 120초 연결 대기...")
+        import asyncio as _aio_wait
+        for _w in range(120):
+            await _aio_wait.sleep(1)
+            if pc_number in worker_connections:
+                print(f"  ✅ PC #{pc_number} 연결됨! ({_w+1}초)")
+                await send_task_to_worker(pc_number, post_task, db)
+                post_task.status = 'assigned'; db.commit()
+                print(f"  📤 Task #{post_task.id} → PC #{pc_number} 전송")
+                break
+        else:
+            print(f"  ⚠️ PC #{pc_number} 120초 타임아웃 - pending 유지 (3분 복구에서 재전송 시도)")
 
     # ── DraftPost 예약 처리 ────────────────────────────────────
     draft = db.query(DraftPost).get(draft_id)

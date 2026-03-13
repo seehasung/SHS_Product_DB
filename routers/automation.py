@@ -102,13 +102,39 @@ async def worker_websocket(websocket: WebSocket, pc_number: int, db: Session = D
             AutomationTask.assigned_pc_id.in_([pc.id, pc_number]),
             AutomationTask.status.in_(['pending', 'assigned']),
             AutomationTask.task_type.in_(['comment', 'reply'])
-        ).order_by(AutomationTask.order_sequence.asc()).limit(20).all()
+        ).order_by(AutomationTask.order_sequence.asc()).limit(50).all()
+
+        # ★ 고아 태스크 자동 정리: 부모 post가 failed/cancelled/미존재이면 cancelled 처리
+        _orphan_cancelled = 0
+        _valid_candidates = []
         for _cand in _comment_candidates:
+            _root = _cand
+            _is_orphan = False
+            for _ in range(10):
+                if _root.task_type == 'post':
+                    break
+                if not _root.parent_task_id:
+                    _is_orphan = True
+                    break
+                _root = db.query(AutomationTask).get(_root.parent_task_id)
+                if not _root:
+                    _is_orphan = True
+                    break
+            if _is_orphan or (_root and _root.task_type == 'post' and _root.status in ('failed', 'cancelled')):
+                _cand.status = 'cancelled'
+                _orphan_cancelled += 1
+            else:
+                _valid_candidates.append(_cand)
+        if _orphan_cancelled > 0:
+            db.commit()
+            print(f"   🗑 고아 태스크 {_orphan_cancelled}개 자동 cancelled 처리 (부모 실패/취소/미존재)")
+
+        for _cand in _valid_candidates:
             if _is_comment_ready_relaxed(_cand, db):
                 assigned_comment_task = _cand
                 break
-        if not assigned_comment_task and _comment_candidates:
-            assigned_comment_task = _comment_candidates[0]
+        if not assigned_comment_task and _valid_candidates:
+            assigned_comment_task = _valid_candidates[0]
 
     assigned_task = assigned_post_task or assigned_comment_task
     print(f"   할당된 Task (PC #{pc_number}): {'#' + str(assigned_task.id) + ' (' + assigned_task.task_type + ')' if assigned_task else '없음'}")
@@ -369,9 +395,15 @@ async def worker_websocket(websocket: WebSocket, pc_number: int, db: Session = D
                     
     except WebSocketDisconnect:
         print(f"❌ Worker PC #{pc_number} 연결 해제")
-        worker_connections.pop(pc_number, None)
+        # ★ 현재 저장된 websocket이 자신인 경우에만 제거 (재연결된 새 websocket 보호)
+        if worker_connections.get(pc_number) is websocket:
+            worker_connections.pop(pc_number, None)
+        else:
+            print(f"   ℹ️ PC #{pc_number} 이전 연결 해제 (새 연결 유지)")
         if pc:
-            pc.status = 'offline'
+            # 새 연결이 이미 있으면 offline으로 변경하지 않음
+            if pc_number not in worker_connections:
+                pc.status = 'offline'
             pc.current_task_id = None
             db.commit()
     finally:
@@ -898,6 +930,7 @@ async def retry_task(
                 (AutomationWorkerPC.pc_number == task.assigned_pc_id)
             ).first()
             pc_num = pc_rec.pc_number if pc_rec else task.assigned_pc_id
+            print(f"🔍 [재시도] Task #{task_id} assigned_pc_id={task.assigned_pc_id}, pc_rec={'#'+str(pc_rec.pc_number) if pc_rec else 'None'}, pc_num={pc_num}, worker_connections={list(worker_connections.keys())}")
 
         # failed이면 pending으로 리셋
         if task.status == 'failed':

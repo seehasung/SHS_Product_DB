@@ -515,7 +515,7 @@ async def recover_orphaned_comment_tasks():
     - comment/reply: 부모 post 완료 + 순서 맞으면 즉시 전송 (체인 단절 복구)
     """
     from database import AutomationTask, AutomationWorkerPC
-    from routers.automation import worker_connections, send_task_to_worker, _is_comment_ready
+    from routers.automation import worker_connections, send_task_to_worker, _is_comment_ready_relaxed
 
     db = SessionLocal()
     try:
@@ -586,11 +586,36 @@ async def recover_orphaned_comment_tasks():
             AutomationTask.assigned_pc_id != None,
         ).order_by(AutomationTask.order_sequence.asc()).all()
 
+        # ★ 고아 태스크 자동 정리: 부모 post가 failed/cancelled/미존재이면 cancelled 처리
+        orphan_cancelled = 0
+        valid_comments = []
+        for task in stuck_comments:
+            _root = task
+            _is_orphan = False
+            for _ in range(10):
+                if _root.task_type == 'post':
+                    break
+                if not _root.parent_task_id:
+                    _is_orphan = True
+                    break
+                _root = db.query(AutomationTask).get(_root.parent_task_id)
+                if not _root:
+                    _is_orphan = True
+                    break
+            if _is_orphan or (_root and _root.task_type == 'post' and _root.status in ('failed', 'cancelled')):
+                task.status = 'cancelled'
+                orphan_cancelled += 1
+            else:
+                valid_comments.append(task)
+        if orphan_cancelled > 0:
+            db.commit()
+            print(f"   🗑 [복구] 고아 태스크 {orphan_cancelled}개 자동 cancelled (부모 실패/취소/미존재)")
+
         # 부모 기준으로 그룹핑 → 각 직계 부모 아래에서 하나만 전송 (순서 보장)
         dispatched_parents = set()
 
-        for task in stuck_comments:
-            if not _is_comment_ready(task, db):
+        for task in valid_comments:
+            if not _is_comment_ready_relaxed(task, db):
                 skipped += 1
                 continue
 
