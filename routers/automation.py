@@ -374,7 +374,13 @@ async def worker_websocket(websocket: WebSocket, pc_number: int, db: Session = D
                     _failed_task_id = task.id
                     _failed_pc_id = task.assigned_pc_id
                     task.status = 'failed'
-                    task.error_message = message.get('error')
+                    # ★ MODIFY_URL/SCHED_ID 보존: 기존 메타정보에 에러만 추가
+                    _orig_meta = ''
+                    if task.error_message:
+                        _meta_parts = [p for p in task.error_message.split('|') if p.startswith('MODIFY_URL:') or p.startswith('SCHED_ID:')]
+                        if _meta_parts:
+                            _orig_meta = '|'.join(_meta_parts) + '|'
+                    task.error_message = _orig_meta + (message.get('error') or '작업 실패')
                     task.retry_count += 1
                     pc.status = 'online'
                     pc.current_task_id = None
@@ -935,10 +941,15 @@ async def retry_task(
         # failed이면 pending으로 리셋
         if task.status == 'failed':
             task.status = 'pending'
-            task.error_message = None
+            # ★ MODIFY_URL/SCHED_ID 보존하고 에러 메시지만 제거
+            if task.error_message:
+                _meta_parts = [p for p in task.error_message.split('|') if p.startswith('MODIFY_URL:') or p.startswith('SCHED_ID:')]
+                task.error_message = '|'.join(_meta_parts) if _meta_parts else None
+            else:
+                task.error_message = None
             task.retry_count = (task.retry_count or 0) + 1
             db.commit()
-            print(f"🔄 [재시도] Task #{task_id} failed → pending 리셋")
+            print(f"🔄 [재시도] Task #{task_id} failed → pending 리셋 (error_message: {repr(task.error_message)[:80]})")
 
         # PC가 연결되어 있으면 즉시 전송
         if pc_num and pc_num in worker_connections:
@@ -2451,7 +2462,13 @@ async def fail_task(
 
         _failed_task_type = task.task_type
         task.status = 'failed'
-        task.error_message = error or '작업 실패'
+        # ★ MODIFY_URL/SCHED_ID 보존
+        _orig_meta = ''
+        if task.error_message:
+            _meta_parts = [p for p in task.error_message.split('|') if p.startswith('MODIFY_URL:') or p.startswith('SCHED_ID:')]
+            if _meta_parts:
+                _orig_meta = '|'.join(_meta_parts) + '|'
+        task.error_message = _orig_meta + (error or '작업 실패')
         task.retry_count = (task.retry_count or 0) + 1
         db.commit()
         print(f"❌ Task #{task_id} 실패 처리 완료 (HTTP, type:{_failed_task_type}, 사유: {(error or '')[:80]})")

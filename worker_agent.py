@@ -2638,6 +2638,9 @@ class NaverCafeWorker:
                     print(f"   ✅ 브라우저 복구 완료 → 다음 작업 대기")
                 else:
                     print(f"   ❌ 브라우저 복구 실패 → 수동 재시작 필요")
+
+            # ★ 실패를 상위 호출자에게 전파 (중복 방지 set에 추가되지 않도록)
+            raise
             
     async def listen_for_tasks(self):
         """서버로부터 작업 수신"""
